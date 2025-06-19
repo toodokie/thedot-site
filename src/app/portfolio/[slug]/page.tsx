@@ -17,10 +17,12 @@ export async function generateStaticParams() {
     .map((f) => ({ slug: f.replace(/\.json$/, "") }));
 }
 
-export default function CasePage({
+export default async function CasePage({
   params,
+  searchParams: _searchParams,
 }: {
   params: { slug: string };
+  searchParams: Record<string, string | string[]>;
 }) {
   const filePath = path.join(
     process.cwd(),
