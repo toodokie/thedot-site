@@ -1,0 +1,10 @@
+{
+    "slug": "example-case",
+    "title": "Example Case Study",
+    "description": "A quick summary of the project.",
+    "images": [
+      "/images/example1.jpg",
+      "/images/example2.jpg"
+    ]
+  }
+  
