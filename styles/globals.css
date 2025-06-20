@@ -1,3 +1,37 @@
+@import url('https://use.typekit.net/gac6jnd.css');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Custom styles */
+:root {
+  --background: theme(colors.raw-white);
+  --foreground: theme(colors.font-primary);
+}
+
+body {
+  @apply bg-raw-white text-copy font-real-text;
+  cursor: none;
+}
+
+h1 {
+  @apply font-futura text-6.5em;
+}
+
+.text-block, p {
+  @apply font-real-text-2 text-14px;
+}
+
+.services h3, .button {
+  @apply font-futura;
+}
+
+.form-field, .dot_h6 {
+  @apply font-real-text-2;
+}
+
+.cursor {
+  @apply w-10 h-10 border-2 border-dark-slate rounded-full fixed pointer-events-none;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+}

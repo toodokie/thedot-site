@@ -1,9 +1,10 @@
 export default function HomePage() {
   return (
-    <main className="p-8">
-      <h1 className="text-3xl font-bold">
-        Hello, Tailwind!
-      </h1>
+    <main>
+      {/* Replace with your Hero and other content */}
+      <div className="bg-yellow text-4xl text-center p-8">
+        IF YOU SEE THIS, TAILWIND WORKS
+      </div>
     </main>
   );
 }
