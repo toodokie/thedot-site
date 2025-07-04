@@ -1,0 +1,31 @@
+{
+  "slug": "creative-design",
+  "title": "Brand Identity & Digital Experience",
+  "description": "Complete brand identity redesign and digital experience transformation for a growing fintech company, including logo design, brand guidelines, website redesign, and marketing materials.",
+  "shortDescription": "Complete brand identity and digital transformation",
+  "images": [
+    "/images/Group-6-2.svg",
+    "/images/Group-6-3.svg",
+    "/images/Group-7-1.svg"
+  ],
+  "heroImage": "/images/Group-6-2.svg",
+  "videoUrl": "",
+  "year": "2024",
+  "tools": ["Figma", "Adobe Creative Suite", "Principle", "After Effects"],
+  "aboutTitle": "Brand Transformation",
+  "aboutDescription": "This comprehensive rebranding project involved creating a cohesive visual identity that reflects the client's innovative approach to financial technology. We developed everything from the core brand elements to digital touchpoints, ensuring consistency across all platforms while maintaining accessibility and modern design principles.",
+  "projectDetails": [
+    {"label": "Industry", "value": "Fintech"},
+    {"label": "Project Type", "value": "Complete Rebrand"},
+    {"label": "Timeline", "value": "4 months"},
+    {"label": "Deliverables", "value": "Logo, Guidelines, Website, Marketing"}
+  ],
+  "brandColors": {
+    "primary": "#2d2d2d",
+    "secondary": "#f8f8f8",
+    "accent": "#ff6b6b",
+    "background": "linear-gradient(135deg, #f8f8f8 0%, #2d2d2d 100%)"
+  },
+  "published": true,
+  "featured": false
+}

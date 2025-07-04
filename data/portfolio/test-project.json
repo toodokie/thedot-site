@@ -1,0 +1,31 @@
+{
+  "slug": "test-project",
+  "title": "Modern E-commerce Platform",
+  "description": "A comprehensive e-commerce solution built with modern technologies, featuring advanced product filtering, secure payment processing, and responsive design across all devices.",
+  "shortDescription": "Modern e-commerce platform with advanced features",
+  "images": [
+    "/images/example1.jpg",
+    "/images/Group-6-2.svg",
+    "/images/Group-6-3.svg"
+  ],
+  "heroImage": "/images/example1.jpg",
+  "videoUrl": "",
+  "year": "2024",
+  "tools": ["Next.js", "React", "TypeScript", "Stripe", "Tailwind CSS"],
+  "aboutTitle": "About This Project",
+  "aboutDescription": "This e-commerce platform was designed to provide a seamless shopping experience while maintaining high performance and accessibility standards. The project involved comprehensive user research, iterative design processes, and extensive testing to ensure optimal user experience across all touchpoints.",
+  "projectDetails": [
+    {"label": "Client", "value": "Tech Startup"},
+    {"label": "Duration", "value": "3 months"},
+    {"label": "Team Size", "value": "4 people"},
+    {"label": "Role", "value": "Lead Developer & Designer"}
+  ],
+  "brandColors": {
+    "primary": "#1a1a1a",
+    "secondary": "#f8f9fa",
+    "accent": "#007bff",
+    "background": "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)"
+  },
+  "published": true,
+  "featured": true
+}

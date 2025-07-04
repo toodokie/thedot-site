@@ -1,0 +1,24 @@
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://thedotcreative.co/sitemap.xml
+
+# Block admin areas and sensitive files
+Disallow: /admin/
+Disallow: /.env
+Disallow: /api/debug/
+Disallow: /api/internal/
+
+# Allow important pages
+Allow: /
+Allow: /contact
+Allow: /services
+Allow: /brief
+Allow: /estimate
+Allow: /blog/
+Allow: /api/blog/
+
+# Allow crawling of static assets
+Allow: /images/
+Allow: /video/
