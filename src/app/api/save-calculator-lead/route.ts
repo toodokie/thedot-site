@@ -3,10 +3,10 @@ import { Client } from '@notionhq/client';
 import { rateLimit, getClientIP } from '../../../lib/rate-limit';
 import { validateEmail, validateName, isBot } from '../../../lib/input-sanitization';
 
-// Initialize Notion client (optional)
-const notion = process.env.NOTION_CALCULATOR_TOKEN ? new Client({
+// Initialize Notion client
+const notion = new Client({
   auth: process.env.NOTION_CALCULATOR_TOKEN,
-}) : null;
+});
 
 // Calculator Leads Database ID
 const CALCULATOR_LEADS_DATABASE_ID = process.env.NOTION_CALCULATOR_LEADS_DB_ID || '';
@@ -161,9 +161,8 @@ export async function POST(request: NextRequest) {
     const serviceType = getServiceTypeDisplay(estimateData.formType);
     const selectionsSummary = getSelectionsSummary(estimateData.selections, estimateData.formType);
 
-    // Create Notion page in Calculator Leads database (if configured)
-    if (notion && CALCULATOR_LEADS_DATABASE_ID) {
-      const response = await notion.pages.create({
+    // Create Notion page in Calculator Leads database
+    const response = await notion.pages.create({
       parent: {
         database_id: CALCULATOR_LEADS_DATABASE_ID,
       },
@@ -274,7 +273,6 @@ export async function POST(request: NextRequest) {
         },
       },
     });
-    }
 
     // Send internal notification email for all calculator leads
     try {
