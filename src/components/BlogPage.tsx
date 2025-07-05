@@ -305,11 +305,21 @@ export default function BlogPage() {
             font-size: 4rem;
           }
           
+          .dot_h2_subheader {
+            align-self: center;
+          }
+          
           .hero-circle-video-copy-services {
             display: none;
           }
         }
         
+        @media screen and (max-width: 480px) {
+          .dot_h2_subheader {
+            font-size: 2.4rem !important;
+            line-height: 1.2 !important;
+          }
+        }
         
         .main-content {
           width: 100%;
