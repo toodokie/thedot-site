@@ -369,6 +369,13 @@ export default function BlogPage() {
           padding: 60px;
           background: #fff;
           border: 1px solid #e0e0e0;
+          transition: all 0.3s ease;
+        }
+        
+        .featured-post:hover {
+          transform: translateY(-5px);
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+          border-color: var(--yellow);
         }
         
         .featured-content h2 {
