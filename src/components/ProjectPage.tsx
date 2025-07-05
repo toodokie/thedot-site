@@ -105,8 +105,14 @@ function VideoPlayer({ videoUrl }: { videoUrl: string }) {
   }
 
   const embedUrl = videoInfo.platform === 'vimeo' 
-    ? `https://player.vimeo.com/video/${videoInfo.id}?autoplay=1&loop=1&muted=1&title=0&byline=0&portrait=0&autopause=0&background=1`
+    ? `https://player.vimeo.com/video/${videoInfo.id}?autoplay=1&loop=1&muted=1&title=0&byline=0&portrait=0`
     : `https://www.youtube.com/embed/${videoInfo.id}?autoplay=1&loop=1&muted=1&controls=0&showinfo=0&rel=0&modestbranding=1&playlist=${videoInfo.id}`;
+
+  // Debug logging for troubleshooting
+  if (videoInfo.platform === 'vimeo') {
+    console.log(`Loading Vimeo video ${videoInfo.id} with URL:`, embedUrl);
+    console.log('Current domain:', window.location.hostname);
+  }
 
   return (
     <div ref={videoRef} style={{ 

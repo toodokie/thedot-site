@@ -1126,6 +1126,7 @@ h4 {
     line-height: 1.4 !important;
   }
   
+  
   section h3 {
     font-size: 0.6875rem !important;
     padding: 0.75rem 0.875rem !important;
@@ -2612,22 +2613,6 @@ h4 {
   margin-top: 2rem;
 }
 
-.dot_h2_subheader {
-  color: var(--dim-grey);
-  text-align: left;
-  text-transform: none;
-  flex: 0 auto;
-  justify-content: flex-start;
-  align-self: center;
-  max-width: none;
-  margin-top: 0;
-  margin-bottom: 0;
-  font-family: 'ff-real-text-pro-2', sans-serif;
-  font-size: 2.2rem;
-  font-weight: 300;
-  line-height: 0.9em;
-  display: block;
-}
 
 .services-hero-video-desktop {
   width: 300px;
@@ -3952,6 +3937,14 @@ h4 {
   line-height: 1.2;
   color: var(--foreground);
   margin: 0;
+}
+
+@media screen and (width <= 480px) {
+  .dot_h2_subheader.jsx-f0504f31fdd82da9 {
+    font-size: 1rem !important;
+    line-height: 1.2 !important;
+    text-align: center !important;
+  }
 }
 
 .hero-circle-video-copy-services {
@@ -5327,11 +5320,6 @@ h4 {
   
   /* REMOVED DUPLICATE BUTTON STYLES - see line 3392 for the correct styles */
   
-  .dot_h2_subheader {
-    color: var(--foreground);
-    font-size: 2.4rem;
-    text-align: center;
-  }
   
   .hero-circle-video-copy-services {
     display: none;

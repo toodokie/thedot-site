@@ -314,12 +314,6 @@ export default function BlogPage() {
           }
         }
         
-        @media screen and (max-width: 480px) {
-          .dot_h2_subheader {
-            font-size: 2.4rem !important;
-            line-height: 1.2 !important;
-          }
-        }
         
         .main-content {
           width: 100%;
