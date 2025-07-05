@@ -229,6 +229,60 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
           color: var(--black);
         }
         
+        .post-content em {
+          font-style: italic;
+        }
+        
+        .post-content u {
+          text-decoration: underline;
+        }
+        
+        .post-content del {
+          text-decoration: line-through;
+        }
+        
+        .post-content code {
+          background: #f4f4f4;
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-family: 'Courier New', monospace;
+          font-size: 0.9em;
+          color: #d73502;
+        }
+        
+        .post-content pre {
+          background: #f8f9fa;
+          padding: 20px;
+          border-radius: 8px;
+          overflow-x: auto;
+          margin: 30px 0;
+          border-left: 4px solid var(--yellow);
+        }
+        
+        .post-content pre code {
+          background: none;
+          padding: 0;
+          color: #333;
+          font-size: 0.9rem;
+        }
+        
+        .post-content a {
+          color: var(--black);
+          text-decoration: underline;
+          transition: color 0.3s ease;
+        }
+        
+        .post-content a:hover {
+          color: #666;
+        }
+        
+        .post-content hr {
+          border: none;
+          height: 2px;
+          background: #e0e0e0;
+          margin: 40px 0;
+        }
+        
         .post-tags {
           max-width: 1200px;
           margin: 60px auto 0;
@@ -547,25 +601,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
         )}
 
         {/* Post Content */}
-        <article className="post-content">
-          {post.content.split('\n').map((paragraph, index) => {
-            if (paragraph.trim() === '') return null;
-            
-            if (paragraph.startsWith('# ')) {
-              return <h1 key={index}>{paragraph.substring(2)}</h1>;
-            } else if (paragraph.startsWith('## ')) {
-              return <h2 key={index}>{paragraph.substring(3)}</h2>;
-            } else if (paragraph.startsWith('### ')) {
-              return <h3 key={index}>{paragraph.substring(4)}</h3>;
-            } else if (paragraph.startsWith('• ')) {
-              return <ul key={index}><li>{paragraph.substring(2)}</li></ul>;
-            } else if (paragraph.match(/^\d+\. /)) {
-              return <ol key={index}><li>{paragraph.replace(/^\d+\. /, '')}</li></ol>;
-            } else {
-              return <p key={index}>{paragraph}</p>;
-            }
-          })}
-        </article>
+        <article className="post-content" dangerouslySetInnerHTML={{ __html: post.content }} />
 
         {/* Tags */}
         {post.tags && post.tags.length > 0 && (
