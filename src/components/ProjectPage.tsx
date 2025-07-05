@@ -109,7 +109,10 @@ function VideoPlayer({ videoUrl }: { videoUrl: string }) {
               setHasError(true);
             }
           }}
-          onError={() => setHasError(true)}
+          onError={() => {
+            console.warn('Video failed to load - may be private or deleted');
+            setHasError(true);
+          }}
         />
       )}
     </div>

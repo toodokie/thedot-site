@@ -41,10 +41,10 @@ const nextConfig: NextConfig = {
             key: 'Referrer-Policy',
             value: 'strict-origin-when-cross-origin'
           },
-          // Restrict permissions for security (remove cross-origin-isolated to fix violations)
+          // Restrict permissions for security
           {
             key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=(), payment=(), cross-origin-isolated=()'
+            value: 'camera=(), microphone=(), geolocation=(), payment=()'
           },
           // Content Security Policy - optimized for Adobe Fonts, GA4, and Cloudflare Turnstile
           {
