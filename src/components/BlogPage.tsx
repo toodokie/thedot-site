@@ -153,41 +153,6 @@ export default function BlogPage() {
           display: block;
         }
         
-        .graphic-copy-services {
-          grid-column-gap: 0px;
-          grid-row-gap: 0px;
-          flex-direction: row;
-          grid-template-rows: auto auto;
-          grid-template-columns: 1fr 1fr;
-          grid-auto-columns: 1fr;
-          justify-content: flex-start;
-          align-items: flex-start;
-          width: auto;
-          margin: .5em 0 .25em;
-          display: flex;
-        }
-        
-        .hero-circle-video-copy-mobile {
-          box-shadow: inset 0 0 0 1px var(--yellow);
-          object-fit: fill;
-          border: 2px solid #000;
-          border-radius: 100%;
-          flex-direction: row;
-          flex: none;
-          order: 0;
-          justify-content: center;
-          width: 160px;
-          min-width: auto;
-          max-width: none;
-          height: 160px;
-          min-height: auto;
-          max-height: none;
-          margin-top: 0;
-          margin-left: 1em;
-          margin-right: 1em;
-          display: none;
-          overflow: hidden;
-        }
         
         .background-video-copy {
           width: 100%;
@@ -196,23 +161,6 @@ export default function BlogPage() {
           min-height: 100%;
         }
         
-        .dot_h1_pages {
-          color: var(--black);
-          text-align: left;
-          letter-spacing: 0;
-          text-transform: none;
-          flex: 0 auto;
-          justify-content: flex-start;
-          align-self: center;
-          max-width: none;
-          margin-top: 0;
-          margin-bottom: 0;
-          font-family: futura-pt, sans-serif;
-          font-size: 4.6rem;
-          font-weight: 400;
-          line-height: .9em;
-          display: block;
-        }
         
         .graphic-copy-services-subheader {
           grid-column-gap: 0px;
@@ -350,128 +298,11 @@ export default function BlogPage() {
             text-align: center;
           }
           
-          .graphic-copy-services {
-            max-width: none;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-            justify-content: center;
-            width: 100%;
-          }
-          
-          .hero-circle-video-copy-mobile {
-            display: block;
-            order: 2;
-            margin: 2rem auto 2rem auto;
-          }
-          
-          .dot_h1_pages {
-            color: var(--black);
-            text-transform: none;
-            font-size: 4rem;
-            text-align: center;
-            order: 1;
-          }
-          
-          .graphic-copy-services-subheader {
-            margin-top: 1em;
-            text-align: center;
-          }
-          
-          .dot_h2_subheader {
-            color: var(--black);
-            font-size: 2.4rem;
-            text-align: center;
-          }
-          
           .hero-circle-video-copy-services {
             display: none;
           }
         }
         
-        @media screen and (max-width: 479px) {
-          .hero-title-copy-services {
-            flex-flow: row;
-            justify-content: space-between;
-            align-self: auto;
-            align-items: stretch;
-            margin: 30vw 0 1em;
-            display: flex;
-          }
-          
-          .hero-title-copy-services.estimate {
-            align-items: center;
-            margin-top: 30vw;
-            margin-bottom: 0;
-            margin-left: 0;
-            margin-right: 0;
-            display: flex;
-          }
-          
-          .div-block-178-services {
-            width: auto;
-            margin-right: 1em;
-          }
-          
-          .graphic-title-wrap-copy-services {
-            width: 100%;
-          }
-          
-          .graphic-copy-services {
-            justify-content: flex-start;
-            width: auto;
-            margin-right: 1.4em;
-            font-size: 12px;
-            display: flex;
-          }
-          
-          .dot_h1_pages {
-            color: var(--black);
-            text-align: left;
-            align-self: center;
-            align-items: center;
-            margin-bottom: 0;
-            font-size: 1.5rem;
-          }
-          
-          .graphic-copy-services-subheader, .graphic-copy-services-copy {
-            margin-right: .5em;
-            font-size: 12px;
-          }
-          
-          .dot_h2_subheader {
-            color: var(--black);
-            text-align: left;
-            align-self: center;
-            align-items: center;
-            margin-bottom: 0;
-            font-size: .8rem;
-          }
-          
-          .hero-circle-video-copy-services {
-            display: none;
-          }
-          
-          .hero-circle-video-copy-mobile {
-            display: block;
-            align-self: flex-start;
-            width: 3.8rem;
-            min-width: 3em;
-            height: 3.8rem;
-            min-height: 3em;
-            margin-left: .5em;
-            margin-right: 0;
-          }
-          
-          .background-video-copy-services {
-            object-fit: cover;
-            width: 100%;
-            min-width: auto;
-            height: 100%;
-            min-height: auto;
-            overflow: visible;
-          }
-        }
         
         .main-content {
           width: 100%;
