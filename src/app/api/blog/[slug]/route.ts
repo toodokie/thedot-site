@@ -5,6 +5,46 @@ const notion = new Client({
   auth: process.env.NOTION_BLOG_TOKEN,
 });
 
+// Helper function to extract full content from Notion page
+async function getFullPageContent(pageId: string): Promise<string> {
+  try {
+    const response = await notion.blocks.children.list({
+      block_id: pageId,
+    });
+    
+    let content = '';
+    for (const block of response.results) {
+      const blockData = block as any;
+      
+      // Handle different block types
+      if (blockData.type === 'paragraph' && blockData.paragraph?.rich_text) {
+        const text = blockData.paragraph.rich_text.map((t: any) => t.plain_text).join('');
+        content += text + '\n\n';
+      } else if (blockData.type === 'heading_1' && blockData.heading_1?.rich_text) {
+        const text = blockData.heading_1.rich_text.map((t: any) => t.plain_text).join('');
+        content += `# ${text}\n\n`;
+      } else if (blockData.type === 'heading_2' && blockData.heading_2?.rich_text) {
+        const text = blockData.heading_2.rich_text.map((t: any) => t.plain_text).join('');
+        content += `## ${text}\n\n`;
+      } else if (blockData.type === 'heading_3' && blockData.heading_3?.rich_text) {
+        const text = blockData.heading_3.rich_text.map((t: any) => t.plain_text).join('');
+        content += `### ${text}\n\n`;
+      } else if (blockData.type === 'bulleted_list_item' && blockData.bulleted_list_item?.rich_text) {
+        const text = blockData.bulleted_list_item.rich_text.map((t: any) => t.plain_text).join('');
+        content += `• ${text}\n`;
+      } else if (blockData.type === 'numbered_list_item' && blockData.numbered_list_item?.rich_text) {
+        const text = blockData.numbered_list_item.rich_text.map((t: any) => t.plain_text).join('');
+        content += `1. ${text}\n`;
+      }
+    }
+    
+    return content.trim();
+  } catch (error) {
+    console.error('Error fetching page content:', error);
+    return '';
+  }
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { slug: string } }
@@ -42,12 +82,16 @@ export async function GET(
     const page: any = response.results[0];
     const properties = page.properties;
 
+    // Get full content from page blocks
+    const fullContent = await getFullPageContent(page.id);
+    const fallbackContent = properties.Content?.rich_text?.map((text: any) => text.plain_text).join('') || '';
+
     const post = {
       id: page.id,
       title: properties.Title?.title?.[0]?.plain_text || '',
       slug: properties.Slug?.rich_text?.[0]?.plain_text || '',
       excerpt: properties.Excerpt?.rich_text?.[0]?.plain_text || '',
-      content: properties.Content?.rich_text?.map((text: any) => text.plain_text).join('') || '',
+      content: fullContent || fallbackContent,
       category: properties.Category?.select?.name || '',
       tags: properties.Tags?.multi_select?.map((tag: any) => tag.name) || [],
       date: properties.Date?.date?.start || '',

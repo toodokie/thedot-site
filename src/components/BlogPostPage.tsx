@@ -27,11 +27,31 @@ interface BlogPostPageProps {
 
 export default function BlogPostPage({ post }: BlogPostPageProps) {
   const [relatedPosts, setRelatedPosts] = useState<BlogPost[]>([]);
+  const [nextPost, setNextPost] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchRelatedPosts = async () => {
+    const fetchRelatedAndNextPosts = async () => {
       try {
+        // Fetch all posts to find next article
+        const allPostsResponse = await fetch('/api/blog');
+        if (allPostsResponse.ok) {
+          const allData = await allPostsResponse.json();
+          const allPosts = allData.posts;
+          
+          // Find current post index
+          const currentIndex = allPosts.findIndex((p: BlogPost) => p.id === post.id);
+          
+          // Get next post (next in chronological order)
+          if (currentIndex > 0) {
+            setNextPost(allPosts[currentIndex - 1]);
+          } else if (allPosts.length > 1) {
+            // If this is the latest post, suggest the second latest
+            setNextPost(allPosts[1]);
+          }
+        }
+
+        // Fetch related posts by category
         const response = await fetch(`/api/blog?category=${post.category}`);
         if (response.ok) {
           const data = await response.json();
@@ -47,7 +67,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
       }
     };
     
-    fetchRelatedPosts();
+    fetchRelatedAndNextPosts();
   }, [post.category, post.id]);
 
   if (loading) {
@@ -339,6 +359,97 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
           font-size: 0.95rem;
         }
         
+        .next-article {
+          max-width: 1200px;
+          margin: 80px auto 0;
+          padding: 0 20px;
+          border-top: 2px solid #e0e0e0;
+          padding-top: 60px;
+        }
+        
+        .next-article-title {
+          font-size: 1.1rem;
+          color: #666;
+          margin-bottom: 20px;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          font-weight: 600;
+        }
+        
+        .next-article-card {
+          display: flex;
+          gap: 30px;
+          padding: 30px;
+          background: #f8f9fa;
+          border-radius: 12px;
+          text-decoration: none;
+          color: inherit;
+          transition: all 0.3s ease;
+          border: 2px solid transparent;
+        }
+        
+        .next-article-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 12px 48px rgba(0,0,0,0.1);
+          border-color: var(--yellow);
+          text-decoration: none;
+          color: inherit;
+        }
+        
+        .next-article-image {
+          width: 200px;
+          height: 120px;
+          border-radius: 8px;
+          overflow: hidden;
+          flex-shrink: 0;
+        }
+        
+        .next-article-image img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        
+        .next-article-content {
+          flex: 1;
+        }
+        
+        .next-article-category {
+          background: var(--yellow);
+          color: var(--black);
+          padding: 4px 12px;
+          font-size: 0.7rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          display: inline-block;
+          margin-bottom: 15px;
+          border-radius: 4px;
+        }
+        
+        .next-article-post-title {
+          font-family: futura-pt, sans-serif;
+          font-size: 1.8rem;
+          font-weight: 400;
+          color: var(--black);
+          line-height: 1.3;
+          margin-bottom: 12px;
+        }
+        
+        .next-article-excerpt {
+          color: #666;
+          font-size: 1rem;
+          line-height: 1.6;
+          margin-bottom: 15px;
+        }
+        
+        .next-article-meta {
+          display: flex;
+          gap: 15px;
+          font-size: 0.9rem;
+          color: #888;
+        }
+        
         .back-to-blog {
           text-align: center;
           margin: 60px 0;
@@ -436,7 +547,25 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
         )}
 
         {/* Post Content */}
-        <article className="post-content" dangerouslySetInnerHTML={{ __html: post.content }} />
+        <article className="post-content">
+          {post.content.split('\n').map((paragraph, index) => {
+            if (paragraph.trim() === '') return null;
+            
+            if (paragraph.startsWith('# ')) {
+              return <h1 key={index}>{paragraph.substring(2)}</h1>;
+            } else if (paragraph.startsWith('## ')) {
+              return <h2 key={index}>{paragraph.substring(3)}</h2>;
+            } else if (paragraph.startsWith('### ')) {
+              return <h3 key={index}>{paragraph.substring(4)}</h3>;
+            } else if (paragraph.startsWith('• ')) {
+              return <ul key={index}><li>{paragraph.substring(2)}</li></ul>;
+            } else if (paragraph.match(/^\d+\. /)) {
+              return <ol key={index}><li>{paragraph.replace(/^\d+\. /, '')}</li></ol>;
+            } else {
+              return <p key={index}>{paragraph}</p>;
+            }
+          })}
+        </article>
 
         {/* Tags */}
         {post.tags && post.tags.length > 0 && (
@@ -452,6 +581,32 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
           </div>
         )}
 
+        {/* Next Article */}
+        {nextPost && (
+          <section className="next-article">
+            <div className="next-article-title">Next Article</div>
+            <Link href={`/blog/${nextPost.slug}`} className="next-article-card">
+              {nextPost.featuredImage && (
+                <div className="next-article-image">
+                  <img 
+                    src={nextPost.featuredImage} 
+                    alt={nextPost.title}
+                  />
+                </div>
+              )}
+              <div className="next-article-content">
+                <div className="next-article-category">{nextPost.category}</div>
+                <h3 className="next-article-post-title">{nextPost.title}</h3>
+                <p className="next-article-excerpt">{nextPost.excerpt}</p>
+                <div className="next-article-meta">
+                  <span>{nextPost.date}</span>
+                  <span>•</span>
+                  <span>{nextPost.readTime} min read</span>
+                </div>
+              </div>
+            </Link>
+          </section>
+        )}
 
         {/* Related Posts */}
         {relatedPosts.length > 0 && (
