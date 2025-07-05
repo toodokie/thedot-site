@@ -422,23 +422,23 @@ export default function BlogPage() {
         }
         
         .read-more-btn {
-          background: var(--black);
-          color: white !important;
-          padding: 15px 30px;
-          text-decoration: none !important;
+          background: transparent;
+          color: var(--foreground) !important;
+          padding: 0;
+          text-decoration: underline !important;
           font-weight: 500;
           transition: all 0.3s ease;
           display: inline-block;
           margin-top: auto;
-          text-align: center;
-          border-radius: 0;
+          text-align: left;
           cursor: pointer;
         }
         
         .read-more-btn:hover {
-          background: var(--yellow);
-          color: var(--black);
-          transform: translateY(-2px);
+          background: transparent;
+          color: #888;
+          text-decoration: underline !important;
+          transform: none;
         }
         
         .featured-image {
