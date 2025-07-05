@@ -48,6 +48,14 @@ Add these environment variables in your Vercel project settings:
    - Gmail app-specific password (not your regular password)
    - How to get: https://support.google.com/accounts/answer/185833
 
+### Analytics
+
+9. **NEXT_PUBLIC_GA_MEASUREMENT_ID**
+   - Google Analytics 4 Measurement ID
+   - Format: `G-XXXXXXXXXX`
+   - How to get: Create a property in Google Analytics 4
+   - Required for: Tracking website traffic and user behavior
+
 ## Setup Steps in Vercel
 
 1. Go to your Vercel project dashboard
