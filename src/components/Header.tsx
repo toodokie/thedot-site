@@ -47,6 +47,7 @@ export default function Header() {
               height={56}
               className="logo-image"
               priority
+              fetchPriority="high"
             />
           </Link>
         </div>

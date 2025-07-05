@@ -25,14 +25,16 @@ export default function Hero() {
                 </div>
               </div>
               
-              {/* Circular Video */}
+              {/* Circular Video - Optimized for LCP */}
               <div className="hero-video-circle animate-on-scroll">
                 <video 
                   autoPlay 
                   loop 
                   muted 
                   playsInline
+                  preload="auto"
                   className="circle-video"
+                  priority
                 >
                   <source src="/video/hero-video.mp4" type="video/mp4" />
                 </video>

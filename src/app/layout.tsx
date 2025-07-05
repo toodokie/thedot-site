@@ -149,7 +149,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
-        {/* Simple preload for Adobe Fonts - avoids hydration issues */}
+        {/* Performance optimizations - preconnect to external domains */}
+        <link rel="preconnect" href="https://fonts.adobe.com" />
+        <link rel="preconnect" href="https://use.typekit.net" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://www.googletagmanager.com" />
+        <link rel="preconnect" href="https://www.google-analytics.com" />
+        <link rel="dns-prefetch" href="https://prod-files-secure.s3.us-west-2.amazonaws.com" />
+        
+        {/* Adobe Fonts with preload for performance */}
         <link
           rel="preload"
           href="https://use.typekit.net/gac6jnd.css"
@@ -159,6 +166,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
           href="https://use.typekit.net/gac6jnd.css"
         />
+        
+        {/* Critical image preloads for LCP improvement */}
+        <link rel="preload" href="/images/logo.png" as="image" />
+        <link rel="preload" href="/images/line.png" as="image" />
+        
+        {/* Mobile optimization */}
+        <meta name="theme-color" content="#daff00" />
+        <link rel="apple-touch-icon" href="/images/Dot Favicon.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         
         {/* Structured Data for Local Business */}
         <script
