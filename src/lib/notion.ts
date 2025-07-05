@@ -1,9 +1,9 @@
 import { Client } from '@notionhq/client';
 import { Project } from '@/types/project';
 
-// Use Calculator token for brief-related operations
+// Use main token for brief-related operations
 const notion = new Client({
-  auth: process.env.NOTION_CALCULATOR_TOKEN,
+  auth: process.env.NOTION_TOKEN,
 });
 
 // TypeScript interfaces for Notion API responses
@@ -536,6 +536,11 @@ export async function updateBriefAction(briefId: string, actionType: string): Pr
 
 // PORTFOLIO FUNCTIONS
 
+// Create a separate client for portfolio operations
+const portfolioNotion = new Client({
+  auth: process.env.NOTION_TOKEN_PORTFOLIO,
+});
+
 const PORTFOLIO_DATABASE_ID = process.env.NOTION_PORTFOLIO_DB_ID!;
 
 // Helper function to extract text from Notion rich text
@@ -622,7 +627,7 @@ export async function getProjects(): Promise<Project[]> {
     console.log('🔄 Attempting to fetch projects from Notion...');
     console.log('📍 Database ID:', PORTFOLIO_DATABASE_ID);
     
-    const response = await notion.databases.query({
+    const response = await portfolioNotion.databases.query({
       database_id: PORTFOLIO_DATABASE_ID,
     });
 
