@@ -423,12 +423,16 @@ export default function BlogPage() {
         
         .read-more-btn {
           background: var(--black);
-          color: white;
+          color: white !important;
           padding: 15px 30px;
-          text-decoration: none;
+          text-decoration: none !important;
           font-weight: 500;
           transition: all 0.3s ease;
           display: inline-block;
+          margin-top: auto;
+          text-align: center;
+          border-radius: 0;
+          cursor: pointer;
         }
         
         .read-more-btn:hover {
@@ -462,6 +466,9 @@ export default function BlogPage() {
           padding: 40px;
           transition: all 0.3s ease;
           color: inherit;
+          height: 100%;
+          display: flex;
+          flex-direction: column;
         }
         
         .post-card:hover {
@@ -513,6 +520,7 @@ export default function BlogPage() {
           color: #555;
           line-height: 1.6;
           margin-bottom: 20px;
+          flex-grow: 1;
         }
         
         .post-category {
