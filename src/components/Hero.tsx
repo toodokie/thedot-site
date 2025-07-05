@@ -34,7 +34,6 @@ export default function Hero() {
                   playsInline
                   preload="auto"
                   className="circle-video"
-                  priority
                 >
                   <source src="/video/hero-video.mp4" type="video/mp4" />
                 </video>

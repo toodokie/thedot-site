@@ -449,6 +449,11 @@ export default function BlogPage() {
           }
           
           .hero-circle-video-copy-services {
+            display: none;
+          }
+          
+          .hero-circle-video-copy-mobile {
+            display: block;
             align-self: flex-start;
             width: 3.8rem;
             min-width: 3em;
@@ -456,7 +461,6 @@ export default function BlogPage() {
             min-height: 3em;
             margin-left: .5em;
             margin-right: 0;
-            display: block;
           }
           
           .background-video-copy-services {
@@ -819,6 +823,7 @@ export default function BlogPage() {
               <div className="div-block-178-services">
                 <div className="w-layout-blockcontainer graphic-title-wrap-copy-services w-container">
                   <div className="graphic-copy-services">
+                    <h1 className="dot_h1_pages">Creative Insights</h1>
                     <div className="hero-circle-video-copy-mobile">
                       <video 
                         className="background-video-copy"
@@ -831,7 +836,6 @@ export default function BlogPage() {
                         Your browser does not support the video tag.
                       </video>
                     </div>
-                    <h1 className="dot_h1_pages">Creative Insights</h1>
                   </div>
                 </div>
                 <div className="w-layout-blockcontainer graphic-copy-services-subheader w-container">

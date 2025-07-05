@@ -4989,7 +4989,15 @@ h4 {
 
 @media (max-width: 480px) {
   .hack42-checkbox-label-2 {
-    height: 200px;
+    height: 220px;
+    font-size: 14px;
+    line-height: 20px;
+    padding: 15px;
+  }
+
+  .hack42-checkbox-label-2 .label-text {
+    font-size: 14px;
+    line-height: 18px;
   }
 
   .hack42-checkbox-label-3 {
