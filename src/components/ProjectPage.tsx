@@ -10,9 +10,9 @@ import { trackPortfolio, trackNavigation } from '@/lib/analytics';
 function VideoPlayer({ videoUrl }: { videoUrl: string }) {
   const [isVisible, setIsVisible] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
   const videoRef = useRef<HTMLDivElement>(null);
-  const maxRetries = 2;
+  const loadTimeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -52,9 +52,7 @@ function VideoPlayer({ videoUrl }: { videoUrl: string }) {
 
   const videoInfo = getVideoId(videoUrl);
 
-  // Enhanced error checking for problematic video IDs
-  if (!videoInfo || videoInfo.id === '1093858984') {
-    console.warn('Skipping problematic video:', videoUrl);
+  if (!videoInfo) {
     return (
       <div style={{
         width: '100%',
@@ -63,17 +61,32 @@ function VideoPlayer({ videoUrl }: { videoUrl: string }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#35332f',
-        fontSize: '1.1rem',
-        fontWeight: '500'
+        color: '#35332f'
       }}>
-        {!videoInfo ? 'Invalid video URL (supports Vimeo and YouTube)' : 'Video temporarily unavailable'}
+        Invalid video URL (supports Vimeo and YouTube)
       </div>
     );
   }
 
-  if (hasError || retryCount >= maxRetries) {
-    // Don't render anything if video fails to load or max retries reached
+  // Add loading timeout when video becomes visible
+  useEffect(() => {
+    if (isVisible && !hasError) {
+      // Set a timeout to handle videos that fail to load
+      loadTimeoutRef.current = setTimeout(() => {
+        setHasError(true);
+        setIsLoading(false);
+      }, 8000); // 8 second timeout
+
+      return () => {
+        if (loadTimeoutRef.current) {
+          clearTimeout(loadTimeoutRef.current);
+        }
+      };
+    }
+  }, [isVisible, hasError]);
+
+  if (hasError) {
+    // Show placeholder for failed videos
     return (
       <div style={{
         width: '100%',
@@ -116,22 +129,20 @@ function VideoPlayer({ videoUrl }: { videoUrl: string }) {
           }}
           allow="autoplay; picture-in-picture"
           allowFullScreen={true}
-          onLoad={(e) => {
-            // Check if iframe loaded successfully
-            const iframe = e.currentTarget;
-            try {
-              // If we can't access the content, it might be restricted
-              if (iframe.contentDocument === null) {
-                console.warn('Video may be restricted or private');
-              }
-            } catch (error) {
-              console.warn('Video access restricted:', error);
-              setHasError(true);
+          onLoad={() => {
+            // Video loaded successfully, clear timeout and loading state
+            if (loadTimeoutRef.current) {
+              clearTimeout(loadTimeoutRef.current);
             }
+            setIsLoading(false);
           }}
           onError={() => {
-            console.warn('Video failed to load - may be private or deleted');
+            // Handle iframe load errors gracefully
+            if (loadTimeoutRef.current) {
+              clearTimeout(loadTimeoutRef.current);
+            }
             setHasError(true);
+            setIsLoading(false);
           }}
         />
       )}
