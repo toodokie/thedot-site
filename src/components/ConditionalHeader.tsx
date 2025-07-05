@@ -9,7 +9,7 @@ export default function ConditionalHeader() {
   
   // Hide header on project pages (any route that's not the homepage and not starting with specific routes)
   const isProjectPage = pathname !== '/' && 
-                        !pathname.startsWith('/contact') && 
+                        !pathname.startsWith('/contacts') && 
                         !pathname.startsWith('/services') && 
                         !pathname.startsWith('/blog') && 
                         !pathname.startsWith('/brief') && 

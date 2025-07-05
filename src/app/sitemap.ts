@@ -12,7 +12,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 1.0,
     },
     {
-      url: `${baseUrl}/contact`,
+      url: `${baseUrl}/contacts`,
       lastModified: new Date(),
       changeFrequency: 'monthly' as const,
       priority: 0.9,
@@ -51,7 +51,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const projectSlugs = await getProjectSlugs();
     
     projectPages = projectSlugs.map((slug: string) => ({
-      url: `${baseUrl}/${slug}`,
+      url: `${baseUrl}/projects/${slug}`,
       lastModified: new Date(),
       changeFrequency: 'monthly' as const,
       priority: 0.7,
@@ -60,7 +60,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Fallback: add known project slugs manually if projects lib not ready
     const knownProjects = ['capital-3', 'giardino-flower-shop', 'lido', 'creative-design', 'test-project'];
     projectPages = knownProjects.map((slug: string) => ({
-      url: `${baseUrl}/${slug}`,
+      url: `${baseUrl}/projects/${slug}`,
       lastModified: new Date(),
       changeFrequency: 'monthly' as const,
       priority: 0.7,

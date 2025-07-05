@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { trackLeadGeneration, trackConversions } from '@/lib/analytics';
 
 interface BriefData {
   [key: string]: string | boolean | undefined;
@@ -267,6 +268,10 @@ export default function BriefResults({ formType, briefData, leadData }: BriefRes
           document.body.removeChild(a);
           URL.revokeObjectURL(url);
           setActionStatus({ type: action, status: 'success' });
+          
+          // Track PDF download conversion
+          trackLeadGeneration.leadCapture('pdf_download', formType);
+          trackLeadGeneration.briefSubmission(formType, 'pdf_download');
         } else {
           throw new Error('Failed to generate PDF');
         }
@@ -280,6 +285,10 @@ export default function BriefResults({ formType, briefData, leadData }: BriefRes
         
         if (response.ok) {
           setActionStatus({ type: action, status: 'success' });
+          
+          // Track email request conversion
+          trackLeadGeneration.leadCapture('email_sent', formType);
+          trackLeadGeneration.briefSubmission(formType, 'email_sent');
         } else {
           const errorText = await response.text();
           console.error('Email API error:', response.status, errorText);
@@ -301,6 +310,10 @@ export default function BriefResults({ formType, briefData, leadData }: BriefRes
         
         if (response.ok) {
           setActionStatus({ type: action, status: 'success' });
+          
+          // Track discussion request conversion (highest value)
+          trackLeadGeneration.leadCapture('contact_request', formType);
+          trackLeadGeneration.briefSubmission(formType, 'discussion_request');
         } else {
           const errorText = await response.text();
           console.error('Discussion API error:', response.status, errorText);

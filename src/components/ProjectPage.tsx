@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Project, ProjectMedia } from '@/types/project';
+import { trackPortfolio, trackNavigation } from '@/lib/analytics';
 
 // Video Player Component for Vimeo
 function VideoPlayer({ videoUrl }: { videoUrl: string }) {
@@ -134,6 +135,9 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
+    // Track project view
+    trackPortfolio.projectView(project.slug, project.title);
+    
     const root = document.documentElement;
     if (project.brandColors) {
       root.style.setProperty('--project-primary', project.brandColors.primary);
@@ -625,7 +629,12 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
             className="hover-italic"
           >
             <Link
-              href={nextProject ? `/${nextProject.slug}` : '/'}
+              href={nextProject ? `/projects/${nextProject.slug}` : '/'}
+              onClick={() => {
+                if (nextProject) {
+                  trackPortfolio.projectNavigation(project.slug, nextProject.slug);
+                }
+              }}
               style={{
                 fontFamily: 'futura-pt, sans-serif',
                 fontWeight: 300,
@@ -654,7 +663,10 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
             className="hover-italic"
           >
             <Link
-              href="/contact"
+              href="/contacts"
+              onClick={() => {
+                trackNavigation.ctaClick('Talk to Us', 'Project Page', '/contacts');
+              }}
               style={{
                 fontFamily: 'futura-pt, sans-serif',
                 fontWeight: 300,

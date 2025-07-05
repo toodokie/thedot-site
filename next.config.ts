@@ -89,6 +89,61 @@ const nextConfig: NextConfig = {
   // Compiler optimizations
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production'
+  },
+  
+  // Redirects for SEO migration from Webflow
+  async redirects() {
+    return [
+      // Specific project slug mappings (old Webflow → new Next.js)
+      {
+        source: '/project/lending-dlya-konferencii',
+        destination: '/projects/conference-landing-page',
+        permanent: true,
+      },
+      {
+        source: '/project/promo-video-dlya-konferencii',
+        destination: '/projects/conference-promo-video',
+        permanent: true,
+      },
+      {
+        source: '/project/true-me',
+        destination: '/projects/trueme-beauty',
+        permanent: true,
+      },
+      {
+        source: '/project/care-clinic',
+        destination: '/projects/wellness-studio-care-clinic',
+        permanent: true,
+      },
+      // Direct matches (same slug, just /project → /projects)
+      {
+        source: '/project/capital-3',
+        destination: '/projects/capital-3',
+        permanent: true,
+      },
+      {
+        source: '/project/giardino-flower-shop',
+        destination: '/projects/giardino-flower-shop',
+        permanent: true,
+      },
+      {
+        source: '/project/lido',
+        destination: '/projects/lido',
+        permanent: true,
+      },
+      // Catch-all for any other /project/* URLs → /projects/*
+      {
+        source: '/project/:slug*',
+        destination: '/projects/:slug*',
+        permanent: true,
+      },
+      // Old contact page redirect
+      {
+        source: '/contact',
+        destination: '/contacts',
+        permanent: true,
+      },
+    ];
   }
 };
 

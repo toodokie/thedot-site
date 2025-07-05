@@ -1191,7 +1191,7 @@ export default function ProjectBrief() {
       {/* Contact Link Section */}
       <section className="services-link-section">
         <div className="services-link-container">
-          <Link href="/contact" className="dot-bottom-link hero animate-on-scroll">
+          <Link href="/contacts" className="dot-bottom-link hero animate-on-scroll">
             questions?<br />
             <span className="small-bottom-link-text-eng">we are here for you</span>
           </Link>

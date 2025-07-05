@@ -175,22 +175,173 @@ export async function getNextProject(currentSlug: string): Promise<Project | nul
   return projects[nextIndex];
 }
 
+// Generate structured data for project pages
+export function generateProjectStructuredData(project: Project) {
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "CreativeWork",
+        "@id": `https://thedotcreative.co/projects/${project.slug}#creativework`,
+        "name": project.title,
+        "description": project.description,
+        "dateCreated": project.year,
+        "creator": {
+          "@type": "Organization",
+          "@id": "https://thedotcreative.co/#organization"
+        },
+        "image": project.heroImage || project.images?.[0],
+        "keywords": project.tools?.join(', '),
+        "genre": "Web Design",
+        "inLanguage": "en-CA",
+        "url": `https://thedotcreative.co/projects/${project.slug}`,
+        "mainEntityOfPage": {
+          "@type": "WebPage",
+          "@id": `https://thedotcreative.co/projects/${project.slug}`
+        }
+      },
+      {
+        "@type": "WebPage",
+        "@id": `https://thedotcreative.co/projects/${project.slug}`,
+        "url": `https://thedotcreative.co/projects/${project.slug}`,
+        "name": `${project.title} | The Dot Creative Portfolio`,
+        "description": project.shortDescription || project.description,
+        "datePublished": project.year,
+        "dateModified": project.year,
+        "inLanguage": "en-CA",
+        "isPartOf": {
+          "@type": "WebSite",
+          "@id": "https://thedotcreative.co/#website"
+        },
+        "about": {
+          "@type": "CreativeWork",
+          "@id": `https://thedotcreative.co/projects/${project.slug}#creativework`
+        },
+        "primaryImageOfPage": {
+          "@type": "ImageObject",
+          "url": project.heroImage || project.images?.[0]
+        },
+        "breadcrumb": {
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://thedotcreative.co/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Portfolio",
+              "item": "https://thedotcreative.co/#portfolio"
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "name": project.title,
+              "item": `https://thedotcreative.co/projects/${project.slug}`
+            }
+          ]
+        }
+      },
+      {
+        "@type": "Organization",
+        "@id": "https://thedotcreative.co/#organization",
+        "name": "The Dot Creative Agency",
+        "url": "https://thedotcreative.co/",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://thedotcreative.co/images/logo.png"
+        },
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Greater Toronto Area",
+          "addressRegion": "Ontario",
+          "addressCountry": "CA"
+        },
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "contactType": "Customer Service",
+          "availableLanguage": ["English"]
+        },
+        "sameAs": [
+          "https://thedotcreative.co/"
+        ]
+      }
+    ]
+  };
+}
+
+// Generate better alt text for project images
+export function generateImageAlt(project: Project, index: number, isHero = false): string {
+  if (isHero) {
+    return `${project.title} - Hero image showcasing ${project.shortDescription || 'professional design work'}`;
+  }
+  
+  // Generate descriptive alt text based on project type and content
+  const projectType = project.tools?.includes('WordPress') ? 'website' : 
+                     project.tools?.includes('Adobe After Effects') ? 'video project' :
+                     project.tools?.includes('Figma') ? 'design project' : 'creative project';
+  
+  const descriptions = [
+    `${project.title} - ${projectType} overview and branding`,
+    `${project.title} - Detailed view of ${projectType} design elements`,
+    `${project.title} - User interface and user experience design`,
+    `${project.title} - Brand identity and visual design system`,
+    `${project.title} - Final ${projectType} implementation and results`,
+    `${project.title} - Creative process and design methodology`,
+    `${project.title} - Project deliverables and outcomes`,
+    `${project.title} - Design details and technical implementation`,
+    `${project.title} - Visual storytelling and brand narrative`,
+    `${project.title} - Complete ${projectType} showcase`
+  ];
+  
+  return descriptions[index % descriptions.length] || `${project.title} - Project image ${index + 1}`;
+}
+
 // Generate project metadata for SEO
 export function generateProjectMetadata(project: Project) {
+  // Create unique SEO descriptions based on project content
+  const createSEODescription = (project: Project): string => {
+    const baseDesc = project.shortDescription || project.description || '';
+    const tools = project.tools?.slice(0, 3).join(', ') || '';
+    const year = project.year || 'Recent';
+    
+    // Create compelling, unique descriptions for each project
+    switch (project.slug) {
+      case 'capital-3':
+        return 'Strategic rebrand and digital rebuild for London-based capital partner Capital 3. Professional website design, brand identity, and promo videos by The Dot Creative Agency GTA.';
+      case 'trueme-beauty':
+        return 'Complete brand identity and website design for True Me Beauty. Modern beauty brand development with professional web design by The Dot Creative Agency Ontario.';
+      case 'lido':
+        return 'Professional website design and brand development for Lido. Custom web development with modern design solutions by The Dot Creative Agency GTA.';
+      case 'giardino-flower-shop':
+        return 'Beautiful website design and brand identity for Giardino Flower Shop. E-commerce web development with elegant design by The Dot Creative Agency Ontario.';
+      case 'wellness-studio-care-clinic':
+        return 'Professional website design for Wellness Studio Care Clinic. Healthcare web development with clean, modern design by The Dot Creative Agency GTA.';
+      case 'conference-landing-page':
+        return 'High-converting conference landing page design. Professional event website development with modern design by The Dot Creative Agency Ontario.';
+      case 'conference-promo-video':
+        return 'Professional conference promotional video production. Creative video content and motion graphics by The Dot Creative Agency GTA.';
+      default:
+        return `${baseDesc} ${year} project featuring ${tools} by The Dot Creative Agency - Professional web design and development in Ontario, Canada.`;
+    }
+  };
+
   // Enhanced SEO titles for GTA market
   const seoTitle = project.seoTitle || `${project.title} | Portfolio | The Dot Creative Agency GTA`;
-  const seoDescription = project.seoDescription || 
-    `${project.shortDescription || project.description} Professional web design project by The Dot Creative Agency, Ontario Canada.`;
+  const seoDescription = project.seoDescription || createSEODescription(project);
   
   return {
     title: seoTitle,
     description: seoDescription,
-    keywords: `web design portfolio, ${project.category || 'website design'}, professional web development Ontario, custom design solutions GTA`,
+    keywords: `web design portfolio, ${project.category || 'website design'}, professional web development Ontario, custom design solutions GTA, ${project.tools?.slice(0, 3).join(', ') || ''}`,
     
     openGraph: {
       title: `${project.title} | The Dot Creative Portfolio`,
-      description: project.shortDescription || project.description,
-      url: `https://thedotcreative.co/${project.slug}`,
+      description: seoDescription,
+      url: `https://thedotcreative.co/projects/${project.slug}`,
       siteName: 'The Dot Creative Agency',
       images: [
         {

@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Contact The Dot Creative Agency | Free Website Consultation',
     description: 'Get a free website consultation from our GTA design agency. International design expertise for Ontario businesses.',
-    url: 'https://thedotcreative.co/contact',
+    url: 'https://thedotcreative.co/contacts',
     siteName: 'The Dot Creative Agency',
     images: [
       {

@@ -22,6 +22,10 @@ const samplePosts: { [key: string]: BlogPost } = {
     readTime: '12 min read',
     tags: ['Professional Website Design', 'Canada', 'European Design Trends', 'Conversion Optimization', 'International Standards'],
     content: `
+      <div style="text-align: center; margin: 40px 0;">
+        <img src="/images/blog/website-design-trends-europe/Website Design Trends.webp" alt="Website Design Trends from Europe That Canadian Businesses Should Adopt" style="max-width: 100%; height: auto;" />
+      </div>
+
       <p>Comprehensive analysis of international website design standards reveals that Canadian businesses are operating at a significant disadvantage compared to their European counterparts. Research data shows <a href="https://www.loopexdigital.com/blog/web-design-statistics">European sites are 84% mobile-optimized compared to Canadian sites at 71%</a>, while European websites average <a href="https://www.cloudflare.com/learning/performance/more/website-performance-conversion-rates/">28% faster loading times</a> than North American equivalents.</p>
 
       <p>This performance gap has measurable business implications. While Canadian sites achieve higher average conversion rates at 3.3%, European sites deliver <a href="https://contentsquare.com/blog/digital-analytics-trends/">45% higher user satisfaction scores</a> and significantly better long-term customer retention. For Canadian businesses seeking competitive advantages, adopting proven European design standards offers substantial opportunities for improvement.</p>
@@ -176,7 +180,7 @@ const samplePosts: { [key: string]: BlogPost } = {
     tags: ['Small Business', 'GTA', 'Website Design', 'User Experience', 'Conversion Optimization'],
     content: `
       <div style="text-align: center; margin: 40px 0;">
-        <img src="/images/Every rotation of this hourglass costs your business money..gif" alt="Every rotation of this hourglass costs your business money" style="max-width: 100%; height: auto;" />
+        <img src="/images/blog/website-mistakes-gta-businesses/hero-hourglass.gif" alt="Every rotation of this hourglass costs your business money" style="max-width: 100%; height: auto;" />
       </div>
 
       <p>Recent research reveals a troubling reality for small businesses across the Greater Toronto Area: <a href="https://pixolabo.com/2022-small-business-website-statistics/">27% of small businesses still operate without any website</a>, while those with websites are making critical errors that actively drive potential customers away.</p>

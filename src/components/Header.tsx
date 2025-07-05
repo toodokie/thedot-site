@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
+import { trackNavigation } from '@/lib/analytics';
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -52,11 +53,41 @@ export default function Header() {
 
         {/* Desktop Navigation */}
         <nav className="navigation desktop-nav">
-          <Link href="/services" className={`nav-link ${isActive('/services') ? 'active' : ''}`}>Services</Link>
-          <Link href="/estimate" className={`nav-link ${isActive('/estimate') ? 'active' : ''}`}>Project Estimate</Link>
-          <Link href="/brief" className={`nav-link ${isActive('/brief') ? 'active' : ''}`}>Brief</Link>
-          <Link href="/blog" className={`nav-link ${isActive('/blog') ? 'active' : ''}`}>Blog</Link>
-          <Link href="/contact" className={`nav-link ${isActive('/contact') ? 'active' : ''}`}>Contacts</Link>
+          <Link 
+            href="/services" 
+            className={`nav-link ${isActive('/services') ? 'active' : ''}`}
+            onClick={() => trackNavigation.menuClick('Services', '/services')}
+          >
+            Services
+          </Link>
+          <Link 
+            href="/estimate" 
+            className={`nav-link ${isActive('/estimate') ? 'active' : ''}`}
+            onClick={() => trackNavigation.ctaClick('Project Estimate', 'Header', '/estimate')}
+          >
+            Project Estimate
+          </Link>
+          <Link 
+            href="/brief" 
+            className={`nav-link ${isActive('/brief') ? 'active' : ''}`}
+            onClick={() => trackNavigation.menuClick('Brief', '/brief')}
+          >
+            Brief
+          </Link>
+          <Link 
+            href="/blog" 
+            className={`nav-link ${isActive('/blog') ? 'active' : ''}`}
+            onClick={() => trackNavigation.menuClick('Blog', '/blog')}
+          >
+            Blog
+          </Link>
+          <Link 
+            href="/contacts" 
+            className={`nav-link ${isActive('/contacts') ? 'active' : ''}`}
+            onClick={() => trackNavigation.ctaClick('Contacts', 'Header', '/contacts')}
+          >
+            Contacts
+          </Link>
         </nav>
 
         {/* Desktop Contact Section */}
@@ -135,19 +166,54 @@ export default function Header() {
               }}></span>
             </div>
             
-            <Link href="/services" className={`mobile-nav-link ${isActive('/services') ? 'active' : ''}`} onClick={() => handleCloseMenu()}>
+            <Link 
+              href="/services" 
+              className={`mobile-nav-link ${isActive('/services') ? 'active' : ''}`} 
+              onClick={() => {
+                trackNavigation.menuClick('Services', '/services');
+                handleCloseMenu();
+              }}
+            >
               Services
             </Link>
-            <Link href="/estimate" className={`mobile-nav-link ${isActive('/estimate') ? 'active' : ''}`} onClick={() => handleCloseMenu()}>
+            <Link 
+              href="/estimate" 
+              className={`mobile-nav-link ${isActive('/estimate') ? 'active' : ''}`} 
+              onClick={() => {
+                trackNavigation.ctaClick('Project Estimate', 'Mobile Menu', '/estimate');
+                handleCloseMenu();
+              }}
+            >
               Project Estimate
             </Link>
-            <Link href="/brief" className={`mobile-nav-link ${isActive('/brief') ? 'active' : ''}`} onClick={() => handleCloseMenu()}>
+            <Link 
+              href="/brief" 
+              className={`mobile-nav-link ${isActive('/brief') ? 'active' : ''}`} 
+              onClick={() => {
+                trackNavigation.menuClick('Brief', '/brief');
+                handleCloseMenu();
+              }}
+            >
               Brief
             </Link>
-            <Link href="/blog" className={`mobile-nav-link ${isActive('/blog') ? 'active' : ''}`} onClick={() => handleCloseMenu()}>
+            <Link 
+              href="/blog" 
+              className={`mobile-nav-link ${isActive('/blog') ? 'active' : ''}`} 
+              onClick={() => {
+                trackNavigation.menuClick('Blog', '/blog');
+                handleCloseMenu();
+              }}
+            >
               Blog
             </Link>
-            <Link href="/contact" className={`mobile-nav-link ${isActive('/contact') ? 'active' : ''}`} onClick={() => handleCloseMenu()}>
+            <Link 
+              href="/contacts" 
+              className={`mobile-nav-link ${isActive('/contacts') ? 'active' : ''}`} 
+              onClick={() => {
+                trackNavigation.ctaClick('Contacts', 'Mobile Menu', '/contacts');
+                handleCloseMenu();
+              }}
+            >
               Contacts
             </Link>
             

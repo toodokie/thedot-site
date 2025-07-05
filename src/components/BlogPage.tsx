@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import Footer from './Footer';
+import { trackContent, trackNavigation } from '@/lib/analytics';
 
 interface BlogPost {
   slug: string;
@@ -12,6 +13,7 @@ interface BlogPost {
   category: string;
   readTime: string;
   featured?: boolean;
+  image?: string;
 }
 
 export default function BlogPage() {
@@ -861,7 +863,10 @@ export default function BlogPage() {
               <button
                 key={category}
                 className={`category-button ${selectedCategory === category ? 'active' : ''}`}
-                onClick={() => setSelectedCategory(category)}
+                onClick={() => {
+                  setSelectedCategory(category);
+                  trackContent.categoryFilter(category);
+                }}
               >
                 {category}
               </button>
@@ -880,12 +885,31 @@ export default function BlogPage() {
                     <span>{featuredPost.readTime}</span>
                   </div>
                   <p className="featured-excerpt">{featuredPost.excerpt}</p>
-                  <Link href={`/blog/${featuredPost.slug}`} className="read-more-btn">
+                  <Link 
+                    href={`/blog/${featuredPost.slug}`} 
+                    className="read-more-btn"
+                    onClick={() => {
+                      trackContent.blogPostView(featuredPost.slug, featuredPost.title, featuredPost.category);
+                    }}
+                  >
                     Read Full Article
                   </Link>
                 </div>
                 <div className="featured-image">
-                  <span>[Featured Article Image]</span>
+                  {featuredPost.image ? (
+                    <img 
+                      src={featuredPost.image} 
+                      alt={featuredPost.title}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        borderRadius: '8px'
+                      }}
+                    />
+                  ) : (
+                    <span>[Featured Article Image]</span>
+                  )}
                 </div>
               </article>
             </section>
@@ -894,19 +918,27 @@ export default function BlogPage() {
           {/* Posts Grid */}
           <section className="posts-grid">
             {filteredPosts.filter(post => !post.featured).map(post => (
-              <article key={post.slug} className="post-card">
-                <div className="post-category">{post.category}</div>
-                <h3>{post.title}</h3>
-                <div className="post-meta">
-                  <span>{post.date}</span>
-                  <span>•</span>
-                  <span>{post.readTime}</span>
-                </div>
-                <p className="post-excerpt">{post.excerpt}</p>
-                <Link href={`/blog/${post.slug}`} className="read-more-btn">
-                  Read Full Article
-                </Link>
-              </article>
+              <Link 
+                href={`/blog/${post.slug}`}
+                onClick={() => {
+                  trackContent.blogPostView(post.slug, post.title, post.category);
+                }}
+                style={{ textDecoration: 'none', color: 'inherit' }}
+              >
+                <article key={post.slug} className="post-card">
+                  <div className="post-category">{post.category}</div>
+                  <h3>{post.title}</h3>
+                  <div className="post-meta">
+                    <span>{post.date}</span>
+                    <span>•</span>
+                    <span>{post.readTime}</span>
+                  </div>
+                  <p className="post-excerpt">{post.excerpt}</p>
+                  <div className="read-more-btn">
+                    Read Full Article
+                  </div>
+                </article>
+              </Link>
             ))}
           </section>
         </div>
@@ -914,7 +946,11 @@ export default function BlogPage() {
         {/* Website Review CTA Section */}
         <section className="review-cta-section">
           <div className="review-cta-content">
-            <Link href="/contact" className="dot-bottom-link hero animate-on-scroll">
+            <Link 
+              href="/contacts" 
+              className="dot-bottom-link hero animate-on-scroll"
+              onClick={() => trackNavigation.ctaClick('Website Performance Review', 'Blog Page', '/contacts')}
+            >
               Request Website<br />Performance Review<br />
               <span className="small-bottom-link-text-eng">Get the same detailed website audit we charge <strong style={{fontWeight: 700}}>$300</strong> for — complimentary for qualified <strong style={{fontWeight: 700}}>GTA businesses</strong>. We&apos;ll pinpoint exactly what&apos;s driving customers away and show you how to fix it during a brief consultation call.</span>
             </Link>

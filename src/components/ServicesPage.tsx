@@ -181,7 +181,7 @@ export default function ServicesPage() {
       {/* Contacts Link Section */}
       <section className="services-link-section">
         <div className="services-link-container">
-          <Link href="/contact" className="dot-bottom-link hero animate-on-scroll">
+          <Link href="/contacts" className="dot-bottom-link hero animate-on-scroll">
             contacts<br />
             <span className="small-bottom-link-text-eng">let&apos;s discuss your project</span>
           </Link>

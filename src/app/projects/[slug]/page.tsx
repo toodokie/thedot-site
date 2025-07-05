@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { getProjectBySlug, getRelatedProjects, generateProjectMetadata, getProjectSlugs, getNextProject } from '@/lib/projects';
+import { getProjectBySlug, getRelatedProjects, generateProjectMetadata, getProjectSlugs, getNextProject, generateProjectStructuredData } from '@/lib/projects';
 import ProjectPage from '@/components/ProjectPage';
 
 interface PortfolioPageProps {
@@ -40,8 +40,20 @@ export default async function PortfolioPageRoute({ params }: PortfolioPageProps)
   
   const relatedProjects = await getRelatedProjects(slug, 3);
   const nextProject = await getNextProject(slug);
+  const structuredData = generateProjectStructuredData(project);
   
-  return <ProjectPage project={project} relatedProjects={relatedProjects} nextProject={nextProject} />;
+  return (
+    <>
+      {/* Structured Data for SEO */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(structuredData)
+        }}
+      />
+      <ProjectPage project={project} relatedProjects={relatedProjects} nextProject={nextProject} />
+    </>
+  );
 }
 
 // Optional: Add revalidation for ISR if using dynamic data

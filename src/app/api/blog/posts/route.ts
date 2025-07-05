@@ -8,6 +8,7 @@ interface BlogPost {
   category: string;
   readTime: string;
   featured?: boolean;
+  image?: string;
 }
 
 // Sample blog posts data
@@ -20,7 +21,8 @@ const samplePosts: BlogPost[] = [
     date: 'January 1, 2025',
     category: 'Strategy',
     readTime: '12 min read',
-    featured: true
+    featured: true,
+    image: '/images/blog/website-design-trends-europe/Website Design Trends.webp'
   },
   {
     slug: 'gta-small-business-website-mistakes',
@@ -28,7 +30,8 @@ const samplePosts: BlogPost[] = [
     excerpt: 'Research shows 94% of negative website feedback is design-related. Discover the critical mistakes costing GTA small businesses customers and proven solutions.',
     date: 'January 12, 2025',
     category: 'Strategy',
-    readTime: '8 min read'
+    readTime: '8 min read',
+    image: '/images/blog/website-mistakes-gta-businesses/hero-hourglass.gif'
   },
   {
     slug: 'the-power-of-visual-storytelling',

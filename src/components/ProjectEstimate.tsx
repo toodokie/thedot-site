@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import Footer from './Footer';
 import HoneypotField from './HoneypotField';
+import { trackLeadGeneration, trackNavigation } from '@/lib/analytics';
 
 export default function ProjectEstimate() {
   const [activeTab, setActiveTab] = useState<'websites' | 'graphic' | 'photo'>('websites');
@@ -370,21 +371,30 @@ export default function ProjectEstimate() {
               <div className="services-tabs-menu">
                 <button 
                   className={`services-tab-button ${activeTab === 'graphic' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('graphic')}
+                  onClick={() => {
+                    setActiveTab('graphic');
+                    trackLeadGeneration.calculatorStart('graphic');
+                  }}
                 >
                   <span className="tab-dot">●</span>
                   <span className="tab-title">GRAPHIC DESIGN</span>
                 </button>
                 <button 
                   className={`services-tab-button ${activeTab === 'websites' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('websites')}
+                  onClick={() => {
+                    setActiveTab('websites');
+                    trackLeadGeneration.calculatorStart('websites');
+                  }}
                 >
                   <span className="tab-dot">●</span>
                   <span className="tab-title">WEBSITES</span>
                 </button>
                 <button 
                   className={`services-tab-button ${activeTab === 'photo' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('photo')}
+                  onClick={() => {
+                    setActiveTab('photo');
+                    trackLeadGeneration.calculatorStart('photo');
+                  }}
                 >
                   <span className="tab-dot">●</span>
                   <span className="tab-title">PHOTO & VIDEO</span>
@@ -507,7 +517,7 @@ export default function ProjectEstimate() {
       {/* Contact Link Section */}
       <section className="services-link-section">
         <div className="services-link-container">
-          <Link href="/contact" className="dot-bottom-link hero animate-on-scroll">
+          <Link href="/contacts" className="dot-bottom-link hero animate-on-scroll">
             questions?<br />
             <span className="small-bottom-link-text-eng">we are here for you</span>
           </Link>

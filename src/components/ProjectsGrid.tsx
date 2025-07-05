@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Project } from '@/types/project';
+import { trackPortfolio } from '@/lib/analytics';
 
 interface ProjectsGridProps {
   projects: Project[];
@@ -194,10 +195,15 @@ function ProjectListItem({ project }: ProjectListItemProps) {
   return (
     <>
       <Link
-        href={project.slug ? `/${project.slug}` : '#'}
+        href={project.slug ? `/projects/${project.slug}` : '#'}
         className="animate-on-scroll project-list-link"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
+        onClick={() => {
+          if (project.slug) {
+            trackPortfolio.projectView(project.slug, project.title);
+          }
+        }}
       >
         {/* Two-Column Layout - Desktop | Stacked - Mobile */}
         <div className="project-card-layout">
