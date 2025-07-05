@@ -41,22 +41,23 @@ const nextConfig: NextConfig = {
             key: 'Referrer-Policy',
             value: 'strict-origin-when-cross-origin'
           },
-          // Restrict permissions for security
+          // Restrict permissions for security (remove cross-origin-isolated to fix violations)
           {
             key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=(), payment=()'
+            value: 'camera=(), microphone=(), geolocation=(), payment=(), cross-origin-isolated=()'
           },
-          // Content Security Policy - optimized for Adobe Fonts and your stack
+          // Content Security Policy - optimized for Adobe Fonts, GA4, and Cloudflare Turnstile
           {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' *.typekit.net use.typekit.net https://www.googletagmanager.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' *.typekit.net use.typekit.net https://www.googletagmanager.com https://www.google-analytics.com https://challenges.cloudflare.com",
               "style-src 'self' 'unsafe-inline' *.typekit.net use.typekit.net fonts.googleapis.com",
               "font-src 'self' *.typekit.net use.typekit.net fonts.gstatic.com data:",
               "img-src 'self' data: blob: *.typekit.net prod-files-secure.s3.us-west-2.amazonaws.com https://www.google-analytics.com https://www.googletagmanager.com",
-              "connect-src 'self' *.typekit.net *.adobe.com https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com",
-              "frame-src 'self' https://calendar.google.com https://player.vimeo.com https://vimeo.com https://www.youtube.com https://youtube.com",
+              "connect-src 'self' *.typekit.net *.adobe.com https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://challenges.cloudflare.com",
+              "frame-src 'self' https://calendar.google.com https://player.vimeo.com https://vimeo.com https://www.youtube.com https://youtube.com https://challenges.cloudflare.com",
+              "worker-src 'self' blob:",
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'"

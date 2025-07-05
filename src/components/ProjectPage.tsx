@@ -67,27 +67,8 @@ function VideoPlayer({ videoUrl }: { videoUrl: string }) {
   }
 
   if (hasError) {
-    return (
-      <div style={{
-        width: '100%',
-        aspectRatio: '16/9',
-        background: 'var(--project-accent, #daff00)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: '#35332f',
-        fontFamily: 'ff-real-text-pro-2, sans-serif',
-        fontSize: '1.125rem',
-        textAlign: 'center',
-        padding: '2rem'
-      }}>
-        <p style={{ margin: '0 0 0.5rem 0' }}>Video unavailable</p>
-        <p style={{ margin: '0', fontSize: '0.875rem', opacity: 0.7 }}>
-          This video may be private or restricted
-        </p>
-      </div>
-    );
+    // Don't render anything if video fails to load
+    return null;
   }
 
   const embedUrl = videoInfo.platform === 'vimeo' 
@@ -115,6 +96,19 @@ function VideoPlayer({ videoUrl }: { videoUrl: string }) {
           }}
           allow="autoplay; picture-in-picture"
           allowFullScreen={true}
+          onLoad={(e) => {
+            // Check if iframe loaded successfully
+            const iframe = e.currentTarget;
+            try {
+              // If we can't access the content, it might be restricted
+              if (iframe.contentDocument === null) {
+                console.warn('Video may be restricted or private');
+              }
+            } catch (error) {
+              console.warn('Video access restricted:', error);
+              setHasError(true);
+            }
+          }}
           onError={() => setHasError(true)}
         />
       )}
