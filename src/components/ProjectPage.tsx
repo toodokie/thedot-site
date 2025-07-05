@@ -558,6 +558,9 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
                   height={800}
                   style={{ width: '100%', height: 'auto', display: 'block' }}
                   priority={index < 2}
+                  loading={index < 2 ? 'eager' : 'lazy'}
+                  placeholder="blur"
+                  blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+Rq5uoebsVaRSM8k8cVzGWUWB3bRsIUHqc/nIq5Nn8UtWNEtIg0LGZRRNt7eMIpYgdDnB4q6gCKG8tOY+q7Nm+sTcNXZdVWkUUMXdJNtZAVDKcczAg5B9COvmrx+Q=="
                 />
               </div>
             );
@@ -717,6 +720,9 @@ function MediaItem({ media, index = 0 }: { media: ProjectMedia; index?: number }
         height={800}
         style={{ width: '100%', height: 'auto', display: 'block' }}
         priority={index < 2}
+        loading={index < 2 ? 'eager' : 'lazy'}
+        placeholder="blur"
+        blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+Rq5uoebsVaRSM8k8cVzGWUWB3bRsIUHqc/nIq5Nn8UtWNEtIg0LGZRRNt7eMIpYgdDnB4q6gCKG8tOY+q7Nm+sTcNXZdVWkUUMXdJNtZAVDKcczAg5B9COvmrx+Q=="
       />
       {media.caption && (
         <p style={{
