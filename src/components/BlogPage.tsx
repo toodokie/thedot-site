@@ -298,6 +298,13 @@ export default function BlogPage() {
             text-align: center;
           }
           
+          .dot_h1_pages {
+            color: var(--foreground);
+            text-transform: none;
+            text-align: center;
+            font-size: 4rem;
+          }
+          
           .hero-circle-video-copy-services {
             display: none;
           }
