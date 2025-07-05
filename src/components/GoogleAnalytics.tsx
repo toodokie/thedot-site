@@ -1,7 +1,7 @@
 import Script from 'next/script'
 
 const GoogleAnalytics = () => {
-  const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID
+  const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || process.env.NEXT_PUBLIC_GA_ID
 
   if (!GA_MEASUREMENT_ID) {
     return null
