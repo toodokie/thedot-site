@@ -1,4 +1,23 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import BlogPostPage from '@/components/BlogPostPage';
+
+interface BlogPost {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  content: string;
+  category: string;
+  tags: string[];
+  date: string;
+  readTime: number;
+  featuredImage: string;
+  metaTitle: string;
+  metaDescription: string;
+  socialImage: string;
+  wordCount: number;
+}
 
 interface BlogPostProps {
   params: Promise<{
@@ -6,60 +25,90 @@ interface BlogPostProps {
   }>;
 }
 
-export async function generateMetadata({ params }: BlogPostProps) {
+async function getBlogPost(slug: string): Promise<BlogPost | null> {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
+                   (process.env.NODE_ENV === 'production' 
+                     ? 'https://thedotcreative.co' 
+                     : 'http://localhost:3000');
+    
+    const response = await fetch(`${baseUrl}/api/blog/${slug}`, {
+      next: { revalidate: 300 } // Revalidate every 5 minutes
+    });
+    
+    if (!response.ok) {
+      return null;
+    }
+    
+    const data = await response.json();
+    return data.post;
+  } catch (error) {
+    console.error('Error fetching blog post:', error);
+    return null;
+  }
+}
+
+export async function generateMetadata({ params }: BlogPostProps): Promise<Metadata> {
   const { slug } = await params;
+  const post = await getBlogPost(slug);
   
-  // SEO metadata for specific posts
-  if (slug === 'website-design-trends-europe-canadian-businesses') {
+  if (!post) {
     return {
-      title: 'Website Design Trends from Europe That Canadian Businesses Should Adopt',
-      description: 'Research reveals Canadian sites trail European standards by 28% in loading speed and 33% in accessibility. Learn international best practices that increase conversions.',
-      keywords: 'professional website design trends Canada, European design trends, Canadian business websites, international website standards, website design best practices',
-      openGraph: {
-        title: 'Website Design Trends from Europe That Canadian Businesses Should Adopt',
-        description: 'Research reveals Canadian sites trail European standards by 28% in loading speed and 33% in accessibility. Learn international best practices that increase conversions.',
-        type: 'article',
-        publishedTime: '2025-01-01T00:00:00.000Z',
-        authors: ['The Dot Creative Agency'],
-        tags: ['Professional Website Design', 'Canada', 'European Design Trends', 'Conversion Optimization', 'International Standards'],
-      },
-      twitter: {
-        card: 'summary_large_image',
-        title: 'Website Design Trends from Europe That Canadian Businesses Should Adopt',
-        description: 'Research reveals Canadian sites trail European standards by 28% in loading speed and 33% in accessibility. Learn international best practices that increase conversions.',
-      }
+      title: 'Blog Post Not Found | The Dot Creative Agency',
+      description: 'The requested blog post could not be found.'
     };
   }
-  
-  if (slug === 'gta-small-business-website-mistakes') {
-    return {
-      title: '5 Website Mistakes Costing GTA Small Businesses Customers (And How to Fix Them)',
-      description: 'Research shows 94% of negative website feedback is design-related. Discover the critical mistakes costing GTA small businesses customers and proven solutions.',
-      keywords: 'GTA small business website mistakes, Toronto website design, small business web development, website optimization GTA, business website errors',
-      openGraph: {
-        title: '5 Website Mistakes Costing GTA Small Businesses Customers (And How to Fix Them)',
-        description: 'Research shows 94% of negative website feedback is design-related. Discover the critical mistakes costing GTA small businesses customers and proven solutions.',
-        type: 'article',
-        publishedTime: '2025-01-12T00:00:00.000Z',
-        authors: ['The Dot Creative Agency'],
-        tags: ['Small Business', 'GTA', 'Website Design', 'User Experience', 'Conversion Optimization'],
-      },
-      twitter: {
-        card: 'summary_large_image',
-        title: '5 Website Mistakes Costing GTA Small Businesses Customers (And How to Fix Them)',
-        description: 'Research shows 94% of negative website feedback is design-related. Discover the critical mistakes costing GTA small businesses customers and proven solutions.',
-      }
-    };
-  }
-  
-  // Default metadata for other posts
+
+  const metaTitle = post.metaTitle || `${post.title} | The Dot Creative Blog`;
+  const metaDescription = post.metaDescription || post.excerpt;
+  const socialImage = post.socialImage || post.featuredImage || '/images/og-image.jpg';
+
   return {
-    title: `Blog Post - The Dot Creative Agency`,
-    description: 'Creative insights and strategies from The Dot Creative Agency.',
+    title: metaTitle,
+    description: metaDescription,
+    keywords: post.tags.join(', '),
+    
+    openGraph: {
+      title: metaTitle,
+      description: metaDescription,
+      url: `https://thedotcreative.co/blog/${post.slug}`,
+      siteName: 'The Dot Creative Agency',
+      images: [
+        {
+          url: socialImage,
+          width: 1200,
+          height: 630,
+          alt: post.title
+        }
+      ],
+      locale: 'en_CA',
+      type: 'article',
+      publishedTime: post.date,
+      section: post.category,
+      tags: post.tags
+    },
+    
+    twitter: {
+      card: 'summary_large_image',
+      title: metaTitle,
+      description: metaDescription,
+      images: [socialImage]
+    },
+    
+    robots: {
+      index: true,
+      follow: true
+    }
   };
 }
 
 export default async function BlogPost({ params }: BlogPostProps) {
   const { slug } = await params;
-  return <BlogPostPage slug={slug} />;
+  const post = await getBlogPost(slug);
+  
+  if (!post) {
+    notFound();
+  }
+  
+  return <BlogPostPage post={post} />;
 }

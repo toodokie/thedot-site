@@ -6,14 +6,17 @@ import Footer from './Footer';
 import { trackContent, trackNavigation } from '@/lib/analytics';
 
 interface BlogPost {
+  id: string;
   slug: string;
   title: string;
   excerpt: string;
   date: string;
   category: string;
-  readTime: string;
+  readTime: number;
   featured?: boolean;
-  image?: string;
+  featuredImage?: string;
+  content: string;
+  tags: string[];
 }
 
 export default function BlogPage() {
@@ -53,15 +56,15 @@ export default function BlogPage() {
 
   const fetchPosts = async () => {
     try {
-      const response = await fetch('/api/blog/posts');
+      const response = await fetch('/api/blog');
       if (response.ok) {
         const data = await response.json();
         setPosts(data.posts || []);
       }
     } catch (error) {
       console.error('Error fetching posts:', error);
-      // Fallback to sample data for demo
-      setPosts(samplePosts);
+      // Set empty array on error - remove fallback to sample data
+      setPosts([]);
     }
   };
 
@@ -757,9 +760,9 @@ export default function BlogPage() {
                   </Link>
                 </div>
                 <div className="featured-image">
-                  {featuredPost.image ? (
+                  {featuredPost.featuredImage ? (
                     <img 
-                      src={featuredPost.image} 
+                      src={featuredPost.featuredImage} 
                       alt={featuredPost.title}
                       style={{
                         width: '100%',

@@ -5,51 +5,50 @@ import { useState, useEffect } from 'react';
 import Footer from './Footer';
 
 interface BlogPost {
+  id: string;
   slug: string;
   title: string;
   content: string;
   excerpt: string;
   date: string;
   category: string;
-  readTime: string;
+  readTime: number;
   tags: string[];
+  featuredImage: string;
+  metaTitle: string;
+  metaDescription: string;
+  socialImage: string;
+  wordCount: number;
 }
 
 interface BlogPostPageProps {
-  slug: string;
+  post: BlogPost;
 }
 
-export default function BlogPostPage({ slug }: BlogPostPageProps) {
-  const [post, setPost] = useState<BlogPost | null>(null);
+export default function BlogPostPage({ post }: BlogPostPageProps) {
   const [relatedPosts, setRelatedPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchPost = async () => {
+    const fetchRelatedPosts = async () => {
       try {
-        const response = await fetch(`/api/blog/posts/${slug}`);
+        const response = await fetch(`/api/blog?category=${post.category}`);
         if (response.ok) {
           const data = await response.json();
-          setPost(data.post);
-          setRelatedPosts(data.relatedPosts || []);
-        } else {
-          // Fallback to sample data for demo
-          const samplePost = getSamplePost(slug);
-          setPost(samplePost);
-          setRelatedPosts(getSampleRelatedPosts());
+          // Filter out current post and limit to 3 related posts
+          const related = data.posts.filter((p: BlogPost) => p.id !== post.id).slice(0, 3);
+          setRelatedPosts(related);
         }
       } catch (error) {
-        console.error('Error fetching post:', error);
-        const samplePost = getSamplePost(slug);
-        setPost(samplePost);
-        setRelatedPosts(getSampleRelatedPosts());
+        console.error('Error fetching related posts:', error);
+        setRelatedPosts([]);
       } finally {
         setLoading(false);
       }
     };
     
-    fetchPost();
-  }, [slug]);
+    fetchRelatedPosts();
+  }, [post.category, post.id]);
 
   if (loading) {
     return (
@@ -140,6 +139,19 @@ export default function BlogPostPage({ slug }: BlogPostPageProps) {
           padding-left: 20px;
           margin: 0;
           text-align: left;
+        }
+        
+        .post-featured-image {
+          max-width: 1200px;
+          margin: 40px auto;
+          padding: 0 20px;
+        }
+        
+        .post-featured-image img {
+          width: 100%;
+          height: auto;
+          border-radius: 8px;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.1);
         }
         
         .post-content {
@@ -412,6 +424,16 @@ export default function BlogPostPage({ slug }: BlogPostPageProps) {
           </div>
           <div className="post-excerpt">{post.excerpt}</div>
         </header>
+
+        {/* Featured Image */}
+        {post.featuredImage && (
+          <div className="post-featured-image">
+            <img 
+              src={post.featuredImage} 
+              alt={post.title}
+            />
+          </div>
+        )}
 
         {/* Post Content */}
         <article className="post-content" dangerouslySetInnerHTML={{ __html: post.content }} />
