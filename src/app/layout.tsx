@@ -167,14 +167,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://use.typekit.net/gac6jnd.css"
         />
         
-        {/* Critical image preloads for LCP improvement */}
-        <link rel="preload" href="/images/logo.png" as="image" />
-        <link rel="preload" href="/images/line.png" as="image" />
-        
         {/* Mobile optimization */}
         <meta name="theme-color" content="#daff00" />
         <link rel="apple-touch-icon" href="/images/Dot Favicon.png" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         
         {/* Structured Data for Local Business */}

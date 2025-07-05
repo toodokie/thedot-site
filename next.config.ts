@@ -51,7 +51,7 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' *.typekit.net use.typekit.net https://www.googletagmanager.com https://www.google-analytics.com https://challenges.cloudflare.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' *.typekit.net use.typekit.net https://www.googletagmanager.com https://www.google-analytics.com https://challenges.cloudflare.com https://apis.google.com",
               "style-src 'self' 'unsafe-inline' *.typekit.net use.typekit.net fonts.googleapis.com",
               "font-src 'self' *.typekit.net use.typekit.net fonts.gstatic.com data:",
               "img-src 'self' data: blob: *.typekit.net prod-files-secure.s3.us-west-2.amazonaws.com https://www.google-analytics.com https://www.googletagmanager.com",
