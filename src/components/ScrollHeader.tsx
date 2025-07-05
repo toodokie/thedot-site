@@ -15,24 +15,27 @@ export default function ScrollHeader() {
       // Show background after scrolling past hero section
       setIsScrolled(currentScrollY > 50);
       
-      // Clear existing timeout
+      // Clear existing timeout for hiding only
       if (scrollTimeout) {
         clearTimeout(scrollTimeout);
       }
       
-      // Hide/show header based on scroll direction with debounce
-      const timeout = setTimeout(() => {
-        if (currentScrollY > lastScrollY && currentScrollY > 100) {
-          // Scrolling down - hide header
-          setIsHidden(true);
-        } else {
-          // Scrolling up - show header
-          setIsHidden(false);
-        }
+      // Immediately show header when scrolling up
+      if (currentScrollY < lastScrollY) {
+        // Scrolling up - show header immediately
+        setIsHidden(false);
         setLastScrollY(currentScrollY);
-      }, 150); // 150ms debounce
-      
-      setScrollTimeout(timeout);
+      } else if (currentScrollY > lastScrollY && currentScrollY > 100) {
+        // Scrolling down - hide header with slight debounce to prevent flickering
+        const timeout = setTimeout(() => {
+          setIsHidden(true);
+          setLastScrollY(currentScrollY);
+        }, 100); // Reduced debounce for hiding
+        
+        setScrollTimeout(timeout);
+      } else {
+        setLastScrollY(currentScrollY);
+      }
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
