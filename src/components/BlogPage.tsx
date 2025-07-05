@@ -746,7 +746,7 @@ export default function BlogPage() {
                   <div className="featured-meta">
                     <span>{featuredPost.date}</span>
                     <span>•</span>
-                    <span>{featuredPost.readTime}</span>
+                    <span>{featuredPost.readTime} min read</span>
                   </div>
                   <p className="featured-excerpt">{featuredPost.excerpt}</p>
                   <Link 
@@ -795,7 +795,7 @@ export default function BlogPage() {
                   <div className="post-meta">
                     <span>{post.date}</span>
                     <span>•</span>
-                    <span>{post.readTime}</span>
+                    <span>{post.readTime} min read</span>
                   </div>
                   <p className="post-excerpt">{post.excerpt}</p>
                   <div className="read-more-btn">

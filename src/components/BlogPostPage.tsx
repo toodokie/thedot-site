@@ -585,7 +585,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
           <div className="post-meta">
             <span>{post.date}</span>
             <span>•</span>
-            <span>{post.readTime}</span>
+            <span>{post.readTime} min read</span>
           </div>
           <div className="post-excerpt">{post.excerpt}</div>
         </header>
@@ -652,7 +652,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
               {relatedPosts.map(relatedPost => (
                 <Link key={relatedPost.slug} href={`/blog/${relatedPost.slug}`} className="related-card">
                   <h3>{relatedPost.title}</h3>
-                  <div className="related-meta">{relatedPost.date} • {relatedPost.readTime}</div>
+                  <div className="related-meta">{relatedPost.date} • {relatedPost.readTime} min read</div>
                   <p className="related-excerpt">{relatedPost.excerpt}</p>
                 </Link>
               ))}
