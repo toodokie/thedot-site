@@ -10,7 +10,9 @@ import { trackPortfolio, trackNavigation } from '@/lib/analytics';
 function VideoPlayer({ videoUrl }: { videoUrl: string }) {
   const [isVisible, setIsVisible] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const videoRef = useRef<HTMLDivElement>(null);
+  const maxRetries = 2;
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -50,7 +52,9 @@ function VideoPlayer({ videoUrl }: { videoUrl: string }) {
 
   const videoInfo = getVideoId(videoUrl);
 
-  if (!videoInfo) {
+  // Enhanced error checking for problematic video IDs
+  if (!videoInfo || videoInfo.id === '1093858984') {
+    console.warn('Skipping problematic video:', videoUrl);
     return (
       <div style={{
         width: '100%',
@@ -59,16 +63,32 @@ function VideoPlayer({ videoUrl }: { videoUrl: string }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#35332f'
+        color: '#35332f',
+        fontSize: '1.1rem',
+        fontWeight: '500'
       }}>
-        Invalid video URL (supports Vimeo and YouTube)
+        {!videoInfo ? 'Invalid video URL (supports Vimeo and YouTube)' : 'Video temporarily unavailable'}
       </div>
     );
   }
 
-  if (hasError) {
-    // Don't render anything if video fails to load
-    return null;
+  if (hasError || retryCount >= maxRetries) {
+    // Don't render anything if video fails to load or max retries reached
+    return (
+      <div style={{
+        width: '100%',
+        aspectRatio: '16/9',
+        background: 'var(--project-accent, #daff00)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#35332f',
+        fontSize: '1.1rem',
+        fontWeight: '500'
+      }}>
+        Video temporarily unavailable
+      </div>
+    );
   }
 
   const embedUrl = videoInfo.platform === 'vimeo' 
