@@ -1939,7 +1939,28 @@ function LeadCaptureForm({ action, formType, onClose }: LeadCaptureFormProps) {
         if (!consultationResponse.ok) {
           const errorText = await consultationResponse.text();
           console.error('Consultation API error:', errorText);
-          throw new Error('Failed to send consultation request');
+          
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+          } catch {
+            errorData = { error: errorText };
+          }
+          
+          // If it's a service unavailable error, show fallback contact info
+          if (consultationResponse.status === 503) {
+            alert(`Email service temporarily unavailable. Please contact us directly:\n\n${errorData.fallback || 'Email: info@thedotcreative.co\nPhone: +1 (647) 402-4420'}`);
+            return; // Don't throw error, continue with lead saving
+          }
+          
+          throw new Error(errorData.error || 'Failed to send consultation request');
+        }
+        
+        // Check for warnings in successful response
+        const responseData = await consultationResponse.json();
+        if (responseData.warning) {
+          console.warn('Consultation request warning:', responseData.warning);
+          alert(responseData.warning);
         }
         
         // Save to Calculator Leads database (Consultation request = Hot lead)

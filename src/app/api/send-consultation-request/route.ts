@@ -149,6 +149,23 @@ const generateConsultationEmailHTML = (data: ConsultationRequestData) => {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if email configuration is available
+    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS || !process.env.AGENCY_EMAIL) {
+      console.error('Email configuration missing:', {
+        hasHost: !!process.env.SMTP_HOST,
+        hasUser: !!process.env.SMTP_USER,
+        hasPass: !!process.env.SMTP_PASS,
+        hasAgencyEmail: !!process.env.AGENCY_EMAIL
+      });
+      return NextResponse.json(
+        { 
+          error: 'Email service not configured. Please contact us directly.',
+          fallback: 'Please email us at info@thedotcreative.co or call +1 (647) 402-4420'
+        },
+        { status: 503 }
+      );
+    }
+
     // Rate limiting check
     const clientIP = getClientIP(request);
     const rateLimitResult = rateLimit(clientIP, { limit: 2, window: 10 * 60 * 1000 }); // 2 requests per 10 minutes
@@ -190,15 +207,36 @@ export async function POST(request: NextRequest) {
                        'Photo & Video Production';
 
     // Send consultation request to agency email
-    await transporter.sendMail({
-      from: process.env.FROM_EMAIL,
-      to: process.env.AGENCY_EMAIL,
-      subject: `🔥 HOT LEAD: Consultation Request - ${data.leadData.name} (${serviceType} - $${Number(data.estimateData.total || 0).toLocaleString()})`,
-      html: generateConsultationEmailHTML(data),
-      replyTo: emailValidation.sanitized, // Enable direct reply to client
-    });
+    try {
+      await transporter.sendMail({
+        from: process.env.FROM_EMAIL,
+        to: process.env.AGENCY_EMAIL,
+        subject: `🔥 HOT LEAD: Consultation Request - ${data.leadData.name} (${serviceType} - $${Number(data.estimateData.total || 0).toLocaleString()})`,
+        html: generateConsultationEmailHTML(data),
+        replyTo: emailValidation.sanitized, // Enable direct reply to client
+      });
 
-    return NextResponse.json({ success: true });
+      console.log('Consultation request email sent successfully');
+      return NextResponse.json({ success: true });
+    } catch (emailError) {
+      console.error('Failed to send consultation email:', emailError);
+      
+      // Log the lead data for manual follow-up
+      console.log('URGENT: Manual follow-up required for consultation request:', {
+        name: data.leadData.name,
+        email: data.leadData.email,
+        company: data.leadData.company,
+        serviceType,
+        total: data.estimateData.total,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Return success to user but indicate email issue
+      return NextResponse.json({ 
+        success: true, 
+        warning: 'Request received but email delivery delayed. We will contact you directly within 2 hours.'
+      });
+    }
 
   } catch (error) {
     console.error('Consultation request error:', error);
