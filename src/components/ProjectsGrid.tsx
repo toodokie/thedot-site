@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Project } from '@/types/project';
 import { trackPortfolio } from '@/lib/analytics';
+import { notionImageLoader } from '@/lib/imageLoader';
 
 interface ProjectsGridProps {
   projects: Project[];
@@ -220,6 +221,7 @@ function ProjectListItem({ project }: ProjectListItemProps) {
                   opacity: isHovered ? 0.8 : 1
                 }}
                 sizes="(max-width: 768px) 100vw, 50vw"
+                loader={notionImageLoader}
               />
             </div>
             {project.tools && project.tools.length > 0 && (

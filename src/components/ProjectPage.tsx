@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Project, ProjectMedia } from '@/types/project';
 import { trackPortfolio, trackNavigation } from '@/lib/analytics';
+import { notionImageLoader } from '@/lib/imageLoader';
 
 // Video Player Component for Vimeo
 function VideoPlayer({ videoUrl }: { videoUrl: string }) {
@@ -451,6 +452,7 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
                 fill
                 style={{ objectFit: 'cover' }}
                 priority
+                loader={notionImageLoader}
               />
             )}
           </div>
@@ -598,6 +600,7 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
                   loading={index < 2 ? 'eager' : 'lazy'}
                   placeholder="blur"
                   blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+Rq5uoebsVaRSM8k8cVzGWUWB3bRsIUHqc/nIq5Nn8UtWNEtIg0LGZRRNt7eMIpYgdDnB4q6gCKG8tOY+q7Nm+sTcNXZdVWkUUMXdJNtZAVDKcczAg5B9COvmrx+Q=="
+                  loader={notionImageLoader}
                 />
               </div>
             );
@@ -760,6 +763,7 @@ function MediaItem({ media, index = 0 }: { media: ProjectMedia; index?: number }
         loading={index < 2 ? 'eager' : 'lazy'}
         placeholder="blur"
         blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+Rq5uoebsVaRSM8k8cVzGWUWB3bRsIUHqc/nIq5Nn8UtWNEtIg0LGZRRNt7eMIpYgdDnB4q6gCKG8tOY+q7Nm+sTcNXZdVWkUUMXdJNtZAVDKcczAg5B9COvmrx+Q=="
+        loader={notionImageLoader}
       />
       {media.caption && (
         <p style={{
