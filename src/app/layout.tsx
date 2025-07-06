@@ -10,7 +10,13 @@ export const metadata: Metadata = {
   description: "Professional web design agency in Ontario, Canada. International design expertise for GTA businesses. Custom websites that convert visitors into customers.",
   keywords: "web design agency GTA, website design Ontario, professional web development Toronto, custom website design Canada, international design standards",
   icons: {
-    icon: '/images/Dot Favicon.png',
+    icon: [
+      { url: '/favicon.png', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon.png', sizes: '256x256', type: 'image/png' },
+    ],
+    apple: '/favicon.png',
+    shortcut: '/favicon.png',
   },
   
   // OpenGraph for social sharing
