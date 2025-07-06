@@ -22,10 +22,13 @@ The application uses **TWO different Notion integrations** with separate API tok
 
 ## Environment Variables Setup
 ```env
-# Portfolio integration (for portfolio sync)
-NOTION_TOKEN=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
+# Calculator/Brief integration (main token for forms/briefs)
+NOTION_TOKEN=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
 
-# Calculator integration (for forms/briefs) 
+# Portfolio integration (for portfolio sync)
+NOTION_TOKEN_PORTFOLIO=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
+
+# Legacy calculator token (same as NOTION_TOKEN, kept for compatibility)
 NOTION_CALCULATOR_TOKEN=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
 
 # Database IDs
@@ -78,6 +81,72 @@ This will show which databases each integration can see.
 3. Confirm the integration has access to the specific database
 4. Test with the database access endpoint
 
+## Issue: Portfolio Images Return 403 Forbidden
+
+If you see errors like:
+```
+Failed to load resource: the server responded with a status of 403 ()
+```
+
+### Root Cause
+Notion S3 image URLs expire after 1 hour. The portfolio JSON files store these URLs at build time, so they become invalid after expiration.
+
+### Immediate Fix
+Run the portfolio refresh script to get fresh URLs:
+```bash
+node scripts/refresh-portfolio.mjs
+```
+
+### How the Image Proxy Works
+1. The site uses `/api/image-proxy` to serve Notion images
+2. When an image URL expires, the proxy automatically:
+   - Detects the expiration
+   - Fetches fresh URLs from Notion API
+   - Caches them for 30 minutes
+   - Retries failed requests
+
+### ✅ IMPLEMENTED SOLUTION: Self-Hosted Images
+
+Portfolio images are now self-hosted in `public/portfolio-images/`. This means:
+- Images load instantly
+- Never expire
+- Work offline
+- Better SEO
+- No dependency on Notion uptime
+
+### Workflow for Adding New Portfolio Projects
+
+1. **Add project in Notion** with images
+2. **Run the download script**:
+   ```bash
+   node scripts/download-portfolio-images.mjs
+   ```
+3. **Commit the new images**:
+   ```bash
+   git add public/portfolio-images/
+   git add src/data/portfolio/
+   git commit -m "Add new portfolio project"
+   ```
+4. **Deploy changes**
+
+### Workflow for Updating Project Text Only
+
+If you only change text/metadata (no new images):
+```bash
+node scripts/refresh-portfolio.mjs
+```
+
+### Scripts Available
+
+- `scripts/download-portfolio-images.mjs` - Downloads all images and updates JSON files
+- `scripts/refresh-portfolio.mjs` - Updates text/metadata only (keeps existing image paths)
+
+### Emergency Manual Refresh
+If the automatic refresh fails, you can manually update portfolio data:
+1. Run `node scripts/refresh-portfolio.mjs`
+2. Commit the updated JSON files
+3. Deploy changes
+
 ---
-**Last Updated**: July 4, 2025  
-**Status**: All integrations working correctly
+**Last Updated**: January 6, 2025  
+**Status**: All integrations working correctly with automatic image refresh

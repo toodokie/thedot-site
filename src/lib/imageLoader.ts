@@ -1,6 +1,11 @@
-// Custom image loader that bypasses expired Notion URLs
+// Custom image loader for portfolio images
 export function notionImageLoader({ src, width, quality }: { src: string; width: number; quality?: number }) {
-  // If it's a Notion S3 URL with expired tokens, use our proxy
+  // Local portfolio images - use Next.js optimization directly
+  if (src.startsWith('/portfolio-images/')) {
+    return `/_next/image?url=${encodeURIComponent(src)}&w=${width}&q=${quality || 75}`;
+  }
+  
+  // Legacy: If it's a Notion S3 URL (shouldn't happen with self-hosted images)
   if (src.includes('prod-files-secure.s3.us-west-2.amazonaws.com')) {
     const baseUrl = process.env.NODE_ENV === 'production' 
       ? 'https://www.thedotcreative.co'
