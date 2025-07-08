@@ -783,13 +783,14 @@ export default function BlogPage() {
           <section className="posts-grid">
             {filteredPosts.filter(post => !post.featured).map(post => (
               <Link 
+                key={post.slug}
                 href={`/blog/${post.slug}`}
                 onClick={() => {
                   trackContent.blogPostView(post.slug, post.title, post.category);
                 }}
                 style={{ textDecoration: 'none', color: 'inherit' }}
               >
-                <article key={post.slug} className="post-card">
+                <article className="post-card">
                   <div className="post-category">{post.category}</div>
                   <h3>{post.title}</h3>
                   <div className="post-meta">

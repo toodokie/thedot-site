@@ -28,11 +28,23 @@ function VideoPlayer({ videoUrl }: { videoUrl: string }) {
       observer.observe(videoRef.current);
     }
 
+    // Handle postMessage errors from video embeds
+    const handlePostMessageError = (event: MessageEvent) => {
+      // Suppress YouTube/Vimeo postMessage errors that are expected
+      if (event.origin === 'https://www.youtube.com' || 
+          event.origin === 'https://player.vimeo.com') {
+        event.stopPropagation();
+      }
+    };
+
+    window.addEventListener('message', handlePostMessageError);
+
     return () => {
       const currentVideo = videoRef.current;
       if (currentVideo) {
         observer.unobserve(currentVideo);
       }
+      window.removeEventListener('message', handlePostMessageError);
     };
   }, []);
 
@@ -110,11 +122,6 @@ function VideoPlayer({ videoUrl }: { videoUrl: string }) {
     ? `https://player.vimeo.com/video/${videoInfo.id}?autoplay=1&loop=1&muted=1&title=0&byline=0&portrait=0`
     : `https://www.youtube.com/embed/${videoInfo.id}?autoplay=1&loop=1&muted=1&controls=0&showinfo=0&rel=0&modestbranding=1&playlist=${videoInfo.id}`;
 
-  // Debug logging for troubleshooting
-  if (videoInfo.platform === 'vimeo') {
-    console.log(`Loading Vimeo video ${videoInfo.id} with URL:`, embedUrl);
-    console.log('Current domain:', window.location.hostname);
-  }
 
   return (
     <div ref={videoRef} style={{ 

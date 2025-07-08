@@ -164,7 +164,7 @@ export default function ProjectBrief() {
       <div className="section-main _14vw">
         <div className="container about-title brief">
           <div className="max-width-xlarge align-center">
-            <h2 className="services-features-title">Services Features Overview</h2>
+            <h2 className="services-features-title">Choose Your Project Type</h2>
             <div className="services-tabs">
               <div className="services-tabs-menu">
                 <button 

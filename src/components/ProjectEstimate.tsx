@@ -364,7 +364,7 @@ export default function ProjectEstimate() {
       <div className="section-main _14vw">
         <div className="container about-title brief">
           <div className="max-width-xlarge align-center">
-            <h2 className="services-features-title">Services Features Overview</h2>
+            <h2 className="services-features-title">Choose Your Project Type</h2>
             
             {/* Tabs Navigation */}
             <div className="services-tabs">
@@ -1860,17 +1860,64 @@ function LeadCaptureForm({ action, formType, onClose }: LeadCaptureFormProps) {
           // Create a blob URL to avoid about:blank
           const blob = new Blob([htmlContent], { type: 'text/html' });
           const url = URL.createObjectURL(blob);
-          const printWindow = window.open(url, '_blank');
-          if (printWindow) {
-            printWindow.focus();
-            // Trigger print dialog after content loads
-            setTimeout(() => {
-              printWindow.print();
-              // Clean up the blob URL after printing
+          
+          // Improved Safari mobile detection
+          const isIOSSafari = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+          const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+          
+          if (isIOSSafari || (isSafari && /Mobi|Android/i.test(navigator.userAgent))) {
+            // For Safari mobile, try multiple approaches
+            try {
+              // First try: open in new window
+              const printWindow = window.open(url, '_blank', 'noopener,noreferrer');
+              
+              if (!printWindow || printWindow.closed || typeof printWindow.closed == 'undefined') {
+                // If popup was blocked, try alternative approach
+                // Create a temporary anchor element for download
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `estimate-${formType}-${Date.now()}.html`;
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+                
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+              } else {
+                printWindow.focus();
+                // Trigger print dialog after content loads
+                setTimeout(() => {
+                  try {
+                    printWindow.print();
+                  } catch (e) {
+                    console.warn('Print failed:', e);
+                  }
+                }, 500);
+              }
+              
+              // Clean up the blob URL after delay
               setTimeout(() => {
                 URL.revokeObjectURL(url);
-              }, 1000);
-            }, 500);
+              }, 2000);
+            } catch (error) {
+              console.error('Safari PDF generation error:', error);
+              // Final fallback - just open the URL
+              window.location.href = url;
+            }
+          } else {
+            // For other browsers, use standard approach
+            const printWindow = window.open(url, '_blank');
+            if (printWindow) {
+              printWindow.focus();
+              // Trigger print dialog after content loads
+              setTimeout(() => {
+                printWindow.print();
+                // Clean up the blob URL after printing
+                setTimeout(() => {
+                  URL.revokeObjectURL(url);
+                }, 1000);
+              }, 500);
+            }
           }
         } else {
           throw new Error('Failed to generate PDF');

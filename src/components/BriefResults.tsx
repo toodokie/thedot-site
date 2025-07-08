@@ -268,16 +268,46 @@ export default function BriefResults({ formType, briefData, leadData }: BriefRes
           const blob = await response.blob();
           const url = URL.createObjectURL(blob);
           
-          // Check if we're on iOS Safari
+          // Improved Safari mobile detection
           const isIOSSafari = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+          const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
           
-          if (isIOSSafari) {
-            // For iOS Safari, open in new window (Safari will handle PDF display)
-            window.open(url, '_blank');
-            setActionStatus({ type: action, status: 'success' });
-            
-            // Clean up after a delay
-            setTimeout(() => URL.revokeObjectURL(url), 1000);
+          if (isIOSSafari || (isSafari && /Mobi|Android/i.test(navigator.userAgent))) {
+            // For iOS Safari and mobile Safari, try multiple approaches
+            try {
+              // First try: open in new window
+              const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
+              
+              if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+                // If popup was blocked, fall back to direct download
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `brief-${formType}-${leadData.name.replace(/\s+/g, '-')}.pdf`;
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+                
+                // Trigger user interaction
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+              }
+              
+              setActionStatus({ type: action, status: 'success' });
+              
+              // Clean up after a delay
+              setTimeout(() => URL.revokeObjectURL(url), 2000);
+            } catch (error) {
+              console.error('Safari PDF download error:', error);
+              // Final fallback: try standard download
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `brief-${formType}-${leadData.name.replace(/\s+/g, '-')}.pdf`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+              setActionStatus({ type: action, status: 'success' });
+            }
           } else {
             // For other browsers, use standard download
             const a = document.createElement('a');
@@ -322,28 +352,62 @@ export default function BriefResults({ formType, briefData, leadData }: BriefRes
           throw new Error(errorData.error || `Failed to send email (${response.status})`);
         }
       } else if (action === 'discuss') {
-        console.log('Sending discussion request with data:', requestData);
-        const response = await fetch('/api/discussion-request', {
+        // Restructure data to match send-consultation-request API format
+        const consultationData = {
+          estimateData: {
+            formType,
+            total: 0, // Brief doesn't have calculator totals
+            selections: {
+              briefData: briefData // Include all brief data as selections
+            }
+          },
+          leadData: {
+            name: leadData.name,
+            email: leadData.email,
+            company: briefData[companyField] || briefData.company || '',
+            message: '', // Brief form doesn't have message field
+            timestamp: new Date().toISOString()
+          },
+          website: {} // Empty honeypot data
+        };
+        
+        console.log('Sending consultation request with data:', consultationData);
+        const response = await fetch('/api/send-consultation-request', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestData)
+          body: JSON.stringify(consultationData)
         });
         
         if (response.ok) {
           setActionStatus({ type: action, status: 'success' });
+          
+          // Check for warnings in successful response
+          const responseData = await response.json();
+          if (responseData.warning) {
+            console.warn('Consultation request warning:', responseData.warning);
+            alert(responseData.warning);
+          }
           
           // Track discussion request conversion (highest value)
           trackLeadGeneration.leadCapture('contact_request', formType);
           trackLeadGeneration.briefSubmission(formType, 'discussion_request');
         } else {
           const errorText = await response.text();
-          console.error('Discussion API error:', response.status, errorText);
+          console.error('Consultation API error:', response.status, errorText);
+          
           let errorData;
           try {
             errorData = JSON.parse(errorText);
           } catch {
             errorData = { error: errorText };
           }
+          
+          // If it's a service unavailable error, show fallback contact info
+          if (response.status === 503) {
+            alert(`Email service temporarily unavailable. Please contact us directly:\n\n${errorData.fallback || 'Email: info@thedotcreative.co\nPhone: +1 (647) 402-4420'}`);
+            return; // Don't throw error, continue with success status
+          }
+          
           throw new Error(errorData.error || `Failed to send discussion request (${response.status})`);
         }
       }

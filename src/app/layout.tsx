@@ -12,8 +12,10 @@ export const metadata: Metadata = {
   keywords: "web design agency GTA, website design Ontario, professional web development Toronto, custom website design Canada, international design standards",
   icons: {
     icon: [
+      { url: '/favicon.ico', sizes: 'any', type: 'image/x-icon' },
       { url: '/favicon.png', sizes: '32x32', type: 'image/png' },
       { url: '/favicon.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon.png', sizes: '48x48', type: 'image/png' },
       { url: '/favicon.png', sizes: '192x192', type: 'image/png' },
       { url: '/favicon.png', sizes: '256x256', type: 'image/png' },
     ],
@@ -21,8 +23,16 @@ export const metadata: Metadata = {
       { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
       { url: '/apple-touch-icon.png', sizes: '152x152', type: 'image/png' },
       { url: '/apple-touch-icon.png', sizes: '120x120', type: 'image/png' },
+      { url: '/apple-touch-icon.png', sizes: '76x76', type: 'image/png' },
     ],
-    shortcut: '/favicon.png',
+    shortcut: '/favicon.ico',
+    other: [
+      {
+        rel: 'mask-icon',
+        url: '/favicon.png',
+        color: '#daff00',
+      },
+    ],
   },
   
   // OpenGraph for social sharing
@@ -33,7 +43,7 @@ export const metadata: Metadata = {
     siteName: "The Dot Creative Agency",
     images: [
       {
-        url: "/images/og-image.jpg",
+        url: "/images/The Dot Poster.webp",
         width: 1200,
         height: 630,
         alt: "The Dot Creative Agency - Professional Web Design"
@@ -48,7 +58,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "The Dot Creative Agency | Professional Web Design GTA",
     description: "International design expertise for GTA businesses. Custom websites that convert visitors into customers.",
-    images: ["/images/og-image.jpg"]
+    images: ["/images/The Dot Poster.webp"]
   },
   
   // Robots and indexing
@@ -181,14 +191,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         
         {/* Mobile optimization */}
         <meta name="theme-color" content="#daff00" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-        <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon.png" />
-        <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon.png" />
-        <link rel="icon" type="image/png" href="/favicon.png" />
+        <meta name="msapplication-TileColor" content="#daff00" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="The Dot Creative" />
+        <link rel="manifest" href="/site.webmanifest" />
         
         {/* Structured Data for Local Business */}
         <script
