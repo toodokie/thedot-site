@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import ConditionalHeader from '@/components/ConditionalHeader';
 import GoogleAnalytics from '@/components/GoogleAnalytics';
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./styles/globals.css";
 
 export const metadata: Metadata = {
@@ -13,9 +14,14 @@ export const metadata: Metadata = {
     icon: [
       { url: '/favicon.png', sizes: '32x32', type: 'image/png' },
       { url: '/favicon.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon.png', sizes: '192x192', type: 'image/png' },
       { url: '/favicon.png', sizes: '256x256', type: 'image/png' },
     ],
-    apple: '/favicon.png',
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+      { url: '/apple-touch-icon.png', sizes: '152x152', type: 'image/png' },
+      { url: '/apple-touch-icon.png', sizes: '120x120', type: 'image/png' },
+    ],
     shortcut: '/favicon.png',
   },
   
@@ -175,8 +181,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         
         {/* Mobile optimization */}
         <meta name="theme-color" content="#daff00" />
-        <link rel="apple-touch-icon" href="/images/Dot Favicon.png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon.png" />
+        <link rel="icon" type="image/png" href="/favicon.png" />
         <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         
         {/* Structured Data for Local Business */}
@@ -189,6 +200,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <GoogleAnalytics />
+        <SpeedInsights />
         <ConditionalHeader />
         {children}
       </body>

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Project, ProjectMedia } from '@/types/project';
 import { trackPortfolio, trackNavigation } from '@/lib/analytics';
 import { notionImageLoader } from '@/lib/imageLoader';
+import { generateBlurDataURL } from '@/lib/imageOptimization';
 
 // Video Player Component for Vimeo
 function VideoPlayer({ videoUrl }: { videoUrl: string }) {
@@ -452,6 +453,8 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
                 fill
                 style={{ objectFit: 'cover' }}
                 priority
+                placeholder="blur"
+                blurDataURL={generateBlurDataURL(project.brandColors?.background || '#faf9f6')}
                 loader={notionImageLoader}
               />
             )}
@@ -592,14 +595,15 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
               <div key={index} style={{ width: '100%' }}>
                 <Image
                   src={item}
-                  alt={project.title}
+                  alt={`${project.title} - Image ${index + 1}`}
                   width={1200}
                   height={800}
                   style={{ width: '100%', height: 'auto', display: 'block' }}
                   priority={index < 2}
                   loading={index < 2 ? 'eager' : 'lazy'}
                   placeholder="blur"
-                  blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+Rq5uoebsVaRSM8k8cVzGWUWB3bRsIUHqc/nIq5Nn8UtWNEtIg0LGZRRNt7eMIpYgdDnB4q6gCKG8tOY+q7Nm+sTcNXZdVWkUUMXdJNtZAVDKcczAg5B9COvmrx+Q=="
+                  blurDataURL={generateBlurDataURL(project.brandColors?.primary || '#faf9f6')}
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 100vw, 1200px"
                   loader={notionImageLoader}
                 />
               </div>

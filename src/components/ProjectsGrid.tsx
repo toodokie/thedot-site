@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Project } from '@/types/project';
 import { trackPortfolio } from '@/lib/analytics';
 import { notionImageLoader } from '@/lib/imageLoader';
+import { generateBlurDataURL } from '@/lib/imageOptimization';
 
 interface ProjectsGridProps {
   projects: Project[];
@@ -221,6 +222,9 @@ function ProjectListItem({ project }: ProjectListItemProps) {
                   opacity: isHovered ? 0.8 : 1
                 }}
                 sizes="(max-width: 768px) 100vw, 50vw"
+                placeholder="blur"
+                blurDataURL={generateBlurDataURL(project.brandColors?.primary || '#faf9f6')}
+                loading="lazy"
                 loader={notionImageLoader}
               />
             </div>

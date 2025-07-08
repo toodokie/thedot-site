@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { trackLeadGeneration, trackConversions } from '@/lib/analytics';
 
 interface BriefData {
@@ -69,6 +69,13 @@ export default function BriefResults({ formType, briefData, leadData }: BriefRes
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
   const [actionStatus, setActionStatus] = useState<{ type: string; status: 'success' | 'error' } | null>(null);
+  const [isIOSSafari, setIsIOSSafari] = useState(false);
+  
+  // Detect iOS Safari on mount
+  useEffect(() => {
+    const checkIOSSafari = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    setIsIOSSafari(checkIOSSafari);
+  }, []);
 
   const generateBriefSummary = () => {
     const sections = [];
@@ -260,14 +267,28 @@ export default function BriefResults({ formType, briefData, leadData }: BriefRes
           // Download PDF file
           const blob = await response.blob();
           const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `brief-${formType}-${leadData.name.replace(/\s+/g, '-')}.pdf`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-          setActionStatus({ type: action, status: 'success' });
+          
+          // Check if we're on iOS Safari
+          const isIOSSafari = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+          
+          if (isIOSSafari) {
+            // For iOS Safari, open in new window (Safari will handle PDF display)
+            window.open(url, '_blank');
+            setActionStatus({ type: action, status: 'success' });
+            
+            // Clean up after a delay
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+          } else {
+            // For other browsers, use standard download
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `brief-${formType}-${leadData.name.replace(/\s+/g, '-')}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            setActionStatus({ type: action, status: 'success' });
+          }
           
           // Track PDF download conversion
           trackLeadGeneration.leadCapture('pdf_download', formType);
@@ -362,7 +383,7 @@ export default function BriefResults({ formType, briefData, leadData }: BriefRes
         }
       `}</style>
       <div style={styles.header}>
-        <h2 style={styles.title}>Brief Successfully Submitted!</h2>
+        <h2 style={styles.title}>Your Project Brief is Ready!</h2>
         <p style={styles.subtitle}>Thank you, {leadData.name}. Here&apos;s a summary of your project brief:</p>
       </div>
 
@@ -379,8 +400,8 @@ export default function BriefResults({ formType, briefData, leadData }: BriefRes
             onClick={() => handleAction('download')}
             disabled={isProcessing}
           >
-            <h4 style={styles.actionButtonTitle}>Download Complete Brief</h4>
-            <p style={styles.actionButtonText}>Get a PDF copy of your project brief for your records</p>
+            <h4 style={styles.actionButtonTitle}>{isIOSSafari ? 'View Complete Brief' : 'Download Complete Brief'}</h4>
+            <p style={styles.actionButtonText}>{isIOSSafari ? 'Opens PDF in a new tab (save from there)' : 'Get a PDF copy of your project brief for your records'}</p>
           </button>
           
           <button 
@@ -400,7 +421,7 @@ export default function BriefResults({ formType, briefData, leadData }: BriefRes
             disabled={isProcessing}
           >
             <h4 style={styles.actionButtonTitle}>Let&apos;s Discuss Your Project</h4>
-            <p style={styles.actionButtonText}>Schedule a consultation with our team</p>
+            <p style={styles.actionButtonText}>Send us your project details and we&apos;ll get back to you within 24 hours</p>
           </button>
         </div>
 
@@ -416,7 +437,7 @@ export default function BriefResults({ formType, briefData, leadData }: BriefRes
           <div style={actionStatus.status === 'success' ? styles.successMessage : styles.errorMessage}>
             {actionStatus.type === 'download' && actionStatus.status === 'success' && 'Your brief has been downloaded successfully!'}
             {actionStatus.type === 'email' && actionStatus.status === 'success' && 'Your brief has been sent to your email!'}
-            {actionStatus.type === 'discuss' && actionStatus.status === 'success' && 'Thank you! We&apos;ll contact you within 24 hours.'}
+            {actionStatus.type === 'discuss' && actionStatus.status === 'success' && 'Thank you! We\'ll contact you within 24 hours.'}
             {actionStatus.status === 'error' && 'Something went wrong. Please try again.'}
           </div>
         )}
