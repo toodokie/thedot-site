@@ -87,14 +87,17 @@ export default function ProjectBrief() {
       briefData
     }));
     
-    // Open results in new tab
-    const newWindow = window.open(
-      `/brief/results?data=${briefDataEncoded}`,
-      '_blank'
-    );
+    const resultUrl = `/brief/results?data=${briefDataEncoded}`;
+    
+    // Try to open in new tab/window
+    const newWindow = window.open(resultUrl, '_blank');
     
     if (newWindow) {
       newWindow.focus();
+    } else {
+      // If popup was blocked (common on Safari mobile), navigate to the page
+      console.warn('Popup blocked, navigating to results page');
+      window.location.href = resultUrl;
     }
   };
 

@@ -273,39 +273,48 @@ export default function BriefResults({ formType, briefData, leadData }: BriefRes
           const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
           
           if (isIOSSafari || (isSafari && /Mobi|Android/i.test(navigator.userAgent))) {
-            // For iOS Safari and mobile Safari, try multiple approaches
+            // For Safari mobile, use direct download approach
             try {
-              // First try: open in new window
-              const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
-              
-              if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
-                // If popup was blocked, fall back to direct download
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `brief-${formType}-${leadData.name.replace(/\s+/g, '-')}.pdf`;
-                a.target = '_blank';
-                a.rel = 'noopener noreferrer';
-                
-                // Trigger user interaction
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-              }
-              
-              setActionStatus({ type: action, status: 'success' });
-              
-              // Clean up after a delay
-              setTimeout(() => URL.revokeObjectURL(url), 2000);
-            } catch (error) {
-              console.error('Safari PDF download error:', error);
-              // Final fallback: try standard download
+              // Create a download link and trigger it immediately
               const a = document.createElement('a');
               a.href = url;
               a.download = `brief-${formType}-${leadData.name.replace(/\s+/g, '-')}.pdf`;
+              a.style.display = 'none';
+              
+              // Add to DOM, click, and remove
               document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
-              URL.revokeObjectURL(url);
+              
+              // Ensure the click happens after a small delay for Safari
+              setTimeout(() => {
+                a.click();
+                document.body.removeChild(a);
+                
+                // Try window.open as backup if download didn't work
+                setTimeout(() => {
+                  try {
+                    const newWindow = window.open(url, '_blank');
+                    if (newWindow) {
+                      newWindow.focus();
+                    }
+                  } catch (e) {
+                    console.warn('Backup window.open failed:', e);
+                  }
+                }, 100);
+                
+                // Clean up the blob URL after delay
+                setTimeout(() => URL.revokeObjectURL(url), 3000);
+              }, 50);
+              
+              setActionStatus({ type: action, status: 'success' });
+            } catch (error) {
+              console.error('Safari PDF download error:', error);
+              // Final fallback: navigate to the blob URL
+              try {
+                window.location.href = url;
+              } catch (e) {
+                console.error('All download methods failed:', e);
+                throw new Error('Download failed on this device');
+              }
               setActionStatus({ type: action, status: 'success' });
             }
           } else {

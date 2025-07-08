@@ -1866,43 +1866,54 @@ function LeadCaptureForm({ action, formType, onClose }: LeadCaptureFormProps) {
           const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
           
           if (isIOSSafari || (isSafari && /Mobi|Android/i.test(navigator.userAgent))) {
-            // For Safari mobile, try multiple approaches
+            // For Safari mobile, use simpler approach
             try {
-              // First try: open in new window
-              const printWindow = window.open(url, '_blank', 'noopener,noreferrer');
+              // Create a download link for the HTML content
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `estimate-${formType}-${Date.now()}.html`;
+              a.style.display = 'none';
               
-              if (!printWindow || printWindow.closed || typeof printWindow.closed == 'undefined') {
-                // If popup was blocked, try alternative approach
-                // Create a temporary anchor element for download
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `estimate-${formType}-${Date.now()}.html`;
-                a.target = '_blank';
-                a.rel = 'noopener noreferrer';
-                
-                document.body.appendChild(a);
+              // Add to DOM, click, and remove
+              document.body.appendChild(a);
+              
+              // Trigger download after small delay
+              setTimeout(() => {
                 a.click();
                 document.body.removeChild(a);
-              } else {
-                printWindow.focus();
-                // Trigger print dialog after content loads
+                
+                // Try to open in new window as backup
                 setTimeout(() => {
                   try {
-                    printWindow.print();
+                    const printWindow = window.open(url, '_blank');
+                    if (printWindow) {
+                      printWindow.focus();
+                      // Try to trigger print after content loads
+                      setTimeout(() => {
+                        try {
+                          printWindow.print();
+                        } catch (e) {
+                          console.warn('Print failed:', e);
+                        }
+                      }, 1000);
+                    }
                   } catch (e) {
-                    console.warn('Print failed:', e);
+                    console.warn('Backup window.open failed:', e);
                   }
-                }, 500);
-              }
-              
-              // Clean up the blob URL after delay
-              setTimeout(() => {
-                URL.revokeObjectURL(url);
-              }, 2000);
+                }, 100);
+                
+                // Clean up the blob URL after delay
+                setTimeout(() => URL.revokeObjectURL(url), 3000);
+              }, 50);
             } catch (error) {
               console.error('Safari PDF generation error:', error);
-              // Final fallback - just open the URL
-              window.location.href = url;
+              // Final fallback - navigate to the URL
+              try {
+                window.location.href = url;
+              } catch (e) {
+                console.error('All methods failed:', e);
+                throw new Error('Download failed on this device');
+              }
             }
           } else {
             // For other browsers, use standard approach
@@ -1974,6 +1985,18 @@ function LeadCaptureForm({ action, formType, onClose }: LeadCaptureFormProps) {
         }
 
       } else if (action === 'discuss') {
+        // Validate estimateData before sending
+        console.log('Estimate data being sent:', estimateData);
+        console.log('Lead data being sent:', leadData);
+        
+        if (!estimateData.total || estimateData.total === 0) {
+          throw new Error('Please select your project requirements first to get an estimate.');
+        }
+        
+        if (!leadData.name || !leadData.email) {
+          throw new Error('Please fill in your name and email address.');
+        }
+        
         // For "discuss", send consultation request email with estimate data
         const consultationResponse = await fetch('/api/send-consultation-request', {
           method: 'POST',

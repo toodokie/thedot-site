@@ -12,7 +12,6 @@ export const metadata: Metadata = {
   keywords: "web design agency GTA, website design Ontario, professional web development Toronto, custom website design Canada, international design standards",
   icons: {
     icon: [
-      { url: '/favicon.ico', sizes: 'any', type: 'image/x-icon' },
       { url: '/favicon.png', sizes: '32x32', type: 'image/png' },
       { url: '/favicon.png', sizes: '16x16', type: 'image/png' },
       { url: '/favicon.png', sizes: '48x48', type: 'image/png' },
@@ -25,7 +24,7 @@ export const metadata: Metadata = {
       { url: '/apple-touch-icon.png', sizes: '120x120', type: 'image/png' },
       { url: '/apple-touch-icon.png', sizes: '76x76', type: 'image/png' },
     ],
-    shortcut: '/favicon.ico',
+    shortcut: '/favicon.png',
     other: [
       {
         rel: 'mask-icon',
@@ -189,9 +188,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://use.typekit.net/gac6jnd.css"
         />
         
+        {/* Favicon - explicit declarations for Safari */}
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon.png" />
+        <link rel="icon" type="image/png" sizes="48x48" href="/favicon.png" />
+        <link rel="shortcut icon" href="/favicon.png" />
+        
+        {/* Apple Touch Icons */}
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" sizes="76x76" href="/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        
         {/* Mobile optimization */}
         <meta name="theme-color" content="#daff00" />
         <meta name="msapplication-TileColor" content="#daff00" />
+        <meta name="msapplication-TileImage" content="/favicon.png" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
