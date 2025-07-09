@@ -3,7 +3,6 @@ export default function WelcomeSection() {
       <>
         <section style={{ 
           background: '#faf9f6', 
-          padding: '6rem 0',
           boxSizing: 'border-box',
           overflow: 'hidden'
         }}>
@@ -74,7 +73,7 @@ export default function WelcomeSection() {
         
         @media (max-width: 768px) {
           section {
-            padding: 3rem 0;
+            padding: 2rem 0;
           }
         }
       `}</style>
