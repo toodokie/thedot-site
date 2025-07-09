@@ -1,11 +1,12 @@
 export default function WelcomeSection() {
     return (
-      <section style={{ 
-        background: '#faf9f6', 
-        padding: '6rem 0',
-        boxSizing: 'border-box',
-        overflow: 'hidden'
-      }}>
+      <>
+        <section style={{ 
+          background: '#faf9f6', 
+          padding: '6rem 0',
+          boxSizing: 'border-box',
+          overflow: 'hidden'
+        }}>
         <div style={{ 
           maxWidth: '120rem',
           margin: '0 auto',
@@ -59,5 +60,24 @@ export default function WelcomeSection() {
           </div>
         </div>
       </section>
+      
+      <style jsx>{`
+        section {
+          padding: 6rem 0;
+        }
+        
+        @media (max-width: 999px) {
+          section {
+            padding: 4rem 0;
+          }
+        }
+        
+        @media (max-width: 768px) {
+          section {
+            padding: 3rem 0;
+          }
+        }
+      `}</style>
+      </>
     );
   }

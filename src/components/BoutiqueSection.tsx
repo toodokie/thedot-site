@@ -213,6 +213,12 @@ export default function BoutiqueSection() {
           width: 100%;
           overflow: hidden;
         }
+        
+        @media (max-width: 999px) {
+          .boutique-section {
+            padding: 4rem 0;
+          }
+        }
 
         .boutique-header {
           max-width: 120rem;
@@ -377,6 +383,10 @@ export default function BoutiqueSection() {
         }
 
         @media (max-width: 768px) {
+          .boutique-section {
+            padding: 3rem 0;
+          }
+          
           .capability-item {
             flex-direction: column;
             gap: 1rem;

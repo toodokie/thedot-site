@@ -7,6 +7,7 @@ import { Project, ProjectMedia } from '@/types/project';
 import { trackPortfolio, trackNavigation } from '@/lib/analytics';
 import { notionImageLoader } from '@/lib/imageLoader';
 import { generateBlurDataURL } from '@/lib/imageOptimization';
+import ImageWithSkeleton from './ImageWithSkeleton';
 
 // Video Player Component for Vimeo
 function VideoPlayer({ videoUrl }: { videoUrl: string }) {
@@ -423,12 +424,13 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
                   justifyContent: 'center'
                 }}
               >
-                <Image
+                <ImageWithSkeleton
                   src={project.heroImage || project.images[0]}
                   alt={project.title}
                   fill
                   style={{ objectFit: 'cover' }}
                   priority
+                  brandColor={project.brandColors?.primary || '#faf9f6'}
                 />
                 <button style={{
                   position: 'absolute',
@@ -454,15 +456,13 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
                 <source src={project.heroVideo} type="video/mp4" />
               </video>
             ) : (
-              <Image
+              <ImageWithSkeleton
                 src={project.heroImage || project.images[0]}
                 alt={project.title}
                 fill
                 style={{ objectFit: 'cover' }}
                 priority
-                placeholder="blur"
-                blurDataURL={generateBlurDataURL(project.brandColors?.background || '#faf9f6')}
-                loader={notionImageLoader}
+                brandColor={project.brandColors?.background || '#faf9f6'}
               />
             )}
           </div>
@@ -600,7 +600,7 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
           if (typeof item === 'string') {
             return (
               <div key={index} style={{ width: '100%' }}>
-                <Image
+                <ImageWithSkeleton
                   src={item}
                   alt={`${project.title} - Image ${index + 1}`}
                   width={1200}
@@ -608,15 +608,13 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
                   style={{ width: '100%', height: 'auto', display: 'block' }}
                   priority={index < 2}
                   loading={index < 2 ? 'eager' : 'lazy'}
-                  placeholder="blur"
-                  blurDataURL={generateBlurDataURL(project.brandColors?.primary || '#faf9f6')}
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 100vw, 1200px"
-                  loader={notionImageLoader}
+                  brandColor={project.brandColors?.primary || '#faf9f6'}
                 />
               </div>
             );
           } else {
-            return <MediaItem key={index} media={item} index={index} />;
+            return <MediaItem key={index} media={item} index={index} brandColor={project.brandColors?.primary || '#faf9f6'} />;
           }
         })}
         
@@ -740,7 +738,7 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
 }
 
 // Keep your existing MediaItem Component
-function MediaItem({ media, index = 0 }: { media: ProjectMedia; index?: number }) {
+function MediaItem({ media, index = 0, brandColor = '#faf9f6' }: { media: ProjectMedia; index?: number; brandColor?: string }) {
   if (media.type === 'video') {
     return (
       <div style={{ width: '100%' }}>
@@ -764,7 +762,7 @@ function MediaItem({ media, index = 0 }: { media: ProjectMedia; index?: number }
 
   return (
     <div style={{ width: '100%' }}>
-      <Image
+      <ImageWithSkeleton
         src={media.src}
         alt={media.alt || ''}
         width={1200}
@@ -772,9 +770,7 @@ function MediaItem({ media, index = 0 }: { media: ProjectMedia; index?: number }
         style={{ width: '100%', height: 'auto', display: 'block' }}
         priority={index < 2}
         loading={index < 2 ? 'eager' : 'lazy'}
-        placeholder="blur"
-        blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+Rq5uoebsVaRSM8k8cVzGWUWB3bRsIUHqc/nIq5Nn8UtWNEtIg0LGZRRNt7eMIpYgdDnB4q6gCKG8tOY+q7Nm+sTcNXZdVWkUUMXdJNtZAVDKcczAg5B9COvmrx+Q=="
-        loader={notionImageLoader}
+        brandColor={brandColor}
       />
       {media.caption && (
         <p style={{

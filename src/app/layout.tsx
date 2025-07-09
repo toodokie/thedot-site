@@ -12,23 +12,24 @@ export const metadata: Metadata = {
   keywords: "web design agency GTA, website design Ontario, professional web development Toronto, custom website design Canada, international design standards",
   icons: {
     icon: [
-      { url: '/favicon.png', sizes: '32x32', type: 'image/png' },
-      { url: '/favicon.png', sizes: '16x16', type: 'image/png' },
-      { url: '/favicon.png', sizes: '48x48', type: 'image/png' },
-      { url: '/favicon.png', sizes: '192x192', type: 'image/png' },
-      { url: '/favicon.png', sizes: '256x256', type: 'image/png' },
+      { url: '/favicon.ico', type: 'image/x-icon' },
+      { url: '/favicon.png?v=2', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon.png?v=2', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon.png?v=2', sizes: '48x48', type: 'image/png' },
+      { url: '/favicon.png?v=2', sizes: '192x192', type: 'image/png' },
+      { url: '/favicon.png?v=2', sizes: '256x256', type: 'image/png' },
     ],
     apple: [
-      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
-      { url: '/apple-touch-icon.png', sizes: '152x152', type: 'image/png' },
-      { url: '/apple-touch-icon.png', sizes: '120x120', type: 'image/png' },
-      { url: '/apple-touch-icon.png', sizes: '76x76', type: 'image/png' },
+      { url: '/apple-touch-icon.png?v=2', sizes: '180x180', type: 'image/png' },
+      { url: '/apple-touch-icon.png?v=2', sizes: '152x152', type: 'image/png' },
+      { url: '/apple-touch-icon.png?v=2', sizes: '120x120', type: 'image/png' },
+      { url: '/apple-touch-icon.png?v=2', sizes: '76x76', type: 'image/png' },
     ],
-    shortcut: '/favicon.png',
+    shortcut: '/favicon.ico?v=2',
     other: [
       {
         rel: 'mask-icon',
-        url: '/favicon.png',
+        url: '/favicon.png?v=2',
         color: '#daff00',
       },
     ],
@@ -188,23 +189,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://use.typekit.net/gac6jnd.css"
         />
         
-        {/* Favicon - explicit declarations for Safari */}
-        <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon.png" />
-        <link rel="icon" type="image/png" sizes="48x48" href="/favicon.png" />
-        <link rel="shortcut icon" href="/favicon.png" />
+        {/* Favicon - explicit declarations for Safari with cache busting */}
+        <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2" />
+        <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=2" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png?v=2" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon.png?v=2" />
+        <link rel="icon" type="image/png" sizes="48x48" href="/favicon.png?v=2" />
         
-        {/* Apple Touch Icons */}
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-        <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon.png" />
-        <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon.png" />
-        <link rel="apple-touch-icon" sizes="76x76" href="/apple-touch-icon.png" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        {/* Apple Touch Icons with cache busting */}
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2" />
+        <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon.png?v=2" />
+        <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon.png?v=2" />
+        <link rel="apple-touch-icon" sizes="76x76" href="/apple-touch-icon.png?v=2" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" />
         
         {/* Mobile optimization */}
         <meta name="theme-color" content="#daff00" />
         <meta name="msapplication-TileColor" content="#daff00" />
-        <meta name="msapplication-TileImage" content="/favicon.png" />
+        <meta name="msapplication-TileImage" content="/favicon.png?v=2" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
