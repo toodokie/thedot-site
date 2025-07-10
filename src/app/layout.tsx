@@ -12,24 +12,24 @@ export const metadata: Metadata = {
   keywords: "web design agency GTA, website design Ontario, professional web development Toronto, custom website design Canada, international design standards",
   icons: {
     icon: [
-      { url: '/favicon.ico?v=3', type: 'image/x-icon' },
-      { url: '/favicon.png?v=3', sizes: '32x32', type: 'image/png' },
-      { url: '/favicon.png?v=3', sizes: '16x16', type: 'image/png' },
-      { url: '/favicon.png?v=3', sizes: '48x48', type: 'image/png' },
-      { url: '/favicon.png?v=3', sizes: '192x192', type: 'image/png' },
-      { url: '/favicon.png?v=3', sizes: '256x256', type: 'image/png' },
+      { url: '/favicon.ico?v=5', type: 'image/x-icon' },
+      { url: '/favicon.png?v=5', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon.png?v=5', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon.png?v=5', sizes: '48x48', type: 'image/png' },
+      { url: '/favicon.png?v=5', sizes: '192x192', type: 'image/png' },
+      { url: '/favicon.png?v=5', sizes: '256x256', type: 'image/png' },
     ],
     apple: [
-      { url: '/apple-touch-icon.png?v=3', sizes: '180x180', type: 'image/png' },
-      { url: '/apple-touch-icon.png?v=3', sizes: '152x152', type: 'image/png' },
-      { url: '/apple-touch-icon.png?v=3', sizes: '120x120', type: 'image/png' },
-      { url: '/apple-touch-icon.png?v=3', sizes: '76x76', type: 'image/png' },
+      { url: '/apple-touch-icon.png?v=5', sizes: '180x180', type: 'image/png' },
+      { url: '/apple-touch-icon.png?v=5', sizes: '152x152', type: 'image/png' },
+      { url: '/apple-touch-icon.png?v=5', sizes: '120x120', type: 'image/png' },
+      { url: '/apple-touch-icon.png?v=5', sizes: '76x76', type: 'image/png' },
     ],
-    shortcut: '/favicon.ico?v=3',
+    shortcut: '/favicon.ico?v=5',
     other: [
       {
         rel: 'mask-icon',
-        url: '/favicon.png?v=3',
+        url: '/favicon.png?v=5',
         color: '#daff00',
       },
     ],
@@ -171,6 +171,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
+        {/* FAVICON FIRST - Safari prefers early favicon declarations */}
+        <link rel="icon" href="/favicon.ico?v=5&t={Date.now()}" />
+        <link rel="shortcut icon" href="/favicon.ico?v=5&t={Date.now()}" />
+        <link rel="icon" type="image/x-icon" href="/favicon.ico?v=5&t={Date.now()}" />
+        <link rel="icon" type="image/vnd.microsoft.icon" href="/favicon.ico?v=5&t={Date.now()}" />
+        <meta name="msapplication-config" content="none" />
+        
         {/* Performance optimizations - preconnect to external domains */}
         <link rel="preconnect" href="https://fonts.adobe.com" />
         <link rel="preconnect" href="https://use.typekit.net" crossOrigin="anonymous" />
@@ -189,24 +196,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://use.typekit.net/gac6jnd.css"
         />
         
-        {/* Favicon - explicit declarations for Safari with cache busting */}
-        <link rel="icon" type="image/x-icon" href="/favicon.ico?v=3" />
-        <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=3" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png?v=3" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon.png?v=3" />
-        <link rel="icon" type="image/png" sizes="48x48" href="/favicon.png?v=3" />
+        {/* Additional favicon sizes */}
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png?v=5&t={Date.now()}" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon.png?v=5&t={Date.now()}" />
+        <link rel="icon" type="image/png" sizes="48x48" href="/favicon.png?v=5&t={Date.now()}" />
+        <link rel="icon" type="image/png" sizes="96x96" href="/favicon.png?v=5&t={Date.now()}" />
+        <link rel="icon" type="image/png" sizes="256x256" href="/favicon.png?v=5&t={Date.now()}" />
         
         {/* Apple Touch Icons with cache busting */}
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=3" />
-        <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon.png?v=3" />
-        <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon.png?v=3" />
-        <link rel="apple-touch-icon" sizes="76x76" href="/apple-touch-icon.png?v=3" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=5&t={Date.now()}" />
+        <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon.png?v=5&t={Date.now()}" />
+        <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon.png?v=5&t={Date.now()}" />
+        <link rel="apple-touch-icon" sizes="76x76" href="/apple-touch-icon.png?v=5&t={Date.now()}" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=5&t={Date.now()}" />
         
         {/* Mobile optimization */}
         <meta name="theme-color" content="#daff00" />
         <meta name="msapplication-TileColor" content="#daff00" />
-        <meta name="msapplication-TileImage" content="/favicon.png?v=3" />
+        <meta name="msapplication-TileImage" content="/favicon.png?v=5&t={Date.now()}" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />

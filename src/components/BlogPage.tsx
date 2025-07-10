@@ -814,10 +814,10 @@ export default function BlogPage() {
             <Link 
               href="/contacts" 
               className="dot-bottom-link hero animate-on-scroll"
-              onClick={() => trackNavigation.ctaClick('Website Performance Review', 'Blog Page', '/contacts')}
+              onClick={() => trackNavigation.ctaClick('Brand Performance Audit', 'Blog Page', '/contacts')}
             >
-              Request Website<br />Performance Review<br />
-              <span className="small-bottom-link-text-eng">Get the same detailed website audit we charge <strong style={{fontWeight: 700}}>$300</strong> for — complimentary for qualified <strong style={{fontWeight: 700}}>GTA businesses</strong>. We&apos;ll pinpoint exactly what&apos;s driving customers away and show you how to fix it during a brief consultation call.</span>
+              REQUEST BRAND<br />PERFORMANCE AUDIT<br />
+              <span className="small-bottom-link-text-eng">Find out why your marketing isn't converting. This strategic brand audit (valued at <strong style={{fontWeight: 700}}>$300</strong>, complimentary for qualified <strong style={{fontWeight: 700}}>GTA businesses</strong>) uncovers the missing emotional connections that turn one-time buyers into lifetime advocates. Brief consultation included.</span>
             </Link>
           </div>
         </section>
