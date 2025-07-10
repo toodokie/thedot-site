@@ -338,7 +338,8 @@ export default function ServicesSection() {
           
           @media (max-width: 768px) {
             .services-section {
-              padding: 3rem 0;
+              padding: 4rem 0;
+              margin-top: 2rem; /* Extra margin to prevent overlap */
             }
           }
           

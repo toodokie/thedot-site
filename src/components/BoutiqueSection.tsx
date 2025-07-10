@@ -387,8 +387,7 @@ export default function BoutiqueSection() {
 
         @media (max-width: 768px) {
           .boutique-section {
-            padding: 2rem 0;
-            margin-bottom: 2rem; /* Add extra space before Services section */
+            padding: 2rem 0 6rem 0; /* Increase bottom padding to create buffer */
           }
           
           .capability-item {
