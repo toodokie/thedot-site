@@ -232,6 +232,8 @@ export default function BoutiqueSection() {
         .boutique-process {
           width: 100%;
           padding: 0 2rem;
+          overflow: hidden; /* Contain any overflowing content */
+          position: relative;
         }
 
         .capabilities-container {
@@ -402,17 +404,18 @@ export default function BoutiqueSection() {
           }
 
           .flip-container {
-            width: clamp(160px, 40vw, 200px);
-            height: clamp(160px, 40vw, 200px);
+            width: clamp(140px, 35vw, 180px);
+            height: clamp(140px, 35vw, 180px);
           }
 
           .capabilities-container {
             display: grid;
             grid-template-columns: 1fr 1fr;
             grid-template-rows: 1fr 1fr;
-            gap: 2rem;
+            gap: 1.5rem;
             max-width: 100%;
             justify-items: center;
+            padding-bottom: 2rem; /* Extra padding at bottom */
           }
 
           .mobile-description {
