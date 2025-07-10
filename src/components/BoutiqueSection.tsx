@@ -255,8 +255,7 @@ export default function BoutiqueSection() {
           height: clamp(160px, 15vw, 220px);
           perspective: 1000px;
           position: relative;
-          overflow: hidden; /* Contain the circular text within bounds */
-          border-radius: 50%; /* Match the circle shape */
+          overflow: visible;
         }
 
         .capability-circle {
