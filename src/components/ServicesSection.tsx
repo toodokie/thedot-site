@@ -165,8 +165,9 @@ export default function ServicesSection() {
         className="services-section"
         style={{ 
           background: '#faf9f6', 
-          padding: '8rem 0',
-          boxSizing: 'border-box'
+          boxSizing: 'border-box',
+          position: 'relative',
+          zIndex: 50
         }}
       >
         <div style={{ 
@@ -325,6 +326,22 @@ export default function ServicesSection() {
         </div>
         
         <style jsx>{`
+          .services-section {
+            padding: 8rem 0;
+          }
+          
+          @media (max-width: 999px) {
+            .services-section {
+              padding: 4rem 0;
+            }
+          }
+          
+          @media (max-width: 768px) {
+            .services-section {
+              padding: 3rem 0;
+            }
+          }
+          
           .section-title {
             font-family: 'futura-pt', sans-serif;
             font-size: clamp(2.5rem, 6vw, 4rem);

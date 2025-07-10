@@ -212,6 +212,8 @@ export default function BoutiqueSection() {
           padding: 8rem 0;
           width: 100%;
           overflow: hidden;
+          position: relative;
+          z-index: 1;
         }
         
         @media (max-width: 999px) {
