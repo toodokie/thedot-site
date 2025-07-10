@@ -59,7 +59,24 @@ export default function BlogPage() {
       const response = await fetch('/api/blog');
       if (response.ok) {
         const data = await response.json();
-        setPosts(data.posts || []);
+        let posts = data.posts || [];
+        
+        // Override featured image for the emotional brand strategy post
+        posts = posts.map((post: BlogPost) => {
+          if (post.featured && (
+            post.slug.includes('emotional-brand') || 
+            post.title.includes('emotional brand') ||
+            post.title.toLowerCase().includes('emotional brand strategy')
+          )) {
+            return {
+              ...post,
+              featuredImage: '/images/blog/emotional-brand-strategy-306-percent-lifetime-value-ontario-business/emotional-brand-800x600 px.webp'
+            };
+          }
+          return post;
+        });
+        
+        setPosts(posts);
       }
     } catch (error) {
       console.error('Error fetching posts:', error);
