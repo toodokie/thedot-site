@@ -447,7 +447,7 @@ export default function BlogPage() {
         
         .featured-image {
           width: 100%;
-          height: 300px;
+          aspect-ratio: 4/3;
           background: #f5f5f5;
           border: 1px solid #e0e0e0;
           display: flex;
@@ -455,6 +455,8 @@ export default function BlogPage() {
           justify-content: center;
           color: #999;
           font-style: italic;
+          overflow: hidden;
+          border-radius: 8px;
         }
         
         .posts-grid {
