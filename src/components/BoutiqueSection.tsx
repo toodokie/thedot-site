@@ -255,7 +255,8 @@ export default function BoutiqueSection() {
           height: clamp(160px, 15vw, 220px);
           perspective: 1000px;
           position: relative;
-          overflow: visible;
+          overflow: hidden; /* Contain the circular text within bounds */
+          border-radius: 50%; /* Match the circle shape */
         }
 
         .capability-circle {
@@ -387,6 +388,7 @@ export default function BoutiqueSection() {
         @media (max-width: 768px) {
           .boutique-section {
             padding: 2rem 0;
+            margin-bottom: 2rem; /* Add extra space before Services section */
           }
           
           .capability-item {
