@@ -55,13 +55,11 @@ export default function Hero() {
             
             {/* Services List - Mobile */}
             <div className="services-list mobile-services animate-on-scroll">
-              <span>LOGOS</span>
+              <span>BRANDS THAT ATTRACT</span>
               <div className="service-divider"></div>
-              <span>PHOTO & VIDEO</span>
+              <span>WEBSITES THAT CONVERT</span>
               <div className="service-divider"></div>
-              <span>WEBSITES</span>
-              <div className="service-divider"></div>
-              <span>and MORE</span>
+              <span>SYSTEMS THAT GROW</span>
             </div>
           </div>
         </section>
