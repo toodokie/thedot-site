@@ -491,7 +491,6 @@ export default function BlogPage() {
           padding: 40px;
           transition: all 0.3s ease;
           color: inherit;
-          height: 100%;
           display: flex;
           flex-direction: column;
         }
