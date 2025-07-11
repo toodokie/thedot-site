@@ -895,7 +895,7 @@ h4 {
 /* Responsive adjustments for explicit width */
 @media (min-width: 1000px) and (max-width: 1239px) {
   :root {
-    --hero-title-width: 29.5rem;
+    --hero-title-width: 34rem;
   }
 }
 
