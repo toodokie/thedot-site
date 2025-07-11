@@ -452,7 +452,6 @@ export default function BlogPage() {
           font-weight: 500;
           transition: all 0.3s ease;
           display: inline-block;
-          margin-top: auto;
           text-align: left;
           cursor: pointer;
         }
@@ -546,7 +545,6 @@ export default function BlogPage() {
           color: #555;
           line-height: 1.6;
           margin-bottom: 20px;
-          flex-grow: 1;
         }
         
         .post-category {
