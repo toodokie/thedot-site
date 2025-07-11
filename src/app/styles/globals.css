@@ -1117,7 +1117,7 @@ h4 {
 /* MOBILE (999px and down) */
 @media (max-width: 999px) {
   section h2 {
-    font-size: 1.125rem !important;
+    font-size: 1.8rem !important;
     line-height: 1.35 !important;
   }
   
