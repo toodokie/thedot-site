@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import Footer from './Footer';
 import { trackContent, trackNavigation } from '@/lib/analytics';
@@ -373,6 +374,7 @@ export default function BlogPage() {
         
         .featured-section {
           margin-bottom: 80px;
+          min-height: 400px; /* Reserve space to prevent layout shifts */
         }
         
         .featured-post {
@@ -481,6 +483,7 @@ export default function BlogPage() {
           grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
           gap: 40px;
           margin-bottom: 80px;
+          min-height: 600px; /* Reserve space to prevent layout shifts */
         }
         
         .post-card {
@@ -620,6 +623,107 @@ export default function BlogPage() {
           opacity: 1;
           transform: translateY(0);
         }
+
+        /* Skeleton Loading Styles */
+        .skeleton-title {
+          height: 2.5rem;
+          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+          background-size: 200% 100%;
+          animation: skeleton-loading 1.5s infinite;
+          border-radius: 4px;
+          margin-bottom: 15px;
+          width: 85%;
+        }
+
+        .skeleton-meta {
+          height: 1rem;
+          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+          background-size: 200% 100%;
+          animation: skeleton-loading 1.5s infinite;
+          border-radius: 4px;
+          margin-bottom: 20px;
+          width: 60%;
+        }
+
+        .skeleton-excerpt {
+          height: 1rem;
+          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+          background-size: 200% 100%;
+          animation: skeleton-loading 1.5s infinite;
+          border-radius: 4px;
+          margin-bottom: 10px;
+          width: 100%;
+        }
+
+        .skeleton-excerpt::after {
+          content: '';
+          display: block;
+          height: 1rem;
+          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+          background-size: 200% 100%;
+          animation: skeleton-loading 1.5s infinite;
+          border-radius: 4px;
+          margin-top: 8px;
+          width: 70%;
+        }
+
+        .skeleton-button {
+          height: 1.2rem;
+          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+          background-size: 200% 100%;
+          animation: skeleton-loading 1.5s infinite;
+          border-radius: 4px;
+          margin-top: 20px;
+          width: 40%;
+        }
+
+        .skeleton-category {
+          height: 1.2rem;
+          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+          background-size: 200% 100%;
+          animation: skeleton-loading 1.5s infinite;
+          border-radius: 4px;
+          margin-bottom: 15px;
+          width: 30%;
+        }
+
+        .skeleton-image {
+          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+          background-size: 200% 100%;
+          animation: skeleton-loading 1.5s infinite;
+          border-radius: 8px;
+        }
+
+        .skeleton-placeholder {
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+          background-size: 200% 100%;
+          animation: skeleton-loading 1.5s infinite;
+          border-radius: 8px;
+        }
+
+        @keyframes skeleton-loading {
+          0% {
+            background-position: 200% 0;
+          }
+          100% {
+            background-position: -200% 0;
+          }
+        }
+
+        .post-skeleton {
+          pointer-events: none;
+        }
+
+        .featured-skeleton {
+          pointer-events: none;
+        }
+
+        /* Font loading optimization */
+        * {
+          font-display: swap;
+        }
         
         @media (max-width: 768px) {
           .blog-title {
@@ -757,7 +861,21 @@ export default function BlogPage() {
           </div>
 
           {/* Featured Post */}
-          {featuredPost && (
+          {posts.length === 0 ? (
+            <section className="featured-section">
+              <article className="featured-post featured-skeleton">
+                <div className="featured-content">
+                  <div className="skeleton-title"></div>
+                  <div className="skeleton-meta"></div>
+                  <div className="skeleton-excerpt"></div>
+                  <div className="skeleton-button"></div>
+                </div>
+                <div className="featured-image skeleton-image">
+                  <div className="skeleton-placeholder"></div>
+                </div>
+              </article>
+            </section>
+          ) : featuredPost && (
             <section className="featured-section">
               <article className="featured-post">
                 <div className="featured-content">
@@ -780,15 +898,20 @@ export default function BlogPage() {
                 </div>
                 <div className="featured-image">
                   {featuredPost.featuredImage ? (
-                    <img 
-                      src={featuredPost.featuredImage} 
+                    <Image
+                      src={featuredPost.featuredImage}
                       alt={featuredPost.title}
+                      width={800}
+                      height={600}
+                      priority
                       style={{
                         width: '100%',
                         height: '100%',
                         objectFit: 'cover',
                         borderRadius: '8px'
                       }}
+                      placeholder="blur"
+                      blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
                     />
                   ) : (
                     <span>[Featured Article Image]</span>
@@ -800,30 +923,43 @@ export default function BlogPage() {
 
           {/* Posts Grid */}
           <section className="posts-grid">
-            {filteredPosts.filter(post => !post.featured).map(post => (
-              <Link 
-                key={post.slug}
-                href={`/blog/${post.slug}`}
-                onClick={() => {
-                  trackContent.blogPostView(post.slug, post.title, post.category);
-                }}
-                style={{ textDecoration: 'none', color: 'inherit' }}
-              >
-                <article className="post-card">
-                  <div className="post-category">{post.category}</div>
-                  <h3>{post.title}</h3>
-                  <div className="post-meta">
-                    <span>{post.date}</span>
-                    <span>•</span>
-                    <span>{post.readTime} min read</span>
-                  </div>
-                  <p className="post-excerpt">{post.excerpt}</p>
-                  <div className="read-more-btn">
-                    Read Full Article
-                  </div>
+            {posts.length === 0 ? (
+              // Skeleton loading for posts grid
+              Array.from({ length: 6 }).map((_, index) => (
+                <article key={index} className="post-card post-skeleton">
+                  <div className="skeleton-category"></div>
+                  <div className="skeleton-title"></div>
+                  <div className="skeleton-meta"></div>
+                  <div className="skeleton-excerpt"></div>
+                  <div className="skeleton-button"></div>
                 </article>
-              </Link>
-            ))}
+              ))
+            ) : (
+              filteredPosts.filter(post => !post.featured).map(post => (
+                <Link 
+                  key={post.slug}
+                  href={`/blog/${post.slug}`}
+                  onClick={() => {
+                    trackContent.blogPostView(post.slug, post.title, post.category);
+                  }}
+                  style={{ textDecoration: 'none', color: 'inherit' }}
+                >
+                  <article className="post-card">
+                    <div className="post-category">{post.category}</div>
+                    <h3>{post.title}</h3>
+                    <div className="post-meta">
+                      <span>{post.date}</span>
+                      <span>•</span>
+                      <span>{post.readTime} min read</span>
+                    </div>
+                    <p className="post-excerpt">{post.excerpt}</p>
+                    <div className="read-more-btn">
+                      Read Full Article
+                    </div>
+                  </article>
+                </Link>
+              ))
+            )}
           </section>
         </div>
 

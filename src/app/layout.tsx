@@ -190,11 +190,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="preload"
           href="https://use.typekit.net/gac6jnd.css"
           as="style"
+          onLoad="this.onload=null;this.rel='stylesheet'"
         />
         <link
           rel="stylesheet"
           href="https://use.typekit.net/gac6jnd.css"
+          media="print"
+          onLoad="this.media='all'"
         />
+        <noscript>
+          <link rel="stylesheet" href="https://use.typekit.net/gac6jnd.css" />
+        </noscript>
         
         {/* Additional favicon sizes */}
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png?v=5&t={Date.now()}" />
