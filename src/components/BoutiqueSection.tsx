@@ -198,6 +198,8 @@ export default function BoutiqueSection() {
                     height={56}
                     alt=""
                     className="arrow-image"
+                    fetchPriority="low"
+                    loading="lazy"
                   />
                 </div>
               )}

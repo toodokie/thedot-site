@@ -190,7 +190,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://www.google-analytics.com" />
         <link rel="dns-prefetch" href="https://prod-files-secure.s3.us-west-2.amazonaws.com" />
         
-        {/* Adobe Fonts - Best loading strategy */}
+        {/* LCP Optimization - preload critical resources */}
+        <link rel="preload" href="/video/hero-video.mp4" as="video" type="video/mp4" />
+        <link rel="preload" href="/images/line.png" as="image" />
+        
+        {/* Adobe Fonts - Optimized for CLS prevention */}
         <link
           rel="preload"
           href="https://use.typekit.net/gac6jnd.css"
@@ -200,6 +204,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link
           rel="stylesheet"
           href="https://use.typekit.net/gac6jnd.css"
+          media="print"
+          onLoad="this.media='all'"
         />
         <noscript>
           <link rel="stylesheet" href="https://use.typekit.net/gac6jnd.css" />

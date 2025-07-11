@@ -23,15 +23,30 @@ export default function Hero() {
                 </div>
               </div>
               
-              {/* Circular Video - Optimized for LCP */}
-              <div className="hero-video-circle animate-on-scroll">
+              {/* Circular Video - Optimized for LCP and CLS */}
+              <div 
+                className="hero-video-circle animate-on-scroll"
+                style={{
+                  width: '300px',
+                  height: '300px',
+                  aspectRatio: '1 / 1',
+                  overflow: 'hidden'
+                }}
+              >
                 <video 
                   autoPlay 
                   loop 
                   muted 
                   playsInline
-                  preload="auto"
+                  preload="metadata"
                   className="circle-video"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover'
+                  }}
+                  width="300"
+                  height="300"
                 >
                   <source src="/video/hero-video.mp4" type="video/mp4" />
                 </video>
@@ -62,17 +77,32 @@ export default function Hero() {
               height={7} 
               className="line-image" 
               style={{ width: '100%', height: 'auto' }}
+              priority
+              fetchPriority="high"
             />
           </div>
           
           {/* Full-Width Video */}
-          <div className="hero-video-section animate-on-scroll">
+          <div 
+            className="hero-video-section animate-on-scroll"
+            style={{
+              width: '100%',
+              aspectRatio: '16 / 9',
+              overflow: 'hidden'
+            }}
+          >
             <video 
               autoPlay 
               loop 
               muted 
               playsInline
+              preload="metadata"
               className="hero-video"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover'
+              }}
             >
               <source src="/video/hero-video.mp4" type="video/mp4" />
             </video>
@@ -87,6 +117,7 @@ export default function Hero() {
               height={7} 
               className="line-image" 
               style={{ width: '100%', height: 'auto' }}
+              fetchPriority="low"
             />
           </div>
         </section>
