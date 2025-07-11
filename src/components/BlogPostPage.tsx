@@ -33,8 +33,13 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
   useEffect(() => {
     const fetchRelatedAndNextPosts = async () => {
       try {
-        // Fetch all posts to find next article
-        const allPostsResponse = await fetch('/api/blog');
+        // Parallelize API calls for better performance
+        const [allPostsResponse, relatedPostsResponse] = await Promise.all([
+          fetch('/api/blog'),
+          fetch(`/api/blog?category=${post.category}`)
+        ]);
+
+        // Process all posts for next article
         if (allPostsResponse.ok) {
           const allData = await allPostsResponse.json();
           const allPosts = allData.posts;
@@ -51,10 +56,9 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
           }
         }
 
-        // Fetch related posts by category
-        const response = await fetch(`/api/blog?category=${post.category}`);
-        if (response.ok) {
-          const data = await response.json();
+        // Process related posts by category
+        if (relatedPostsResponse.ok) {
+          const data = await relatedPostsResponse.json();
           // Filter out current post and limit to 3 related posts
           const related = data.posts.filter((p: BlogPost) => p.id !== post.id).slice(0, 3);
           setRelatedPosts(related);

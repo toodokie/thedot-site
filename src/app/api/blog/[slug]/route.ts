@@ -149,7 +149,15 @@ export async function GET(
       lastEditedTime: page.last_edited_time
     };
 
-    return NextResponse.json({ post });
+    return NextResponse.json({ post }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=86400',
+        'CDN-Cache-Control': 'public, s-maxage=600',
+        'Vercel-CDN-Cache-Control': 'public, s-maxage=600',
+        'Content-Type': 'application/json; charset=utf-8',
+        'Vary': 'Accept-Encoding'
+      }
+    });
   } catch (error) {
     console.error('Error fetching blog post:', error);
     return NextResponse.json(

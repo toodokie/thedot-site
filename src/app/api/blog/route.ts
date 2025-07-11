@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category');
     const featured = searchParams.get('featured');
     const slug = searchParams.get('slug');
+    const includeContent = searchParams.get('includeContent') === 'true';
 
     // Base query filter for published posts
     const filter: any = {
@@ -68,31 +69,46 @@ export async function GET(request: NextRequest) {
     const posts = response.results.map((page: any) => {
       const properties = page.properties;
       
-      return {
+      // Always include essential fields
+      const post: any = {
         id: page.id,
         title: properties.Title?.title?.[0]?.plain_text || '',
         slug: properties.Slug?.rich_text?.[0]?.plain_text || '',
         excerpt: properties.Excerpt?.rich_text?.[0]?.plain_text || '',
-        content: properties.Content?.rich_text?.map((text: any) => text.plain_text).join('') || '',
         category: properties.Category?.select?.name || '',
-        tags: properties.Tags?.multi_select?.map((tag: any) => tag.name) || [],
         date: properties.Date?.date?.start || '',
-        status: properties.Status?.select?.name || '',
         featured: properties.Featured?.checkbox || false,
         readTime: properties['Read Time']?.number || 0,
         featuredImage: properties['Featured Image']?.files?.[0]?.file?.url || 
                       properties['Featured Image']?.files?.[0]?.external?.url || '',
-        metaTitle: properties['Meta Title']?.rich_text?.[0]?.plain_text || '',
-        metaDescription: properties['Meta Description']?.rich_text?.[0]?.plain_text || '',
-        socialImage: properties['Social Image']?.files?.[0]?.file?.url || 
-                    properties['Social Image']?.files?.[0]?.external?.url || '',
-        wordCount: properties['Word Count']?.number || 0,
         createdTime: page.created_time,
         lastEditedTime: page.last_edited_time
       };
+
+      // Conditionally include heavy fields only when requested
+      if (includeContent) {
+        post.content = properties.Content?.rich_text?.map((text: any) => text.plain_text).join('') || '';
+        post.tags = properties.Tags?.multi_select?.map((tag: any) => tag.name) || [];
+        post.status = properties.Status?.select?.name || '';
+        post.metaTitle = properties['Meta Title']?.rich_text?.[0]?.plain_text || '';
+        post.metaDescription = properties['Meta Description']?.rich_text?.[0]?.plain_text || '';
+        post.socialImage = properties['Social Image']?.files?.[0]?.file?.url || 
+                          properties['Social Image']?.files?.[0]?.external?.url || '';
+        post.wordCount = properties['Word Count']?.number || 0;
+      }
+
+      return post;
     });
 
-    return NextResponse.json({ posts });
+    return NextResponse.json({ posts }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=86400',
+        'CDN-Cache-Control': 'public, s-maxage=300',
+        'Vercel-CDN-Cache-Control': 'public, s-maxage=300',
+        'Content-Type': 'application/json; charset=utf-8',
+        'Vary': 'Accept-Encoding'
+      }
+    });
   } catch (error) {
     console.error('Error fetching blog posts:', error);
     return NextResponse.json(

@@ -3,7 +3,7 @@
   "title": "Lido",
   "description": "In the Lido project, we crafted a harmonious brand identity aimed at urban dwellers seeking balance in a busy world. Our clean, minimalistic approach spanned from logo design to a fully developed website, creating a unified brand experience that resonated with the target audience. The end result is a visually cohesive and user-friendly digital presence that elevates the Lido Condo brand.",
   "images": [
-    "/portfolio-images/lido-1.jpg"
+    "https://prod-files-secure.s3.us-west-2.amazonaws.com/f491eb4f-5eb4-4dc2-b0c3-2dd618849f10/f9b6089e-2c65-4086-a68c-07a76ef163fe/Lido-1.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIAZI2LB4663TOLLW7K%2F20250711%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20250711T155243Z&X-Amz-Expires=3600&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEM%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FwEaCXVzLXdlc3QtMiJGMEQCIEFYue6qIRyS7Lh2fwtmBPOseNt22f6yOQrANB9JNHIFAiBJmHE%2FXkpBn2iu7FqCqRBGcX548NkWZ%2Fj74LLbzgRa1CqIBAjY%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F8BEAAaDDYzNzQyMzE4MzgwNSIMx4817FHulZT6sjvyKtwDx5AOOKZQBFaYlJgx9XIKkfRFxhGVxHHN3cJZnYzsk2GtMmo5NMe7PmTVRtF9SmRwhGKHUBXgxGxHPEgiIgN3jj8I5bA2IH0xF4%2B9Ty0Xkz7oPNTYEzjMy7iw1BWwlqzdQU0IvFQWh4tgC3TtesKWZ9WY4wBu5Cxb6TqJhkRG3f4oM0HZW%2BrNcTwk%2FVCXncbBLbuJZzluwwkfJpyj5rCnZqoTexZWXbMsiJENRzA7%2FeYCfk8WVujE560cddzItWmtW6m9kiUxjqxrNpYVKSDugFDSZ%2F1nEM1k0Uaa6vlC6bO1WSUNE0xMrikiUzzyILE5u8w%2BExKcHDPmwoTmRLQ5jOWx6kR13cq8OL9nTRKz68TUOfCBk%2FtHZa%2BtIoQbO6x4jo5Fotio54GBj4ZlMnBarf1AckYNXQRMCgpaxg%2BtzSMvh5d9nm8DvT6NgzDJYdv4T%2FVvjEw7Lqaz9tsCZelr9RVujSIXAmLbliPwBimyrLTduaThgaibq5oPNZRkW6PuRw%2FRBOdTYiIJ92nhQ1V4b8Liz0WWdhwJgo8YLgyGHjGBeOvXUxyYmSXXRfJJpx%2B%2FIcFOaKUxs7eWo04JzHkirgaFGf%2FhEyDNPLBei9Fc%2F0ZI3LSgdOjGrk2BshUwn9PEwwY6pgGpD%2Fyn9QakYzFnSjDf2tn2IMO8ZgH%2F1UCsTI8PbNzdDhnflzTJ5NeO8DbLMHk%2FkQBiW%2FYVKkXKTAuNzCDnjM5hWOznMwmZAnQ9iA7QNAminGsSWx%2BLbp359%2Bo83VEwmNKgCud3UnEr6qBFh%2B8R8iHpcpI9mJlU8yIoTYBdTCGBymhtFp%2F4eO40IHkCQ1NdkOV3e9MCFbCqUr3k4UwIHCw02IEQe%2Fqf&X-Amz-Signature=05ec4d30cf80cf3e2da1b38c690d89492ecf1883bf5d11db3531b16d18d67f56&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject"
   ],
   "year": "2024",
   "tools": [
@@ -12,15 +12,21 @@
     "Webflow"
   ],
   "shortDescription": "Brand identity and website design",
-  "aboutDescription": "In the Lido project, we crafted a harmonious brand identity aimed at urban dwellers seeking balance in a busy world. Our clean, minimalistic approach spanned from logo design to a fully developed website, creating a unified brand experience that resonated with the target audience. The end result is a visually cohesive and user-friendly digital presence that elevates the Lido Condo brand.",
-  "heroImage": "/portfolio-images/lido-hero.png",
-  "videoUrl": "",
+  "aboutTech": "We employed Adobe Illustrator for the logo, Figma for web design, and Webflow for development to create a clean, minimalistic site for Lido project, capturing the essence of urban harmony.",
+  "heroImage": "https://prod-files-secure.s3.us-west-2.amazonaws.com/f491eb4f-5eb4-4dc2-b0c3-2dd618849f10/1253d085-07da-4b68-9978-568c0e37dc85/Lido-hero.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIAZI2LB4663TOLLW7K%2F20250711%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20250711T155243Z&X-Amz-Expires=3600&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEM%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FwEaCXVzLXdlc3QtMiJGMEQCIEFYue6qIRyS7Lh2fwtmBPOseNt22f6yOQrANB9JNHIFAiBJmHE%2FXkpBn2iu7FqCqRBGcX548NkWZ%2Fj74LLbzgRa1CqIBAjY%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F8BEAAaDDYzNzQyMzE4MzgwNSIMx4817FHulZT6sjvyKtwDx5AOOKZQBFaYlJgx9XIKkfRFxhGVxHHN3cJZnYzsk2GtMmo5NMe7PmTVRtF9SmRwhGKHUBXgxGxHPEgiIgN3jj8I5bA2IH0xF4%2B9Ty0Xkz7oPNTYEzjMy7iw1BWwlqzdQU0IvFQWh4tgC3TtesKWZ9WY4wBu5Cxb6TqJhkRG3f4oM0HZW%2BrNcTwk%2FVCXncbBLbuJZzluwwkfJpyj5rCnZqoTexZWXbMsiJENRzA7%2FeYCfk8WVujE560cddzItWmtW6m9kiUxjqxrNpYVKSDugFDSZ%2F1nEM1k0Uaa6vlC6bO1WSUNE0xMrikiUzzyILE5u8w%2BExKcHDPmwoTmRLQ5jOWx6kR13cq8OL9nTRKz68TUOfCBk%2FtHZa%2BtIoQbO6x4jo5Fotio54GBj4ZlMnBarf1AckYNXQRMCgpaxg%2BtzSMvh5d9nm8DvT6NgzDJYdv4T%2FVvjEw7Lqaz9tsCZelr9RVujSIXAmLbliPwBimyrLTduaThgaibq5oPNZRkW6PuRw%2FRBOdTYiIJ92nhQ1V4b8Liz0WWdhwJgo8YLgyGHjGBeOvXUxyYmSXXRfJJpx%2B%2FIcFOaKUxs7eWo04JzHkirgaFGf%2FhEyDNPLBei9Fc%2F0ZI3LSgdOjGrk2BshUwn9PEwwY6pgGpD%2Fyn9QakYzFnSjDf2tn2IMO8ZgH%2F1UCsTI8PbNzdDhnflzTJ5NeO8DbLMHk%2FkQBiW%2FYVKkXKTAuNzCDnjM5hWOznMwmZAnQ9iA7QNAminGsSWx%2BLbp359%2Bo83VEwmNKgCud3UnEr6qBFh%2B8R8iHpcpI9mJlU8yIoTYBdTCGBymhtFp%2F4eO40IHkCQ1NdkOV3e9MCFbCqUr3k4UwIHCw02IEQe%2Fqf&X-Amz-Signature=f6b83befca377122e876a62c7399f6abc96ccc892cbd321d96304e9b89da260b&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject",
+  "videoUrl": null,
   "brandColors": {
-    "primary": "#60939e",
+    "primary": "#3d3c44",
     "secondary": "#f2f2f2",
-    "accent": "#60939e",
     "background": "#60939e"
   },
-  "published": true,
-  "featured": false
+  "gallery": [
+    {
+      "type": "image",
+      "src": "https://prod-files-secure.s3.us-west-2.amazonaws.com/f491eb4f-5eb4-4dc2-b0c3-2dd618849f10/f9b6089e-2c65-4086-a68c-07a76ef163fe/Lido-1.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIAZI2LB4663TOLLW7K%2F20250711%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20250711T155243Z&X-Amz-Expires=3600&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEM%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FwEaCXVzLXdlc3QtMiJGMEQCIEFYue6qIRyS7Lh2fwtmBPOseNt22f6yOQrANB9JNHIFAiBJmHE%2FXkpBn2iu7FqCqRBGcX548NkWZ%2Fj74LLbzgRa1CqIBAjY%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F8BEAAaDDYzNzQyMzE4MzgwNSIMx4817FHulZT6sjvyKtwDx5AOOKZQBFaYlJgx9XIKkfRFxhGVxHHN3cJZnYzsk2GtMmo5NMe7PmTVRtF9SmRwhGKHUBXgxGxHPEgiIgN3jj8I5bA2IH0xF4%2B9Ty0Xkz7oPNTYEzjMy7iw1BWwlqzdQU0IvFQWh4tgC3TtesKWZ9WY4wBu5Cxb6TqJhkRG3f4oM0HZW%2BrNcTwk%2FVCXncbBLbuJZzluwwkfJpyj5rCnZqoTexZWXbMsiJENRzA7%2FeYCfk8WVujE560cddzItWmtW6m9kiUxjqxrNpYVKSDugFDSZ%2F1nEM1k0Uaa6vlC6bO1WSUNE0xMrikiUzzyILE5u8w%2BExKcHDPmwoTmRLQ5jOWx6kR13cq8OL9nTRKz68TUOfCBk%2FtHZa%2BtIoQbO6x4jo5Fotio54GBj4ZlMnBarf1AckYNXQRMCgpaxg%2BtzSMvh5d9nm8DvT6NgzDJYdv4T%2FVvjEw7Lqaz9tsCZelr9RVujSIXAmLbliPwBimyrLTduaThgaibq5oPNZRkW6PuRw%2FRBOdTYiIJ92nhQ1V4b8Liz0WWdhwJgo8YLgyGHjGBeOvXUxyYmSXXRfJJpx%2B%2FIcFOaKUxs7eWo04JzHkirgaFGf%2FhEyDNPLBei9Fc%2F0ZI3LSgdOjGrk2BshUwn9PEwwY6pgGpD%2Fyn9QakYzFnSjDf2tn2IMO8ZgH%2F1UCsTI8PbNzdDhnflzTJ5NeO8DbLMHk%2FkQBiW%2FYVKkXKTAuNzCDnjM5hWOznMwmZAnQ9iA7QNAminGsSWx%2BLbp359%2Bo83VEwmNKgCud3UnEr6qBFh%2B8R8iHpcpI9mJlU8yIoTYBdTCGBymhtFp%2F4eO40IHkCQ1NdkOV3e9MCFbCqUr3k4UwIHCw02IEQe%2Fqf&X-Amz-Signature=05ec4d30cf80cf3e2da1b38c690d89492ecf1883bf5d11db3531b16d18d67f56&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject",
+      "alt": "Lido"
+    }
+  ],
+  "featured": false,
+  "published": true
 }
