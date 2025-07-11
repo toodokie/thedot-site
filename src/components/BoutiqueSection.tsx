@@ -111,20 +111,20 @@ export default function BoutiqueSection() {
 
   const capabilities: Capability[] = [
     {
-      title: 'Visual Identity',
-      description: 'logos, brand systems, guidelines'
+      title: 'Conversion Strategy',
+      description: 'customer psychology, user journey mapping, metrics planning'
     },
     {
-      title: 'Digital Presence', 
-      description: 'websites, apps, user experiences'
+      title: 'Brand Development for Conversion', 
+      description: 'trust-building design, messaging that converts, visual consistency'
     },
     {
-      title: 'Visual Storytelling',
-      description: 'photography, videography, content'
+      title: 'Website Engineering',
+      description: 'speed optimization, mobile-first design, conversion tracking'
     },
     {
-      title: 'Marketing',
-      description: 'print, digital, campaigns'
+      title: 'Growth Systems',
+      description: 'email automation, lead nurturing, continuous optimization'
     }
   ];
 
@@ -133,10 +133,10 @@ export default function BoutiqueSection() {
       {/* Header Content */}
       <div className="boutique-header animate-on-scroll">
         <h2 className="section-title-center animate-on-scroll">
-          Boutique. Complete. Consistent.
+          Strategic. Integrated. Results-Driven.
         </h2>
         <p className="section-description-center animate-on-scroll">
-          Most agencies outsource. We create everything under one roof.
+          We don't just make things pretty. We make them profitable.
         </p>
       </div>
         
@@ -218,7 +218,7 @@ export default function BoutiqueSection() {
         
         @media (max-width: 999px) {
           .boutique-section {
-            padding: 4rem 0;
+            padding: 4rem 0 6rem 0;
           }
         }
 
@@ -408,7 +408,7 @@ export default function BoutiqueSection() {
             display: grid;
             grid-template-columns: 1fr 1fr;
             grid-template-rows: 1fr 1fr;
-            gap: 2rem;
+            gap: 3rem 2rem;
             max-width: 100%;
             justify-items: center;
           }

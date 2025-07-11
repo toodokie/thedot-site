@@ -15,12 +15,7 @@ export default function WelcomeSection() {
           width: '100%',
           boxSizing: 'border-box',
         }}>
-          <div style={{
-            width: '60%',
-            marginLeft: 'auto',
-            textAlign: 'right',
-            boxSizing: 'border-box',
-          }}>
+          <div className="welcome-text-container">
             <h2 style={{
               fontFamily: 'ff-real-text-pro-2, sans-serif',
               fontSize: '2.5rem',
@@ -31,7 +26,7 @@ export default function WelcomeSection() {
               letterSpacing: '-0.01em',
               boxSizing: 'border-box'
             }}>
-              Welcome to The Dot Creative Agency, your go-to partner for crafting an impactful digital presence and brand identity in the Greater Toronto Area. From <strong style={{ fontWeight: 700 }}>web</strong> and <strong style={{ fontWeight: 700 }}>graphic design</strong> to <strong style={{ fontWeight: 700 }}>motion</strong>, <strong style={{ fontWeight: 700 }}>video</strong>, <strong style={{ fontWeight: 700 }}>photography</strong>, and <strong style={{ fontWeight: 700 }}>marketing</strong>, we tailor our services to elevate your business. Experience our comprehensive support on all stages of your project and beyond.
+              Growing Ontario businesses trust us to turn their websites from expensive decorations into customer-generating machines. By integrating proven <strong style={{ fontWeight: 700 }}>conversion science</strong> and <strong style={{ fontWeight: 700 }}>data-driven design</strong>, we create online experiences that attract your ideal audience and inspire them to take action.
             </h2>
           </div>
           
@@ -45,7 +40,7 @@ export default function WelcomeSection() {
               background: '#35332f',
               color: '#faf9f6',
               fontFamily: 'ff-real-text-pro-2, sans-serif',
-              fontSize: '1.25rem',
+              fontSize: '1.2rem',
               fontWeight: 400,
               lineHeight: 1.2,
               padding: '1.5rem 2rem',
@@ -55,8 +50,8 @@ export default function WelcomeSection() {
               textAlign: 'right',
               boxSizing: 'border-box'
             }}>
-              where aesthetics<br />
-              meet purpose
+              Performance,<br />
+              beautifully engineered
             </h3>
           </div>
         </div>
@@ -67,15 +62,42 @@ export default function WelcomeSection() {
           padding: 6rem 0;
         }
         
+        .welcome-text-container {
+          width: 70%;
+          margin-left: auto;
+          text-align: right;
+          box-sizing: border-box;
+        }
+        
         @media (max-width: 999px) {
           section {
             padding: 4rem 0;
+          }
+          
+          .welcome-text-container {
+            width: 100%;
+            margin-left: 0;
+            text-align: left;
+            padding: 2rem 0 0 0;
+          }
+        }
+        
+@media (max-width: 999px) {
+          section h3 {
+            font-size: 1rem !important;
           }
         }
         
         @media (max-width: 768px) {
           section {
             padding: 2rem 0;
+          }
+          
+          .welcome-text-container {
+            width: 100%;
+            margin-left: 0;
+            text-align: left;
+            padding: 2rem 0 0 0;
           }
         }
       `}</style>

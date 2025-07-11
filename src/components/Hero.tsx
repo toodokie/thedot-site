@@ -9,16 +9,16 @@ export default function Hero() {
             <div className="hero-content">
               <div className="hero-text animate-on-scroll">
                 {/* CONVERSION-FIRST DESIGN AGENCY standalone */}
-                <h1 className="hero-title animate-on-scroll">CONVERSION-FIRST DESIGN AGENCY</h1>
+                <h1 className="hero-title animate-on-scroll"><em style={{fontWeight: 300, fontSize: '4.5rem'}}>CONVERSION-FIRST</em><br /><strong>DESIGN AGENCY</strong></h1>
                 
                 {/* Services list grouped */}
                 <div className="agency-services-group animate-on-scroll">
                   {/* Services List - Desktop */}
                   <div className="services-list desktop-services">
-                    <span>LOGOS</span>
-                    <span>PHOTO & VIDEO</span>
-                    <span>WEBSITES</span>
-                    <span>and MORE</span>
+                    <span>BRANDS THAT ATTRACT • WEBSITES THAT CONVERT • SYSTEMS THAT GROW</span>
+                    <span style={{display: 'none'}}>PHOTO & VIDEO</span>
+                    <span style={{display: 'none'}}>WEBSITES</span>
+                    <span style={{display: 'none'}}>and MORE</span>
                   </div>
                 </div>
               </div>

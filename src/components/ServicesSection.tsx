@@ -14,10 +14,10 @@ export default function ServicesSection() {
   const services = [
       {
         id: 1,
-        title: "Website Design & Development",
-        description: "Custom websites that convert visitors into customers",
-        hoverDescription: "We build responsive websites that work on every device and turn your visitors into paying customers. No template nonsense - just clean, professional design that reflects your business values and drives real results.",
-        slug: "website-design",
+        title: "The Conversion Growth Studio",
+        description: "Your complete conversion optimization partnership for predictable growth.",
+        hoverDescription: "Our flagship partnership. We build and manage the three pillars of online success: a brand that attracts ideal customers, a website engineered to convert, and systems that nurture leads automatically for long-term, measurable results.",
+        slug: "conversion-growth-studio",
         icon: (
           <svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="100" height="100" viewBox="0,0,256,256">
             <g fill="none" fillRule="nonzero" stroke="none" strokeWidth="1" strokeLinecap="butt" strokeLinejoin="miter" strokeMiterlimit="10" strokeDasharray="" strokeDashoffset="0" fontFamily="none" fontWeight="none" fontSize="none" textAnchor="none" style={{mixBlendMode: 'normal'}}>
@@ -35,10 +35,10 @@ export default function ServicesSection() {
       },
       {
         id: 2,
-        title: "SEO & Content Strategy",
-        description: "Get found online and establish local expertise",
-        hoverDescription: "Strategic SEO and content creation that puts you ahead of competitors in Google searches. Blog posts, website copy, and local market optimization that brings qualified leads while you focus on running your business.",
-        slug: "seo-content",
+        title: "Conversion-Optimized Websites",
+        description: "Beautiful sites engineered to convert visitors into customers.",
+        hoverDescription: "We build fast, mobile-first websites with clear conversion paths and analytics tracking built-in. Every element, from layout to load speed, is optimized to turn traffic into revenue.",
+        slug: "conversion-websites",
         icon: (
           <svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="100" height="100" viewBox="0,0,256,256">
             <g fill="none" fillRule="nonzero" stroke="none" strokeWidth="none" strokeMiterlimit="10" strokeDasharray="" strokeDashoffset="0" fontFamily="none" fontWeight="none" fontSize="none" textAnchor="none" style={{mixBlendMode: 'normal'}}>
@@ -62,10 +62,35 @@ export default function ServicesSection() {
       },
       {
         id: 3,
-        title: "Website Maintenance & Support",
-        description: "Keep your site secure, fast, and converting customers",
-        hoverDescription: "Professional ongoing website care so you can focus on running your business. Security updates, content changes, speed optimization, and regular backups. No technical headaches for you.",
-        slug: "website-maintenance",
+        title: "Strategic Brand Design",
+        description: "Brand identity using psychology principles that attract ideal clients.",
+        hoverDescription: "We go beyond logos. We use conversion psychology to develop a complete brand system—from colors to messaging—that builds instant trust and resonates with your target buyers.",
+        slug: "strategic-brand-design",
+        icon: (
+          <svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="100" height="100" viewBox="0,0,256,256">
+            <g fill="none" fillRule="nonzero" stroke="none" strokeWidth="1" strokeLinecap="butt" strokeLinejoin="miter" strokeMiterlimit="10" strokeDasharray="" strokeDashoffset="0" fontFamily="none" fontWeight="none" fontSize="none" textAnchor="none" style={{mixBlendMode: 'normal'}}>
+              <g transform="scale(2.56,2.56)">
+                <path d="M96,52c0,24.26 -19.74,44 -44,44c-24.26,0 -44,-19.74 -44,-44c0,-6.77 1.56,-13.42 4.54,-19.45l-7.06,-7.26c-3.51,-3.63 -3.45,-9.5 0.1,-13.05c1.72,-1.73 4.13,-2.72 6.61,-2.72c1.78,0 3.5,0.5 4.97,1.43l8.81,5.61c7.52,-5.54 16.62,-8.56 26.03,-8.56c24.26,0 44,19.74 44,44z" fill="#3d3c44" opacity="0.3"/>
+                <path d="M94,50c0,24.26 -19.74,44 -44,44c-24.26,0 -44,-19.74 -44,-44c0,-6.77 1.56,-13.42 4.54,-19.45l-7.06,-7.26c-3.51,-3.63 -3.45,-9.5 0.1,-13.05c1.72,-1.73 4.13,-2.72 6.61,-2.72c1.78,0 3.5,0.5 4.97,1.43l8.81,5.61c7.52,-5.54 16.62,-8.56 26.03,-8.56c24.26,0 44,19.74 44,44z" fill="#f2f2f2"/>
+                <path d="M19.192,28.629c-4.215,6.064 -6.692,13.426 -6.692,21.371c0,20.711 16.789,37.5 37.5,37.5c3.786,0 7.439,-0.567 10.884,-1.61c14.743,-15.841 0.15,-27.945 -5.634,-34.265c1.588,0.295 3.072,0.46 4.479,0.531c-5.435,-0.978 -13.483,-3.019 -20.354,-7.156c-3.094,-1.863 -12.144,-9.456 -20.183,-16.371z" fill="#daff00"/>
+                <path d="M81.474,29.624c-6.684,-10.303 -18.279,-17.124 -31.474,-17.124c-12.766,0 -24.035,6.384 -30.808,16.129c8.039,6.915 17.089,14.508 20.183,16.371c6.871,4.137 14.919,6.178 20.354,7.156c16.368,0.821 20.871,-12.76 21.745,-22.532z" fill="#f5ffba"/>
+                <path d="M87.5,50c0,-7.515 -2.219,-14.509 -6.026,-20.376c-0.949,10.613 -6.166,25.731 -26.224,22.001c5.784,6.32 20.378,18.424 5.634,34.265c15.402,-4.665 26.616,-18.965 26.616,-35.89z" fill="#442afa"/>
+                <path d="M75,64.28c0,3.87 -1.26,7.66 -3.26,10.59c-1.95,1.9 -4.15,3.53 -6.55,4.85c-4.36,2.41 -9.36,3.78 -14.69,3.78c-16.84,0 -30.5,-13.66 -30.5,-30.5c0,-2.7 0.35,-5.32 1.01,-7.81c0.23,12.64 10.55,22.81 23.24,22.81c7.09,0 13.45,-3.18 17.71,-8.19c0.34,-0.4 0.67,-0.81 0.98,-1.24l0.01,-0.01c1.28,-1.27 3.04,-2.06 4.99,-2.06c3.52,0 6.45,2.59 6.97,5.97v0.04c0.06,0.34 0.09,1.77 0.09,1.77z" fill="#3d3c44"/>
+                <path d="M56.499,53.819c-2.197,2.806 -9.177,4.366 -17.329,-4.227c-0.758,-0.799 -29,-31 -29,-31c-0.86,-0.888 -3.113,-3.462 -2.233,-4.342c0.437,-0.437 1.016,-0.658 1.596,-0.658c0.422,0 2.264,1.764 2.636,2c0,0 36.126,21.475 37,22c10,5.999 9.527,13.428 7.33,16.227z" fill="#6d6b77"/>
+                <path d="M50,11c-9.83,0 -18.83,3.66 -25.69,9.7l-11.83,-7.53c-1.65,-1.05 -3.96,-0.81 -5.35,0.59c-1.66,1.66 -1.68,4.37 -0.05,6.06l9.63,9.9c-3.62,5.91 -5.71,12.86 -5.71,20.28c0,21.5 17.5,39 39,39c21.5,0 39,-17.5 39,-39c0,-21.5 -17.5,-39 -39,-39zM49.204,85.991c-18.933,-0.411 -34.542,-15.821 -35.183,-34.748c-0.238,-7.034 1.554,-13.649 4.849,-19.293c0.26,-0.445 0.528,-0.885 0.804,-1.319c0.492,-0.773 0.364,-1.788 -0.275,-2.445l-0.989,-1.016l-9.18,-9.44c-0.5,-0.51 -0.49,-1.34 0.02,-1.85c0.42,-0.42 1.13,-0.49 1.63,-0.18l11.19,7.12l1.266,0.807c0.763,0.486 1.755,0.397 2.422,-0.214c0.388,-0.355 0.785,-0.702 1.192,-1.043c7.158,-5.978 16.664,-9.242 26.91,-8.167c16.719,1.753 30.16,15.17 31.932,31.887c2.318,21.865 -15.08,40.368 -36.588,39.901z" fill="#3d3c44"/>
+                <path d="M62.125,62.5l-12.125,-8.5c0,0 -0.5,-4.375 5,-6c5.75,5 12.625,10 12.625,10z" fill="#f2f2f2"/>
+                <path d="M75,64.28c0,3.87 -1.26,7.66 -3.26,10.59c-1.95,1.9 -4.15,3.53 -6.55,4.85c0.79,-1.23 1.52,-3.38 1.52,-4.82c0,-2.14 -0.97,-4.06 -2.49,-5.35c-0.24,-0.2 -0.36,-0.22 -0.8,-0.57c-1.55,-1.28 -2.55,-3.23 -2.55,-5.42c0,-1.38 0.39,-2.67 1.09,-3.75c0.27,-0.45 0.6,-0.87 0.98,-1.24l0.01,-0.01c1.28,-1.27 3.04,-2.06 4.99,-2.06c3.52,0 6.45,2.59 6.97,5.97v0.04c0.06,0.34 0.09,1.77 0.09,1.77z" fill="#6d6b77"/>
+              </g>
+            </g>
+          </svg>
+        )
+      },
+      {
+        id: 4,
+        title: "The Conversion Essentials Package",
+        description: "Fast-track to a website that converts in just 14 business days.",
+        hoverDescription: "Our bridge offering for businesses that need immediate results. Get a 5-page, conversion-focused website with brand basics and tracking setup, designed to provide quick wins and build momentum.",
+        slug: "conversion-essentials",
         icon: (
           <svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="100" height="100" viewBox="0,0,256,256">
             <g fill="none" fillRule="nonzero" stroke="none" strokeWidth="1" strokeLinecap="butt" strokeLinejoin="miter" strokeMiterlimit="10" strokeDasharray="" strokeDashoffset="0" fontFamily="none" fontWeight="none" fontSize="none" textAnchor="none" style={{mixBlendMode: 'normal'}}>
@@ -87,35 +112,10 @@ export default function ServicesSection() {
         )
       },
       {
-        id: 4,
-        title: "Brand Identity & Print Materials",
-        description: "Complete visual identity from logo to business cards",
-        hoverDescription: "Comprehensive brand systems including logo, colors, typography, business cards, brochures, and signage. Every piece works together to build instant recognition and trust with your customers.",
-        slug: "brand-identity",
-        icon: (
-          <svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="100" height="100" viewBox="0,0,256,256">
-            <g fill="none" fillRule="nonzero" stroke="none" strokeWidth="1" strokeLinecap="butt" strokeLinejoin="miter" strokeMiterlimit="10" strokeDasharray="" strokeDashoffset="0" fontFamily="none" fontWeight="none" fontSize="none" textAnchor="none" style={{mixBlendMode: 'normal'}}>
-              <g transform="scale(2.56,2.56)">
-                <path d="M96,52c0,24.26 -19.74,44 -44,44c-24.26,0 -44,-19.74 -44,-44c0,-6.77 1.56,-13.42 4.54,-19.45l-7.06,-7.26c-3.51,-3.63 -3.45,-9.5 0.1,-13.05c1.72,-1.73 4.13,-2.72 6.61,-2.72c1.78,0 3.5,0.5 4.97,1.43l8.81,5.61c7.52,-5.54 16.62,-8.56 26.03,-8.56c24.26,0 44,19.74 44,44z" fill="#3d3c44" opacity="0.3"/>
-                <path d="M94,50c0,24.26 -19.74,44 -44,44c-24.26,0 -44,-19.74 -44,-44c0,-6.77 1.56,-13.42 4.54,-19.45l-7.06,-7.26c-3.51,-3.63 -3.45,-9.5 0.1,-13.05c1.72,-1.73 4.13,-2.72 6.61,-2.72c1.78,0 3.5,0.5 4.97,1.43l8.81,5.61c7.52,-5.54 16.62,-8.56 26.03,-8.56c24.26,0 44,19.74 44,44z" fill="#f2f2f2"/>
-                <path d="M19.192,28.629c-4.215,6.064 -6.692,13.426 -6.692,21.371c0,20.711 16.789,37.5 37.5,37.5c3.786,0 7.439,-0.567 10.884,-1.61c14.743,-15.841 0.15,-27.945 -5.634,-34.265c1.588,0.295 3.072,0.46 4.479,0.531c-5.435,-0.978 -13.483,-3.019 -20.354,-7.156c-3.094,-1.863 -12.144,-9.456 -20.183,-16.371z" fill="#daff00"/>
-                <path d="M81.474,29.624c-6.684,-10.303 -18.279,-17.124 -31.474,-17.124c-12.766,0 -24.035,6.384 -30.808,16.129c8.039,6.915 17.089,14.508 20.183,16.371c6.871,4.137 14.919,6.178 20.354,7.156c16.368,0.821 20.871,-12.76 21.745,-22.532z" fill="#f5ffba"/>
-                <path d="M87.5,50c0,-7.515 -2.219,-14.509 -6.026,-20.376c-0.949,10.613 -6.166,25.731 -26.224,22.001c5.784,6.32 20.378,18.424 5.634,34.265c15.402,-4.665 26.616,-18.965 26.616,-35.89z" fill="#442afa"/>
-                <path d="M75,64.28c0,3.87 -1.26,7.66 -3.26,10.59c-1.95,1.9 -4.15,3.53 -6.55,4.85c-4.36,2.41 -9.36,3.78 -14.69,3.78c-16.84,0 -30.5,-13.66 -30.5,-30.5c0,-2.7 0.35,-5.32 1.01,-7.81c0.23,12.64 10.55,22.81 23.24,22.81c7.09,0 13.45,-3.18 17.71,-8.19c0.34,-0.4 0.67,-0.81 0.98,-1.24l0.01,-0.01c1.28,-1.27 3.04,-2.06 4.99,-2.06c3.52,0 6.45,2.59 6.97,5.97v0.04c0.06,0.34 0.09,1.77 0.09,1.77z" fill="#3d3c44"/>
-                <path d="M56.499,53.819c-2.197,2.806 -9.177,4.366 -17.329,-4.227c-0.758,-0.799 -29,-31 -29,-31c-0.86,-0.888 -3.113,-3.462 -2.233,-4.342c0.437,-0.437 1.016,-0.658 1.596,-0.658c0.422,0 2.264,1.764 2.636,2c0,0 36.126,21.475 37,22c10,5.999 9.527,13.428 7.33,16.227z" fill="#6d6b77"/>
-                <path d="M50,11c-9.83,0 -18.83,3.66 -25.69,9.7l-11.83,-7.53c-1.65,-1.05 -3.96,-0.81 -5.35,0.59c-1.66,1.66 -1.68,4.37 -0.05,6.06l9.63,9.9c-3.62,5.91 -5.71,12.86 -5.71,20.28c0,21.5 17.5,39 39,39c21.5,0 39,-17.5 39,-39c0,-21.5 -17.5,-39 -39,-39zM49.204,85.991c-18.933,-0.411 -34.542,-15.821 -35.183,-34.748c-0.238,-7.034 1.554,-13.649 4.849,-19.293c0.26,-0.445 0.528,-0.885 0.804,-1.319c0.492,-0.773 0.364,-1.788 -0.275,-2.445l-0.989,-1.016l-9.18,-9.44c-0.5,-0.51 -0.49,-1.34 0.02,-1.85c0.42,-0.42 1.13,-0.49 1.63,-0.18l11.19,7.12l1.266,0.807c0.763,0.486 1.755,0.397 2.422,-0.214c0.388,-0.355 0.785,-0.702 1.192,-1.043c7.158,-5.978 16.664,-9.242 26.91,-8.167c16.719,1.753 30.16,15.17 31.932,31.887c2.318,21.865 -15.08,40.368 -36.588,39.901z" fill="#3d3c44"/>
-                <path d="M62.125,62.5l-12.125,-8.5c0,0 -0.5,-4.375 5,-6c5.75,5 12.625,10 12.625,10z" fill="#f2f2f2"/>
-                <path d="M75,64.28c0,3.87 -1.26,7.66 -3.26,10.59c-1.95,1.9 -4.15,3.53 -6.55,4.85c0.79,-1.23 1.52,-3.38 1.52,-4.82c0,-2.14 -0.97,-4.06 -2.49,-5.35c-0.24,-0.2 -0.36,-0.22 -0.8,-0.57c-1.55,-1.28 -2.55,-3.23 -2.55,-5.42c0,-1.38 0.39,-2.67 1.09,-3.75c0.27,-0.45 0.6,-0.87 0.98,-1.24l0.01,-0.01c1.28,-1.27 3.04,-2.06 4.99,-2.06c3.52,0 6.45,2.59 6.97,5.97v0.04c0.06,0.34 0.09,1.77 0.09,1.77z" fill="#6d6b77"/>
-              </g>
-            </g>
-          </svg>
-        )
-      },
-      {
         id: 6,
         title: "Professional Photography & Video",
-        description: "High-quality visuals that make your business look established",
-        hoverDescription: "Professional headshots, product photography, and promotional videos that compete with big corporations. Stop losing customers to blurry phone photos. We make your business look as professional as it deserves.",
+        description: "Visual content optimized for web conversion and engagement.",
+        hoverDescription: "Stop losing customers to blurry phone photos. We create high-quality product shots, headshots, and videos that are specifically optimized to build trust and drive action on your website and social channels.",
         slug: "photography-video",
         icon: (
           <svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="100" height="100" viewBox="0,0,256,256">
@@ -135,10 +135,10 @@ export default function ServicesSection() {
       },
       {
         id: 8,
-        title: "Social Media & Digital Marketing",
-        description: "Strategic online presence that builds customer relationships",
-        hoverDescription: "Social media content, digital campaigns, and online marketing that keeps your business top-of-mind. Consistent posting and engagement strategies that turn followers into customers.",
-        slug: "social-media",
+        title: "Ongoing Conversion Care",
+        description: "Monthly optimization to continuously improve your results.",
+        hoverDescription: "Your website is a living asset. Our monthly care plan includes conversion analysis, speed optimization, and data-driven recommendations to ensure your site's performance continues to improve over time.",
+        slug: "conversion-care",
         icon: (
           <svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="100" height="100" viewBox="0,0,256,256">
             <g fill="none" fillRule="nonzero" stroke="none" strokeWidth="1" strokeLinecap="butt" strokeLinejoin="miter" strokeMiterlimit="10" strokeDasharray="" strokeDashoffset="0" fontFamily="none" fontWeight="none" fontSize="none" textAnchor="none" style={{mixBlendMode: 'normal'}}>
@@ -190,7 +190,7 @@ export default function ServicesSection() {
               Services
             </h2>
             <h3 className="section-description">
-              Explore our diverse range of services designed to meet all your brand&apos;s creative and marketing needs.
+              Every service we offer is designed with one goal: turning more of your visitors into customers.
             </h3>
           </div>
   

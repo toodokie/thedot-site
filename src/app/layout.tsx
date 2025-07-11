@@ -190,7 +190,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://www.google-analytics.com" />
         <link rel="dns-prefetch" href="https://prod-files-secure.s3.us-west-2.amazonaws.com" />
         
-        {/* Adobe Fonts with preload for performance */}
+        {/* Adobe Fonts - Best loading strategy */}
         <link
           rel="preload"
           href="https://use.typekit.net/gac6jnd.css"
@@ -200,12 +200,38 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link
           rel="stylesheet"
           href="https://use.typekit.net/gac6jnd.css"
-          media="print"
-          onLoad="this.media='all'"
         />
         <noscript>
           <link rel="stylesheet" href="https://use.typekit.net/gac6jnd.css" />
         </noscript>
+        
+        {/* Font loading optimization script */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              // Add font-loaded class when Adobe Fonts are ready
+              (function() {
+                if (typeof document !== 'undefined') {
+                  document.documentElement.className += ' fonts-loading';
+                  
+                  // Check if fonts are loaded
+                  if (document.fonts && document.fonts.ready) {
+                    document.fonts.ready.then(function() {
+                      document.documentElement.className = 
+                        document.documentElement.className.replace('fonts-loading', 'fonts-loaded');
+                    });
+                  } else {
+                    // Fallback for older browsers
+                    setTimeout(function() {
+                      document.documentElement.className = 
+                        document.documentElement.className.replace('fonts-loading', 'fonts-loaded');
+                    }, 3000);
+                  }
+                }
+              })();
+            `
+          }}
+        />
         
         {/* Additional favicon sizes */}
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png?v=5&t={Date.now()}" />

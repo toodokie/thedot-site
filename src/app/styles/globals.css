@@ -6,6 +6,7 @@
   --foreground: #35332f;
   --highlight-color: #daff00;
   --dim-grey: #888;
+  --hero-title-width: 50rem;
 }
 
 /* Reset browser default margins for hero titles */
@@ -571,16 +572,20 @@ h4 {
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  width: 60rem;
+  max-width: 60rem;
 }
 
 .hero-title {
-  font-family: 'futura-pt', Arial, sans-serif;
-  font-size: 6rem;
+  font-family: 'futura-pt', 'Futura', 'Avenir Next', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 5rem;
   font-weight: 400;
-  line-height: 0.9;
+  line-height: 1;
   color: var(--foreground);
   margin-bottom: 2rem;
   letter-spacing: -0.02em;
+  width: var(--hero-title-width, 50rem);
+  font-display: swap;
 }
 
 .services-list {
@@ -729,9 +734,14 @@ h4 {
 
 @media (min-width: 1000px) and (max-width: 1239px) {
   .hero-title {
-    font-size: 4.5rem;
+    font-size: 4rem;
     line-height: 0.85;
     letter-spacing: -0.025em;
+  }
+  
+  .hero-title em,
+  .hero-title strong {
+    font-size: 4rem !important;
   }
   
   .hero-video-circle {
@@ -759,6 +769,11 @@ h4 {
     font-size: 3rem;
     margin-bottom: 1rem;
     text-align: center;
+  }
+  
+  .hero-title em,
+  .hero-title strong {
+    font-size: 3rem !important;
   }
   
   .desktop-services {
@@ -870,7 +885,7 @@ h4 {
 
 /* Alternative: Use CSS custom property for consistency */
 :root {
-  --hero-title-width: 40rem;
+  --hero-title-width: 50rem;
 }
 
 .hero-text > .hero-title:first-child,
