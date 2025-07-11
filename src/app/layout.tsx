@@ -177,10 +177,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <head>
         {/* FAVICON FIRST - Safari prefers early favicon declarations */}
-        <link rel="icon" href="/favicon.ico?v=5&t={Date.now()}" />
-        <link rel="shortcut icon" href="/favicon.ico?v=5&t={Date.now()}" />
-        <link rel="icon" type="image/x-icon" href="/favicon.ico?v=5&t={Date.now()}" />
-        <link rel="icon" type="image/vnd.microsoft.icon" href="/favicon.ico?v=5&t={Date.now()}" />
+        <link rel="icon" href="/favicon.ico?v=5" />
+        <link rel="shortcut icon" href="/favicon.ico?v=5" />
+        <link rel="icon" type="image/x-icon" href="/favicon.ico?v=5" />
+        <link rel="icon" type="image/vnd.microsoft.icon" href="/favicon.ico?v=5" />
         <meta name="msapplication-config" content="none" />
         
         {/* Performance optimizations - preconnect to external domains */}
@@ -196,65 +196,29 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         
         {/* Adobe Fonts - Simple loading strategy */}
         <link
-          rel="preload"
-          href="https://use.typekit.net/gac6jnd.css"
-          as="style"
-          onLoad="this.onload=null;this.rel='stylesheet'"
-        />
-        <link
           rel="stylesheet"
           href="https://use.typekit.net/gac6jnd.css"
         />
-        <noscript>
-          <link rel="stylesheet" href="https://use.typekit.net/gac6jnd.css" />
-        </noscript>
         
-        {/* Font loading optimization script */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              // Add font-loaded class when Adobe Fonts are ready
-              (function() {
-                if (typeof document !== 'undefined') {
-                  document.documentElement.className += ' fonts-loading';
-                  
-                  // Check if fonts are loaded
-                  if (document.fonts && document.fonts.ready) {
-                    document.fonts.ready.then(function() {
-                      document.documentElement.className = 
-                        document.documentElement.className.replace('fonts-loading', 'fonts-loaded');
-                    });
-                  } else {
-                    // Fallback for older browsers
-                    setTimeout(function() {
-                      document.documentElement.className = 
-                        document.documentElement.className.replace('fonts-loading', 'fonts-loaded');
-                    }, 3000);
-                  }
-                }
-              })();
-            `
-          }}
-        />
         
         {/* Additional favicon sizes */}
-        <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png?v=5&t={Date.now()}" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon.png?v=5&t={Date.now()}" />
-        <link rel="icon" type="image/png" sizes="48x48" href="/favicon.png?v=5&t={Date.now()}" />
-        <link rel="icon" type="image/png" sizes="96x96" href="/favicon.png?v=5&t={Date.now()}" />
-        <link rel="icon" type="image/png" sizes="256x256" href="/favicon.png?v=5&t={Date.now()}" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png?v=5" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon.png?v=5" />
+        <link rel="icon" type="image/png" sizes="48x48" href="/favicon.png?v=5" />
+        <link rel="icon" type="image/png" sizes="96x96" href="/favicon.png?v=5" />
+        <link rel="icon" type="image/png" sizes="256x256" href="/favicon.png?v=5" />
         
-        {/* Apple Touch Icons with cache busting */}
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=5&t={Date.now()}" />
-        <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon.png?v=5&t={Date.now()}" />
-        <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon.png?v=5&t={Date.now()}" />
-        <link rel="apple-touch-icon" sizes="76x76" href="/apple-touch-icon.png?v=5&t={Date.now()}" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=5&t={Date.now()}" />
+        {/* Apple Touch Icons */}
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=5" />
+        <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon.png?v=5" />
+        <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon.png?v=5" />
+        <link rel="apple-touch-icon" sizes="76x76" href="/apple-touch-icon.png?v=5" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=5" />
         
         {/* Mobile optimization */}
         <meta name="theme-color" content="#daff00" />
         <meta name="msapplication-TileColor" content="#daff00" />
-        <meta name="msapplication-TileImage" content="/favicon.png?v=5&t={Date.now()}" />
+        <meta name="msapplication-TileImage" content="/favicon.png?v=5" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
