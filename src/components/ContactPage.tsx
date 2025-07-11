@@ -107,10 +107,18 @@ export default function ContactPage() {
           width: 100%;
         }
         
+        .code-embed {
+          min-height: 1100px; /* Reserve space to prevent layout shifts */
+          position: relative;
+        }
+        
         .code-embed iframe {
           width: 100%;
           height: 1100px;
           border: 0;
+          position: absolute;
+          top: 0;
+          left: 0;
         }
         
         .div-block-201 {
@@ -133,6 +141,10 @@ export default function ContactPage() {
           .social-media-icon {
             width: 3.2rem;
             margin-right: 0.5em;
+          }
+          
+          .code-embed {
+            min-height: 800px;
           }
           
           .code-embed iframe {
