@@ -897,6 +897,11 @@ h4 {
   :root {
     --hero-title-width: 34rem;
   }
+  
+  section h2 {
+    font-size: 2rem !important;
+    line-height: 1.25 !important;
+  }
 }
 
 @media (max-width: 999px) {
