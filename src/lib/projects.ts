@@ -337,6 +337,9 @@ export function generateProjectMetadata(project: Project) {
     title: seoTitle,
     description: seoDescription,
     keywords: `web design portfolio, ${project.category || 'website design'}, professional web development Ontario, custom design solutions GTA, ${project.tools?.slice(0, 3).join(', ') || ''}`,
+    alternates: {
+      canonical: `https://www.thedotcreative.co/projects/${project.slug}`,
+    },
     
     openGraph: {
       title: `${project.title} | The Dot Creative Portfolio`,

@@ -10,6 +10,9 @@ export const metadata: Metadata = {
   title: "The Dot Creative Agency | Web Design & Development | GTA Ontario",
   description: "Professional web design agency in Ontario, Canada. International design expertise for GTA businesses. Custom websites that convert visitors into customers.",
   keywords: "web design agency GTA, website design Ontario, professional web development Toronto, custom website design Canada, international design standards",
+  alternates: {
+    canonical: 'https://www.thedotcreative.co',
+  },
   icons: {
     icon: [
       { url: '/favicon.ico?v=5', type: 'image/x-icon' },
@@ -126,7 +129,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     "image": "https://thedotcreative.co/images/logo.png",
     "logo": "https://thedotcreative.co/images/logo.png",
     "sameAs": [
-      // Add social media URLs when available
+      "https://www.instagram.com/thedotcreativeagency/",
+      "https://www.linkedin.com/in/anna-volk-75b354373/"
     ],
     "hasOfferCatalog": {
       "@type": "OfferCatalog",

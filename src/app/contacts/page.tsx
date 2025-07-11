@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: 'Contact The Dot Creative Agency | Web Design Consultation GTA',
   description: 'Get a free website consultation from our GTA design agency. International design expertise for Ontario businesses. Contact us for custom web solutions.',
   keywords: 'contact web design agency GTA, free website consultation Toronto, web design consultation Ontario, professional web design services',
+  alternates: {
+    canonical: 'https://www.thedotcreative.co/contacts',
+  },
   
   openGraph: {
     title: 'Contact The Dot Creative Agency | Free Website Consultation',

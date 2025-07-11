@@ -30,6 +30,45 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
   const [nextPost, setNextPost] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Generate Article structured data
+  const articleStructuredData = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": post.title,
+    "description": post.excerpt,
+    "author": {
+      "@type": "Organization",
+      "name": "The Dot Creative Agency",
+      "url": "https://www.thedotcreative.co"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "The Dot Creative Agency",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://www.thedotcreative.co/images/logo.png"
+      }
+    },
+    "datePublished": post.date,
+    "dateModified": post.date,
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": `https://www.thedotcreative.co/blog/${post.slug}`
+    },
+    "url": `https://www.thedotcreative.co/blog/${post.slug}`,
+    "image": post.featuredImage || post.socialImage,
+    "articleSection": post.category,
+    "keywords": post.tags.join(', '),
+    "wordCount": post.wordCount,
+    "timeRequired": `PT${post.readTime || 5}M`,
+    "inLanguage": "en-CA",
+    "isPartOf": {
+      "@type": "WebSite",
+      "@id": "https://www.thedotcreative.co/#website",
+      "name": "The Dot Creative Agency"
+    }
+  };
+
   useEffect(() => {
     const fetchRelatedAndNextPosts = async () => {
       try {
@@ -93,6 +132,14 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
 
   return (
     <>
+      {/* Article Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(articleStructuredData)
+        }}
+      />
+      
       <style jsx>{`
         .post-container {
           background-color: var(--raw-white);

@@ -1,3 +1,11 @@
 User-agent: *
+Allow: /
+
+# Disallow file crawling
 Disallow: /favicon.ico
 Disallow: /favicon.png
+Disallow: /_next/
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://www.thedotcreative.co/sitemap.xml

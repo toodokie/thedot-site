@@ -67,6 +67,9 @@ export async function generateMetadata({ params }: BlogPostProps): Promise<Metad
     title: metaTitle,
     description: metaDescription,
     keywords: post.tags.join(', '),
+    alternates: {
+      canonical: `https://www.thedotcreative.co/blog/${post.slug}`,
+    },
     
     openGraph: {
       title: metaTitle,
