@@ -8,13 +8,11 @@ export default function Hero() {
           <div className="hero-container">
             <div className="hero-content">
               <div className="hero-text animate-on-scroll">
-                {/* DIGITAL DESIGN standalone */}
-                <h1 className="hero-title animate-on-scroll">DIGITAL DESIGN</h1>
+                {/* CONVERSION-FIRST DESIGN AGENCY standalone */}
+                <h1 className="hero-title animate-on-scroll">CONVERSION-FIRST DESIGN AGENCY</h1>
                 
-                {/* AGENCY + Services list grouped together */}
+                {/* Services list grouped */}
                 <div className="agency-services-group animate-on-scroll">
-                  <h1 className="hero-title agency-title">AGENCY</h1>
-                  
                   {/* Services List - Desktop */}
                   <div className="services-list desktop-services">
                     <span>LOGOS</span>
