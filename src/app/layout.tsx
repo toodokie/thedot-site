@@ -194,7 +194,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preload" href="/video/hero-video.mp4" as="video" type="video/mp4" />
         <link rel="preload" href="/images/line.png" as="image" />
         
-        {/* Adobe Fonts - Optimized for CLS prevention */}
+        {/* Adobe Fonts - Simple loading strategy */}
         <link
           rel="preload"
           href="https://use.typekit.net/gac6jnd.css"
@@ -204,8 +204,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link
           rel="stylesheet"
           href="https://use.typekit.net/gac6jnd.css"
-          media="print"
-          onLoad="this.media='all'"
         />
         <noscript>
           <link rel="stylesheet" href="https://use.typekit.net/gac6jnd.css" />

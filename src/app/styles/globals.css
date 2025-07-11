@@ -32,25 +32,14 @@ h1 {
   margin: 0;
 }
 
-/* Font fallback with matching metrics to prevent CLS */
-@font-face {
-  font-family: 'futura-pt-fallback';
-  src: local('Arial');
-  ascent-override: 85%;
-  descent-override: 15%;
-  line-gap-override: 0%;
-  size-adjust: 105%;
-}
-
 body {
   background: #faf9f6;
   color: var(--foreground);
-  font-family: 'futura-pt', 'futura-pt-fallback', Arial, Helvetica, sans-serif;
+  font-family: 'futura-pt', Arial, Helvetica, sans-serif;
   font-size: 16px;
   margin: 0;
   padding: 0;
   padding-top: 100px;
-  font-display: swap;
 }
 
 /* Global link color override */
@@ -96,19 +85,17 @@ a:visited {
 
 /* Typography Styles */
 h1 {
-  font-family: 'futura-pt', 'futura-pt-fallback', sans-serif;
+  font-family: 'futura-pt', sans-serif;
   font-size: clamp(3rem, 8vw, 5rem);
   font-weight: 400;
   line-height: 1.1;
-  font-display: swap;
 }
 
 h2 {
-  font-family: 'futura-pt', 'futura-pt-fallback', sans-serif;  
+  font-family: 'futura-pt', sans-serif;  
   font-size: clamp(2.5rem, 6vw, 4rem);
   font-weight: 400;
   line-height: 1.2;
-  font-display: swap;
 }
 
 h3 {
@@ -590,7 +577,7 @@ h4 {
 }
 
 .hero-title {
-  font-family: 'futura-pt', 'futura-pt-fallback', 'Futura', 'Avenir Next', 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'futura-pt', 'Futura', 'Avenir Next', 'Helvetica Neue', Arial, sans-serif;
   font-size: 5rem;
   font-weight: 400;
   line-height: 1;
@@ -598,9 +585,6 @@ h4 {
   margin-bottom: 2rem;
   letter-spacing: -0.02em;
   width: var(--hero-title-width, 50rem);
-  font-display: swap;
-  /* Prevent CLS by reserving space */
-  min-height: 10rem;
 }
 
 .services-list {
