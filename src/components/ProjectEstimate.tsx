@@ -340,7 +340,7 @@ export default function ProjectEstimate() {
               </div>
               <div className="w-layout-blockcontainer graphic-copy-services-subheader w-container">
                 <div className="graphic-copy-services-copy">
-                  <h2 className="dot_h2_subheader">Get Your Website Development Project Cost Online</h2>
+                  <h2 className="dot_h2_subheader">Get Your Project Cost Online</h2>
                 </div>
               </div>
             </div>
@@ -413,7 +413,7 @@ export default function ProjectEstimate() {
                 {activeTab === 'graphic' && (
                   <div className="services-tab-content">
                     <form className="hack42-45-form-design">
-                      <h1 className="brief-title">Graphic Design Project Estimate</h1>
+                      <h1 className="brief-title">Graphic Design A La Carte Estimate</h1>
                       <div className="hack42-45-form-design-new _2">
                         <p className="paragraph brief hero">Please fill out the fields below to get an approximate cost for your project. This tool aims to give you a preliminary idea of your investment.</p>
                         
@@ -445,7 +445,7 @@ export default function ProjectEstimate() {
                 {activeTab === 'websites' && (
                   <div className="services-tab-content">
                     <form className="hack42-45-form-websites">
-                      <h1 className="brief-title">Website Project Estimate</h1>
+                      <h1 className="brief-title">Website A La Carte Estimate</h1>
                       <div className="hack42-45-form-left _2">
                         <p className="paragraph brief hero">Please fill out the fields below to get an approximate cost for your project. This tool aims to give you a preliminary idea of your investment.</p>
                         
@@ -479,7 +479,7 @@ export default function ProjectEstimate() {
                 {activeTab === 'photo' && (
                   <div className="services-tab-content">
                     <form className="hack42-45-form-photo">
-                      <h1 className="brief-title">Photo & Video Project Estimate</h1>
+                      <h1 className="brief-title">Photo & Video A La Carte Estimate</h1>
                       <div className="hack42-45-form-photo-new _2">
                         <p className="paragraph brief hero">Please fill out the fields below to get an approximate cost for your project. This tool aims to give you a preliminary idea of your investment.</p>
                         

@@ -64,9 +64,9 @@ export default function Header() {
           <Link 
             href="/estimate" 
             className={`nav-link ${isActive('/estimate') ? 'active' : ''}`}
-            onClick={() => trackNavigation.ctaClick('Project Estimate', 'Header', '/estimate')}
+            onClick={() => trackNavigation.ctaClick('A La Carte Estimate', 'Header', '/estimate')}
           >
-            Project Estimate
+            A La Carte Estimate
           </Link>
           <Link 
             href="/brief" 
@@ -181,11 +181,11 @@ export default function Header() {
               href="/estimate" 
               className={`mobile-nav-link ${isActive('/estimate') ? 'active' : ''}`} 
               onClick={() => {
-                trackNavigation.ctaClick('Project Estimate', 'Mobile Menu', '/estimate');
+                trackNavigation.ctaClick('A La Carte Estimate', 'Mobile Menu', '/estimate');
                 handleCloseMenu();
               }}
             >
-              Project Estimate
+              A La Carte Estimate
             </Link>
             <Link 
               href="/brief" 

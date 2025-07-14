@@ -482,7 +482,6 @@ export default function BlogPage() {
           grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
           gap: 40px;
           margin-bottom: 80px;
-          min-height: 800px; /* Increased space to prevent layout shifts */
         }
         
         .post-card {
@@ -493,6 +492,7 @@ export default function BlogPage() {
           color: inherit;
           display: flex;
           flex-direction: column;
+          height: 100%;
         }
         
         .post-card:hover {
@@ -544,6 +544,7 @@ export default function BlogPage() {
           color: #555;
           line-height: 1.6;
           margin-bottom: 20px;
+          flex-grow: 1;
         }
         
         .post-category {
@@ -947,7 +948,7 @@ export default function BlogPage() {
                   onClick={() => {
                     trackContent.blogPostView(post.slug, post.title, post.category);
                   }}
-                  style={{ textDecoration: 'none', color: 'inherit' }}
+                  style={{ textDecoration: 'none', color: 'inherit', display: 'flex', height: '100%' }}
                 >
                   <article className="post-card">
                     <div className="post-category">{post.category}</div>

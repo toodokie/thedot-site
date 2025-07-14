@@ -67,7 +67,7 @@ const generateClientConsultationHTML = (data: ConsultationData) => {
                 </div>
                 
                 <div class="section">
-                    <div class="section-title">Your Project Estimate Summary:</div>
+                    <div class="section-title">Your A La Carte Estimate Summary:</div>
                     <div class="estimate-summary">
                         <p><strong>Service Type:</strong> ${serviceType}</p>
                         <p><strong>Estimated Investment:</strong> CAD $${data.estimateData.total?.toLocaleString() || '0'}</p>
@@ -164,7 +164,7 @@ const generateInternalConsultationHTML = (data: ConsultationData) => {
             </div>
             
             <div class="estimate-details">
-                <h3>Project Estimate Details:</h3>
+                <h3>A La Carte Estimate Details:</h3>
                 <ul>
                     <li><strong>Service Type:</strong> ${serviceType}</li>
                     <li><strong>Estimated Value:</strong> CAD $${data.estimateData.total?.toLocaleString() || '0'}</li>

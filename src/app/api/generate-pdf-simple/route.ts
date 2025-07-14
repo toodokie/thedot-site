@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       <html>
       <head>
         <meta charset="utf-8">
-        <title>Project Estimate - ${serviceType}</title>
+        <title>A La Carte Estimate - ${serviceType}</title>
         <style>
           body {
             font-family: Arial, sans-serif;
@@ -196,7 +196,7 @@ export async function POST(request: NextRequest) {
           </div>
         </div>
         
-        <div class="title">${serviceType} Project Estimate</div>
+        <div class="title">${serviceType} A La Carte Estimate</div>
         
         <div class="project-details">
           <div class="detail-row">

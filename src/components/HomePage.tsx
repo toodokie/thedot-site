@@ -3,6 +3,7 @@ import { getAllProjects } from '@/lib/projects';
 import Hero from '@/components/Hero';
 import WelcomeSection from '@/components/WelcomeSection';
 import ServicesSection from '@/components/ServicesSection';
+import ConversionDiagnosticTool from '@/components/ConversionDiagnosticTool';
 import ProjectsGrid from '@/components/ProjectsGrid';
 import ClientAnimations from './ClientAnimations';
 import BoutiqueSection from '@/components/BoutiqueSection';
@@ -20,6 +21,7 @@ export default async function HomePage() {
       <WelcomeSection />
       <BoutiqueSection />
       <ServicesSection />
+      <ConversionDiagnosticTool />
       <ProjectsGrid projects={projects} />
       <QuoteSection />
       <Footer />

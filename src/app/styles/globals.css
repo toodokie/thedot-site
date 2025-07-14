@@ -1313,7 +1313,7 @@ h4 {
 /* TABLET (1000px - 1239px) */
 @media (min-width: 1000px) and (max-width: 1239px) {
   .services-section {
-    padding: 6rem 0 !important;
+    padding: 6rem 0 0 0 !important;
   }
   
   .services-section > div {
@@ -1360,7 +1360,7 @@ h4 {
 /* MOBILE (999px and down) */
 @media (max-width: 999px) {
   .services-section {
-    padding: 5rem 0 !important;
+    padding: 5rem 0 0 0 !important;
   }
   
   .services-section > div {
@@ -1411,7 +1411,7 @@ h4 {
 /* SMALL MOBILE (480px and down) - FIXED SYNTAX ERROR */
 @media (max-width: 480px) {
   .services-section {
-    padding: 4rem 0 !important;
+    padding: 4rem 0 0 0 !important;
   }
   
   .services-section > div {
@@ -2851,7 +2851,7 @@ h4 {
 
 /* Services Features */
 .services-features {
-  padding: 8rem 0 4rem 0;
+  padding: 8rem 0 0 0;
 }
 
 .services-container {

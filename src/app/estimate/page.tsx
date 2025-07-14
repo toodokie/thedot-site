@@ -5,6 +5,6 @@ export default function EstimatePage() {
 }
 
 export const metadata = {
-  title: 'Get a Free Project Estimate for Custom Web and Graphic Design | The Dot Creative Agency',
+  title: 'Get a Free A La Carte Estimate for Custom Web and Graphic Design | The Dot Creative Agency',
   description: 'Estimate Your Website Development Project Cost with The Dot Creative Agency.',
 };
