@@ -900,7 +900,10 @@ export default function BlogPage() {
                 <div className="featured-image">
                   {featuredPost.featuredImage ? (
                     <Image
-                      src={featuredPost.featuredImage}
+                      src={featuredPost.featuredImage.includes('prod-files-secure.s3.us-west-2.amazonaws.com') 
+                        ? `/api/image-proxy?url=${encodeURIComponent(featuredPost.featuredImage)}` 
+                        : featuredPost.featuredImage
+                      }
                       alt={featuredPost.title}
                       width={800}
                       height={600}
@@ -913,6 +916,7 @@ export default function BlogPage() {
                       }}
                       placeholder="blur"
                       blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
+                      unoptimized
                     />
                   ) : (
                     <span>[Featured Article Image]</span>

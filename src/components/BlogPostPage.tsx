@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import Footer from './Footer';
 
@@ -644,9 +645,25 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
         {/* Featured Image */}
         {post.featuredImage && (
           <div className="post-featured-image">
-            <img 
-              src={post.featuredImage} 
+            <Image 
+              src={post.featuredImage.includes('prod-files-secure.s3.us-west-2.amazonaws.com') 
+                ? `/api/image-proxy?url=${encodeURIComponent(post.featuredImage)}` 
+                : post.featuredImage
+              }
               alt={post.title}
+              width={800}
+              height={400}
+              style={{
+                width: '100%',
+                height: 'auto',
+                objectFit: 'cover'
+              }}
+              priority
+              unoptimized
+              onError={(e) => {
+                console.error('Failed to load featured image:', post.featuredImage);
+                e.currentTarget.style.display = 'none';
+              }}
             />
           </div>
         )}
@@ -675,9 +692,24 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
             <Link href={`/blog/${nextPost.slug}`} className="next-article-card">
               {nextPost.featuredImage && (
                 <div className="next-article-image">
-                  <img 
-                    src={nextPost.featuredImage} 
+                  <Image 
+                    src={nextPost.featuredImage.includes('prod-files-secure.s3.us-west-2.amazonaws.com') 
+                      ? `/api/image-proxy?url=${encodeURIComponent(nextPost.featuredImage)}` 
+                      : nextPost.featuredImage
+                    }
                     alt={nextPost.title}
+                    width={300}
+                    height={200}
+                    style={{
+                      width: '100%',
+                      height: 'auto',
+                      objectFit: 'cover'
+                    }}
+                    unoptimized
+                    onError={(e) => {
+                      console.error('Failed to load next post image:', nextPost.featuredImage);
+                      e.currentTarget.style.display = 'none';
+                    }}
                   />
                 </div>
               )}
