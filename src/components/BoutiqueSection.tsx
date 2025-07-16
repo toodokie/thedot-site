@@ -234,6 +234,7 @@ export default function BoutiqueSection() {
         .boutique-process {
           width: 100%;
           padding: 0 2rem;
+          overflow: visible;
         }
 
         .capabilities-container {
@@ -258,6 +259,9 @@ export default function BoutiqueSection() {
           perspective: 1000px;
           position: relative;
           overflow: visible;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .circular-svg-container {
@@ -420,6 +424,11 @@ export default function BoutiqueSection() {
             padding: 2rem 0 6rem 0;
           }
           
+          .boutique-process {
+            padding: 0 1rem;
+            overflow: visible;
+          }
+          
           .capability-item {
             flex-direction: column;
             gap: 1rem;
@@ -433,6 +442,9 @@ export default function BoutiqueSection() {
           .flip-container {
             width: clamp(140px, 35vw, 180px);
             height: clamp(140px, 35vw, 180px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
           }
 
           .capability-circle {
