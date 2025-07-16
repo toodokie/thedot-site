@@ -431,8 +431,13 @@ export default function BoutiqueSection() {
           }
 
           .flip-container {
-            width: 35vw;
-            height: 35vw;
+            width: clamp(140px, 35vw, 180px);
+            height: clamp(140px, 35vw, 180px);
+          }
+
+          .capability-circle {
+            width: 90%;
+            height: 90%;
           }
 
           .capabilities-container {
