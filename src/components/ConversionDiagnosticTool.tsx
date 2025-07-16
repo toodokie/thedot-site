@@ -786,7 +786,7 @@ export default function ConversionDiagnosticTool() {
           }
 
           .question-text {
-            font-size: 1.4rem;
+            font-size: 1.8rem;
           }
 
           .answer-button {
