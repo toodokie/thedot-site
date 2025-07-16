@@ -422,6 +422,12 @@ export default function ServicesSection() {
             .service-card-title {
               font-size: 1.8rem !important;
             }
+            
+            .service-card-text {
+              font-size: 1rem !important;
+              font-weight: 400 !important;
+              line-height: 1.8 !important;
+            }
           }
           
           .section-title {
