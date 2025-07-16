@@ -108,7 +108,7 @@ export default function ImageWithSkeleton({
         style={{
           ...style,
           opacity: isLoading || hasError ? 0 : 1,
-          transition: 'opacity 0.2s ease'
+          transition: 'opacity 0.15s ease'
         }}
         className={className}
         placeholder="blur"
