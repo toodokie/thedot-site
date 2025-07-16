@@ -618,6 +618,12 @@ h4 {
   opacity: 0.3;
 }
 
+@media (max-width: 480px) {
+  .service-divider {
+    display: none;
+  }
+}
+
 /* Circle Video Border Fix */
 .hero-video-circle {
   position: relative;
