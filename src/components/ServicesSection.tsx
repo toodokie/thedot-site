@@ -401,7 +401,7 @@ export default function ServicesSection() {
           
           @media (max-width: 999px) {
             .services-section {
-              padding: 4rem 0 0 0;
+              padding: 2rem 0 2rem 0;
             }
             
             .fast-track-cta {
@@ -416,8 +416,7 @@ export default function ServicesSection() {
           
           @media (max-width: 768px) {
             .services-section {
-              padding: 4rem 0 0 0;
-              margin-top: 2rem; /* Extra margin to prevent overlap */
+              padding: 2rem 0 2rem 0;
             }
           }
           

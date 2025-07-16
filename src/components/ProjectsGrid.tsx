@@ -233,13 +233,13 @@ export default function ProjectsGrid({ projects }: ProjectsGridProps) {
       <style jsx>{`
         @media (max-width: 999px) {
           .projects-grid-section {
-            padding-top: 2rem !important;
+            padding: 2rem 0 2rem 0 !important;
           }
         }
         
         @media (max-width: 768px) {
           .projects-grid-section {
-            padding-top: 2rem !important;
+            padding: 2rem 0 2rem 0 !important;
           }
         }
       `}</style>
