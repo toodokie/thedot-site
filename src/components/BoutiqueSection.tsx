@@ -216,9 +216,6 @@ export default function BoutiqueSection() {
           overflow: visible;
           position: relative;
           z-index: 1;
-          min-height: fit-content;
-          display: flex;
-          flex-direction: column;
         }
         
         @media (max-width: 999px) {
@@ -237,9 +234,6 @@ export default function BoutiqueSection() {
         .boutique-process {
           width: 100%;
           padding: 0 2rem;
-          flex: 1;
-          display: flex;
-          flex-direction: column;
         }
 
         .capabilities-container {
@@ -250,8 +244,6 @@ export default function BoutiqueSection() {
           max-width: 1400px;
           margin: 0 auto;
           flex-wrap: wrap;
-          min-height: fit-content;
-          flex: 1;
         }
 
         .capability-item {
@@ -266,6 +258,35 @@ export default function BoutiqueSection() {
           perspective: 1000px;
           position: relative;
           overflow: visible;
+        }
+
+        .circular-svg-container {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          opacity: 0;
+          transition: opacity 0.5s ease;
+          pointer-events: none;
+          z-index: 10;
+        }
+
+        .circular-svg-container.visible {
+          opacity: 1;
+        }
+
+        .circular-text-svg {
+          width: 100%;
+          height: 100%;
+          overflow: visible;
+        }
+
+        .circular-text-path {
+          font-family: 'ff-real-text-pro-2', sans-serif;
+          font-size: clamp(0.5rem, 1.2vw, 0.7rem);
+          font-weight: 300;
+          fill: var(--foreground);
+          opacity: 0.8;
         }
 
         .capability-circle {
