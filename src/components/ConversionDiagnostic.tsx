@@ -364,7 +364,7 @@ export default function ConversionDiagnostic() {
 
           .cta-button {
             padding: 18px 35px;
-            font-size: 1rem;
+            font-size: 1rem !important;
           }
         }
 
