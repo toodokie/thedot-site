@@ -216,6 +216,9 @@ export default function BoutiqueSection() {
           overflow: visible;
           position: relative;
           z-index: 1;
+          min-height: fit-content;
+          display: flex;
+          flex-direction: column;
         }
         
         @media (max-width: 999px) {
@@ -234,6 +237,9 @@ export default function BoutiqueSection() {
         .boutique-process {
           width: 100%;
           padding: 0 2rem;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
         }
 
         .capabilities-container {
@@ -244,6 +250,8 @@ export default function BoutiqueSection() {
           max-width: 1400px;
           margin: 0 auto;
           flex-wrap: wrap;
+          min-height: fit-content;
+          flex: 1;
         }
 
         .capability-item {
