@@ -431,15 +431,15 @@ export default function BoutiqueSection() {
           }
 
           .flip-container {
-            width: clamp(140px, 35vw, 180px);
-            height: clamp(140px, 35vw, 180px);
+            width: 35vw;
+            height: 35vw;
           }
 
           .capabilities-container {
             display: grid;
             grid-template-columns: 1fr 1fr;
             grid-template-rows: 1fr 1fr;
-            gap: 4rem 2.5rem;
+            gap: 4rem 5vw;
             max-width: 100%;
             justify-items: center;
           }
