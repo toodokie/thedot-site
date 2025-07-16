@@ -485,7 +485,7 @@ export default function ConversionDiagnosticTool() {
         .services-cta-button {
           background: var(--foreground);
           color: var(--raw-white);
-          padding: 18px 36px;
+          padding: 18px 1.25rem;
           border: 2px solid var(--foreground);
           font-family: ff-real-text-pro-2, sans-serif;
           font-size: 1rem;
