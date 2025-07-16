@@ -420,7 +420,7 @@ export default function ServicesSection() {
             }
             
             .service-card-title {
-              font-size: 2rem !important;
+              font-size: 1.8rem !important;
             }
           }
           
