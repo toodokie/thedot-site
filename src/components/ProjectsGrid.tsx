@@ -190,7 +190,7 @@ interface ProjectListItemProps {
   index: number;
 }
 
-function ProjectListItem({ project }: ProjectListItemProps) {
+function ProjectListItem({ project, index }: ProjectListItemProps) {
   const [isHovered, setIsHovered] = useState(false);
 
   // Debug logging (removed for production)
@@ -217,13 +217,14 @@ function ProjectListItem({ project }: ProjectListItemProps) {
                 src={project.heroImage || (project.images && project.images.length > 0 ? project.images[0] : '/images/example1.jpg')}
                 alt={project.title}
                 fill
+                priority={index < 2}
                 style={{ 
                   objectFit: 'cover',
                   transition: 'opacity 0.3s ease',
                   opacity: isHovered ? 0.8 : 1
                 }}
-                sizes="(max-width: 768px) 100vw, 50vw"
-                loading="lazy"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
+                loading={index < 2 ? "eager" : "lazy"}
                 brandColor={project.brandColors?.primary || '#faf9f6'}
               />
             </div>

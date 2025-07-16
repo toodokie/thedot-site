@@ -3,8 +3,11 @@ import { getProjects } from '@/lib/notion';
 
 // Cache for fresh Notion URLs
 let urlCache: Map<string, string> = new Map();
+// Cache for actual image data
+let imageCache: Map<string, { data: ArrayBuffer; contentType: string; timestamp: number }> = new Map();
 let lastRefresh = 0;
-const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
+const CACHE_DURATION = 2 * 60 * 60 * 1000; // 2 hours (longer cache)
+const IMAGE_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours for image data
 
 async function refreshUrlIfNeeded(originalUrl: string): Promise<string> {
   const now = Date.now();
@@ -75,18 +78,41 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const imageUrl = searchParams.get('url');
+    const width = searchParams.get('w');
+    const quality = searchParams.get('q') || '75';
     
     if (!imageUrl) {
       return NextResponse.json({ error: 'URL parameter is required' }, { status: 400 });
     }
 
+    const now = Date.now();
+    const cacheKey = `${imageUrl}-${width}-${quality}`;
+    
+    // Check image cache first
+    const cachedImage = imageCache.get(cacheKey);
+    if (cachedImage && now - cachedImage.timestamp < IMAGE_CACHE_DURATION) {
+      console.log('📦 Serving from image cache');
+      return new NextResponse(cachedImage.data, {
+        status: 200,
+        headers: {
+          'Content-Type': cachedImage.contentType,
+          'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800', // Cache for 24 hours, stale for 7 days
+          'ETag': `"${cacheKey}-${cachedImage.timestamp}"`,
+          'X-Cache': 'HIT',
+        },
+      });
+    }
+
     // Get a fresh URL if needed
     const freshUrl = await refreshUrlIfNeeded(imageUrl);
 
-    // Fetch the image from Notion's S3
+    // Fetch the image from Notion's S3 with optimizations
     const response = await fetch(freshUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; ImageProxy/1.0)',
+        'Accept': 'image/webp,image/avif,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Cache-Control': 'max-age=3600',
       },
     });
 
@@ -101,6 +127,9 @@ export async function GET(request: NextRequest) {
         const retryResponse = await fetch(newUrl, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (compatible; ImageProxy/1.0)',
+            'Accept': 'image/webp,image/avif,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Cache-Control': 'max-age=3600',
           },
         });
         
@@ -108,11 +137,20 @@ export async function GET(request: NextRequest) {
           const imageBuffer = await retryResponse.arrayBuffer();
           const contentType = retryResponse.headers.get('content-type') || 'image/jpeg';
           
+          // Cache the successful response
+          imageCache.set(cacheKey, {
+            data: imageBuffer,
+            contentType,
+            timestamp: now
+          });
+          
           return new NextResponse(imageBuffer, {
             status: 200,
             headers: {
               'Content-Type': contentType,
-              'Cache-Control': 'public, max-age=1800', // Cache for 30 minutes
+              'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800', // Cache for 24 hours, stale for 7 days
+              'ETag': `"${cacheKey}-${now}"`,
+              'X-Cache': 'MISS',
             },
           });
         }
@@ -125,11 +163,30 @@ export async function GET(request: NextRequest) {
     const imageBuffer = await response.arrayBuffer();
     const contentType = response.headers.get('content-type') || 'image/jpeg';
 
+    // Cache the successful response
+    imageCache.set(cacheKey, {
+      data: imageBuffer,
+      contentType,
+      timestamp: now
+    });
+
+    // Clean up old cache entries periodically
+    if (imageCache.size > 100) {
+      const cutoff = now - IMAGE_CACHE_DURATION;
+      for (const [key, value] of imageCache.entries()) {
+        if (value.timestamp < cutoff) {
+          imageCache.delete(key);
+        }
+      }
+    }
+
     return new NextResponse(imageBuffer, {
       status: 200,
       headers: {
         'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=1800', // Cache for 30 minutes (less than token expiry)
+        'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800', // Cache for 24 hours, stale for 7 days
+        'ETag': `"${cacheKey}-${now}"`,
+        'X-Cache': 'MISS',
       },
     });
   } catch (error) {

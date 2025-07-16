@@ -34,6 +34,9 @@ export default function ImageWithSkeleton({
 }: ImageWithSkeletonProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  
+  // Enhanced priority logic for better performance
+  const shouldPrioritize = priority || (width && height && width >= 400 && height >= 250);
 
   const handleLoad = () => {
     setIsLoading(false);
@@ -99,13 +102,13 @@ export default function ImageWithSkeleton({
         width={width}
         height={height}
         fill={fill}
-        priority={priority}
-        loading={loading}
-        sizes={sizes}
+        priority={shouldPrioritize}
+        loading={shouldPrioritize ? 'eager' : loading}
+        sizes={sizes || (shouldPrioritize ? '(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 800px' : '(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 400px')}
         style={{
           ...style,
           opacity: isLoading || hasError ? 0 : 1,
-          transition: 'opacity 0.3s ease'
+          transition: 'opacity 0.2s ease'
         }}
         className={className}
         placeholder="blur"
@@ -113,6 +116,7 @@ export default function ImageWithSkeleton({
         loader={notionImageLoader}
         onLoad={handleLoad}
         onError={handleError}
+        quality={shouldPrioritize ? 90 : 80}
       />
 
       {/* Shimmer animation CSS */}
