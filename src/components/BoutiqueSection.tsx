@@ -220,7 +220,7 @@ export default function BoutiqueSection() {
         
         @media (max-width: 999px) {
           .boutique-section {
-            padding: 4rem 0 6rem 0;
+            padding: 4rem 0 4rem 0;
           }
         }
 
@@ -388,7 +388,7 @@ export default function BoutiqueSection() {
 
         @media (max-width: 768px) {
           .boutique-section {
-            padding: 2rem 0 6rem 0; /* Increase bottom padding to create buffer */
+            padding: 2rem 0 4rem 0; /* Consistent bottom padding with other sections */
           }
           
           .capability-item {
