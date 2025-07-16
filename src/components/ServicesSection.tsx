@@ -208,7 +208,7 @@ export default function ServicesSection() {
                       style={{
                         fontFamily: 'futura-pt, sans-serif',
                         fontSize: '1rem',
-                        fontWeight: 600,
+                        fontWeight: 400,
                         lineHeight: 1.2,
                         color: '#35332f',
                         margin: '0 0 1rem 0',

@@ -217,6 +217,12 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
           max-width: 1200px;
           margin: 40px auto;
           padding: 0 20px;
+          min-height: 400px; /* Reserve space to prevent CLS */
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #f8f9fa;
+          border-radius: 8px;
         }
         
         .post-featured-image img {
@@ -587,6 +593,12 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
             gap: 10px;
           }
           
+          .post-featured-image {
+            min-height: 250px; /* Adjusted for mobile */
+            margin: 20px auto;
+            padding: 0 10px;
+          }
+          
           .author-content {
             flex-direction: column;
             text-align: center;
@@ -656,13 +668,20 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
               style={{
                 width: '100%',
                 height: 'auto',
-                objectFit: 'cover'
+                objectFit: 'cover',
+                maxHeight: '500px'
               }}
               priority
-              unoptimized
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 800px"
               onError={(e) => {
                 console.error('Failed to load featured image:', post.featuredImage);
-                e.currentTarget.style.display = 'none';
+                const target = e.currentTarget;
+                target.style.display = 'none';
+                // Show fallback text
+                const container = target.parentElement;
+                if (container) {
+                  container.innerHTML = '<span style="color: #999; font-style: italic;">Image not available</span>';
+                }
               }}
             />
           </div>
@@ -705,10 +724,14 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
                       height: 'auto',
                       objectFit: 'cover'
                     }}
-                    unoptimized
+                    sizes="(max-width: 768px) 100vw, 300px"
                     onError={(e) => {
                       console.error('Failed to load next post image:', nextPost.featuredImage);
-                      e.currentTarget.style.display = 'none';
+                      const target = e.currentTarget;
+                      const container = target.parentElement;
+                      if (container) {
+                        container.style.display = 'none';
+                      }
                     }}
                   />
                 </div>
