@@ -439,6 +439,13 @@ export default function BoutiqueSection() {
             width: 90%;
             height: 90%;
           }
+        }
+
+        @media (max-width: 480px) {
+          .capability-circle {
+            width: 80%;
+            height: 80%;
+          }
 
           .capabilities-container {
             display: grid;
