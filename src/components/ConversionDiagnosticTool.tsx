@@ -483,24 +483,38 @@ export default function ConversionDiagnosticTool() {
         }
 
         .services-cta-button {
-          background: var(--foreground);
-          color: var(--raw-white);
-          padding: 18px 1.25rem;
-          border: 2px solid var(--foreground);
-          font-family: ff-real-text-pro-2, sans-serif;
-          font-size: 1rem;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          text-decoration: none;
-          display: inline-block;
+          border: 1px solid var(--foreground) !important;
+          border-style: solid !important;
+          border-width: 1px !important;
+          border-color: var(--foreground) !important;
+          outline: none !important;
+          background-color: var(--raw-white) !important;
+          box-shadow: 0 2px 5px 0 var(--yellow) !important;
+          color: var(--foreground) !important;
+          text-align: center !important;
+          letter-spacing: 2px !important;
+          text-transform: uppercase !important;
+          border-radius: 0 !important;
+          padding: 18px 1.25rem !important;
+          font-family: futura-pt, sans-serif !important;
+          font-size: 1rem !important;
+          font-weight: 400 !important;
+          line-height: 18px !important;
+          transition: all .4s cubic-bezier(.23, 1, .32, 1) !important;
+          display: inline-block !important;
+          text-decoration: none !important;
+          cursor: pointer !important;
+          box-sizing: border-box !important;
           margin: 10px;
         }
 
         .services-cta-button:hover {
-          background: var(--yellow);
-          color: var(--foreground);
-          border-color: var(--yellow);
+          background-color: var(--foreground) !important;
+          box-shadow: 2px 9px 20px 2px var(--yellow) !important;
+          color: #faf9f6 !important;
+          border-color: var(--foreground) !important;
+          transform: scale(.9) !important;
+          text-decoration: none !important;
         }
 
         .services-cta-button.secondary {
