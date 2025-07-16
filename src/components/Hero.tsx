@@ -1,6 +1,37 @@
 import Image from 'next/image';
+import { useEffect } from 'react';
 
 export default function Hero() {
+    useEffect(() => {
+        // Safari mobile video autoplay fix
+        const videos = document.querySelectorAll('video');
+        videos.forEach(video => {
+            if (video.paused) {
+                video.play().catch(console.error);
+            }
+        });
+        
+        // Try to play videos on first user interaction
+        const handleFirstInteraction = () => {
+            videos.forEach(video => {
+                if (video.paused) {
+                    video.play().catch(console.error);
+                }
+            });
+            // Remove listeners after first interaction
+            document.removeEventListener('touchstart', handleFirstInteraction);
+            document.removeEventListener('click', handleFirstInteraction);
+        };
+        
+        document.addEventListener('touchstart', handleFirstInteraction);
+        document.addEventListener('click', handleFirstInteraction);
+        
+        return () => {
+            document.removeEventListener('touchstart', handleFirstInteraction);
+            document.removeEventListener('click', handleFirstInteraction);
+        };
+    }, []);
+
     return (
       <>
         {/* Main Hero Content */}
@@ -47,8 +78,14 @@ export default function Hero() {
                   }}
                   width="300"
                   height="300"
+                  onLoadedData={(e) => {
+                    // Force play on Safari mobile
+                    const video = e.target as HTMLVideoElement;
+                    video.play().catch(console.error);
+                  }}
                 >
                   <source src="/video/hero-video.mp4" type="video/mp4" />
+                  Your browser does not support the video tag.
                 </video>
               </div>
             </div>
@@ -101,8 +138,14 @@ export default function Hero() {
                 height: '100%',
                 objectFit: 'cover'
               }}
+              onLoadedData={(e) => {
+                // Force play on Safari mobile
+                const video = e.target as HTMLVideoElement;
+                video.play().catch(console.error);
+              }}
             >
               <source src="/video/hero-video.mp4" type="video/mp4" />
+              Your browser does not support the video tag.
             </video>
           </div>
           
