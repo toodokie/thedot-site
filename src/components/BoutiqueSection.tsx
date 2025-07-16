@@ -458,6 +458,27 @@ export default function BoutiqueSection() {
             width: 80%;
             height: 80%;
           }
+        }
+
+        @media (max-width: 320px) {
+          .flip-container {
+            width: clamp(110px, 30vw, 140px);
+            height: clamp(110px, 30vw, 140px);
+          }
+
+          .capability-circle {
+            width: 75%;
+            height: 75%;
+          }
+
+          .capabilities-container {
+            gap: 3rem 3vw;
+          }
+
+          .boutique-process {
+            padding: 0 0.5rem;
+          }
+        }
 
           .capabilities-container {
             display: grid;
