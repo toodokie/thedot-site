@@ -92,7 +92,7 @@ export default function ProjectsGrid({ projects }: ProjectsGridProps) {
 
   return (
     <section
-      className="animate-on-scroll"
+      className="animate-on-scroll projects-grid-section"
       style={{
         background: 'var(--background)',
         paddingTop: '6rem',
@@ -230,6 +230,19 @@ export default function ProjectsGrid({ projects }: ProjectsGridProps) {
 
       {/* Tools Section */}
       
+      <style jsx>{`
+        @media (max-width: 999px) {
+          .projects-grid-section {
+            padding-top: 2rem !important;
+          }
+        }
+        
+        @media (max-width: 768px) {
+          .projects-grid-section {
+            padding-top: 2rem !important;
+          }
+        }
+      `}</style>
     </section>
   );
 }

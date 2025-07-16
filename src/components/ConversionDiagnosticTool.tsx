@@ -776,13 +776,13 @@ export default function ConversionDiagnosticTool() {
 
         @media (max-width: 999px) {
           .diagnostic-tool-section {
-            padding: 1rem 1.5rem 80px 1.5rem;
+            padding: 1rem 1.5rem 0 1.5rem;
           }
         }
 
         @media (max-width: 480px) {
           .diagnostic-tool-section {
-            padding: 1rem 1rem 80px 1rem;
+            padding: 1rem 1rem 0 1rem;
           }
         }
 
