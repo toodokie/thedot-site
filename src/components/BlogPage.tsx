@@ -495,7 +495,7 @@ export default function BlogPage() {
           display: flex;
           flex-direction: column;
           height: 100%;
-          min-height: 320px; /* Fixed height to prevent CLS */
+          min-height: 250px; /* Fixed height to prevent CLS */
         }
         
         .post-card:hover {
