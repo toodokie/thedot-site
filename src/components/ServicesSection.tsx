@@ -418,6 +418,10 @@ export default function ServicesSection() {
             .services-section {
               padding: 2rem 0 2rem 0;
             }
+            
+            .service-card-title {
+              font-size: 2rem !important;
+            }
           }
           
           .section-title {
