@@ -5,9 +5,18 @@ import { useEffect } from 'react';
 
 export default function Hero() {
     useEffect(() => {
-        // Safari mobile video autoplay fix
+        // Safari mobile video autoplay fix with performance optimization
         const videos = document.querySelectorAll('video');
+        
+        // Detect if on mobile for performance optimization
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
         videos.forEach(video => {
+            // Mobile optimization: reduce quality and frame rate if needed
+            if (isMobile) {
+                video.setAttribute('playbackRate', '0.8'); // Slightly slower playback for smoother performance
+            }
+            
             if (video.paused) {
                 video.play().catch(console.error);
             }
@@ -71,7 +80,7 @@ export default function Hero() {
                   loop 
                   muted 
                   playsInline
-                  preload="metadata"
+                  preload="none"
                   className="circle-video"
                   style={{
                     width: '100%',
@@ -133,7 +142,7 @@ export default function Hero() {
               loop 
               muted 
               playsInline
-              preload="metadata"
+              preload="none"
               className="hero-video"
               style={{
                 width: '100%',
