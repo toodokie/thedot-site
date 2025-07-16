@@ -439,7 +439,7 @@ export default function BoutiqueSection() {
             display: grid;
             grid-template-columns: 1fr 1fr;
             grid-template-rows: 1fr 1fr;
-            gap: 4rem 1.5rem;
+            gap: 4rem 2.5rem;
             max-width: 100%;
             justify-items: center;
           }
