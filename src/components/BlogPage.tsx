@@ -25,6 +25,12 @@ export default function BlogPage() {
   const [selectedCategory, setSelectedCategory] = useState('All');
 
   useEffect(() => {
+    // Preload posts API to reduce loading time
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.href = '/api/blog';
+    document.head.appendChild(link);
+    
     // Fetch blog posts from API
     fetchPosts();
 

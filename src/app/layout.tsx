@@ -200,6 +200,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://use.typekit.net/gac6jnd.css"
         />
         
+        {/* Font loading optimization to reduce CLS */}
+        <style dangerouslySetInnerHTML={{
+          __html: `
+            @font-face {
+              font-family: 'futura-pt';
+              font-display: swap;
+            }
+            @font-face {
+              font-family: 'ff-real-text-pro-2';
+              font-display: swap;
+            }
+          `
+        }} />
+        
         
         {/* Additional favicon sizes */}
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png?v=5" />

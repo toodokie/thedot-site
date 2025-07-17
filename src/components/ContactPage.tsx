@@ -116,9 +116,7 @@ export default function ContactPage() {
           width: 100%;
           height: 1100px;
           border: 0;
-          position: absolute;
-          top: 0;
-          left: 0;
+          display: block;
         }
         
         .div-block-201 {
@@ -149,6 +147,7 @@ export default function ContactPage() {
           
           .code-embed iframe {
             height: 800px;
+            display: block;
           }
         }
         
@@ -221,6 +220,9 @@ export default function ContactPage() {
               <iframe 
                 src="https://calendar.google.com/calendar/appointments/schedules/AcZssZ2-jj49NvN4gOJRVdYHrQjylFvFAqrtqMHWfW_rJx0WSRIdVJue7WfcjSlMwIRakKYHUD69zmbA?gv=true"
                 title="Google Calendar Appointment Scheduling"
+                width="100%"
+                height="1100"
+                loading="lazy"
               />
             </div>
           </div>
