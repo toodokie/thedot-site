@@ -611,6 +611,7 @@ h4 {
   margin: 2rem 0;
 }
 
+/* Vertical separator between service items */
 .service-divider {
   width: 1px;
   height: 20px;
