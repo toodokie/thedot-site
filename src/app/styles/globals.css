@@ -3703,37 +3703,39 @@ h4 {
 
 /* ===== CIRCULAR TEXT RESPONSIVE BEHAVIOR - FIXED ===== */
 
-/* Tablet Responsive (769px - 999px) - Show circular text CLOSER, bigger fonts */
+/* Tablet Responsive (769px - 999px) - Mobile layout scaled up 10% */
 @media (min-width: 769px) and (max-width: 999px) {
   .hide-on-circular {
     display: none !important;
   }
   
-  /* Smaller containers to fit 4 circles in one row on tablet */
+  /* Scale mobile containers up by 10% (from 160-200px to 176-220px) */
   .boutique-section .flip-container {
-    width: clamp(140px, 15vw, 180px) !important;
-    height: clamp(140px, 15vw, 180px) !important;
+    width: clamp(176px, 44vw, 220px) !important;
+    height: clamp(176px, 44vw, 220px) !important;
   }
   
-  /* Spread 4 circles evenly across 100% screen width on tablet */
+  /* Use mobile-style layout with 2x2 grid */
   .boutique-section .capabilities-container {
-    gap: 0 !important;
-    max-width: 100vw !important;
-    width: 100vw !important;
-    justify-content: space-evenly !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    position: relative !important;
-    left: 50% !important;
-    right: 50% !important;
-    margin-left: -50vw !important;
-    margin-right: -50vw !important;
-    z-index: 1 !important;
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    row-gap: 6rem !important;
+    column-gap: 2rem !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 2rem !important;
+    margin: 0 auto !important;
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    justify-items: center !important;
   }
   
-  /* Tablet circular text - smaller to fit in smaller circles */
+  /* Scale text up by 10% (from 0.6-0.75rem to 0.66-0.825rem) */
   .boutique-section .circular-text-path {
-    font-size: clamp(0.65rem, 1.5vw, 0.8rem) !important;
+    font-size: clamp(0.66rem, 1.32vw, 0.825rem) !important;
     letter-spacing: 0.02em !important;
     font-weight: 400 !important;
   }
@@ -3751,6 +3753,27 @@ h4 {
   /* Hide arrows on tablet */
   .boutique-section .capability-arrow {
     display: none !important;
+  }
+  
+  /* Ensure capability items wrap properly on tablet */
+  .boutique-section .capability-item {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 1rem !important;
+    overflow: visible !important;
+    margin-bottom: 2rem !important;
+  }
+  
+  /* Ensure circles have overflow visible for text */
+  .boutique-section .flip-container,
+  .boutique-section .capability-circle {
+    overflow: visible !important;
+  }
+  
+  /* Disable hover effects on tablet too */
+  .boutique-section .flip-container:hover .capability-circle {
+    transform: none !important;
   }
 }
 
@@ -3787,11 +3810,37 @@ h4 {
 /* Desktop (1000px and up) - Traditional behavior, no circular text */
 @media (min-width: 1000px) {
   .boutique-section .hide-on-circular {
-    display: block !important;
+    display: none !important;
   }
   
   .boutique-section .circular-svg-container {
     display: none !important;
+  }
+  
+  /* Ensure all items are in one horizontal row */
+  .boutique-section .capabilities-container {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 2rem !important;
+    width: auto !important;
+    max-width: 1400px !important;
+    margin: 0 auto !important;
+    padding: 0 2rem !important;
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+  
+  .boutique-section .capability-item {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 2rem !important;
   }
   
   /* Ensure desktop circles are proper size */
@@ -3800,9 +3849,29 @@ h4 {
     height: clamp(160px, 15vw, 220px) !important;
   }
   
+  /* Ensure circles maintain perfect circular shape on desktop */
+  .boutique-section .capability-circle {
+    border-radius: 50% !important;
+    aspect-ratio: 1 / 1 !important;
+  }
+  
   /* Show arrows only on desktop */
   .boutique-section .capability-arrow {
     display: block !important;
+  }
+  
+  /* Hide capability descriptions on desktop */
+  .boutique-section .capability-description {
+    display: none !important;
+  }
+  
+  .boutique-section .mobile-description {
+    display: none !important;
+  }
+  
+  /* Hide title on circle back side (hover state) */
+  .boutique-section .circle-back .card-title {
+    display: none !important;
   }
 }
 
