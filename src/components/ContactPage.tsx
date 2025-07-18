@@ -70,7 +70,7 @@ export default function ContactPage() {
           text-decoration: none !important;
           color: var(--black);
           font-family: futura-pt, sans-serif;
-          font-size: 1.2rem;
+          font-size: 1.125rem;
           font-weight: 300;
           transition: all 0.3s ease;
         }

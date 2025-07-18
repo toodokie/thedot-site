@@ -1211,7 +1211,7 @@ export default function ProjectBrief() {
             padding-left: 0;
             padding-right: 0;
             font-family: ff-real-text-pro, sans-serif;
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: 500;
             line-height: 1.4;
             display: block;
@@ -1228,7 +1228,7 @@ export default function ProjectBrief() {
             margin-bottom: 24px;
             padding: 14px 16px;
             font-family: futura-pt, sans-serif;
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: 300;
             line-height: 1.4;
             border: 1px solid #ccc;
@@ -1253,7 +1253,7 @@ export default function ProjectBrief() {
             margin-bottom: 24px;
             padding: 14px 16px;
             font-family: futura-pt, sans-serif;
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: 300;
             border: 1px solid #ccc;
             border-radius: 0;
@@ -1300,7 +1300,7 @@ export default function ProjectBrief() {
             margin-bottom: 32px;
             padding: 16px;
             font-family: futura-pt, sans-serif;
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: 300;
             line-height: 1.5;
             border: 1px solid #ccc;
@@ -1322,7 +1322,7 @@ export default function ProjectBrief() {
             margin-bottom: 20px;
             padding: 12px 16px;
             font-family: futura-pt, sans-serif;
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: 300;
             line-height: 1.4;
             border: 1px solid #ccc;
@@ -1359,7 +1359,7 @@ export default function ProjectBrief() {
             margin-bottom: 20px;
             padding: 12px 16px;
             font-family: futura-pt, sans-serif;
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: 300;
             line-height: 1.4;
             border: 1px solid #ccc;
@@ -1403,7 +1403,7 @@ export default function ProjectBrief() {
             margin-bottom: 16px;
             padding: 12px 16px;
             font-family: futura-pt, sans-serif;
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: 300;
             line-height: 1.4;
             border: 1px solid #ccc;
@@ -1464,7 +1464,7 @@ export default function ProjectBrief() {
             margin-top: 4rem;
             margin-bottom: 6rem;
             font-family: futura-pt, sans-serif;
-            font-size: 1.2rem;
+            font-size: 1.125rem;
             font-weight: 300;
             line-height: 18px;
             transition: all .4s cubic-bezier(.23, 1, .32, 1);
@@ -1491,7 +1491,7 @@ export default function ProjectBrief() {
             margin-top: 20px;
             border-radius: 4px;
             font-family: futura-pt, sans-serif;
-            font-size: 1.2rem;
+            font-size: 1.125rem;
             text-align: center;
           }
           
@@ -1502,7 +1502,7 @@ export default function ProjectBrief() {
             margin-top: 20px;
             border-radius: 4px;
             font-family: futura-pt, sans-serif;
-            font-size: 1.2rem;
+            font-size: 1.125rem;
             text-align: center;
           }
           
@@ -1636,7 +1636,7 @@ export default function ProjectBrief() {
             margin: 0 0 30px 0;
             color: #666;
             font-family: futura-pt, sans-serif;
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: 300;
             line-height: 1.4;
           }
@@ -1656,7 +1656,7 @@ export default function ProjectBrief() {
             margin-bottom: 8px;
             color: #35332f;
             font-family: futura-pt, sans-serif;
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: 300;
           }
           
@@ -1681,7 +1681,7 @@ export default function ProjectBrief() {
             border: none;
             border-radius: 4px;
             font-family: futura-pt, sans-serif;
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: 300;
             cursor: pointer;
             transition: background-color 0.3s ease;

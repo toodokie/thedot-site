@@ -450,12 +450,12 @@ export default function BlogPage() {
           display: flex;
           gap: 20px;
           margin-bottom: 20px;
-          font-size: 0.9rem;
+          font-size: 0.875rem;
           color: #666;
         }
         
         .featured-excerpt {
-          font-size: 1.1rem;
+          font-size: 1rem;
           line-height: 1.6;
           font-weight: 200;
           color: #555;
@@ -629,7 +629,7 @@ export default function BlogPage() {
           letter-spacing: 0.1em;
           text-transform: none;
           font-family: ff-real-text-pro, sans-serif;
-          font-size: 1.2rem;
+          font-size: 1.125rem;
           font-weight: 300;
           line-height: 1.3;
           transition: transform 0.3s ease;
@@ -852,6 +852,31 @@ export default function BlogPage() {
         }
         
         /* Mobile styles */
+        /* Desktop scaling for blog elements */
+        @media (min-width: 1000px) {
+          .featured-excerpt {
+            font-size: 1.125rem !important; /* Scale from 1rem */
+          }
+          .post-excerpt {
+            font-size: 1.125rem !important;
+          }
+          .small-bottom-link-text-eng {
+            font-size: 1.25rem !important; /* Scale from 1.125rem */
+          }
+        }
+        
+        @media (min-width: 1240px) {
+          .featured-excerpt {
+            font-size: 1.25rem !important; /* Further scale for large screens */
+          }
+          .post-excerpt {
+            font-size: 1.25rem !important;
+          }
+          .small-bottom-link-text-eng {
+            font-size: 1.375rem !important;
+          }
+        }
+        
         @media (max-width: 768px) {
           .small-bottom-link-text-eng {
             font-size: 1rem !important;
@@ -866,7 +891,7 @@ export default function BlogPage() {
               <div className="div-block-178-services">
                 <div className="w-layout-blockcontainer graphic-title-wrap-copy-services w-container">
                   <div className="graphic-copy-services">
-                    <h1 className="dot_h1_pages">Business Growth Through Strategic Design</h1>
+                    <h1 className="dot_h1_pages">Strategic Design Insights</h1>
                     <div className="hero-circle-video-copy-mobile">
                       <video 
                         className="background-video-copy"
@@ -883,7 +908,7 @@ export default function BlogPage() {
                 </div>
                 <div className="w-layout-blockcontainer graphic-copy-services-subheader w-container">
                   <div className="graphic-copy-services-copy">
-                    <h2 className="dot_h2_subheader">Practical insights for Ontario businesses on web design, systems integration, and digital transformation that actually drives revenue</h2>
+                    <h2 className="dot_h2_subheader">Practical web strategies for Ontario business growth</h2>
                   </div>
                 </div>
               </div>

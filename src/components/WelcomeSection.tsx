@@ -26,7 +26,7 @@ export default function WelcomeSection() {
               letterSpacing: '-0.01em',
               boxSizing: 'border-box'
             }}>
-              Growing Ontario businesses trust us to turn their websites from expensive decorations into customer-generating machines. By integrating proven <strong style={{ fontWeight: 700 }}>conversion science</strong> and <strong style={{ fontWeight: 700 }}>data-driven design</strong>, we create online experiences that attract your ideal audience and inspire them to take action.
+              Growing Ontario businesses trust us to turn their websites from expensive decorations into customer-generating machines. By integrating proven <strong style={{ fontWeight: 400 }}>conversion science</strong> and <strong style={{ fontWeight: 400 }}>data-driven design</strong>, we create online experiences that attract your ideal audience and inspire them to take action.
             </h2>
           </div>
           
@@ -40,7 +40,7 @@ export default function WelcomeSection() {
               background: '#35332f',
               color: '#faf9f6',
               fontFamily: 'ff-real-text-pro, sans-serif',
-              fontSize: '1.2rem',
+              fontSize: '1.125rem',
               fontWeight: 400,
               lineHeight: 1.2,
               padding: '1.5rem 2rem',
@@ -79,6 +79,24 @@ export default function WelcomeSection() {
             margin-left: 0;
             text-align: left;
             padding: 2rem 0 0 0;
+          }
+        }
+        
+        @media (min-width: 1000px) {
+          section h2 {
+            font-size: 2.75rem !important; /* Scale up from 2.5rem */
+          }
+          section h3 {
+            font-size: 1.25rem !important; /* Scale up from 1.125rem */
+          }
+        }
+        
+        @media (min-width: 1240px) {
+          section h2 {
+            font-size: 3rem !important; /* Further scale for large screens */
+          }
+          section h3 {
+            font-size: 1.375rem !important;
           }
         }
         

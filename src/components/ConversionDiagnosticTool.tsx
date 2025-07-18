@@ -529,7 +529,7 @@ export default function ConversionDiagnosticTool() {
         }
 
         .quiz-small-text {
-          font-size: 0.9rem;
+          font-size: 0.875rem;
           color: #888;
           margin-top: 20px;
           font-style: italic;
@@ -550,7 +550,7 @@ export default function ConversionDiagnosticTool() {
         }
 
         .progress-text {
-          font-size: 0.9rem;
+          font-size: 0.875rem;
           color: #666;
           margin-bottom: 40px;
           text-align: left;
@@ -639,7 +639,7 @@ export default function ConversionDiagnosticTool() {
         }
 
         .benchmark-text {
-          font-size: 0.9rem;
+          font-size: 0.875rem;
           color: #666;
           font-style: italic;
           margin-top: 20px;
@@ -716,7 +716,7 @@ export default function ConversionDiagnosticTool() {
         }
 
         .results-subhead {
-          font-size: 1.1rem;
+          font-size: 1rem;
           color: #666;
           margin-bottom: 30px;
           line-height: 1.4;
@@ -814,7 +814,7 @@ export default function ConversionDiagnosticTool() {
           }
 
           .quiz-subhead {
-            font-size: 1.2rem;
+            font-size: 1.125rem;
           }
 
           .results-actions {

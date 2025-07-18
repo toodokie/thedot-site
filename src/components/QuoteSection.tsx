@@ -232,7 +232,7 @@ export default function QuoteSection() {
           letter-spacing: 0.1em;
           text-transform: lowercase;
           font-family: 'ff-real-text-pro', sans-serif;
-          font-size: 1.2rem;
+          font-size: 1.125rem;
           font-weight: 300;
           line-height: 1.3;
           transition: transform 0.3s ease;

@@ -176,7 +176,7 @@ export default function Footer() {
           background: var(--background);
           color: var(--foreground);
           font-family: 'ff-real-text-pro', sans-serif;
-          font-size: 0.9rem;
+          font-size: 0.875rem;
           font-weight: 200;
           cursor: pointer;
           transition: all 0.3s ease;
@@ -190,7 +190,7 @@ export default function Footer() {
 
         .cookie-text {
           font-family: 'ff-real-text-pro', sans-serif;
-          font-size: 0.9rem;
+          font-size: 0.875rem;
           font-weight: 200;
           color: var(--foreground);
           flex: 1;
@@ -229,7 +229,7 @@ export default function Footer() {
           }
 
           .footer-text {
-            font-size: 0.9rem;
+            font-size: 0.875rem;
           }
 
           .cookie-banner-container {

@@ -121,7 +121,7 @@ export default function ConversionDiagnostic() {
         }
 
         .diagnostic-subtitle {
-          font-size: 1.2rem;
+          font-size: 1.125rem;
           color: #666;
           line-height: 1.4;
           max-width: 600px;
@@ -253,7 +253,7 @@ export default function ConversionDiagnostic() {
           font-weight: 600;
           color: var(--black);
           margin-bottom: 8px;
-          font-size: 0.9rem;
+          font-size: 0.875rem;
           text-transform: uppercase;
           letter-spacing: 0.5px;
         }
@@ -276,12 +276,12 @@ export default function ConversionDiagnostic() {
           font-weight: 600;
           color: var(--black);
           margin-bottom: 5px;
-          font-size: 0.9rem;
+          font-size: 0.875rem;
         }
 
         .benchmark-text {
           color: #666;
-          font-size: 0.9rem;
+          font-size: 0.875rem;
           margin: 0;
         }
 
@@ -296,7 +296,7 @@ export default function ConversionDiagnostic() {
           background: var(--black);
           color: white;
           padding: 20px 40px;
-          font-size: 1.1rem;
+          font-size: 1rem;
           font-weight: 600;
           text-decoration: none;
           border-radius: 8px;
@@ -313,7 +313,7 @@ export default function ConversionDiagnostic() {
 
         .cta-helper {
           color: #666;
-          font-size: 0.9rem;
+          font-size: 0.875rem;
           font-style: italic;
         }
 
@@ -336,7 +336,7 @@ export default function ConversionDiagnostic() {
           }
 
           .diagnostic-subtitle {
-            font-size: 1.1rem;
+            font-size: 1rem;
           }
 
           .diagnostic-grid {
@@ -359,7 +359,7 @@ export default function ConversionDiagnostic() {
           }
 
           .card-title {
-            font-size: 1.2rem;
+            font-size: 1.125rem;
           }
 
           .cta-button {

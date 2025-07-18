@@ -159,7 +159,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
         .breadcrumb a {
           color: #666;
           text-decoration: none;
-          font-size: 0.9rem;
+          font-size: 0.875rem;
         }
         
         .breadcrumb a:hover {
@@ -204,7 +204,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
         }
         
         .post-excerpt {
-          font-size: 1.2rem;
+          font-size: 1.125rem;
           color: #555;
           line-height: 1.6;
           font-style: italic;
@@ -239,7 +239,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
           margin: 0 auto;
           padding: 0 20px;
           line-height: 1.8;
-          font-size: 1.1rem;
+          font-size: 1rem;
           color: #333;
           text-align: left;
         }
@@ -324,7 +324,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
           background: none;
           padding: 0;
           color: #333;
-          font-size: 0.9rem;
+          font-size: 0.875rem;
         }
         
         .post-content a {
@@ -405,7 +405,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
         
         .author-info h4 {
           font-family: futura-pt, sans-serif;
-          font-size: 1.3rem;
+          font-size: 1.25rem;
           font-weight: 300;
           color: var(--black);
           margin-bottom: 5px;
@@ -455,7 +455,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
         
         .related-card h3 {
           font-family: futura-pt, sans-serif;
-          font-size: 1.3rem;
+          font-size: 1.25rem;
           font-weight: 300;
           color: var(--black);
           margin-bottom: 10px;
@@ -484,7 +484,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
         }
         
         .next-article-title {
-          font-size: 1.1rem;
+          font-size: 1rem;
           color: #666;
           margin-bottom: 20px;
           text-transform: uppercase;
@@ -562,7 +562,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
         .next-article-meta {
           display: flex;
           gap: 15px;
-          font-size: 0.9rem;
+          font-size: 0.875rem;
           color: #888;
         }
         

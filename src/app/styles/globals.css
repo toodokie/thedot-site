@@ -42,6 +42,21 @@ body {
   padding-top: 100px;
 }
 
+/* Responsive Typography Scaling */
+/* Medium Desktop 1000px+ */
+@media (min-width: 1000px) {
+  body {
+    font-size: 18px; /* 1.125rem equivalent */
+  }
+}
+
+/* Large Desktop 1240px+ */
+@media (min-width: 1240px) {
+  body {
+    font-size: 20px; /* 1.25rem equivalent */
+  }
+}
+
 /* Global link color override */
 a {
   color: var(--foreground);
@@ -257,7 +272,7 @@ li {
   align-items: center;
   gap: 0.75rem;
   font-family: 'futura-pt', Arial, sans-serif;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 300;
   color: var(--foreground);
 }
@@ -1551,7 +1566,7 @@ li {
 .breakdown-title {
   color: var(--foreground);
   font-family: 'ff-real-text-pro', sans-serif;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
   margin-bottom: 1rem;
   border-bottom: 1px solid #ddd;
@@ -1581,7 +1596,7 @@ li {
 .breakdown-category li {
   color: var(--foreground);
   font-family: 'ff-real-text-pro', sans-serif;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   line-height: 1.4;
   margin-bottom: 0.25rem;
 }
@@ -1605,7 +1620,7 @@ li {
 .design-category-title {
   color: var(--foreground);
   font-family: 'ff-real-text-pro', sans-serif;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
   margin-bottom: 1rem;
   margin-top: 0;
@@ -3016,7 +3031,7 @@ li {
 
 .services-tab-price {
   font-family: 'futura-pt', sans-serif;
-  font-size: 1.2rem;
+  font-size: 1.125rem;
   font-weight: 300;
   color: var(--foreground);
   margin: 0;
@@ -3076,7 +3091,7 @@ li {
 
 .service-feature-title {
   font-family: 'futura-pt', sans-serif;
-  font-weight: 200;
+  font-weight: 400;
   font-synthesis: weight;
 }
 
@@ -3123,7 +3138,7 @@ li {
   justify-content: center;
   font-family: 'futura-pt', sans-serif;
   font-weight: 700;
-  font-size: 1.2rem;
+  font-size: 1.125rem;
   border-radius: 8px;
 }
 
@@ -3355,7 +3370,7 @@ li {
   letter-spacing: 0.1em;
   text-transform: lowercase;
   font-family: 'ff-real-text-pro', sans-serif;
-  font-size: 1.2rem;
+  font-size: 1.125rem;
   font-weight: 200;
   line-height: 1.3;
   transition: transform 0.3s ease;
@@ -3556,7 +3571,7 @@ li {
   border-radius: 0 !important;
   padding: 1rem 4rem !important;
   font-family: futura-pt, sans-serif !important;
-  font-size: 1.2rem !important;
+  font-size: 1.125rem !important;
   font-weight: 300 !important;
   line-height: 18px !important;
   transition: all .4s cubic-bezier(.23, 1, .32, 1) !important;
@@ -3700,7 +3715,7 @@ li {
   }
 
   .section-description {
-    font-size: 1.3rem !important;
+    font-size: 1.25rem !important;
     max-width: none !important;
     width: 100% !important;
     padding-left: 0 !important;
@@ -3708,7 +3723,7 @@ li {
   }
 
   .section-description-center {
-    font-size: 1.3rem !important;
+    font-size: 1.25rem !important;
     max-width: none !important;
     width: 100% !important;
     padding-left: 0 !important;
@@ -4369,7 +4384,7 @@ li {
 
 .paragraph.brief.hero {
   font-family: 'futura-pt', sans-serif;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 300;
   line-height: 1.5;
   color: var(--foreground);
@@ -4399,7 +4414,7 @@ li {
   align-self: center;
   flex: 1;
   font-family: 'ff-real-text-pro', sans-serif;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   line-height: 1.4;
   color: #7a776f;
 }
@@ -4585,7 +4600,7 @@ li {
 
 .design-service-description p {
   font-family: 'ff-real-text-pro', sans-serif;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   line-height: 1.4;
   color: #7a776f;
   margin: 0;
@@ -4681,7 +4696,7 @@ li {
   width: 125px;
   height: 125px;
   font-family: 'ff-real-text-pro', sans-serif;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   font-weight: 300;
   transition: all 0.35s;
   cursor: pointer;
@@ -4897,7 +4912,7 @@ li {
   margin-bottom: 20px;
   padding: 20px;
   font-family: 'ff-real-text-pro', sans-serif;
-  font-size: 1.3rem;
+  font-size: 1.25rem;
   font-weight: 300;
   line-height: 24px;
   transition: all 0.35s;
@@ -5056,7 +5071,7 @@ li {
   letter-spacing: 0.1em;
   text-transform: lowercase;
   font-family: 'ff-real-text-pro', sans-serif;
-  font-size: 1.2rem;
+  font-size: 1.125rem;
   font-weight: 200;
   line-height: 1.3;
   transition: transform 0.3s ease;
@@ -5217,7 +5232,7 @@ li {
 
 .lead-capture-subtitle {
   font-family: 'ff-real-text-pro', sans-serif;
-  font-size: 1.1rem;
+  font-size: 1rem;
   color: var(--dim-grey);
   margin: 0.5rem 0 0 0;
 }
@@ -5253,7 +5268,7 @@ li {
 
 .action-content h4 {
   font-family: 'futura-pt', sans-serif;
-  font-size: 1.2rem;
+  font-size: 1.125rem;
   font-weight: 200;
   margin: 0 0 0.5rem 0;
   color: var(--foreground);
@@ -5261,7 +5276,7 @@ li {
 
 .action-content p {
   font-family: 'ff-real-text-pro', sans-serif;
-  font-size: 0.95rem;
+  font-size: 0.875rem;
   font-weight: 200;
   color: var(--dim-grey);
   margin: 0;
@@ -5343,7 +5358,7 @@ li {
 
 .form-field label {
   font-family: 'futura-pt', sans-serif;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--foreground);
   margin-bottom: 0.5rem;
@@ -5379,7 +5394,7 @@ li {
 
 .submit-btn {
   font-family: 'futura-pt', sans-serif;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
   padding: 1rem 2rem;
   background: var(--highlight-color);
@@ -5408,7 +5423,7 @@ li {
   border-radius: 0;
   border: 1px solid #c62828;
   font-family: 'ff-real-text-pro', sans-serif;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   margin-top: 1rem;
   text-align: center;
 }
@@ -5421,7 +5436,7 @@ li {
 
 .lead-capture-success p {
   font-family: 'ff-real-text-pro', sans-serif;
-  font-size: 1.1rem;
+  font-size: 1rem;
   color: var(--dim-grey);
   margin: 0;
   line-height: 1.5;
@@ -5555,11 +5570,11 @@ li {
   }
   
   .action-content h4 {
-    font-size: 1.1rem;
+    font-size: 1rem;
   }
   
   .action-content p {
-    font-size: 0.9rem;
+    font-size: 0.875rem;
   }
 }
 
@@ -5571,7 +5586,7 @@ li {
   padding-left: 0;
   padding-right: 0;
   font-family: futura-pt, sans-serif;
-  font-size: 1.2rem;
+  font-size: 1.125rem;
   font-weight: 300;
   line-height: 1.3;
   display: block;
@@ -5640,7 +5655,7 @@ li {
   color: #35332f;
   margin-bottom: 15px;
   font-family: futura-pt, sans-serif;
-  font-size: 1.2rem;
+  font-size: 1.125rem;
   font-weight: 300;
   line-height: 1.3;
 }
@@ -5653,7 +5668,7 @@ li {
   color: #35332f;
   margin-bottom: 10px;
   font-family: futura-pt, sans-serif;
-  font-size: 1.2rem;
+  font-size: 1.125rem;
   font-weight: 300;
   line-height: 1.3;
 }
@@ -5690,7 +5705,7 @@ li {
   margin-top: 4rem;
   margin-bottom: 6rem;
   font-family: futura-pt, sans-serif;
-  font-size: 1.2rem;
+  font-size: 1.125rem;
   font-weight: 300;
   line-height: 18px;
   transition: all .4s cubic-bezier(.23, 1, .32, 1);
@@ -5716,7 +5731,7 @@ li {
   margin-top: 20px;
   border-radius: 4px;
   font-family: futura-pt, sans-serif;
-  font-size: 1.2rem;
+  font-size: 1.125rem;
   text-align: center;
 }
 
@@ -5727,7 +5742,7 @@ li {
   margin-top: 20px;
   border-radius: 4px;
   font-family: futura-pt, sans-serif;
-  font-size: 1.2rem;
+  font-size: 1.125rem;
   text-align: center;
 }
 
@@ -5784,7 +5799,7 @@ li {
   margin: 0 0 30px 0;
   color: #666;
   font-family: futura-pt, sans-serif;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 300;
   line-height: 1.4;
 }
@@ -5804,7 +5819,7 @@ li {
   margin-bottom: 8px;
   color: #35332f;
   font-family: futura-pt, sans-serif;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 300;
 }
 
@@ -5829,7 +5844,7 @@ li {
   border: none;
   border-radius: 4px;
   font-family: futura-pt, sans-serif;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 300;
   cursor: pointer;
   transition: background-color 0.3s ease;
@@ -5842,6 +5857,85 @@ li {
 
 .lead-form-button:disabled {
   background-color: #ccc;
+
+/* Responsive Typography Scaling for Desktop */
+/* Medium Desktop 1000px+ - Scale up common text elements */
+@media (min-width: 1000px) {
+  .footer-text,
+  .cookie-text,
+  .post-meta,
+  .featured-meta,
+  p,
+  .paragraph {
+    font-size: 1.125rem !important; /* Scale body text from 1rem to 1.125rem */
+  }
+  
+  .section-description,
+  .section-description-center {
+    font-size: 1.375rem !important; /* Scale from 1.25rem to 1.375rem */
+  }
+  
+  .phone-contact-link {
+    font-size: 1.25rem !important; /* Scale from 1.125rem to 1.25rem */
+  }
+  
+  .service-feature-title,
+  .service-feature-description {
+    font-size: 2.25rem !important; /* Scale up from 2rem for matching sizes */
+  }
+  
+  .action-content h4 {
+    font-size: 1.25rem !important; /* Scale from 1.125rem */
+  }
+  
+  .action-content p {
+    font-size: 1rem !important; /* Scale from 0.875rem */
+  }
+  
+  .service-card-text,
+  .service-bullets {
+    font-size: 1.125rem !important; /* Scale from 1rem */
+  }
+}
+
+/* Large Desktop 1240px+ - Further scale for large screens */
+@media (min-width: 1240px) {
+  .footer-text,
+  .cookie-text,
+  .post-meta,
+  .featured-meta,
+  p,
+  .paragraph {
+    font-size: 1.25rem !important; /* Scale body text to 1.25rem (20px) */
+  }
+  
+  .section-description,
+  .section-description-center {
+    font-size: 1.5rem !important; /* Scale to 1.5rem (24px) */
+  }
+  
+  .phone-contact-link {
+    font-size: 1.375rem !important; /* Scale to 1.375rem (22px) */
+  }
+  
+  .service-feature-title,
+  .service-feature-description {
+    font-size: 2.5rem !important; /* Further scale for large screens */
+  }
+  
+  .action-content h4 {
+    font-size: 1.375rem !important; /* Scale to 22px */
+  }
+  
+  .action-content p {
+    font-size: 1.125rem !important; /* Scale to 18px */
+  }
+  
+  .service-card-text,
+  .service-bullets {
+    font-size: 1.25rem !important; /* Scale to 20px for large screens */
+  }
+}
   cursor: not-allowed;
 }
 
