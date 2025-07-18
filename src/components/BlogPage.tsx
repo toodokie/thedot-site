@@ -407,6 +407,10 @@ export default function BlogPage() {
           border-color: var(--yellow);
         }
         
+        .featured-content {
+          font-weight: 400;
+        }
+        
         .featured-content h2 {
           font-family: futura-pt, sans-serif;
           font-size: 2.5rem !important;
@@ -463,7 +467,7 @@ export default function BlogPage() {
           color: var(--foreground) !important;
           padding: 0;
           text-decoration: underline !important;
-          font-weight: 500;
+          font-weight: 200;
           transition: all 0.3s ease;
           display: inline-block;
           text-align: left;
@@ -509,6 +513,7 @@ export default function BlogPage() {
           flex-direction: column;
           height: 100%;
           min-height: 320px; /* Fixed height to prevent CLS */
+          font-weight: 200;
         }
         
         .post-card:hover {
