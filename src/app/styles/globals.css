@@ -117,6 +117,11 @@ strong {
   font-weight: 500;
 }
 
+/* List items font weight */
+li {
+  font-weight: 200;
+}
+
 /* Header Styles */
 .header-bg {
   background-color: transparent;

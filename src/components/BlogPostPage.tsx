@@ -212,6 +212,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
           padding-left: 20px;
           margin: 0;
           text-align: left;
+          font-weight: 200;
         }
         
         .post-featured-image {
@@ -470,6 +471,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
           color: #555;
           line-height: 1.5;
           font-size: 0.95rem;
+          font-weight: 200;
         }
         
         .next-article {

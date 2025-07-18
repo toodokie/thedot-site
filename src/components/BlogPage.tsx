@@ -364,7 +364,7 @@ export default function BlogPage() {
           padding: 12px 24px;
           font-family: ff-real-text-pro, sans-serif;
           font-size: 1rem;
-          font-weight: 500;
+          font-weight: 300;
           cursor: pointer;
           transition: all 0.3s ease;
           text-decoration: none;
@@ -447,6 +447,7 @@ export default function BlogPage() {
         .featured-excerpt {
           font-size: 1.1rem;
           line-height: 1.6;
+          font-weight: 200;
           color: #555;
           margin-bottom: 30px;
         }
@@ -553,6 +554,7 @@ export default function BlogPage() {
           line-height: 1.6;
           margin-bottom: 20px;
           flex-grow: 1;
+          font-weight: 200;
         }
         
         .post-category {
