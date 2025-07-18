@@ -2200,12 +2200,13 @@ strong {
   margin-bottom: 0;
   font-family: 'ff-real-text-pro', sans-serif;
   font-size: 1.3em;
-  font-weight: 300;
+  font-weight: 200;
   line-height: 1.4;
   margin-top: 0;
   color: var(--foreground);
   opacity: 0.8;
   transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  width: 50vw;
 }
 
 /* Project List Item Base */
@@ -2322,7 +2323,7 @@ strong {
   
   .project-description {
     font-size: 1.1em;
-    width: 50%;
+    width: 50vw;
   }
   
   .tools-grid {
@@ -2389,7 +2390,7 @@ strong {
   
   .project-description {
     font-size: 1em;
-    width: 50%;
+    width: 50vw;
   }
   
   .tools-grid {
