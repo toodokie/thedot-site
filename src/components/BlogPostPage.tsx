@@ -263,6 +263,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
         
         .post-content p {
           margin-bottom: 25px;
+          font-weight: 200;
         }
         
         .post-content blockquote {
