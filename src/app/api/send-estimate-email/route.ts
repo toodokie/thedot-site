@@ -34,15 +34,15 @@ const generateClientEmailHTML = (data: EstimateEmailData) => {
             body { font-family: 'Helvetica', Arial, sans-serif; color: #35332f; line-height: 1.6; margin: 0; padding: 0; }
             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
             .header { background: #daff00; padding: 20px; text-align: center; }
-            .logo { font-size: 24px; font-weight: bold; color: #35332f; margin: 0; }
+            .logo { font-size: 24px; font-weight: 600; color: #35332f; margin: 0; }
             .content { background: #fff; padding: 30px; }
             .estimate-box { background: #faf9f6; border: 2px solid #daff00; padding: 20px; margin: 20px 0; border-radius: 8px; }
-            .price { font-size: 28px; font-weight: bold; color: #35332f; text-align: center; }
+            .price { font-size: 28px; font-weight: 600; color: #35332f; text-align: center; }
             .section { margin: 20px 0; }
-            .section-title { font-size: 18px; font-weight: bold; color: #35332f; margin-bottom: 10px; }
+            .section-title { font-size: 18px; font-weight: 600; color: #35332f; margin-bottom: 10px; }
             .feature-list { list-style: none; padding: 0; }
             .feature-list li { padding: 5px 0; border-bottom: 1px solid #e5e5e5; }
-            .cta { background: #35332f; color: #daff00; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0; font-weight: bold; }
+            .cta { background: #35332f; color: #daff00; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0; font-weight: 600; }
             .footer { background: #35332f; color: #daff00; padding: 20px; text-align: center; font-size: 14px; }
         </style>
     </head>
@@ -122,7 +122,7 @@ const generateInternalNotificationHTML = (data: EstimateEmailData) => {
             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
             .alert { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
             .lead-info { background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 15px 0; }
-            .score { font-weight: bold; color: ${leadScore === 'Hot' ? '#e74c3c' : leadScore === 'Warm' ? '#f39c12' : '#3498db'}; }
+            .score { font-weight: 600; color: ${leadScore === 'Hot' ? '#e74c3c' : leadScore === 'Warm' ? '#f39c12' : '#3498db'}; }
             .estimate-details { background: #e8f5e8; padding: 15px; border-radius: 5px; margin: 15px 0; }
         </style>
     </head>

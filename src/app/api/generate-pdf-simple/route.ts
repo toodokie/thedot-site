@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
           }
           
           .detail-label {
-            font-weight: bold;
+            font-weight: 600;
             color: #35332f;
           }
           
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
           
           .total-amount {
             font-size: 36px;
-            font-weight: bold;
+            font-weight: 600;
             margin: 10px 0;
           }
           
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
           
           .section-title {
             font-size: 20px;
-            font-weight: bold;
+            font-weight: 600;
             color: #35332f;
             margin-bottom: 15px;
             background: #daff00;
@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
             position: absolute;
             left: 0;
             color: #daff00;
-            font-weight: bold;
+            font-weight: 600;
           }
           
           .footer {

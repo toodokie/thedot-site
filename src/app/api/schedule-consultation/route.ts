@@ -38,13 +38,13 @@ const generateClientConsultationHTML = (data: ConsultationData) => {
             body { font-family: 'Helvetica', Arial, sans-serif; color: #35332f; line-height: 1.6; margin: 0; padding: 0; }
             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
             .header { background: #daff00; padding: 20px; text-align: center; }
-            .logo { font-size: 24px; font-weight: bold; color: #35332f; margin: 0; }
+            .logo { font-size: 24px; font-weight: 600; color: #35332f; margin: 0; }
             .content { background: #fff; padding: 30px; }
             .consultation-box { background: #faf9f6; border: 2px solid #35332f; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center; }
             .section { margin: 20px 0; }
-            .section-title { font-size: 18px; font-weight: bold; color: #35332f; margin-bottom: 10px; }
+            .section-title { font-size: 18px; font-weight: 600; color: #35332f; margin-bottom: 10px; }
             .info-box { background: #e8f5e8; padding: 15px; border-radius: 5px; margin: 15px 0; }
-            .cta { background: #35332f; color: #daff00; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0; font-weight: bold; }
+            .cta { background: #35332f; color: #daff00; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0; font-weight: 600; }
             .footer { background: #35332f; color: #daff00; padding: 20px; text-align: center; font-size: 14px; }
             .estimate-summary { background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0; }
         </style>
@@ -134,7 +134,7 @@ const generateInternalConsultationHTML = (data: ConsultationData) => {
             .lead-info { background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 15px 0; }
             .estimate-details { background: #e8f5e8; padding: 15px; border-radius: 5px; margin: 15px 0; }
             .action-items { background: #fff3cd; padding: 15px; border-radius: 5px; margin: 15px 0; }
-            .hot-lead { color: #e74c3c; font-weight: bold; }
+            .hot-lead { color: #e74c3c; font-weight: 600; }
         </style>
     </head>
     <body>

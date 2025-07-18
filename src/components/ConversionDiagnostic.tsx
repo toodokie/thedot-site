@@ -236,7 +236,7 @@ export default function ConversionDiagnostic() {
         .questions-list li:before {
           content: '•';
           color: var(--yellow);
-          font-weight: bold;
+          font-weight: 600;
           position: absolute;
           left: 0;
         }

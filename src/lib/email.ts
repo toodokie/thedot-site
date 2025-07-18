@@ -265,11 +265,11 @@ export function generateAgencyEmailTemplate(data: BriefData): string {
       <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }
         .header { background: #35332f; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-        .alert { background: #daff00; color: #35332f; padding: 15px; border-radius: 6px; margin-bottom: 20px; font-weight: bold; }
+        .alert { background: #daff00; color: #35332f; padding: 15px; border-radius: 6px; margin-bottom: 20px; font-weight: 600; }
         .client-info { background: #f8f9fa; padding: 20px; border-radius: 6px; margin-bottom: 20px; }
         .project-details { background: white; padding: 20px; border: 1px solid #ddd; border-radius: 6px; }
-        .urgent { color: #d63384; font-weight: bold; }
-        .high-value { color: #198754; font-weight: bold; }
+        .urgent { color: #d63384; font-weight: 600; }
+        .high-value { color: #198754; font-weight: 600; }
       </style>
     </head>
     <body>

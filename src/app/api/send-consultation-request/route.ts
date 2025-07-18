@@ -78,9 +78,9 @@ const generateConsultationEmailHTML = (data: ConsultationRequestData) => {
             .header { background: #35332f; color: #daff00; padding: 20px; text-align: center; }
             .content { background: #fff; padding: 30px; }
             .estimate-box { background: #faf9f6; border: 2px solid #daff00; padding: 20px; margin: 20px 0; border-radius: 8px; }
-            .price { font-size: 28px; font-weight: bold; color: #35332f; text-align: center; margin: 15px 0; }
+            .price { font-size: 28px; font-weight: 600; color: #35332f; text-align: center; margin: 15px 0; }
             .section { margin: 20px 0; padding: 15px; background: #f9f9f9; border-left: 4px solid #daff00; }
-            .section-title { font-size: 16px; font-weight: bold; color: #35332f; margin-bottom: 10px; }
+            .section-title { font-size: 16px; font-weight: 600; color: #35332f; margin-bottom: 10px; }
             .contact-info { background: #e8f5e8; padding: 15px; border-radius: 5px; margin: 15px 0; }
             .footer { background: #35332f; color: #daff00; padding: 20px; text-align: center; font-size: 14px; }
         </style>
@@ -131,7 +131,7 @@ const generateConsultationEmailHTML = (data: ConsultationRequestData) => {
                 </div>
 
                 <div style="text-align: center; margin: 30px 0;">
-                    <a href="mailto:${data.leadData.email}" style="background: #35332f; color: #daff00; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                    <a href="mailto:${data.leadData.email}" style="background: #35332f; color: #daff00; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: 600;">
                         Reply to ${data.leadData.name}
                     </a>
                 </div>
