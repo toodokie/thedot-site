@@ -191,7 +191,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="dns-prefetch" href="https://prod-files-secure.s3.us-west-2.amazonaws.com" />
         
         {/* LCP Optimization - preload critical resources */}
-        <link rel="preload" href="/video/hero-video.mp4" as="video" type="video/mp4" />
+        <link rel="preload" href="/video/hero-video-min.mp4" as="video" type="video/mp4" />
         <link rel="preload" href="/images/line.png" as="image" />
         
         {/* Adobe Fonts - Simple loading strategy */}

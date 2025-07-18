@@ -95,7 +95,7 @@ export default function Hero() {
                     video.play().catch(console.error);
                   }}
                 >
-                  <source src="/video/hero-video.mp4" type="video/mp4" />
+                  <source src="/video/hero-video-min.mp4" type="video/mp4" />
                   Your browser does not support the video tag.
                 </video>
               </div>
@@ -155,7 +155,7 @@ export default function Hero() {
                 video.play().catch(console.error);
               }}
             >
-              <source src="/video/hero-video.mp4" type="video/mp4" />
+              <source src="/video/hero-video-min.mp4" type="video/mp4" />
               Your browser does not support the video tag.
             </video>
           </div>
