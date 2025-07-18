@@ -352,7 +352,7 @@ export default function BlogPage() {
           max-width: 120rem;
           margin: 0 auto;
           padding: 2rem 2.5rem;
-          min-height: 600px;
+          min-height: 800px;
         }
         
         .category-filters {
@@ -493,6 +493,8 @@ export default function BlogPage() {
           font-style: italic;
           overflow: hidden;
           border-radius: 8px;
+          min-height: 300px;
+          max-height: 400px;
         }
         
         .posts-grid {
@@ -691,6 +693,7 @@ export default function BlogPage() {
           border-radius: 4px;
           margin-bottom: 12px;
           width: 100%;
+          min-height: 1.1rem;
         }
 
         .skeleton-excerpt::after {
