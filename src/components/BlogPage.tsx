@@ -501,6 +501,7 @@ export default function BlogPage() {
           gap: 40px;
           margin-bottom: 80px;
           min-height: 800px;
+          max-height: 400px;
         }
         
         .post-card {
