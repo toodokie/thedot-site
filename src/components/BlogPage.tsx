@@ -500,8 +500,7 @@ export default function BlogPage() {
           grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
           gap: 40px;
           margin-bottom: 80px;
-          min-height: 800px;
-          max-height: 400px;
+          min-height: 400px;
         }
         
         .post-card {
