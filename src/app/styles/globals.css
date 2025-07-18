@@ -1301,11 +1301,11 @@ li {
 }
 
 .service-card p {
-  font-family: 'futura-pt', Arial, Helvetica, sans-serif;
-  font-size: 1.2rem;
+  font-family: 'ff-real-text-pro', sans-serif;
+  font-size: 1rem;
   font-weight: 200;
-  line-height: 1.5;
-  color: #7a776f;
+  line-height: 1.6;
+  color: #35332f;
   margin: 0;
 }
 
@@ -1368,8 +1368,9 @@ li {
   }
   
   .service-card p {
-    font-size: 1.1rem !important;
+    font-size: 1rem !important;
     font-weight: 200 !important;
+    line-height: 1.6 !important;
   }
   
   .service-icon {
@@ -1468,6 +1469,7 @@ li {
   .service-card p {
     font-size: 0.95rem !important;
     font-weight: 200 !important;
+    line-height: 1.6 !important;
   }
   
   .service-icon {
