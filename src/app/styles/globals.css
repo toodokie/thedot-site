@@ -197,6 +197,9 @@ li {
   transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   overflow: hidden;
   letter-spacing: 0.0625rem;
+  display: inline-block;
+  min-height: 2.5rem;
+  line-height: 1.5rem;
 }
 
 .nav-link::before {
@@ -1081,17 +1084,17 @@ li {
   opacity: 1;
   transform: translateY(0);
   transition: opacity 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  /* Reserve space to prevent layout shift */
+  /* Prevent layout shift by not using transform */
   will-change: opacity;
 }
 
 .animate-on-scroll:not(.animate-in) {
   opacity: 0;
+  /* Remove transform to prevent layout shift */
 }
 
 .animate-on-scroll.animate-in {
   opacity: 1;
-  transform: translateY(0);
 }
 
 /* Staggered animation delays for multiple elements */
@@ -1203,7 +1206,7 @@ li {
 /* Enhanced animation for mobile - different timing */
 @media (max-width: 999px) {
   .animate-on-scroll {
-    transform: translateY(20px) !important;
+    /* Remove transform to prevent layout shift */
     transition-duration: 0.6s !important;
   }
 }
@@ -3317,6 +3320,8 @@ li {
   text-transform: uppercase;
   display: inline-block;
   transition: letter-spacing 0.3s ease;
+  /* Prevent layout shift */
+  min-height: 9rem;
 }
 
 @media (max-width: 768px) {
@@ -3582,13 +3587,12 @@ li {
 /* Services Page Animation Support */
 .services-page .animate-on-scroll {
   opacity: 0;
-  transform: translateY(30px);
-  transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  /* Remove transform to prevent layout shift */
+  transition: opacity 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .services-page .animate-on-scroll.animate-in {
   opacity: 1;
-  transform: translateY(0);
 }
 
 /* Reduced motion support for Services */
@@ -5057,13 +5061,12 @@ li {
 /* Animation styles */
 .animate-on-scroll {
   opacity: 0;
-  transform: translateY(30px);
-  transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  /* Remove transform to prevent layout shift */
+  transition: opacity 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .animate-on-scroll.animate-in {
   opacity: 1;
-  transform: translateY(0);
 }
 
 /* Responsive Design */

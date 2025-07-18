@@ -147,6 +147,7 @@ export default function BlogPage() {
           margin-right: 0;
           display: block;
           overflow: hidden;
+          min-height: 400px;
         }
         
         .div-block-184 {
@@ -161,6 +162,7 @@ export default function BlogPage() {
         
         .div-block-178-services {
           width: 70%;
+          min-height: 250px;
         }
         
         .graphic-title-wrap-copy-services {
@@ -247,16 +249,17 @@ export default function BlogPage() {
           order: 0;
           justify-content: space-between;
           width: 160px;
-          min-width: auto;
-          max-width: none;
+          min-width: 160px;
+          max-width: 160px;
           height: 160px;
-          min-height: auto;
-          max-height: none;
+          min-height: 160px;
+          max-height: 160px;
           margin-top: 0;
           margin-left: 1em;
           margin-right: 1em;
           display: block;
           overflow: hidden;
+          aspect-ratio: 1/1;
         }
         
         .background-video-copy-services {
