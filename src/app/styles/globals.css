@@ -1128,6 +1128,7 @@ li {
   
   .services-page .service-feature-description {
     margin-top: 0 !important;
+    font-size: 2rem !important;
   }
   
   section div[style*="width: 60%"] {
@@ -2442,6 +2443,7 @@ li {
   
   .services-page .service-feature-description {
     margin-top: 0 !important;
+    font-size: 2rem !important;
   }
 }
 
@@ -3074,7 +3076,7 @@ li {
 
 .service-feature-title {
   font-family: 'futura-pt', sans-serif;
-  font-weight: 700;
+  font-weight: 200;
   font-synthesis: weight;
 }
 
@@ -3092,6 +3094,7 @@ li {
   
   .services-page .service-feature-description {
     margin-top: 0 !important;
+    font-size: 2rem !important;
   }
 }
 
@@ -3310,7 +3313,7 @@ li {
 }
 
 .dot-bottom-link.hero {
-  cursor: none;
+  cursor: pointer;
   padding-top: 2em;
   font-family: 'futura-pt', sans-serif;
   font-weight: 300;
@@ -5024,6 +5027,7 @@ li {
   text-transform: uppercase;
   text-align: center;
   display: block;
+  cursor: pointer;
   transition: all 0.4s cubic-bezier(0.95, 0.05, 0.795, 0.035);
   overflow: hidden;
   line-height: 1;
@@ -5250,7 +5254,7 @@ li {
 .action-content h4 {
   font-family: 'futura-pt', sans-serif;
   font-size: 1.2rem;
-  font-weight: 300;
+  font-weight: 200;
   margin: 0 0 0.5rem 0;
   color: var(--foreground);
 }
@@ -5258,6 +5262,7 @@ li {
 .action-content p {
   font-family: 'ff-real-text-pro', sans-serif;
   font-size: 0.95rem;
+  font-weight: 200;
   color: var(--dim-grey);
   margin: 0;
   line-height: 1.4;

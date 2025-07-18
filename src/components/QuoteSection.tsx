@@ -206,7 +206,7 @@ export default function QuoteSection() {
         }
 
         .dot-bottom-link.hero {
-          cursor: none;
+          cursor: pointer;
           padding-top: 2em;
           font-family: 'futura-pt', sans-serif;
           font-weight: 300;

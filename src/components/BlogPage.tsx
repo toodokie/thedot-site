@@ -607,6 +607,7 @@ export default function BlogPage() {
           text-transform: none;
           text-align: center;
           display: block;
+          cursor: pointer;
           transition: all 0.4s cubic-bezier(0.95, 0.05, 0.795, 0.035);
           overflow: hidden;
         }
@@ -842,6 +843,14 @@ export default function BlogPage() {
           cursor: pointer !important;
         }
         
+        .dot-bottom-link.hero:hover {
+          letter-spacing: 15px;
+        }
+        
+        .dot-bottom-link.hero:hover .small-bottom-link-text-eng {
+          transform: translateY(-15px);
+        }
+        
         /* Mobile styles */
         @media (max-width: 768px) {
           .small-bottom-link-text-eng {
@@ -857,7 +866,7 @@ export default function BlogPage() {
               <div className="div-block-178-services">
                 <div className="w-layout-blockcontainer graphic-title-wrap-copy-services w-container">
                   <div className="graphic-copy-services">
-                    <h1 className="dot_h1_pages">Creative Insights</h1>
+                    <h1 className="dot_h1_pages">Business Growth Through Strategic Design</h1>
                     <div className="hero-circle-video-copy-mobile">
                       <video 
                         className="background-video-copy"
@@ -874,7 +883,7 @@ export default function BlogPage() {
                 </div>
                 <div className="w-layout-blockcontainer graphic-copy-services-subheader w-container">
                   <div className="graphic-copy-services-copy">
-                    <h2 className="dot_h2_subheader">Discover the latest trends, strategies, and stories from the world of creative design</h2>
+                    <h2 className="dot_h2_subheader">Practical insights for Ontario businesses on web design, systems integration, and digital transformation that actually drives revenue</h2>
                   </div>
                 </div>
               </div>
