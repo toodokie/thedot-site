@@ -147,7 +147,7 @@ export default function BlogPage() {
           margin-right: 0;
           display: block;
           overflow: hidden;
-          min-height: 400px;
+          min-height: 200px;
         }
         
         .div-block-184 {
@@ -162,7 +162,7 @@ export default function BlogPage() {
         
         .div-block-178-services {
           width: 70%;
-          min-height: 250px;
+          min-height: 150px;
         }
         
         .graphic-title-wrap-copy-services {
@@ -352,7 +352,6 @@ export default function BlogPage() {
           max-width: 120rem;
           margin: 0 auto;
           padding: 2rem 2.5rem;
-          min-height: 800px;
         }
         
         .category-filters {
@@ -493,8 +492,6 @@ export default function BlogPage() {
           font-style: italic;
           overflow: hidden;
           border-radius: 8px;
-          min-height: 300px;
-          max-height: 400px;
         }
         
         .posts-grid {
@@ -502,7 +499,6 @@ export default function BlogPage() {
           grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
           gap: 40px;
           margin-bottom: 80px;
-          min-height: 400px;
         }
         
         .post-card {
@@ -586,7 +582,7 @@ export default function BlogPage() {
           padding: 0 0 80px 0;
           text-align: center;
           margin-bottom: 0;
-          min-height: 400px;
+          min-height: 200px;
         }
         
         .review-cta-content {
@@ -594,7 +590,7 @@ export default function BlogPage() {
           max-width: 1200px;
           margin: 0 auto;
           padding: 2rem 2.5rem;
-          min-height: 300px;
+          min-height: 150px;
         }
         
         .dot_bottom_link.estimate {
