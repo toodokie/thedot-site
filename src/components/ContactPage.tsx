@@ -28,6 +28,7 @@ export default function ContactPage() {
           max-width: 120rem;
           margin: 0 auto;
           padding: 2rem 2.5rem;
+          min-height: 600px;
         }
         
         .social-icons-eng {
