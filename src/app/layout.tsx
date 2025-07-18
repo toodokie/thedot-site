@@ -186,6 +186,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Performance optimizations - preconnect to external domains */}
         <link rel="preconnect" href="https://fonts.adobe.com" />
         <link rel="preconnect" href="https://use.typekit.net" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://p.typekit.net" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://fonts.adobe.com" />
+        <link rel="dns-prefetch" href="https://p.typekit.net" />
         <link rel="preconnect" href="https://www.googletagmanager.com" />
         <link rel="preconnect" href="https://www.google-analytics.com" />
         <link rel="dns-prefetch" href="https://prod-files-secure.s3.us-west-2.amazonaws.com" />
@@ -194,22 +197,126 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preload" href="/video/hero-video-min.mp4" as="video" type="video/mp4" />
         <link rel="preload" href="/images/line.png" as="image" />
         
-        {/* Adobe Fonts - Simple loading strategy */}
+        {/* Adobe Fonts - Optimized loading strategy */}
         <link
-          rel="stylesheet"
+          rel="preload"
           href="https://use.typekit.net/gac6jnd.css"
+          as="style"
+          onLoad="this.onload=null;this.rel='stylesheet'"
         />
+        <noscript>
+          <link
+            rel="stylesheet"
+            href="https://use.typekit.net/gac6jnd.css"
+          />
+        </noscript>
+        
+        {/* Advanced font loading optimization */}
+        <script dangerouslySetInnerHTML={{
+          __html: `
+            // Optimize Adobe Fonts loading
+            (function() {
+              // Check if fonts are already loaded
+              if (document.fonts && document.fonts.ready) {
+                document.fonts.ready.then(function() {
+                  document.documentElement.classList.add('fonts-loaded');
+                });
+              }
+              
+              // Preload critical font files
+              const fontUrls = [
+                'https://use.typekit.net/af/2c3b41/00000000000000007735c8ff/30/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n4&v=3',
+                'https://use.typekit.net/af/5c2b3a/00000000000000007735c900/30/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n3&v=3'
+              ];
+              
+              fontUrls.forEach(function(url) {
+                const link = document.createElement('link');
+                link.rel = 'preload';
+                link.as = 'font';
+                link.href = url;
+                link.type = 'font/woff2';
+                link.crossOrigin = 'anonymous';
+                document.head.appendChild(link);
+              });
+            })();
+          `
+        }} />
         
         {/* Font loading optimization to reduce CLS */}
         <style dangerouslySetInnerHTML={{
           __html: `
+            /* Fallback fonts to reduce CLS */
+            @font-face {
+              font-family: 'futura-pt-fallback';
+              font-display: swap;
+              src: local('Arial'), local('Helvetica'), local('sans-serif');
+              size-adjust: 100%;
+            }
+            @font-face {
+              font-family: 'ff-real-text-pro-2-fallback';
+              font-display: swap;
+              src: local('Georgia'), local('Times New Roman'), local('serif');
+              size-adjust: 95%;
+            }
+            
+            /* Adobe Fonts with fallback and swap */
             @font-face {
               font-family: 'futura-pt';
               font-display: swap;
+              font-style: normal;
+              font-weight: 400;
             }
             @font-face {
               font-family: 'ff-real-text-pro-2';
               font-display: swap;
+              font-style: normal;
+              font-weight: 300 400;
+            }
+            
+            /* CSS fallback stack for better font loading */
+            body {
+              font-family: 'ff-real-text-pro-2', 'ff-real-text-pro-2-fallback', Georgia, 'Times New Roman', serif;
+            }
+            
+            h1, h2, h3, h4, h5, h6 {
+              font-family: 'futura-pt', 'futura-pt-fallback', Arial, Helvetica, sans-serif;
+            }
+            
+            /* Prevent invisible text during font swap */
+            .font-loading {
+              font-display: swap;
+            }
+            
+            /* Font loading states for better UX */
+            html:not(.fonts-loaded) {
+              font-family: 'futura-pt-fallback', Arial, Helvetica, sans-serif;
+            }
+            
+            html:not(.fonts-loaded) body {
+              font-family: 'ff-real-text-pro-2-fallback', Georgia, 'Times New Roman', serif;
+            }
+            
+            /* Smooth transition when fonts load */
+            html.fonts-loaded body {
+              font-family: 'ff-real-text-pro-2', 'ff-real-text-pro-2-fallback', Georgia, 'Times New Roman', serif;
+              transition: font-family 0.1s ease-in-out;
+            }
+            
+            html.fonts-loaded h1, 
+            html.fonts-loaded h2, 
+            html.fonts-loaded h3, 
+            html.fonts-loaded h4, 
+            html.fonts-loaded h5, 
+            html.fonts-loaded h6 {
+              font-family: 'futura-pt', 'futura-pt-fallback', Arial, Helvetica, sans-serif;
+              transition: font-family 0.1s ease-in-out;
+            }
+            
+            /* Optimize font rendering */
+            * {
+              -webkit-font-smoothing: antialiased;
+              -moz-osx-font-smoothing: grayscale;
+              text-rendering: optimizeLegibility;
             }
           `
         }} />
