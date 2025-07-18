@@ -291,7 +291,7 @@ export default function ServicesSection() {
                       style={{
                         fontFamily: 'ff-real-text-pro, sans-serif',
                         fontSize: '1rem',
-                        fontWeight: 400,
+                        fontWeight: 200,
                         lineHeight: 1.8,
                         color: '#35332f',
                         margin: '0 0 2.25rem 0',
