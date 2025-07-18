@@ -342,7 +342,7 @@ export default function BoutiqueSection() {
         .card-title {
           font-family: 'futura-pt', sans-serif;
           font-size: clamp(0.8rem, 2vw, 1.1rem);
-          font-weight: 400;
+          font-weight: 300;
           line-height: 1.2;
           margin: 0;
           color: var(--foreground);

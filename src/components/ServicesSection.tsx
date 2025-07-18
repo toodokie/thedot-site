@@ -433,7 +433,7 @@ export default function ServicesSection() {
           .section-title {
             font-family: 'futura-pt', sans-serif;
             font-size: clamp(2.5rem, 6vw, 4rem);
-            font-weight: 400;
+            font-weight: 300;
             line-height: 1.2;
             color: #35332f;
             margin: 0 0 2rem 0;

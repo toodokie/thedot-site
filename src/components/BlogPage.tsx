@@ -201,7 +201,7 @@ export default function BlogPage() {
           width: 100%;
           margin: .5em 0 .25em;
           font-family: ff-real-text-pro, sans-serif;
-          font-weight: 400;
+          font-weight: 300;
           display: flex;
         }
         
@@ -404,7 +404,7 @@ export default function BlogPage() {
         .featured-content h2 {
           font-family: futura-pt, sans-serif;
           font-size: 2.5rem !important;
-          font-weight: 400;
+          font-weight: 300;
           color: var(--black);
           margin-bottom: 15px;
           line-height: 1.2;
@@ -518,7 +518,7 @@ export default function BlogPage() {
         .post-card h3 {
           font-family: futura-pt, sans-serif;
           font-size: 1.4rem !important;
-          font-weight: 400;
+          font-weight: 300;
           color: var(--black);
           margin-bottom: 10px;
           line-height: 1.3;

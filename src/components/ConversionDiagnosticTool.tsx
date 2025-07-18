@@ -459,7 +459,7 @@ export default function ConversionDiagnosticTool() {
         .quiz-headline {
           font-family: ff-real-text-pro, sans-serif;
           font-size: clamp(2.5rem, 5vw, 3.5rem);
-          font-weight: 400;
+          font-weight: 300;
           color: var(--foreground);
           margin: 0;
           padding-top: 2rem;
@@ -664,7 +664,7 @@ export default function ConversionDiagnosticTool() {
           padding: 12px 24px;
           font-family: futura-pt, sans-serif;
           font-size: 1rem;
-          font-weight: 400;
+          font-weight: 300;
           cursor: pointer;
           margin-top: 30px;
           align-self: flex-start;
@@ -699,7 +699,7 @@ export default function ConversionDiagnosticTool() {
         .results-headline {
           font-family: futura-pt, sans-serif;
           font-size: 2.2rem;
-          font-weight: 400;
+          font-weight: 300;
           color: var(--foreground);
           margin-bottom: 20px;
           line-height: 1.2;

@@ -1229,7 +1229,7 @@ export default function ProjectBrief() {
             padding: 14px 16px;
             font-family: futura-pt, sans-serif;
             font-size: 1.1rem;
-            font-weight: 400;
+            font-weight: 300;
             line-height: 1.4;
             border: 1px solid #ccc;
             border-radius: 0;
@@ -1301,7 +1301,7 @@ export default function ProjectBrief() {
             padding: 16px;
             font-family: futura-pt, sans-serif;
             font-size: 1.1rem;
-            font-weight: 400;
+            font-weight: 300;
             line-height: 1.5;
             border: 1px solid #ccc;
             border-radius: 0;
@@ -1323,7 +1323,7 @@ export default function ProjectBrief() {
             padding: 12px 16px;
             font-family: futura-pt, sans-serif;
             font-size: 1.1rem;
-            font-weight: 400;
+            font-weight: 300;
             line-height: 1.4;
             border: 1px solid #ccc;
             border-radius: 0;
@@ -1360,7 +1360,7 @@ export default function ProjectBrief() {
             padding: 12px 16px;
             font-family: futura-pt, sans-serif;
             font-size: 1.1rem;
-            font-weight: 400;
+            font-weight: 300;
             line-height: 1.4;
             border: 1px solid #ccc;
             border-radius: 0;
@@ -1404,7 +1404,7 @@ export default function ProjectBrief() {
             padding: 12px 16px;
             font-family: futura-pt, sans-serif;
             font-size: 1.1rem;
-            font-weight: 400;
+            font-weight: 300;
             line-height: 1.4;
             border: 1px solid #ccc;
             border-radius: 0;
@@ -1465,7 +1465,7 @@ export default function ProjectBrief() {
             margin-bottom: 6rem;
             font-family: futura-pt, sans-serif;
             font-size: 1.2rem;
-            font-weight: 400;
+            font-weight: 300;
             line-height: 18px;
             transition: all .4s cubic-bezier(.23, 1, .32, 1);
             display: inline-block;
@@ -1629,7 +1629,7 @@ export default function ProjectBrief() {
             color: #35332f;
             font-family: futura-pt, sans-serif;
             font-size: 1.8rem;
-            font-weight: 400;
+            font-weight: 300;
           }
           
           .lead-capture-subtitle {
@@ -1657,7 +1657,7 @@ export default function ProjectBrief() {
             color: #35332f;
             font-family: futura-pt, sans-serif;
             font-size: 1.1rem;
-            font-weight: 400;
+            font-weight: 300;
           }
           
           .lead-form-input {
@@ -1682,7 +1682,7 @@ export default function ProjectBrief() {
             border-radius: 4px;
             font-family: futura-pt, sans-serif;
             font-size: 1.1rem;
-            font-weight: 400;
+            font-weight: 300;
             cursor: pointer;
             transition: background-color 0.3s ease;
           }

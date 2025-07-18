@@ -146,6 +146,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
           background-color: var(--raw-white);
           min-height: 100vh;
           font-family: ff-real-text-pro, sans-serif;
+          font-weight: 300;
         }
         
         
@@ -187,7 +188,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
         .post-title {
           font-family: futura-pt, sans-serif;
           font-size: 3.5rem;
-          font-weight: 400;
+          font-weight: 300;
           color: var(--black);
           line-height: 1.2;
           margin-bottom: 20px;
@@ -245,7 +246,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
         .post-content h2 {
           font-family: futura-pt, sans-serif;
           font-size: 2rem;
-          font-weight: 400;
+          font-weight: 300;
           color: var(--black);
           margin: 50px 0 25px;
           line-height: 1.3;
@@ -254,7 +255,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
         .post-content h3 {
           font-family: futura-pt, sans-serif;
           font-size: 1.5rem;
-          font-weight: 400;
+          font-weight: 300;
           color: var(--black);
           margin: 40px 0 20px;
         }
@@ -403,7 +404,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
         .author-info h4 {
           font-family: futura-pt, sans-serif;
           font-size: 1.3rem;
-          font-weight: 400;
+          font-weight: 300;
           color: var(--black);
           margin-bottom: 5px;
         }
@@ -422,7 +423,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
         .related-title {
           font-family: futura-pt, sans-serif;
           font-size: 2.5rem;
-          font-weight: 400;
+          font-weight: 300;
           color: var(--black);
           text-align: center;
           margin-bottom: 50px;
@@ -453,7 +454,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
         .related-card h3 {
           font-family: futura-pt, sans-serif;
           font-size: 1.3rem;
-          font-weight: 400;
+          font-weight: 300;
           color: var(--black);
           margin-bottom: 10px;
           line-height: 1.3;
@@ -542,7 +543,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
         .next-article-post-title {
           font-family: futura-pt, sans-serif;
           font-size: 1.8rem;
-          font-weight: 400;
+          font-weight: 300;
           color: var(--black);
           line-height: 1.3;
           margin-bottom: 12px;

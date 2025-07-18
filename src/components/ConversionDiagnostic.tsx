@@ -105,7 +105,7 @@ export default function ConversionDiagnostic() {
         .diagnostic-header h2 {
           font-family: futura-pt, sans-serif;
           font-size: 3rem;
-          font-weight: 400;
+          font-weight: 300;
           color: var(--black);
           margin-bottom: 20px;
           line-height: 1.2;
@@ -179,7 +179,7 @@ export default function ConversionDiagnostic() {
         .card-title {
           font-family: futura-pt, sans-serif;
           font-size: 1.4rem;
-          font-weight: 400;
+          font-weight: 300;
           color: var(--black);
           margin: 0;
         }

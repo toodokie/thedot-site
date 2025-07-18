@@ -13,7 +13,7 @@ export default function ContactPage() {
           background-color: var(--raw-white);
           font-family: ff-real-text-pro, sans-serif;
           font-size: 1rem;
-          font-weight: 400;
+          font-weight: 300;
           line-height: 1.6;
         }
         
@@ -70,7 +70,7 @@ export default function ContactPage() {
           color: var(--black);
           font-family: futura-pt, sans-serif;
           font-size: 1.2rem;
-          font-weight: 400;
+          font-weight: 300;
           transition: all 0.3s ease;
         }
         
@@ -98,7 +98,7 @@ export default function ContactPage() {
           padding-bottom: 3rem;
           font-family: futura-pt, sans-serif;
           font-size: 5.8rem;
-          font-weight: 400;
+          font-weight: 300;
           text-align: left;
         }
         

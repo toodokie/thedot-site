@@ -177,7 +177,7 @@ export default function QuoteSection() {
           align-items: flex-start;
           font-family: 'ff-real-text-pro', sans-serif;
           font-size: 1em;
-          font-weight: 400;
+          font-weight: 300;
           display: flex;
           color: var(--foreground);
           opacity: 1;
