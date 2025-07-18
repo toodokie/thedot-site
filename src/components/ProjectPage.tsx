@@ -112,7 +112,7 @@ function VideoPlayer({ videoUrl }: { videoUrl: string }) {
         justifyContent: 'center',
         color: '#35332f',
         fontSize: '1.1rem',
-        fontWeight: '500'
+        fontWeight: '400'
       }}>
         Video temporarily unavailable
       </div>

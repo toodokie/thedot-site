@@ -131,7 +131,7 @@ export default function QuoteSection() {
         .dot-quote {
           font-family: 'futura-pt', sans-serif;
           font-size: 1.6em;
-          font-weight: 500;
+          font-weight: 400;
           line-height: 1.1em;
           text-transform: uppercase;
           color: var(--foreground);

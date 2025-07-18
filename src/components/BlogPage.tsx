@@ -232,7 +232,7 @@ export default function BlogPage() {
           margin-bottom: 0;
           font-family: ff-real-text-pro, sans-serif;
           font-size: 2.2rem;
-          font-weight: 300;
+          font-weight: 200;
           line-height: 1.2em;
           display: block;
         }
