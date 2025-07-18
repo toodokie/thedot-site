@@ -147,7 +147,7 @@ export default function BlogPage() {
           margin-right: 0;
           display: block;
           overflow: hidden;
-          min-height: 250px;
+          min-height: 120px;
         }
         
         .div-block-184 {
@@ -162,7 +162,7 @@ export default function BlogPage() {
         
         .div-block-178-services {
           width: 70%;
-          min-height: 180px;
+          min-height: 80px;
         }
         
         .graphic-title-wrap-copy-services {
@@ -279,7 +279,7 @@ export default function BlogPage() {
           
           .div-block-178-services {
             width: 70%;
-            min-height: 160px;
+            min-height: 70px;
           }
           
           .dot_h1_pages {
@@ -319,7 +319,7 @@ export default function BlogPage() {
             display: flex;
             width: 100%;
             text-align: center;
-            min-height: 120px;
+            min-height: 60px;
           }
           
           .graphic-title-wrap-copy-services {
@@ -352,7 +352,7 @@ export default function BlogPage() {
           max-width: 120rem;
           margin: 0 auto;
           padding: 2rem 2.5rem;
-          min-height: 300px;
+          min-height: 100px;
         }
         
         .category-filters {
@@ -500,7 +500,7 @@ export default function BlogPage() {
           grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
           gap: 40px;
           margin-bottom: 80px;
-          min-height: 200px;
+          min-height: 100px;
         }
         
         .post-card {
@@ -584,7 +584,7 @@ export default function BlogPage() {
           padding: 0 0 80px 0;
           text-align: center;
           margin-bottom: 0;
-          min-height: 250px;
+          min-height: 100px;
         }
         
         .review-cta-content {
@@ -592,7 +592,7 @@ export default function BlogPage() {
           max-width: 1200px;
           margin: 0 auto;
           padding: 2rem 2.5rem;
-          min-height: 150px;
+          min-height: 50px;
         }
         
         .dot_bottom_link.estimate {
