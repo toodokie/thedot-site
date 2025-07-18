@@ -145,7 +145,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
         .post-container {
           background-color: var(--raw-white);
           min-height: 100vh;
-          font-family: ff-real-text-pro-2, sans-serif;
+          font-family: ff-real-text-pro, sans-serif;
         }
         
         

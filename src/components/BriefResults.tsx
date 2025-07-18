@@ -524,7 +524,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     maxWidth: '1200px',
     margin: '0 auto',
     padding: '40px 20px',
-    fontFamily: 'ff-real-text-pro-2, sans-serif',
+    fontFamily: 'ff-real-text-pro, sans-serif',
     color: '#35332f',
     backgroundColor: '#faf9f6',
   },

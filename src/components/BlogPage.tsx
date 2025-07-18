@@ -106,7 +106,7 @@ export default function BlogPage() {
         .blog-container {
           background-color: var(--raw-white);
           min-height: 100vh;
-          font-family: ff-real-text-pro-2, sans-serif;
+          font-family: ff-real-text-pro, sans-serif;
         }
         
         
@@ -200,7 +200,7 @@ export default function BlogPage() {
           align-items: flex-start;
           width: 100%;
           margin: .5em 0 .25em;
-          font-family: ff-real-text-pro-2, sans-serif;
+          font-family: ff-real-text-pro, sans-serif;
           font-weight: 400;
           display: flex;
         }
@@ -230,7 +230,7 @@ export default function BlogPage() {
           max-width: none;
           margin-top: 0;
           margin-bottom: 0;
-          font-family: ff-real-text-pro-2, sans-serif;
+          font-family: ff-real-text-pro, sans-serif;
           font-size: 2.2rem;
           font-weight: 300;
           line-height: 1.2em;
@@ -362,7 +362,7 @@ export default function BlogPage() {
           border: 2px solid var(--black);
           color: var(--black);
           padding: 12px 24px;
-          font-family: ff-real-text-pro-2, sans-serif;
+          font-family: ff-real-text-pro, sans-serif;
           font-size: 1rem;
           font-weight: 500;
           cursor: pointer;
@@ -611,7 +611,7 @@ export default function BlogPage() {
         .small-bottom-link-text-eng {
           letter-spacing: 0.1em;
           text-transform: none;
-          font-family: ff-real-text-pro-2, sans-serif;
+          font-family: ff-real-text-pro, sans-serif;
           font-size: 1.2rem;
           font-weight: 300;
           line-height: 1.3;

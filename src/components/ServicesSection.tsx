@@ -223,7 +223,7 @@ export default function ServicesSection() {
                     <p 
                       className="service-popular-text"
                       style={{
-                        fontFamily: 'ff-real-text-pro-2, sans-serif',
+                        fontFamily: 'ff-real-text-pro, sans-serif',
                         fontSize: '0.96rem',
                         fontWeight: 300,
                         fontStyle: 'italic',
@@ -240,7 +240,7 @@ export default function ServicesSection() {
                     <p 
                       className="service-popular-text"
                       style={{
-                        fontFamily: 'ff-real-text-pro-2, sans-serif',
+                        fontFamily: 'ff-real-text-pro, sans-serif',
                         fontSize: '0.96rem',
                         fontWeight: 300,
                         fontStyle: 'italic',
@@ -257,7 +257,7 @@ export default function ServicesSection() {
                     <p 
                       className="service-popular-text"
                       style={{
-                        fontFamily: 'ff-real-text-pro-2, sans-serif',
+                        fontFamily: 'ff-real-text-pro, sans-serif',
                         fontSize: '0.96rem',
                         fontWeight: 300,
                         fontStyle: 'italic',
@@ -273,7 +273,7 @@ export default function ServicesSection() {
                   <p 
                     className="service-card-text"
                     style={{
-                      fontFamily: 'ff-real-text-pro-2, sans-serif',
+                      fontFamily: 'ff-real-text-pro, sans-serif',
                       fontSize: '1rem',
                       fontWeight: 400,
                       lineHeight: 1.5,
@@ -289,7 +289,7 @@ export default function ServicesSection() {
                     <div 
                       className="service-bullets"
                       style={{
-                        fontFamily: 'ff-real-text-pro-2, sans-serif',
+                        fontFamily: 'ff-real-text-pro, sans-serif',
                         fontSize: '1rem',
                         fontWeight: 400,
                         lineHeight: 1.8,
@@ -440,7 +440,7 @@ export default function ServicesSection() {
           }
           
           .section-description {
-            font-family: 'ff-real-text-pro-2', sans-serif;
+            font-family: 'ff-real-text-pro', sans-serif;
             font-size: clamp(1.25rem, 2.5vw, 1.5rem);
             font-weight: 300;
             line-height: 1.4;

@@ -220,7 +220,7 @@ export default function ProjectsGrid({ projects }: ProjectsGridProps) {
             paddingRight: 0,
             opacity: 0.6,
             color: 'var(--foreground)',
-            fontFamily: 'ff-real-text-pro-2, sans-serif',
+            fontFamily: 'ff-real-text-pro, sans-serif',
             fontSize: '1.125rem'
           }}>
             <p>No projects found.</p>

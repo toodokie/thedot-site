@@ -1210,7 +1210,7 @@ export default function ProjectBrief() {
             margin-bottom: 12px;
             padding-left: 0;
             padding-right: 0;
-            font-family: ff-real-text-pro-2, sans-serif;
+            font-family: ff-real-text-pro, sans-serif;
             font-size: 1.1rem;
             font-weight: 500;
             line-height: 1.4;

@@ -118,7 +118,7 @@ export default function Footer() {
           align-items: flex-start;
           margin-bottom: auto;
           padding-left: 0;
-          font-family: 'ff-real-text-pro-2', sans-serif;
+          font-family: 'ff-real-text-pro', sans-serif;
           font-size: 1rem;
           font-weight: 300;
           display: block;
@@ -127,7 +127,7 @@ export default function Footer() {
         .footer-link {
           color: var(--foreground);
           text-decoration: underline;
-          font-family: 'ff-real-text-pro-2', sans-serif;
+          font-family: 'ff-real-text-pro', sans-serif;
           font-size: 1rem;
           font-weight: 300;
         }
@@ -175,7 +175,7 @@ export default function Footer() {
           border: 1px solid var(--foreground);
           background: var(--background);
           color: var(--foreground);
-          font-family: 'ff-real-text-pro-2', sans-serif;
+          font-family: 'ff-real-text-pro', sans-serif;
           font-size: 0.9rem;
           cursor: pointer;
           transition: all 0.3s ease;
@@ -188,7 +188,7 @@ export default function Footer() {
         }
 
         .cookie-text {
-          font-family: 'ff-real-text-pro-2', sans-serif;
+          font-family: 'ff-real-text-pro', sans-serif;
           font-size: 0.9rem;
           color: var(--foreground);
           flex: 1;

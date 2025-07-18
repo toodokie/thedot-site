@@ -17,7 +17,7 @@ export default function WelcomeSection() {
         }}>
           <div className="welcome-text-container">
             <h2 style={{
-              fontFamily: 'ff-real-text-pro-2, sans-serif',
+              fontFamily: 'ff-real-text-pro, sans-serif',
               fontSize: '2.5rem',
               fontWeight: 400,
               lineHeight: 1.3,
@@ -39,7 +39,7 @@ export default function WelcomeSection() {
             <h3 style={{
               background: '#35332f',
               color: '#faf9f6',
-              fontFamily: 'ff-real-text-pro-2, sans-serif',
+              fontFamily: 'ff-real-text-pro, sans-serif',
               fontSize: '1.2rem',
               fontWeight: 400,
               lineHeight: 1.2,

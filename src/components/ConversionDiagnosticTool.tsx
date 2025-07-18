@@ -421,7 +421,7 @@ export default function ConversionDiagnosticTool() {
         .diagnostic-tool-section {
           background: var(--raw-white);
           padding: 2rem 2.5rem 120px 2.5rem;
-          font-family: ff-real-text-pro-2, sans-serif;
+          font-family: ff-real-text-pro, sans-serif;
         }
 
         .quiz-container {
@@ -457,7 +457,7 @@ export default function ConversionDiagnosticTool() {
         }
 
         .quiz-headline {
-          font-family: ff-real-text-pro-2, sans-serif;
+          font-family: ff-real-text-pro, sans-serif;
           font-size: clamp(2.5rem, 5vw, 3.5rem);
           font-weight: 400;
           color: var(--foreground);
@@ -591,7 +591,7 @@ export default function ConversionDiagnosticTool() {
           color: var(--foreground);
           padding: 18px 36px;
           border: 1px solid var(--foreground);
-          font-family: ff-real-text-pro-2, sans-serif;
+          font-family: ff-real-text-pro, sans-serif;
           font-size: 1rem;
           font-weight: 600;
           cursor: pointer;

@@ -175,7 +175,7 @@ export default function QuoteSection() {
           text-align: left;
           flex-direction: row;
           align-items: flex-start;
-          font-family: 'ff-real-text-pro-2', sans-serif;
+          font-family: 'ff-real-text-pro', sans-serif;
           font-size: 1em;
           font-weight: 400;
           display: flex;
@@ -231,7 +231,7 @@ export default function QuoteSection() {
         .small-bottom-link-text-eng {
           letter-spacing: 0.1em;
           text-transform: lowercase;
-          font-family: 'ff-real-text-pro-2', sans-serif;
+          font-family: 'ff-real-text-pro', sans-serif;
           font-size: 1.2rem;
           font-weight: 300;
           line-height: 1.3;
@@ -315,7 +315,7 @@ export default function QuoteSection() {
           }
 
           .vision-column {
-            font-family: 'ff-real-text-pro-2', sans-serif;
+            font-family: 'ff-real-text-pro', sans-serif;
             font-size: 12px;
             font-weight: 100;
           }

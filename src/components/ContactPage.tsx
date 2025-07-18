@@ -11,7 +11,7 @@ export default function ContactPage() {
         .body {
           cursor: none;
           background-color: var(--raw-white);
-          font-family: ff-real-text-pro-2, sans-serif;
+          font-family: ff-real-text-pro, sans-serif;
           font-size: 1rem;
           font-weight: 400;
           line-height: 1.6;

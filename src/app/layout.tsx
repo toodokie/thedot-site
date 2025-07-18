@@ -208,7 +208,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               font-display: swap;
             }
             @font-face {
-              font-family: 'ff-real-text-pro-2';
+              font-family: 'ff-real-text-pro';
               font-display: swap;
             }
           `

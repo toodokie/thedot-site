@@ -88,7 +88,7 @@ export default function ConversionDiagnostic() {
         .conversion-diagnostic {
           background: var(--raw-white);
           padding: 120px 0;
-          font-family: ff-real-text-pro-2, sans-serif;
+          font-family: ff-real-text-pro, sans-serif;
         }
 
         .diagnostic-container {

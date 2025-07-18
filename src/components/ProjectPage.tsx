@@ -258,7 +258,7 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
           }} className="responsive-column tablet-col-45">
             {project.tools && (
               <p style={{
-                fontFamily: 'ff-real-text-pro-2, sans-serif',
+                fontFamily: 'ff-real-text-pro, sans-serif',
                 fontWeight: 100,
                 fontSize: 'clamp(0.875rem, 2vw, 1.0625rem)',
                 color: '#35332f',
@@ -329,7 +329,7 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
             alignItems: 'flex-end'
           }} className="responsive-column tablet-col-45">
             <p style={{
-              fontFamily: 'ff-real-text-pro-2, sans-serif',
+              fontFamily: 'ff-real-text-pro, sans-serif',
               fontWeight: 100,
               fontSize: 'clamp(0.875rem, 2vw, 1.0625rem)',
               color: '#35332f',
@@ -499,7 +499,7 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
         }}>
           <h2 style={{
             
-            fontFamily: 'ff-real-text-pro-2, sans-serif',
+            fontFamily: 'ff-real-text-pro, sans-serif',
             fontWeight: 400,
             fontSize: 'clamp(1.5rem, 4vw, 2.375rem)',
             textTransform: 'uppercase',
@@ -520,7 +520,7 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
         }}>
           <div style={{
             
-            fontFamily: 'ff-real-text-pro-2, sans-serif',
+            fontFamily: 'ff-real-text-pro, sans-serif',
             fontWeight: 400,
             fontSize: 'clamp(1.125rem, 3vw, 1.6875rem)',
             color: '#35332f',
