@@ -19,7 +19,7 @@ export default function WelcomeSection() {
             <h2 style={{
               fontFamily: 'ff-real-text-pro, sans-serif',
               fontSize: '2.5rem',
-              fontWeight: 400,
+              fontWeight: 200,
               lineHeight: 1.3,
               color: '#35332f',
               margin: 0,
