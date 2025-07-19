@@ -502,7 +502,6 @@ export default function BlogPage() {
           grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
           gap: 40px;
           margin-bottom: 80px;
-          min-height: 800px; /* Reserve space for grid content */
         }
         
         .post-card {
@@ -791,7 +790,7 @@ export default function BlogPage() {
           }
           
           .posts-grid {
-            min-height: 600px; /* Reduce for mobile */
+            /* No min-height - let content determine size */
           }
           
           .featured-section {
