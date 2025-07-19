@@ -206,6 +206,7 @@ export default function BlogPage() {
           font-family: ff-real-text-pro, sans-serif;
           font-weight: 300;
           display: flex;
+          min-height: 80px; /* Prevent subheader shifts */
         }
         
         .graphic-copy-services-copy {
@@ -594,7 +595,7 @@ export default function BlogPage() {
           max-width: 1200px;
           margin: 0 auto;
           padding: 2rem 2.5rem;
-          min-height: 50px;
+          min-height: 150px; /* Increase to prevent CTA shifts */
         }
         
         .dot_bottom_link.estimate {
