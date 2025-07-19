@@ -152,6 +152,7 @@ export default function BlogPage() {
         
         .div-block-184 {
           width: 100%;
+          min-height: 400px; /* Reserve space for header to prevent CLS */
         }
         
         .div-block-183 {
