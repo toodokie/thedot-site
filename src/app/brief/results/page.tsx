@@ -35,7 +35,7 @@ function BriefResultsContent() {
           height: '100vh',
           fontFamily: 'futura-pt, sans-serif',
           fontSize: '24px',
-          color: '#35332f'
+          color: 'var(--foreground)'
         }}>
           Loading your brief results...
         </div>
@@ -67,7 +67,7 @@ export default function BriefResultsPage() {
           height: '100vh',
           fontFamily: 'futura-pt, sans-serif',
           fontSize: '24px',
-          color: '#35332f'
+          color: 'var(--foreground)'
         }}>
           Loading your brief results...
         </div>

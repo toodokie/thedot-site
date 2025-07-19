@@ -1205,7 +1205,7 @@ export default function ProjectBrief() {
         <style dangerouslySetInnerHTML={{__html: `
           /* Form Field Styling - Based on Webflow CSS */
           .dot_field_label {
-            color: #35332f;
+            color: var(--foreground);
             margin-top: 24px;
             margin-bottom: 12px;
             padding-left: 0;
@@ -1220,7 +1220,7 @@ export default function ProjectBrief() {
           }
           
           .text-field-3 {
-            color: #35332f;
+            color: var(--foreground);
             width: 100%;
             max-width: 400px;
             height: 50px;
@@ -1245,7 +1245,7 @@ export default function ProjectBrief() {
           }
           
           .text-filed-3 {
-            color: #35332f;
+            color: var(--foreground);
             width: 100%;
             max-width: 500px;
             min-height: 50px;
@@ -1270,7 +1270,7 @@ export default function ProjectBrief() {
           }
           
           .dot_forms_title.sites {
-            color: #35332f;
+            color: var(--foreground);
             margin-top: 3rem;
             margin-bottom: 2rem;
             padding: 1rem 0;
@@ -1293,7 +1293,7 @@ export default function ProjectBrief() {
           }
           
           .text-area-field-4 {
-            color: #35332f;
+            color: var(--foreground);
             width: 100%;
             min-height: 120px;
             margin-top: 8px;
@@ -1318,7 +1318,7 @@ export default function ProjectBrief() {
           }
           
           [class*="radio-button"]:not([class*="radio-button-label"]) {
-            color: #35332f;
+            color: var(--foreground);
             margin-bottom: 20px;
             padding: 12px 16px;
             font-family: futura-pt, sans-serif;
@@ -1355,7 +1355,7 @@ export default function ProjectBrief() {
           
           /* Style .w-radio fields that don&apos;t have radio-button in their name */
           .w-radio {
-            color: #35332f;
+            color: var(--foreground);
             margin-bottom: 20px;
             padding: 12px 16px;
             font-family: futura-pt, sans-serif;
@@ -1399,7 +1399,7 @@ export default function ProjectBrief() {
           
           .checkbox-field,
           [class*="checkbox"]:not([class*="checkbox-label"]) {
-            color: #35332f;
+            color: var(--foreground);
             margin-bottom: 16px;
             padding: 12px 16px;
             font-family: futura-pt, sans-serif;
@@ -1626,7 +1626,7 @@ export default function ProjectBrief() {
           
           .lead-capture-title {
             margin: 0 0 20px 0;
-            color: #35332f;
+            color: var(--foreground);
             font-family: futura-pt, sans-serif;
             font-size: 1.8rem;
             font-weight: 300;
@@ -1654,7 +1654,7 @@ export default function ProjectBrief() {
           
           .lead-form-label {
             margin-bottom: 8px;
-            color: #35332f;
+            color: var(--foreground);
             font-family: futura-pt, sans-serif;
             font-size: 1rem;
             font-weight: 300;
@@ -1676,7 +1676,7 @@ export default function ProjectBrief() {
           
           .lead-form-button {
             padding: 15px 30px;
-            background-color: #35332f;
+            background-color: var(--foreground);
             color: white;
             border: none;
             border-radius: 4px;
@@ -1689,7 +1689,7 @@ export default function ProjectBrief() {
           
           .lead-form-button:hover {
             background-color: #daff00;
-            color: #35332f;
+            color: var(--foreground);
           }
           
           .lead-form-button:disabled {

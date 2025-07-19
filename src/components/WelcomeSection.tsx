@@ -21,7 +21,7 @@ export default function WelcomeSection() {
               fontSize: '2.5rem',
               fontWeight: 200,
               lineHeight: 1.3,
-              color: '#35332f',
+              color: 'var(--foreground)',
               margin: 0,
               letterSpacing: '-0.01em',
               boxSizing: 'border-box'
@@ -36,20 +36,7 @@ export default function WelcomeSection() {
             justifyContent: 'flex-end',
             boxSizing: 'border-box',
           }}>
-            <h3 style={{
-              background: '#35332f',
-              color: '#faf9f6',
-              fontFamily: 'ff-real-text-pro, sans-serif',
-              fontSize: '1.125rem',
-              fontWeight: 400,
-              lineHeight: 1.2,
-              padding: '1.5rem 2rem',
-              margin: 0,
-              whiteSpace: 'nowrap',
-              letterSpacing: '0.02em',
-              textAlign: 'right',
-              boxSizing: 'border-box'
-            }}>
+            <h3 className="welcome-tag">
               Performance,<br />
               beautifully engineered
             </h3>

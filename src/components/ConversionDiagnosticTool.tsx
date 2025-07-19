@@ -832,7 +832,7 @@ export default function ConversionDiagnosticTool() {
 
         /* Color variables */
         :root {
-          --foreground: #35332f;
+          --foreground: var(--foreground);
           --raw-white: #faf9f6;
           --yellow: #daff00;
         }

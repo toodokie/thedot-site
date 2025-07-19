@@ -370,7 +370,7 @@ export default function ConversionDiagnostic() {
 
         /* Color variables */
         :root {
-          --black: #35332f;
+          --black: var(--foreground);
           --raw-white: #faf9f6;
           --yellow: #daff00;
         }

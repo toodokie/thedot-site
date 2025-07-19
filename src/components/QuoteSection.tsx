@@ -67,7 +67,7 @@ export default function QuoteSection() {
             left: 0,
             right: 0,
             height: '1px',
-            background: '#35332f'
+            background: 'var(--foreground)'
           }}></div>
           {/* line.png positioned below the 2px line */}
           <Image
@@ -211,7 +211,7 @@ export default function QuoteSection() {
           font-family: 'futura-pt', sans-serif;
           font-weight: 300;
           font-size: clamp(1.5rem, 6vw, 7rem);
-          color: #35332f;
+          color: var(--foreground);
           margin: 0;
           line-height: 1;
           text-decoration: none;

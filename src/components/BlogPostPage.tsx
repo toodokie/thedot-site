@@ -619,7 +619,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
         
         :root {
           --white-smoke: #f8f8f8;
-          --black: #35332f;
+          --black: var(--foreground);
           --dim-grey: #47453f;
           --white-smoke-nav: #faf9f6b3;
           --white: #fafafa;

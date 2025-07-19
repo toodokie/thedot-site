@@ -187,17 +187,7 @@ export default function ServicesSection() {
                   </div>
     
                   {/* Service Title */}
-                  <h4 
-                    className="service-card-title"
-                    style={{
-                      fontFamily: 'futura-pt, sans-serif',
-                      fontSize: '1.6rem',
-                      fontWeight: 500,
-                      lineHeight: 1.3,
-                      color: '#35332f',
-                      margin: '0 0 1rem 0',
-                    }}
-                  >
+                  <h4 className="service-card-title">
                     {service.title}
                   </h4>
 
@@ -210,7 +200,7 @@ export default function ServicesSection() {
                         fontSize: '1rem',
                         fontWeight: 400,
                         lineHeight: 1.2,
-                        color: '#35332f',
+                        color: 'var(--foreground)',
                         margin: '0 0 1rem 0',
                       }}
                     >
@@ -277,7 +267,7 @@ export default function ServicesSection() {
                       fontSize: '1rem',
                       fontWeight: 200,
                       lineHeight: 1.6,
-                      color: '#35332f',
+                      color: 'var(--foreground)',
                       margin: '0 0 1.5rem 0',
                     }}
                   >
@@ -293,7 +283,7 @@ export default function ServicesSection() {
                         fontSize: '1rem',
                         fontWeight: 200,
                         lineHeight: 1.6,
-                        color: '#35332f',
+                        color: 'var(--foreground)',
                         margin: '0 0 2.25rem 0',
                         whiteSpace: 'pre-line',
                       }}
@@ -341,7 +331,7 @@ export default function ServicesSection() {
                       fontSize: '1.3rem',
                       fontWeight: 400,
                       lineHeight: 1.6,
-                      color: '#35332f',
+                      color: 'var(--foreground)',
                       margin: 0,
                     }}
                   >
@@ -366,9 +356,9 @@ export default function ServicesSection() {
           }
           
           .fast-track-cta:hover {
-            background: #35332f !important;
+            background: var(--foreground) !important;
             color: #faf9f6 !important;
-            border-color: #35332f !important;
+            border-color: var(--foreground) !important;
           }
           
           .fast-track-card {
@@ -435,7 +425,7 @@ export default function ServicesSection() {
             font-size: clamp(2.5rem, 6vw, 4rem);
             font-weight: 300;
             line-height: 1.2;
-            color: #35332f;
+            color: var(--foreground);
             margin: 0 0 2rem 0;
           }
           
@@ -444,7 +434,7 @@ export default function ServicesSection() {
             font-size: clamp(1.25rem, 2.5vw, 1.5rem);
             font-weight: 300;
             line-height: 1.4;
-            color: #35332f;
+            color: var(--foreground);
             margin: 0;
             opacity: 0.8;
           }

@@ -170,7 +170,7 @@ export default function ProjectsGrid({ projects }: ProjectsGridProps) {
             left: 0,
             right: 0,
             height: '1px',
-            background: '#35332f'
+            background: 'var(--foreground)'
           }}></div>
           {/* line.png positioned below the 2px line */}
           <Image

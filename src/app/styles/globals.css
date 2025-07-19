@@ -57,6 +57,17 @@ body {
   }
 }
 
+/* New media query for section-description */
+@media (width <= 999px) {
+  .section-description {
+    text-align: left !important;
+    width: 100% !important;
+    max-width: none !important;
+    padding-left: 0 !important;
+    font-size: 1.4rem !important;
+  }
+}
+
 /* Global link color override */
 a {
   color: var(--foreground);
@@ -740,7 +751,7 @@ li {
   left: 0;
   right: 0;
   height: 1px;
-  background: #35332f;
+  background: var(--foreground);
   z-index: 1;
 }
 
@@ -1276,6 +1287,32 @@ li {
   background-image: radial-gradient(circle farthest-corner at 100% 0%, #daff00cf, #eefb9dbd 34%, #faf9f6 53%) !important;
 }
 
+/* Service Card Title */
+.service-card-title {
+  font-family: 'futura-pt', sans-serif !important;
+  font-size: 1.6rem !important;
+  font-weight: 500 !important;
+  line-height: 1.3 !important;
+  color: var(--foreground) !important;
+  margin: 0 0 1rem 0 !important;
+}
+
+/* Welcome Section Tag */
+.welcome-tag {
+  background: var(--foreground) !important;
+  color: var(--background) !important;
+  font-family: 'ff-real-text-pro', sans-serif !important;
+  font-size: 1.125rem !important;
+  font-weight: 200 !important;
+  line-height: 1.2 !important;
+  padding: 1.5rem 2rem !important;
+  margin: 0 !important;
+  white-space: nowrap !important;
+  letter-spacing: 0.02em !important;
+  text-align: right !important;
+  box-sizing: border-box !important;
+}
+
 /* Service Icon Styling */
 .service-icon {
   background: transparent !important;
@@ -1312,7 +1349,7 @@ li {
   font-size: 1.4em;
   font-weight: 600;
   line-height: 1.3;
-  color: #35332f;
+  color: var(--foreground);
   margin: 0 0 1rem 0;
 }
 
@@ -1321,7 +1358,7 @@ li {
   font-size: 1rem;
   font-weight: 200;
   line-height: 1.6;
-  color: #35332f;
+  color: var(--foreground);
   margin: 0;
 }
 
@@ -1343,7 +1380,7 @@ li {
   font-size: 4.2rem !important;
   font-weight: 300 !important;
   line-height: 1.1 !important;
-  color: #35332f !important;
+  color: var(--foreground) !important;
   margin: 0 0 1.5rem 0 !important;
   padding: 0 !important;
   letter-spacing: -0.02em !important;
@@ -2183,6 +2220,7 @@ li {
   position: relative;
   transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   transform: scale(1);
+  overflow: hidden;
 }
 
 .project-image-container {
@@ -2239,7 +2277,7 @@ li {
 .project-description {
   letter-spacing: 0;
   margin-bottom: 0;
-  font-family: 'ff-real-text-pro', sans-serif;
+  font-family: 'futura-pt', sans-serif;
   font-size: 1.3em;
   font-weight: 200;
   line-height: 1.4;
@@ -2247,7 +2285,6 @@ li {
   color: var(--foreground);
   opacity: 0.8;
   transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  width: 50vw;
 }
 
 /* Project List Item Base */
@@ -2364,7 +2401,6 @@ li {
   
   .project-description {
     font-size: 1.1em;
-    width: 50vw;
   }
   
   .tools-grid {
@@ -2430,8 +2466,7 @@ li {
   }
   
   .project-description {
-    font-size: 1em;
-    width: 50vw;
+    font-size: 1.4em;
   }
   
   .tools-grid {
@@ -2478,7 +2513,7 @@ li {
 }
 
 /* SMALL MOBILE (480px and down) */
-@media (max-width: 480px) {
+@media (width <= 480px) {
   .projects-titles-grid {
     grid-column-gap: 1em;
     margin-left: 0.5em;
@@ -2500,7 +2535,7 @@ li {
   }
   
   .project-description {
-    font-size: 0.9em;
+    font-size: 1.2em;
   }
   
   .tools-grid {
@@ -2801,7 +2836,7 @@ li {
   background-size: cover;
   background-repeat: no-repeat;
   background-attachment: scroll;
-  border: 1px solid #35332f;
+  border: 1px solid var(--foreground);
   box-sizing: border-box;
   transition: filter 0.3s ease;
   position: relative;
@@ -2897,7 +2932,7 @@ li {
 /* High contrast mode compatibility */
 @media (prefers-contrast: high) {
   .parallax-rectangle {
-    border: 2px solid #35332f;
+    border: 2px solid var(--foreground);
   }
 }
 
@@ -3653,7 +3688,7 @@ li {
   font-size: 4.2rem !important;
   font-weight: 300 !important;
   line-height: 1.1 !important;
-  color: #35332f !important;
+  color: var(--foreground) !important;
   margin: 0 0 1.5rem 0 !important;
   padding: 0 !important;
   letter-spacing: -0.02em !important;
@@ -3662,17 +3697,16 @@ li {
 }
 
 .section-description {
-  font-family: 'futura-pt', Arial, Helvetica, sans-serif !important;
-  font-size: 1.4rem !important;
-  font-weight: 300 !important;
-  line-height: 1.4 !important;
   color: #7a776f !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  padding-left: 0 !important;
-  max-width: 60rem !important;
   text-align: left !important;
   box-sizing: border-box !important;
+  max-width: 60rem !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-family: 'futura-pt', Arial, Helvetica, sans-serif !important;
+  font-size: 1.6rem !important;
+  font-weight: 300 !important;
+  line-height: 1.4 !important;
 }
 
 /* Section Description - Centered version (same styling, just centered) */
@@ -3963,7 +3997,7 @@ li {
   font-size: clamp(0.7rem, 1.5vw, 0.85rem);
   font-family: 'ff-real-text-pro', sans-serif;
   font-weight: 300;
-  fill: #35332f !important;
+  fill: var(--foreground) !important;
   stroke: none;
   letter-spacing: 0.02em;
   opacity: 1 !important;
@@ -5595,7 +5629,7 @@ li {
 
 /* Form Field Styling - From Brief Page */
 .dot_field_label {
-  color: #35332f;
+  color: var(--foreground);
   margin-top: 6px;
   margin-bottom: 10px;
   padding-left: 0;
@@ -5608,7 +5642,7 @@ li {
 }
 
 .text-field-3 {
-  color: #35332f;
+  color: var(--foreground);
   width: 60%;
   height: 60px;
   margin-top: 10px;
@@ -5624,7 +5658,7 @@ li {
 }
 
 .text-filed-3 {
-  color: #35332f;
+  color: var(--foreground);
   width: 80%;
   height: 60px;
   margin-top: 10px;
@@ -5640,7 +5674,7 @@ li {
 }
 
 .dot_forms_title.sites {
-  color: #35332f;
+  color: var(--foreground);
   margin-top: 4rem;
   margin-bottom: 30px;
   font-family: futura-pt, sans-serif;
@@ -5650,7 +5684,7 @@ li {
 }
 
 .text-area-field-4 {
-  color: #35332f;
+  color: var(--foreground);
   width: 100%;
   min-height: 120px;
   margin-top: 10px;
@@ -5667,7 +5701,7 @@ li {
 }
 
 .radio-button-field {
-  color: #35332f;
+  color: var(--foreground);
   margin-bottom: 15px;
   font-family: futura-pt, sans-serif;
   font-size: 1.125rem;
@@ -5680,7 +5714,7 @@ li {
 }
 
 .checkbox-field {
-  color: #35332f;
+  color: var(--foreground);
   margin-bottom: 10px;
   font-family: futura-pt, sans-serif;
   font-size: 1.125rem;
@@ -5804,7 +5838,7 @@ li {
 
 .lead-capture-title {
   margin: 0 0 20px 0;
-  color: #35332f;
+  color: var(--foreground);
   font-family: futura-pt, sans-serif;
   font-size: 1.8rem;
   font-weight: 300;
@@ -5832,7 +5866,7 @@ li {
 
 .lead-form-label {
   margin-bottom: 8px;
-  color: #35332f;
+  color: var(--foreground);
   font-family: futura-pt, sans-serif;
   font-size: 1rem;
   font-weight: 300;
@@ -5854,7 +5888,7 @@ li {
 
 .lead-form-button {
   padding: 15px 30px;
-  background-color: #35332f;
+  background-color: var(--foreground);
   color: white;
   border: none;
   border-radius: 4px;
@@ -5867,7 +5901,7 @@ li {
 
 .lead-form-button:hover {
   background-color: #daff00;
-  color: #35332f;
+  color: var(--foreground);
 }
 
 .lead-form-button:disabled {

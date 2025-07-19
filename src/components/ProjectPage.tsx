@@ -76,7 +76,7 @@ function VideoPlayer({ videoUrl }: { videoUrl: string }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#35332f'
+        color: 'var(--foreground)'
       }}>
         Invalid video URL (supports Vimeo and YouTube)
       </div>
@@ -110,7 +110,7 @@ function VideoPlayer({ videoUrl }: { videoUrl: string }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#35332f',
+        color: 'var(--foreground)',
         fontSize: '1.1rem',
         fontWeight: '400'
       }}>
@@ -241,7 +241,7 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
               fontWeight: 400,
               fontSize: 'clamp(3rem, 8vw, 4.75rem)',
               textTransform: 'uppercase',
-              color: '#35332f',
+              color: 'var(--foreground)',
               margin: 0,
               lineHeight: 1,
               letterSpacing: '-0.02em'
@@ -261,7 +261,7 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
                 fontFamily: 'ff-real-text-pro, sans-serif',
                 fontWeight: 100,
                 fontSize: 'clamp(0.875rem, 2vw, 1.0625rem)',
-                color: '#35332f',
+                color: 'var(--foreground)',
                 margin: 0,
                 lineHeight: 1.2,
                 textAlign: 'left'
@@ -279,7 +279,7 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
             <Link href="/" className="mobile-close-absolute" style={{
               background: 'none',
               border: 'none',
-              color: '#35332f',
+              color: 'var(--foreground)',
               textDecoration: 'none',
               cursor: 'pointer',
               padding: '0.5rem',
@@ -312,7 +312,7 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
                 fontFamily: 'futura-pt, sans-serif',
                 fontWeight: 300,
                 fontSize: 'clamp(1.25rem, 3vw, 1.6875rem)',
-                color: '#35332f',
+                color: 'var(--foreground)',
                 margin: 0,
                 lineHeight: 1,
                 textAlign: 'left'
@@ -332,7 +332,7 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
               fontFamily: 'ff-real-text-pro, sans-serif',
               fontWeight: 100,
               fontSize: 'clamp(0.875rem, 2vw, 1.0625rem)',
-              color: '#35332f',
+              color: 'var(--foreground)',
               margin: 0,
               lineHeight: 1.3,
               textAlign: 'left'
@@ -503,7 +503,7 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
             fontWeight: 400,
             fontSize: 'clamp(1.5rem, 4vw, 2.375rem)',
             textTransform: 'uppercase',
-            color: '#35332f',
+            color: 'var(--foreground)',
             margin: 0,
             lineHeight: 1.2
           }}>
@@ -523,7 +523,7 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
             fontFamily: 'ff-real-text-pro, sans-serif',
             fontWeight: 400,
             fontSize: 'clamp(1.125rem, 3vw, 1.6875rem)',
-            color: '#35332f',
+            color: 'var(--foreground)',
             lineHeight: 1.4,
             textAlign: 'justify'
           }} className="tablet-about-text">
@@ -543,7 +543,7 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
             fontFamily: 'futura-pt, sans-serif',
             fontWeight: 300,
             fontSize: 'clamp(0.875rem, 2vw, 1rem)',
-            color: '#35332f',
+            color: 'var(--foreground)',
             lineHeight: 1.5,
             textAlign: 'justify',
             margin: 0
@@ -579,7 +579,7 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
           <div style={{
             width: '80vw',
             maxWidth: '100rem',
-            border: '1px solid #35332f',
+            border: '1px solid var(--foreground)',
             borderRadius: '0',
             overflow: 'hidden',
             position: 'relative',
@@ -688,7 +688,7 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
                 fontFamily: 'futura-pt, sans-serif',
                 fontWeight: 300,
                 fontSize: 'clamp(1.5rem, 6vw, 7rem)', // Adjusted for smaller screens
-                color: '#35332f',
+                color: 'var(--foreground)',
                 margin: 0,
                 lineHeight: 1,
                 fontStyle: seeMoreHover ? 'italic' : 'normal',
@@ -720,7 +720,7 @@ export default function ProjectPage({ project, nextProject }: ProjectPageProps) 
                 fontFamily: 'futura-pt, sans-serif',
                 fontWeight: 300,
                 fontSize: 'clamp(1rem, 4vw, 5.4rem)', // Adjusted for smaller screens
-                color: '#35332f',
+                color: 'var(--foreground)',
                 margin: 0,
                 lineHeight: 1,
                 fontStyle: talkToUsHover ? 'italic' : 'normal',
