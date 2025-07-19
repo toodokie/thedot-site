@@ -1299,8 +1299,8 @@ li {
 
 /* Welcome Section Tag */
 .welcome-tag {
-  background: var(--foreground) !important;
-  color: var(--background) !important;
+  background: #35332f !important;
+  color: #faf9f6 !important;
   font-family: 'ff-real-text-pro', sans-serif !important;
   font-size: 1.125rem !important;
   font-weight: 200 !important;
@@ -1311,6 +1311,7 @@ li {
   letter-spacing: 0.02em !important;
   text-align: right !important;
   box-sizing: border-box !important;
+  display: inline-block !important;
 }
 
 /* Service Icon Styling */
