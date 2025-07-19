@@ -1747,6 +1747,21 @@ li {
 .hero-circle-video-copy-services {
   height: 200px !important;
   width: 200px !important;
+  min-height: 200px; /* ensures browser reserves layout space */
+  min-width: 200px;
+  aspect-ratio: 1 / 1;
+  display: block;
+}
+/* Reserve space for layout stability in services layout */
+.div-block-178-services {
+  min-height: 600px; /* estimate of actual content height */
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .div-block-178-services {
+    min-height: 800px; /* adjust for stacked content on mobile */
+  }
 }
 
 /* Fix div-block-184 alignment */
@@ -5958,4 +5973,10 @@ li {
     padding: 20px;
     width: 95%;
   }
+}
+
+/* Layout stability helpers for hero circles and services blocks */
+[class*="hero-circle"], [class*="div-block-178"] {
+  contain: layout style;
+  will-change: opacity;
 }
