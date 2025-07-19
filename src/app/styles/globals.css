@@ -1791,14 +1791,7 @@ li {
 }
 /* Reserve space for layout stability in services layout */
 .div-block-178-services {
-  min-height: 600px; /* estimate of actual content height */
   display: block;
-}
-
-@media (max-width: 768px) {
-  .div-block-178-services {
-    min-height: 800px; /* adjust for stacked content on mobile */
-  }
 }
 
 /* Fix div-block-184 alignment */
