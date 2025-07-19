@@ -21,10 +21,16 @@ interface BlogPost {
 }
 
 export default function BlogPage() {
-  const [posts, setPosts] = useState<BlogPost[]>([]);
+  const [posts, setPosts] = useState<BlogPost[]>(samplePosts); // Start with sample data to prevent layout shifts
   const [selectedCategory, setSelectedCategory] = useState('All');
 
   useEffect(() => {
+    // Prevent layout shifts by setting critical styles immediately
+    const criticalElements = document.querySelectorAll('.blog-container, .main-content, .featured-section, .review-cta-section');
+    criticalElements.forEach(element => {
+      (element as HTMLElement).style.contain = 'layout style';
+    });
+
     // Preload posts API to reduce loading time
     const link = document.createElement('link');
     link.rel = 'prefetch';
@@ -34,10 +40,10 @@ export default function BlogPage() {
     // Fetch blog posts from API
     fetchPosts();
 
-    // Setup animation observer
+    // Setup animation observer with reduced rootMargin to prevent layout shifts
     const observerOptions: IntersectionObserverInit = {
-      threshold: 0.1,
-      rootMargin: '0px 0px -50px 0px'
+      threshold: 0.05, // Reduced threshold
+      rootMargin: '0px 0px -20px 0px' // Reduced margin
     };
 
     const observer = new IntersectionObserver((entries) => {
@@ -49,17 +55,26 @@ export default function BlogPage() {
       });
     }, observerOptions);
 
-    const animatedElements = document.querySelectorAll('.animate-on-scroll');
-    animatedElements.forEach((element) => {
-      observer.observe(element);
+    // Delay animation setup to avoid interfering with initial layout
+    const setupAnimations = () => {
+      const animatedElements = document.querySelectorAll('.animate-on-scroll');
+      animatedElements.forEach((element) => {
+        observer.observe(element);
+      });
+    };
+
+    // Setup animations after layout is stable
+    requestAnimationFrame(() => {
+      requestAnimationFrame(setupAnimations);
     });
 
     return () => {
+      const animatedElements = document.querySelectorAll('.animate-on-scroll');
       animatedElements.forEach((element) => {
         observer.unobserve(element);
       });
     };
-  }, []);
+  }, [])
 
   const fetchPosts = async () => {
     try {
@@ -87,8 +102,8 @@ export default function BlogPage() {
       }
     } catch (error) {
       console.error('Error fetching posts:', error);
-      // Set empty array on error - remove fallback to sample data
-      setPosts([]);
+      // Keep sample data on error to prevent layout shifts
+      setPosts(samplePosts);
     }
   };
 
@@ -105,8 +120,12 @@ export default function BlogPage() {
       <style jsx>{`
         .blog-container {
           background-color: var(--raw-white);
-          min-height: 150vh; /* Increase to prevent container shifts */
           font-family: ff-real-text-pro, sans-serif;
+          contain: strict; /* Strictest containment for complete isolation */
+          will-change: auto; /* Reset will-change */
+          position: relative;
+          transform: translateZ(0); /* Force layer creation */
+          backface-visibility: hidden; /* Additional optimization */
         }
         
         
@@ -152,7 +171,8 @@ export default function BlogPage() {
         
         .div-block-184 {
           width: 100%;
-          min-height: 200px; /* Reserve space for header to prevent CLS */
+          contain: layout style;
+          transform: translateZ(0);
         }
         
         .div-block-183 {
@@ -206,8 +226,8 @@ export default function BlogPage() {
           font-family: ff-real-text-pro, sans-serif;
           font-weight: 300;
           display: flex;
-          height: 80px; /* Fixed height to prevent shifts */
-          overflow: hidden;
+          contain: layout style;
+          transform: translateZ(0);
         }
         
         .graphic-copy-services-copy {
@@ -355,8 +375,7 @@ export default function BlogPage() {
           max-width: 120rem;
           margin: 0 auto;
           padding: 2rem 2.5rem;
-          height: 120vh; /* Fixed height to prevent content shifts */
-          overflow: hidden;
+          contain: layout style; /* Prevent layout shifts */
         }
         
         .category-filters {
@@ -390,7 +409,8 @@ export default function BlogPage() {
         
         .featured-section {
           margin-bottom: 80px;
-          min-height: 520px; /* Increased to prevent CLS */
+          contain: layout style;
+          transform: translateZ(0); /* Create stacking context */
         }
         
         .featured-post {
@@ -402,7 +422,9 @@ export default function BlogPage() {
           background: #fff;
           border: 1px solid #e0e0e0;
           transition: all 0.3s ease;
-          min-height: 360px; /* Reserve space to prevent CLS */
+          contain: layout style;
+          height: auto;
+          aspect-ratio: 2/1; /* Maintain consistent proportions */
         }
         
         .featured-post:hover {
@@ -418,7 +440,7 @@ export default function BlogPage() {
         .featured-content h2 {
           font-family: futura-pt, sans-serif;
           font-size: 2.5rem !important;
-          font-weight: 300;
+          font-weight: 400;
           color: var(--black);
           margin-bottom: 15px;
           line-height: 1.2;
@@ -497,8 +519,8 @@ export default function BlogPage() {
           font-style: italic;
           overflow: hidden;
           border-radius: 8px;
-          min-height: 240px; /* Reserve space to prevent CLS */
-          contain: layout style; /* Performance optimization */
+          contain: strict; /* Stronger containment */
+          transform: translateZ(0); /* Hardware acceleration */
         }
         
         .posts-grid {
@@ -506,6 +528,8 @@ export default function BlogPage() {
           grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
           gap: 40px;
           margin-bottom: 80px;
+          contain: layout style;
+          grid-auto-rows: 1fr; /* Ensure consistent row heights */
         }
         
         .post-card {
@@ -517,8 +541,13 @@ export default function BlogPage() {
           display: flex;
           flex-direction: column;
           height: 100%;
-          min-height: 320px; /* Fixed height to prevent CLS */
           font-weight: 400;
+          contain: layout style;
+          transform: translateZ(0);
+        }
+        
+        .post-card h3 {
+          font-weight: 400 !important;
         }
         
         .post-card:hover {
@@ -536,7 +565,6 @@ export default function BlogPage() {
         .post-card h3 {
           font-family: futura-pt, sans-serif;
           font-size: 1.4rem !important;
-          font-weight: 300;
           color: var(--black);
           margin-bottom: 10px;
           line-height: 1.3;
@@ -589,8 +617,8 @@ export default function BlogPage() {
           padding: 0 0 80px 0;
           text-align: center;
           margin-bottom: 0;
-          height: 400px; /* Fixed height to prevent CLS */
-          overflow: hidden;
+          contain: layout style;
+          transform: translateZ(0);
         }
         
         .review-cta-content {
@@ -598,8 +626,7 @@ export default function BlogPage() {
           max-width: 1200px;
           margin: 0 auto;
           padding: 2rem 2.5rem;
-          height: 150px; /* Fixed height to prevent CTA shifts */
-          overflow: hidden;
+          contain: layout style;
         }
         
         .dot_bottom_link.estimate {
@@ -781,9 +808,40 @@ export default function BlogPage() {
           min-height: 360px; /* Match featured post height */
         }
 
-        /* Font loading optimization */
+        /* Font loading optimization and CLS prevention */
         * {
           font-display: swap;
+        }
+        
+        /* Critical rendering optimization */
+        .blog-container * {
+          box-sizing: border-box;
+        }
+        
+        /* Prevent flash of unstyled content */
+        .animate-on-scroll {
+          opacity: 1 !important;
+          transform: none !important;
+        }
+        
+        /* Ensure stable layout before content loads */
+        .category-filters,
+        .featured-section,
+        .posts-grid,
+        .review-cta-section {
+          visibility: visible;
+          opacity: 1;
+        }
+        
+        /* Load-time layout stability */
+        body {
+          overflow-x: hidden;
+        }
+        
+        /* Prevent animation-triggered shifts */
+        .animate-on-scroll:not(.animate-in) {
+          opacity: 1 !important;
+          transform: none !important;
         }
         
         @media (max-width: 768px) {
@@ -792,15 +850,19 @@ export default function BlogPage() {
           }
           
           .main-content {
-            min-height: 100vh; /* More space for mobile blog posts */
+            contain: layout style;
           }
           
           .posts-grid {
-            /* No min-height - let content determine size */
+            contain: layout style;
           }
           
           .featured-section {
-            min-height: 400px; /* Reduce for mobile */
+            contain: layout style;
+          }
+          
+          .featured-post {
+            aspect-ratio: auto; /* Remove aspect ratio constraint on mobile */
           }
           
           .featured-post {
@@ -881,6 +943,9 @@ export default function BlogPage() {
           .post-excerpt {
             font-size: 1.125rem !important;
           }
+          .post-card h3 {
+            font-size: 1.6rem !important; /* Scale up from 1.4rem */
+          }
           .small-bottom-link-text-eng {
             font-size: 1.25rem !important; /* Scale from 1.125rem */
           }
@@ -892,6 +957,9 @@ export default function BlogPage() {
           }
           .post-excerpt {
             font-size: 1.25rem !important;
+          }
+          .post-card h3 {
+            font-size: 1.8rem !important; /* Further scale for very large screens */
           }
           .small-bottom-link-text-eng {
             font-size: 1.375rem !important;
@@ -958,7 +1026,7 @@ export default function BlogPage() {
                 className={`category-button ${selectedCategory === category ? 'active' : ''}`}
                 onClick={() => {
                   setSelectedCategory(category);
-                  trackContent.categoryFilter(category);
+                  trackContent.blogCategoryFilter(category);
                 }}
               >
                 {category}
@@ -967,21 +1035,7 @@ export default function BlogPage() {
           </div>
 
           {/* Featured Post */}
-          {posts.length === 0 ? (
-            <section className="featured-section">
-              <article className="featured-post featured-skeleton">
-                <div className="featured-content">
-                  <div className="skeleton-title"></div>
-                  <div className="skeleton-meta"></div>
-                  <div className="skeleton-excerpt"></div>
-                  <div className="skeleton-button"></div>
-                </div>
-                <div className="featured-image skeleton-image">
-                  <div className="skeleton-placeholder"></div>
-                </div>
-              </article>
-            </section>
-          ) : featuredPost && (
+          {featuredPost && (
             <section className="featured-section">
               <article className="featured-post">
                 <div className="featured-content">
@@ -1033,43 +1087,30 @@ export default function BlogPage() {
 
           {/* Posts Grid */}
           <section className="posts-grid">
-            {posts.length === 0 ? (
-              // Skeleton loading for posts grid
-              Array.from({ length: 6 }).map((_, index) => (
-                <article key={index} className="post-card post-skeleton">
-                  <div className="skeleton-category"></div>
-                  <div className="skeleton-title"></div>
-                  <div className="skeleton-meta"></div>
-                  <div className="skeleton-excerpt"></div>
-                  <div className="skeleton-button"></div>
+            {filteredPosts.filter(post => !post.featured).map(post => (
+              <Link 
+                key={post.slug}
+                href={`/blog/${post.slug}`}
+                onClick={() => {
+                  trackContent.blogPostView(post.slug, post.title, post.category);
+                }}
+                style={{ textDecoration: 'none', color: 'inherit', display: 'flex', height: '100%' }}
+              >
+                <article className="post-card">
+                  <div className="post-category">{post.category}</div>
+                  <h3>{post.title}</h3>
+                  <div className="post-meta">
+                    <span>{post.date}</span>
+                    <span>•</span>
+                    <span>{post.readTime} min read</span>
+                  </div>
+                  <p className="post-excerpt">{post.excerpt}</p>
+                  <div className="read-more-btn">
+                    Read Full Article
+                  </div>
                 </article>
-              ))
-            ) : (
-              filteredPosts.filter(post => !post.featured).map(post => (
-                <Link 
-                  key={post.slug}
-                  href={`/blog/${post.slug}`}
-                  onClick={() => {
-                    trackContent.blogPostView(post.slug, post.title, post.category);
-                  }}
-                  style={{ textDecoration: 'none', color: 'inherit', display: 'flex', height: '100%' }}
-                >
-                  <article className="post-card">
-                    <div className="post-category">{post.category}</div>
-                    <h3>{post.title}</h3>
-                    <div className="post-meta">
-                      <span>{post.date}</span>
-                      <span>•</span>
-                      <span>{post.readTime} min read</span>
-                    </div>
-                    <p className="post-excerpt">{post.excerpt}</p>
-                    <div className="read-more-btn">
-                      Read Full Article
-                    </div>
-                  </article>
-                </Link>
-              ))
-            )}
+              </Link>
+            ))}
           </section>
         </div>
 
@@ -1096,44 +1137,59 @@ export default function BlogPage() {
 // Sample blog posts for demo
 const samplePosts: BlogPost[] = [
   {
+    id: '1',
     slug: 'gta-small-business-website-mistakes',
     title: '5 Website Mistakes Costing GTA Small Businesses Customers (And How to Fix Them)',
     excerpt: 'Research shows 94% of negative website feedback is design-related. Discover the critical mistakes costing GTA small businesses customers and proven solutions.',
     date: 'January 12, 2025',
     category: 'Strategy',
-    readTime: '8 min read',
-    featured: true
+    readTime: 8,
+    featured: true,
+    content: '',
+    tags: ['strategy', 'web-design', 'small-business']
   },
   {
+    id: '2',
     slug: 'the-power-of-visual-storytelling',
     title: 'The Power of Visual Storytelling in Brand Design',
     excerpt: 'Discover how compelling visual narratives can transform your brand identity and create deeper connections with your audience.',
     date: 'March 15, 2024',
     category: 'Design',
-    readTime: '5 min read'
+    readTime: 5,
+    content: '',
+    tags: ['design', 'branding', 'storytelling']
   },
   {
+    id: '3',
     slug: 'responsive-design-best-practices',
     title: 'Responsive Design Best Practices for 2024',
     excerpt: 'Learn the essential principles and techniques for creating websites that work seamlessly across all devices.',
     date: 'March 10, 2024',
     category: 'Development',
-    readTime: '7 min read'
+    readTime: 7,
+    content: '',
+    tags: ['development', 'responsive', 'web-design']
   },
   {
+    id: '4',
     slug: 'color-psychology-in-branding',
     title: 'Color Psychology: How Colors Influence Brand Perception',
     excerpt: 'Explore the psychological impact of color choices and how to leverage them for stronger brand communication.',
     date: 'March 5, 2024',
     category: 'Strategy',
-    readTime: '6 min read'
+    readTime: 6,
+    content: '',
+    tags: ['strategy', 'branding', 'psychology']
   },
   {
+    id: '5',
     slug: 'future-of-web-design',
     title: 'The Future of Web Design: Trends to Watch',
     excerpt: 'A comprehensive look at emerging design trends that will shape the digital landscape in the coming years.',
     date: 'February 28, 2024',
     category: 'Industry Insights',
-    readTime: '8 min read'
+    readTime: 8,
+    content: '',
+    tags: ['trends', 'web-design', 'industry-insights']
   }
 ];

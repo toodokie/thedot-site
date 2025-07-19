@@ -15,12 +15,16 @@ export default function ContactPage() {
           font-size: 1rem;
           font-weight: 300;
           line-height: 1.6;
+          contain: layout style; /* Critical for CLS prevention */
+          transform: translateZ(0);
         }
         
         .contacts-main-container {
           background-color: var(--raw-white);
           padding-top: 100px;
           min-height: 100vh;
+          contain: layout style; /* Less restrictive containment */
+          transform: translateZ(0); /* Force layer creation */
         }
         
         .container-contact {
@@ -28,7 +32,8 @@ export default function ContactPage() {
           max-width: 120rem;
           margin: 0 auto;
           padding: 2rem 2.5rem;
-          min-height: 600px;
+          contain: layout style; /* Prevent layout shifts */
+          transform: translateZ(0);
         }
         
         .social-icons-eng {
@@ -62,6 +67,8 @@ export default function ContactPage() {
         .phone-contact-section {
           margin-bottom: 2em;
           margin-top: 1em;
+          contain: layout style;
+          transform: translateZ(0);
         }
         
         .phone-contact-link {
@@ -101,6 +108,8 @@ export default function ContactPage() {
           font-size: 5.8rem;
           font-weight: 300;
           text-align: left;
+          contain: layout style;
+          transform: translateZ(0);
         }
         
         
@@ -109,8 +118,11 @@ export default function ContactPage() {
         }
         
         .code-embed {
-          min-height: 1100px; /* Reserve space to prevent layout shifts */
+          width: 100%;
+          min-height: 1100px; /* Restore space reservation */
           position: relative;
+          contain: layout style; /* Less restrictive */
+          transform: translateZ(0);
         }
         
         .code-embed iframe {
@@ -150,6 +162,27 @@ export default function ContactPage() {
             height: 800px;
             display: block;
           }
+        }
+        
+        /* Critical rendering optimization and CLS prevention */
+        * {
+          font-display: swap;
+          box-sizing: border-box;
+        }
+        
+        /* Prevent flash of unstyled content */
+        .contacts-main-container,
+        .container-contact,
+        .phone-contact-section,
+        .contact-heading,
+        .code-embed {
+          visibility: visible;
+          opacity: 1;
+        }
+        
+        /* Load-time layout stability */
+        body {
+          overflow-x: hidden;
         }
         
         :root {
