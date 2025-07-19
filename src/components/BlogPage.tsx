@@ -206,7 +206,8 @@ export default function BlogPage() {
           font-family: ff-real-text-pro, sans-serif;
           font-weight: 300;
           display: flex;
-          min-height: 80px; /* Prevent subheader shifts */
+          height: 80px; /* Fixed height to prevent shifts */
+          overflow: hidden;
         }
         
         .graphic-copy-services-copy {
@@ -354,7 +355,8 @@ export default function BlogPage() {
           max-width: 120rem;
           margin: 0 auto;
           padding: 2rem 2.5rem;
-          min-height: 120vh; /* Reserve more space for blog posts to prevent CLS */
+          height: 120vh; /* Fixed height to prevent content shifts */
+          overflow: hidden;
         }
         
         .category-filters {
@@ -587,7 +589,8 @@ export default function BlogPage() {
           padding: 0 0 80px 0;
           text-align: center;
           margin-bottom: 0;
-          min-height: 400px; /* Increase space to prevent CLS */
+          height: 400px; /* Fixed height to prevent CLS */
+          overflow: hidden;
         }
         
         .review-cta-content {
@@ -595,7 +598,8 @@ export default function BlogPage() {
           max-width: 1200px;
           margin: 0 auto;
           padding: 2rem 2.5rem;
-          min-height: 150px; /* Increase to prevent CTA shifts */
+          height: 150px; /* Fixed height to prevent CTA shifts */
+          overflow: hidden;
         }
         
         .dot_bottom_link.estimate {
