@@ -105,7 +105,7 @@ export default function BlogPage() {
       <style jsx>{`
         .blog-container {
           background-color: var(--raw-white);
-          min-height: 100vh;
+          min-height: 150vh; /* Increase to prevent container shifts */
           font-family: ff-real-text-pro, sans-serif;
         }
         
@@ -586,7 +586,7 @@ export default function BlogPage() {
           padding: 0 0 80px 0;
           text-align: center;
           margin-bottom: 0;
-          min-height: 300px; /* Reserve space to prevent CLS */
+          min-height: 400px; /* Increase space to prevent CLS */
         }
         
         .review-cta-content {
