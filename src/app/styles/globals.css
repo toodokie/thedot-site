@@ -672,7 +672,7 @@ li {
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
-  border: 2px solid var(--foreground);
+  border: 2px solid var(--foreground) !important;
 }
 
 .hero-video-circle::before {
@@ -700,7 +700,7 @@ li {
   .hero-video-circle {
     width: 250px;
     height: 250px;
-    border: 2px solid var(--foreground);
+    border: 2px solid var(--foreground) !important;
   }
   
   .hero-video-circle::before {
@@ -712,7 +712,7 @@ li {
   .hero-video-circle {
     width: 200px;
     height: 200px;
-    border: 2px solid var(--foreground);
+    border: 2px solid var(--foreground) !important;
   }
   
   .hero-video-circle::before {
@@ -1009,7 +1009,7 @@ li {
   .hero-video-circle {
     width: 200px;
     height: 200px;
-    border: 3px solid var(--foreground);
+    border: 3px solid var(--foreground) !important;
   }
   
   .hero-video-circle::before {
@@ -2709,7 +2709,7 @@ li {
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
-  border: 2px solid var(--foreground);
+  border: 2px solid var(--foreground) !important;
 }
 
 .services-hero-video::before {
@@ -2932,7 +2932,7 @@ li {
 /* High contrast mode compatibility */
 @media (prefers-contrast: high) {
   .parallax-rectangle {
-    border: 2px solid var(--foreground);
+    border: 2px solid var(--foreground) !important;
   }
 }
 
@@ -3441,7 +3441,7 @@ li {
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  border: 2px solid var(--foreground);
+  border: 2px solid var(--foreground) !important;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4136,7 +4136,7 @@ li {
 
 .div-block-183 {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 4rem;
 }
@@ -4204,7 +4204,7 @@ li {
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
-  border: 2px solid var(--foreground);
+  border: 2px solid var(--foreground) !important;
 }
 
 .hero-circle-video-copy-services::before {
@@ -5150,7 +5150,7 @@ li {
   .hero-circle-video-copy-services {
     width: 250px;
     height: 250px;
-    border: 2px solid var(--foreground);
+    border: 2px solid var(--foreground) !important;
   }
   
   .hero-circle-video-copy-services::before {
@@ -5165,7 +5165,7 @@ li {
     border-radius: 50%;
     overflow: hidden;
     margin: 0 auto 2rem;
-    border: 2px solid var(--foreground);
+    border: 2px solid var(--foreground) !important;
   }
 
   .hero-circle-video-copy-mobile::before {
