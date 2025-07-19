@@ -352,7 +352,7 @@ export default function BlogPage() {
           max-width: 120rem;
           margin: 0 auto;
           padding: 2rem 2.5rem;
-          min-height: 100px;
+          min-height: 80vh; /* Reserve space to prevent CLS */
         }
         
         .category-filters {
@@ -386,7 +386,7 @@ export default function BlogPage() {
         
         .featured-section {
           margin-bottom: 80px;
-          min-height: 480px; /* Fixed height to prevent CLS */
+          min-height: 520px; /* Increased to prevent CLS */
         }
         
         .featured-post {
@@ -493,6 +493,8 @@ export default function BlogPage() {
           font-style: italic;
           overflow: hidden;
           border-radius: 8px;
+          min-height: 240px; /* Reserve space to prevent CLS */
+          contain: layout style; /* Performance optimization */
         }
         
         .posts-grid {
@@ -500,7 +502,7 @@ export default function BlogPage() {
           grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
           gap: 40px;
           margin-bottom: 80px;
-          min-height: 100px;
+          min-height: 800px; /* Reserve space for grid content */
         }
         
         .post-card {
@@ -584,7 +586,7 @@ export default function BlogPage() {
           padding: 0 0 80px 0;
           text-align: center;
           margin-bottom: 0;
-          min-height: 100px;
+          min-height: 300px; /* Reserve space to prevent CLS */
         }
         
         .review-cta-content {
@@ -653,7 +655,7 @@ export default function BlogPage() {
 
         /* Skeleton Loading Styles - Matched to actual content dimensions */
         .skeleton-title {
-          height: 2.5rem;
+          height: 3.5rem; /* Match actual title height */
           background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
           background-size: 200% 100%;
           animation: skeleton-loading 1.5s infinite;
@@ -685,14 +687,14 @@ export default function BlogPage() {
         }
 
         .skeleton-excerpt {
-          height: 1.1rem;
+          height: 4.5rem; /* Match actual excerpt height */
           background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
           background-size: 200% 100%;
           animation: skeleton-loading 1.5s infinite;
           border-radius: 4px;
           margin-bottom: 12px;
           width: 100%;
-          min-height: 1.1rem;
+          min-height: 4.5rem;
         }
 
         .skeleton-excerpt::after {
@@ -766,10 +768,12 @@ export default function BlogPage() {
 
         .post-skeleton {
           pointer-events: none;
+          min-height: 320px; /* Match post card height */
         }
 
         .featured-skeleton {
           pointer-events: none;
+          min-height: 360px; /* Match featured post height */
         }
 
         /* Font loading optimization */
@@ -780,6 +784,18 @@ export default function BlogPage() {
         @media (max-width: 768px) {
           .blog-title {
             font-size: 3.5rem;
+          }
+          
+          .main-content {
+            min-height: 60vh; /* Reduce for mobile */
+          }
+          
+          .posts-grid {
+            min-height: 600px; /* Reduce for mobile */
+          }
+          
+          .featured-section {
+            min-height: 400px; /* Reduce for mobile */
           }
           
           .featured-post {
