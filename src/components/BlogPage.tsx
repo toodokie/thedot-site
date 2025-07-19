@@ -352,7 +352,7 @@ export default function BlogPage() {
           max-width: 120rem;
           margin: 0 auto;
           padding: 2rem 2.5rem;
-          min-height: 80vh; /* Reserve space to prevent CLS */
+          min-height: 120vh; /* Reserve more space for blog posts to prevent CLS */
         }
         
         .category-filters {
@@ -786,7 +786,7 @@ export default function BlogPage() {
           }
           
           .main-content {
-            min-height: 60vh; /* Reduce for mobile */
+            min-height: 100vh; /* More space for mobile blog posts */
           }
           
           .posts-grid {
