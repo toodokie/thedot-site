@@ -112,19 +112,19 @@ export default function BoutiqueSection() {
   const capabilities: Capability[] = [
     {
       title: 'Strategic Design',
-      description: 'International design standards, User experience optimization, Professional brand systems'
+      description: 'International design standards\nUser experience optimization\nProfessional brand systems'
     },
     {
       title: 'Business Integration', 
-      description: 'Connect existing tools, Automate workflows, Eliminate data silos'
+      description: 'Connect existing tools\nAutomate workflows\nEliminate data silos'
     },
     {
       title: 'Digital Excellence',
-      description: 'AODA compliance built-in, Performance optimization, Mobile-first engineering'
+      description: 'AODA compliance built-in\nPerformance optimization\nMobile-first engineering'
     },
     {
       title: 'Managed Growth',
-      description: 'Monthly optimization, Continuous improvement, Strategic consulting'
+      description: 'Monthly optimization\nContinuous improvement\nStrategic consulting'
     }
   ];
 
@@ -291,6 +291,7 @@ export default function BoutiqueSection() {
           font-weight: 300;
           fill: var(--foreground);
           opacity: 0.8;
+          white-space: pre-line;
         }
 
         .capability-circle {
@@ -360,6 +361,7 @@ export default function BoutiqueSection() {
           margin: 0;
           color: var(--foreground);
           opacity: 0.8;
+          white-space: pre-line;
         }
 
         .capability-description {
@@ -370,6 +372,7 @@ export default function BoutiqueSection() {
           margin: 0;
           color: var(--foreground);
           opacity: 0.8;
+          white-space: pre-line;
         }
 
         .capability-arrow {
