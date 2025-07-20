@@ -3872,7 +3872,7 @@ li {
   
   /* Mobile text - readable but fits in single line */
   .boutique-section .circular-text-path {
-    font-size: clamp(0.6rem, 1.2vw, 0.75rem) !important;
+    font-size: clamp(0.7rem, 1.4vw, 0.85rem) !important;
     letter-spacing: 0.02em !important;
     font-weight: 200 !important;
   }
