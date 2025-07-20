@@ -120,7 +120,7 @@ export default function BoutiqueSection() {
     },
     {
       title: 'Digital Excellence',
-      description: '• AODA compliance built-in\n• Performance optimization\n• Mobile-first engineering'
+      description: '• AODA compliance\n• Performance optimization\n• Mobile-first engineering'
     },
     {
       title: 'Managed Growth',
