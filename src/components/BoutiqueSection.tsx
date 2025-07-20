@@ -293,9 +293,12 @@ export default function BoutiqueSection() {
         .circular-text-path {
           font-family: 'ff-real-text-pro', sans-serif;
           font-size: clamp(0.5rem, 1.2vw, 0.7rem);
-          font-weight: 200;
+          font-weight: 100;
           fill: var(--foreground);
           opacity: 0.8;
+          paint-order: stroke fill;
+          stroke: none;
+          text-rendering: optimizeLegibility;
         }
 
         .capability-circle {
