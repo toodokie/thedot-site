@@ -78,9 +78,9 @@ export default function WelcomeSection() {
           }
         }
         
-        @media (min-width: 1240px) {
+        @media (width >= 1240px) {
           section h2 {
-            font-size: 3rem !important; /* Further scale for large screens */
+            font-size: 2.6rem !important; /* Further scale for large screens */
           }
           section h3 {
             font-size: 1.375rem !important;
