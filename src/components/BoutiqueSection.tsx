@@ -114,22 +114,22 @@ export default function BoutiqueSection() {
     {
       title: 'Strategic Design',
       description: '• International design standards\n• User experience optimization\n• Professional brand systems',
-      circularDescription: 'International design standards, User experience optimization, Professional brand systems'
+      circularDescription: 'International design standards • User experience optimization • Professional brand systems'
     },
     {
       title: 'Business Integration', 
       description: '• Connect existing tools\n• Automate workflows\n• Eliminate data silos',
-      circularDescription: 'Connect existing tools, Automate workflows, Eliminate data silos'
+      circularDescription: 'Connect existing tools • Automate workflows • Eliminate data silos'
     },
     {
       title: 'Digital Excellence',
       description: '• AODA compliance\n• Performance optimization\n• Mobile-first engineering',
-      circularDescription: 'AODA compliance, Performance optimization, Mobile-first engineering'
+      circularDescription: 'AODA compliance • Performance optimization • Mobile-first engineering'
     },
     {
       title: 'Managed Growth',
       description: '• Monthly optimization\n• Continuous improvement\n• Strategic consulting',
-      circularDescription: 'Monthly optimization, Continuous improvement, Strategic consulting'
+      circularDescription: 'Monthly optimization • Continuous improvement • Strategic consulting'
     }
   ];
 
