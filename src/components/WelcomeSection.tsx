@@ -26,7 +26,7 @@ export default function WelcomeSection() {
               letterSpacing: '-0.01em',
               boxSizing: 'border-box'
             }}>
-              Growing Ontario businesses trust us to turn their websites from expensive decorations into customer-generating machines. By integrating proven <strong style={{ fontWeight: 400 }}>conversion science</strong> and <strong style={{ fontWeight: 400 }}>data-driven design</strong>, we create online experiences that attract your ideal audience and inspire them to take action.
+              Your digital presence should work as strategically as your business does. The Dot Creative specializes in comprehensive digital solutions - <strong style={{ fontWeight: 400 }}>from refined visual identity to intelligent system integration</strong>.<br /><br />We transform how growing Ontario businesses present themselves and operate online, creating cohesive experiences that <strong style={{ fontWeight: 400 }}>elevate brands</strong> and <strong style={{ fontWeight: 400 }}>optimize operations</strong>.
             </h2>
           </div>
           
