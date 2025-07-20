@@ -112,19 +112,19 @@ export default function BoutiqueSection() {
   const capabilities: Capability[] = [
     {
       title: 'Strategic Design',
-      description: 'International design standards\nUser experience optimization\nProfessional brand systems'
+      description: '• International design standards\n• User experience optimization\n• Professional brand systems'
     },
     {
       title: 'Business Integration', 
-      description: 'Connect existing tools\nAutomate workflows\nEliminate data silos'
+      description: '• Connect existing tools\n• Automate workflows\n• Eliminate data silos'
     },
     {
       title: 'Digital Excellence',
-      description: 'AODA compliance built-in\nPerformance optimization\nMobile-first engineering'
+      description: '• AODA compliance built-in\n• Performance optimization\n• Mobile-first engineering'
     },
     {
       title: 'Managed Growth',
-      description: 'Monthly optimization\nContinuous improvement\nStrategic consulting'
+      description: '• Monthly optimization\n• Continuous improvement\n• Strategic consulting'
     }
   ];
 
