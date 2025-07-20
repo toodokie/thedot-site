@@ -133,10 +133,10 @@ export default function BoutiqueSection() {
       {/* Header Content */}
       <div className="boutique-header animate-on-scroll">
         <h2 className="section-title-center animate-on-scroll">
-          Strategic. Integrated. Results-Driven.
+          Exceptional Design. Intelligent Systems.
         </h2>
         <p className="section-description-center animate-on-scroll">
-          We don't just make things pretty. We make them profitable.
+          Transforming how ambitious businesses create competitive advantage through intelligent digital solutions.
         </p>
       </div>
         
