@@ -301,9 +301,9 @@ export default function BoutiqueSection() {
           text-rendering: optimizeLegibility;
         }
         
-        /* Override tablet media query with lighter font weight */
+        /* Override tablet media query with lighter font weight - more specific selector */
         @media (width >= 769px) and (width <= 999px) {
-          .circular-text-path {
+          .boutique-section .circular-text-path {
             letter-spacing: 0.02em !important;
             font-size: clamp(0.66rem, 1.32vw, 0.825rem) !important;
             font-weight: 200 !important;
