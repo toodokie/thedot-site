@@ -300,6 +300,15 @@ export default function BoutiqueSection() {
           stroke: none;
           text-rendering: optimizeLegibility;
         }
+        
+        /* Override tablet media query with lighter font weight */
+        @media (width >= 769px) and (width <= 999px) {
+          .circular-text-path {
+            letter-spacing: 0.02em !important;
+            font-size: clamp(0.66rem, 1.32vw, 0.825rem) !important;
+            font-weight: 100 !important;
+          }
+        }
 
         .capability-circle {
           width: 100%;
