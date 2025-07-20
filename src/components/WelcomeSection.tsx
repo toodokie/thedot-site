@@ -26,7 +26,7 @@ export default function WelcomeSection() {
               letterSpacing: '-0.01em',
               boxSizing: 'border-box'
             }}>
-              Your digital presence should work as strategically as your business does. The Dot Creative specializes in comprehensive digital solutions - <strong style={{ fontWeight: 400 }}>from refined visual identity to intelligent system integration</strong>.<br /><br />We transform how growing Ontario businesses present themselves and operate online, creating cohesive experiences that <strong style={{ fontWeight: 400 }}>elevate brands</strong> and <strong style={{ fontWeight: 400 }}>optimize operations</strong>.
+              Your digital presence should work as strategically as your business does. The Dot Creative specializes in comprehensive digital solutions - <strong style={{ fontWeight: 400 }}>from refined visual identity to intelligent system integration</strong>. We transform how growing Ontario businesses present themselves and operate online, creating cohesive experiences that <strong style={{ fontWeight: 400 }}>elevate brands</strong> and <strong style={{ fontWeight: 400 }}>optimize operations</strong>.
             </h2>
           </div>
           
