@@ -617,7 +617,7 @@ li {
 
 .hero-title {
   font-family: 'futura-pt', 'Futura', 'Avenir Next', 'Helvetica Neue', Arial, sans-serif;
-  font-size: 5rem;
+  font-size: 4rem;
   font-weight: 300;
   line-height: 1;
   color: var(--foreground);
@@ -628,7 +628,7 @@ li {
 
 .services-list {
   font-family: 'futura-pt', Arial, sans-serif;
-  font-size: 1rem;
+  font-size: 1.2rem;
   font-weight: 300;
   color: var(--foreground);
 }
@@ -700,8 +700,8 @@ li {
 
 @media (min-width: 1000px) and (max-width: 1239px) {
   .hero-video-circle {
-    width: 250px;
-    height: 250px;
+    width: 200px;
+    height: 200px;
     border: 1px solid #35332f !important;
   }
   
@@ -943,7 +943,7 @@ li {
 /* Responsive adjustments for explicit width */
 @media (min-width: 1000px) and (max-width: 1239px) {
   :root {
-    --hero-title-width: 34rem;
+    --hero-title-width: 44rem;
   }
   
   section h2 {
@@ -1004,7 +1004,7 @@ li {
   }
   
   .desktop-services span {
-    font-size: 0.9375rem;
+    font-size: 1.125rem;
     letter-spacing: 0.03125rem;
   }
   
@@ -3818,7 +3818,7 @@ li {
   .boutique-section .circular-text-path {
     font-size: clamp(0.66rem, 1.32vw, 0.825rem) !important;
     letter-spacing: 0.02em !important;
-    font-weight: 300 !important;
+    font-weight: 200 !important;
   }
   
   /* Smaller tablet circle titles */
@@ -3874,7 +3874,7 @@ li {
   .boutique-section .circular-text-path {
     font-size: clamp(0.6rem, 1.2vw, 0.75rem) !important;
     letter-spacing: 0.02em !important;
-    font-weight: 300 !important;
+    font-weight: 200 !important;
   }
   
   /* Completely disable hover effects on mobile */
@@ -3993,7 +3993,7 @@ li {
 .boutique-section .circular-text-path {
   font-size: clamp(0.7rem, 1.5vw, 0.85rem);
   font-family: 'ff-real-text-pro', sans-serif;
-  font-weight: 300;
+  font-weight: 200;
   fill: var(--foreground) !important;
   stroke: none;
   letter-spacing: 0.02em;
