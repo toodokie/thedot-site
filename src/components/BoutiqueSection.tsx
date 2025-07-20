@@ -14,6 +14,7 @@ interface CircularTextSVGProps {
 interface Capability {
   title: string;
   description: string;
+  circularDescription: string;
 }
 
 // Circular Text SVG Component - Text OUTSIDE circles
@@ -112,19 +113,23 @@ export default function BoutiqueSection() {
   const capabilities: Capability[] = [
     {
       title: 'Strategic Design',
-      description: '• International design standards\n• User experience optimization\n• Professional brand systems'
+      description: '• International design standards\n• User experience optimization\n• Professional brand systems',
+      circularDescription: 'International design standards, User experience optimization, Professional brand systems'
     },
     {
       title: 'Business Integration', 
-      description: '• Connect existing tools\n• Automate workflows\n• Eliminate data silos'
+      description: '• Connect existing tools\n• Automate workflows\n• Eliminate data silos',
+      circularDescription: 'Connect existing tools, Automate workflows, Eliminate data silos'
     },
     {
       title: 'Digital Excellence',
-      description: '• AODA compliance\n• Performance optimization\n• Mobile-first engineering'
+      description: '• AODA compliance\n• Performance optimization\n• Mobile-first engineering',
+      circularDescription: 'AODA compliance, Performance optimization, Mobile-first engineering'
     },
     {
       title: 'Managed Growth',
-      description: '• Monthly optimization\n• Continuous improvement\n• Strategic consulting'
+      description: '• Monthly optimization\n• Continuous improvement\n• Strategic consulting',
+      circularDescription: 'Monthly optimization, Continuous improvement, Strategic consulting'
     }
   ];
 
@@ -158,7 +163,7 @@ export default function BoutiqueSection() {
                     {/* Circular text for tablet/mobile only */}
                     {(isMobile || isTablet) && (
                       <CircularTextSVG 
-                        text={capability.description}
+                        text={capability.circularDescription}
                         radius={isMobile ? 80 : 90}
                         isMobile={isMobile}
                         index={index}
@@ -291,7 +296,6 @@ export default function BoutiqueSection() {
           font-weight: 200;
           fill: var(--foreground);
           opacity: 0.8;
-          white-space: pre-line;
         }
 
         .capability-circle {
