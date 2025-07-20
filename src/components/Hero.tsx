@@ -51,7 +51,7 @@ export default function Hero() {
             <div className="hero-content">
               <div className="hero-text animate-on-scroll">
                 {/* CONVERSION-FIRST DESIGN AGENCY standalone */}
-                <h1 className="hero-title animate-on-scroll"><em style={{fontWeight: 300, fontSize: '4.5rem'}}>CONVERSION-FIRST</em><br /><strong>DESIGN AGENCY</strong></h1>
+                <h1 className="hero-title animate-on-scroll"><em style={{fontWeight: 300, fontSize: '4.2rem', fontStyle: 'italic'}}>WEBSITES & WORKFLOWS</em><br /><strong>DIGITAL DESIGN AGENCY</strong></h1>
                 
                 {/* Services list grouped */}
                 <div className="agency-services-group animate-on-scroll">
@@ -69,8 +69,8 @@ export default function Hero() {
               <div 
                 className="hero-video-circle animate-on-scroll"
                 style={{
-                  width: '300px',
-                  height: '300px',
+                  width: '260px',
+                  height: '260px',
                   aspectRatio: '1 / 1',
                   overflow: 'hidden'
                 }}
