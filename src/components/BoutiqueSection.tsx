@@ -293,7 +293,7 @@ export default function BoutiqueSection() {
         .circular-text-path {
           font-family: 'ff-real-text-pro', sans-serif;
           font-size: clamp(0.5rem, 1.2vw, 0.7rem);
-          font-weight: 100;
+          font-weight: 200;
           fill: var(--foreground);
           opacity: 0.8;
           paint-order: stroke fill;
@@ -306,7 +306,7 @@ export default function BoutiqueSection() {
           .circular-text-path {
             letter-spacing: 0.02em !important;
             font-size: clamp(0.66rem, 1.32vw, 0.825rem) !important;
-            font-weight: 100 !important;
+            font-weight: 200 !important;
           }
         }
 
