@@ -288,7 +288,7 @@ export default function BoutiqueSection() {
         .circular-text-path {
           font-family: 'ff-real-text-pro', sans-serif;
           font-size: clamp(0.5rem, 1.2vw, 0.7rem);
-          font-weight: 300;
+          font-weight: 200;
           fill: var(--foreground);
           opacity: 0.8;
           white-space: pre-line;
@@ -356,8 +356,8 @@ export default function BoutiqueSection() {
         .capability-description-hover {
           font-family: 'ff-real-text-pro', sans-serif;
           font-size: clamp(0.65rem, 1.5vw, 0.85rem);
-          font-weight: 300;
-          line-height: 1.3;
+          font-weight: 200;
+          line-height: 1.5;
           margin: 0;
           color: var(--foreground);
           opacity: 0.8;
@@ -367,8 +367,8 @@ export default function BoutiqueSection() {
         .capability-description {
           font-family: 'ff-real-text-pro', sans-serif;
           font-size: clamp(0.75rem, 1.8vw, 1rem);
-          font-weight: 300;
-          line-height: 1.3;
+          font-weight: 200;
+          line-height: 1.5;
           margin: 0;
           color: var(--foreground);
           opacity: 0.8;
