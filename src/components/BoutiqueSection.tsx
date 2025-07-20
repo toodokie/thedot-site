@@ -111,20 +111,20 @@ export default function BoutiqueSection() {
 
   const capabilities: Capability[] = [
     {
-      title: 'Conversion Strategy',
-      description: 'customer psychology, user journey mapping, metrics planning'
+      title: 'Strategic Design',
+      description: 'International design standards, User experience optimization, Professional brand systems'
     },
     {
-      title: 'Brand Development for Conversion', 
-      description: 'trust-building design, messaging that converts, visual consistency'
+      title: 'Business Integration', 
+      description: 'Connect existing tools, Automate workflows, Eliminate data silos'
     },
     {
-      title: 'Website Engineering',
-      description: 'speed optimization, mobile-first design, conversion tracking'
+      title: 'Digital Excellence',
+      description: 'AODA compliance built-in, Performance optimization, Mobile-first engineering'
     },
     {
-      title: 'Growth Systems',
-      description: 'email automation, lead nurturing, continuous optimization'
+      title: 'Managed Growth',
+      description: 'Monthly optimization, Continuous improvement, Strategic consulting'
     }
   ];
 
