@@ -69,9 +69,9 @@ export default function WelcomeSection() {
           }
         }
         
-        @media (min-width: 1000px) {
+        @media (width >= 1000px) {
           section h2 {
-            font-size: 2.75rem !important; /* Scale up from 2.5rem */
+            font-size: 2.4rem !important; /* Scale up from 2.5rem */
           }
           section h3 {
             font-size: 1.25rem !important; /* Scale up from 1.125rem */
