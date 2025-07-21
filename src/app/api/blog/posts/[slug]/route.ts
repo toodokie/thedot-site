@@ -9,6 +9,7 @@ interface BlogPost {
   category: string;
   readTime: string;
   tags: string[];
+  featuredImage?: string;
 }
 
 // Sample blog posts with full content
@@ -21,6 +22,7 @@ const samplePosts: { [key: string]: BlogPost } = {
     category: 'Strategy',
     readTime: '12 min read',
     tags: ['Professional Website Design', 'Canada', 'European Design Trends', 'Conversion Optimization', 'International Standards'],
+    featuredImage: '/images/blog/website-design-trends-europe/Website Design Trends.webp',
     content: `
       <div style="text-align: center; margin: 40px 0;">
         <img src="/images/blog/website-design-trends-europe/Website Design Trends.webp" alt="Website Design Trends from Europe That Canadian Businesses Should Adopt" style="max-width: 100%; height: auto;" />
@@ -178,6 +180,7 @@ const samplePosts: { [key: string]: BlogPost } = {
     category: 'Strategy',
     readTime: '8 min read',
     tags: ['Small Business', 'GTA', 'Website Design', 'User Experience', 'Conversion Optimization'],
+    featuredImage: '/images/blog/website-mistakes-gta-businesses/hero-hourglass.gif',
     content: `
       <div style="text-align: center; margin: 40px 0;">
         <img src="/images/blog/website-mistakes-gta-businesses/hero-hourglass.gif" alt="Every rotation of this hourglass costs your business money" style="max-width: 100%; height: auto;" />
