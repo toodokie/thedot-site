@@ -126,7 +126,9 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
     return (
       <div className="error-container">
         <h1>Post not found</h1>
-        <Link href="/blog">← Back to Blog</Link>
+        <Link href="/blog" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <div className="breadcrumb-link">← Back to Blog</div>
+        </Link>
       </div>
     );
   }
@@ -156,14 +158,21 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
           padding: 120px 20px 20px;
         }
         
-        .breadcrumb a {
-          color: #666;
-          text-decoration: none;
-          font-size: 0.875rem;
+        .breadcrumb-link {
+          font-family: 'ff-real-text-pro', sans-serif;
+          font-size: 1rem;
+          font-weight: 200;
+          color: var(--foreground);
+          text-decoration: underline;
+          text-decoration-thickness: 1px;
+          text-underline-offset: 4px;
+          transition: all 0.3s ease;
+          cursor: pointer;
         }
         
-        .breadcrumb a:hover {
-          color: var(--black);
+        .breadcrumb-link:hover {
+          color: var(--foreground);
+          transform: translateX(5px);
         }
         
         .post-header {
@@ -572,19 +581,21 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
         }
         
         .back-link {
-          background: var(--black);
-          color: white;
-          padding: 15px 30px;
-          text-decoration: none;
-          font-weight: 500;
+          font-family: 'ff-real-text-pro', sans-serif;
+          font-size: 1.2rem;
+          font-weight: 200;
+          color: var(--foreground);
+          text-decoration: underline;
+          text-decoration-thickness: 1px;
+          text-underline-offset: 4px;
           transition: all 0.3s ease;
           display: inline-block;
+          cursor: pointer;
         }
         
         .back-link:hover {
-          background: var(--yellow);
-          color: var(--black);
-          transform: translateY(-2px);
+          color: var(--foreground);
+          transform: translateX(5px);
         }
         
         @media (max-width: 768px) {
@@ -643,7 +654,9 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
       <div className="post-container">
         {/* Breadcrumb */}
         <nav className="breadcrumb">
-          <Link href="/blog">← Back to Blog</Link>
+          <Link href="/blog" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div className="breadcrumb-link">← Back to Blog</div>
+          </Link>
         </nav>
 
         {/* Post Header */}
@@ -772,8 +785,8 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
 
         {/* Back to Blog */}
         <div className="back-to-blog">
-          <Link href="/blog" className="back-link">
-            View All Articles
+          <Link href="/blog" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div className="back-link">View All Articles</div>
           </Link>
         </div>
 

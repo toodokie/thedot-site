@@ -4,98 +4,76 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 interface Answer {
-  visitors?: string;
-  conversion?: string;
-  tools?: string;
-  time?: string;
-  speed?: string;
+  leads?: string;
+  manual?: string;
+  systems?: string;
+  aoda?: string;
+  brand?: string;
 }
 
 interface Question {
   id: string;
   text: string;
-  options: { text: string; points: number }[];
+  options: { text: string; points: number; fullText?: string }[];
   benchmark?: string;
   dynamicText?: (answer: string) => string;
 }
 
 const questions: Question[] = [
   {
-    id: 'visitors',
-    text: 'How many people visit your website monthly?',
+    id: 'leads',
+    text: 'For every 10 qualified leads your website generates, how many become paying clients?',
     options: [
-      { text: 'Under 500', points: 5 },
-      { text: '500-2000', points: 10 },
-      { text: '2000-5000', points: 15 },
-      { text: '5000+', points: 20 },
-      { text: 'Not sure', points: 0 }
-    ]
+      { text: 'Fewer than 1', points: 10, fullText: 'Fewer than 1' },
+      { text: '1-2', points: 20, fullText: '1-2 (The Industry Average)' },
+      { text: '3-4', points: 30, fullText: '3-4 (You\'re Doing Well!)' },
+      { text: '5+', points: 40, fullText: '5+ (You\'re a Pro!)' }
+    ],
+    benchmark: 'Benchmark: A typical lead-to-client conversion rate is 10-20%. Anything less may signal a problem with your follow-up process.'
   },
   {
-    id: 'conversion',
-    text: 'Out of 100 visitors, how many contact you?',
+    id: 'manual',
+    text: 'How many hours does your team spend weekly on manual administrative work (like data entry, invoicing, or scheduling)?',
     options: [
-      { text: '0-1 contacts', points: 0 },
-      { text: '2-3 contacts', points: 10 },
-      { text: '4-5 contacts', points: 15 },
-      { text: '6+ contacts', points: 20 },
-      { text: 'No idea', points: 0 }
+      { text: '10+ hours', points: 10 },
+      { text: '5-10 hours', points: 20 },
+      { text: '2-5 hours', points: 30 },
+      { text: 'Fewer than 2 hours', points: 40 }
     ],
-    benchmark: 'Industry benchmark: 2-3% of visitors typically contact businesses'
+    benchmark: 'Hint: 5 hours a week is 260 hours a year. That\'s over 6 full work weeks!'
   },
   {
-    id: 'tools',
-    text: 'How many different software tools do you use?',
+    id: 'systems',
+    text: 'When a new customer pays you, how many separate software tools does your team have to manually update?',
     options: [
-      { text: '1-2 tools', points: 20 },
-      { text: '3-4 tools', points: 15 },
-      { text: '5-6 tools', points: 10 },
-      { text: '7+ tools', points: 5 },
-      { text: 'Lost count', points: 0 }
+      { text: 'So. Many. Clicks.', points: 10, fullText: 'So. Many. Clicks.' },
+      { text: '4-5', points: 20, fullText: '4-5 (That\'s a lot of clicks)' },
+      { text: '2-3', points: 30, fullText: '2-3 (Getting complicated)' },
+      { text: 'Just 1', points: 40, fullText: 'Just 1 (You\'re integrated!)' }
     ],
-    dynamicText: (answer: string) => {
-      const costs = {
-        '1-2 tools': 50,
-        '3-4 tools': 150,
-        '5-6 tools': 300,
-        '7+ tools': 500,
-        'Lost count': 800
-      };
-      return `That's roughly $${costs[answer as keyof typeof costs]}/month`;
-    }
+    benchmark: 'Hint: Every manual update is a potential point of failure, risking costly data entry errors and wasted time.'
   },
   {
-    id: 'time',
-    text: 'Hours per week spent on repetitive tasks?',
+    id: 'aoda',
+    text: 'As an Ontario business, are you confident your website meets mandatory AODA accessibility standards?',
     options: [
-      { text: 'Under 2 hours', points: 20 },
-      { text: '2-5 hours', points: 15 },
-      { text: '5-10 hours', points: 10 },
-      { text: '10+ hours', points: 5 },
-      { text: 'Too many', points: 0 }
+      { text: 'Yes, professionally audited.', points: 40 },
+      { text: 'I think so, but I\'m not sure.', points: 20 },
+      { text: 'No, it\'s something we need to address.', points: 10 },
+      { text: 'What is AODA?', points: 0 }
     ],
-    dynamicText: (answer: string) => {
-      const hours = {
-        'Under 2 hours': 2,
-        '2-5 hours': 3.5,
-        '5-10 hours': 7.5,
-        '10+ hours': 15,
-        'Too many': 20
-      };
-      const yearly = Math.round(hours[answer as keyof typeof hours] * 52);
-      return `That's ${yearly} hours/year you could save`;
-    }
+    benchmark: 'Hint: Non-compliance can risk fines of up to $100,000/day, and inaccessible sites miss out on over 27% of Canadian consumers.'
   },
   {
-    id: 'speed',
-    text: 'Count to 3. Is your mobile site fully loaded?',
+    id: 'brand',
+    text: 'Honestly, does your current website make your business look more or less professional than your top competitor?',
     options: [
-      { text: 'Yes, fast!', points: 20 },
-      { text: 'Just finished', points: 15 },
-      { text: 'Still loading', points: 5 },
-      { text: 'Gave up', points: 0 }
+      { text: 'It\'s embarrassing, frankly.', points: 10 },
+      { text: 'Less Professional. It needs work.', points: 20 },
+      { text: 'About the same.', points: 30 },
+      { text: 'More Professional. We\'re proud of it.', points: 40 }
     ],
-    benchmark: '53% leave if it takes >3 seconds'
+    benchmark: 'Benchmark: 94% of first impressions relate to your site\'s design. A professional site builds instant trust and credibility.'
   }
 ];
 
@@ -104,6 +82,7 @@ export default function ConversionDiagnosticTool() {
   const [answers, setAnswers] = useState<Answer>({});
   const [score, setScore] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string>('');
+  const [showFullText, setShowFullText] = useState<string>('');
 
   useEffect(() => {
     // Load from sessionStorage on mount
@@ -113,10 +92,19 @@ export default function ConversionDiagnosticTool() {
     }
   }, []);
 
-  const handleAnswer = (questionId: string, answer: string, points: number) => {
+  const handleAnswer = (questionId: string, answer: string, points: number, fullText?: string) => {
     const newAnswers = { ...answers, [questionId]: answer };
     setAnswers(newAnswers);
     setSelectedAnswer(answer);
+    
+    // Check if text changes when pressed
+    const hasTextChange = fullText && fullText !== answer;
+    
+    // Show full text if available
+    if (hasTextChange) {
+      setShowFullText(fullText);
+      setTimeout(() => setShowFullText(''), 2000);
+    }
     
     // Save to sessionStorage
     sessionStorage.setItem('diagnostic-answers', JSON.stringify(newAnswers));
@@ -131,183 +119,99 @@ export default function ConversionDiagnosticTool() {
       setScore(totalScore);
     }
     
-    // Auto-advance after selection with more time to read explainer
+    // Auto-advance after selection - immediate if no text change, delayed if text changes
+    const delay = hasTextChange ? 2500 : 500;
     setTimeout(() => {
       setScreen(screen + 1);
       setSelectedAnswer('');
-    }, 2500);
+      setShowFullText('');
+    }, delay);
   };
 
-  const calculateLostRevenue = () => {
-    const monthlyVisitors = {
-      'Under 500': 250,
-      '500-2000': 1250,
-      '2000-5000': 3500,
-      '5000+': 7500,
-      'Not sure': 1000
-    }[answers.visitors as keyof typeof monthlyVisitors] || 1000;
-
-    const conversionRate = {
-      '0-1 contacts': 0.5,
-      '2-3 contacts': 2.5,
-      '4-5 contacts': 4.5,
-      '6+ contacts': 6,
-      'No idea': 1
-    }[answers.conversion as keyof typeof conversionRate] || 1;
-
-    const optimalConversion = 3;
-    const lostLeads = monthlyVisitors * Math.max(0, (optimalConversion - conversionRate) / 100);
-    const lostRevenue = Math.round(lostLeads * 500 * 0.25 * 0.7); // Reduced by 30%
+  const calculateScores = () => {
+    const leadsPoints = questions.find(q => q.id === 'leads')?.options.find(opt => opt.text === answers.leads)?.points || 0;
+    const brandPoints = questions.find(q => q.id === 'brand')?.options.find(opt => opt.text === answers.brand)?.points || 0;
+    const manualPoints = questions.find(q => q.id === 'manual')?.options.find(opt => opt.text === answers.manual)?.points || 0;
+    const systemsPoints = questions.find(q => q.id === 'systems')?.options.find(opt => opt.text === answers.systems)?.points || 0;
     
-    return lostRevenue;
+    const presenceScore = leadsPoints + brandPoints;
+    const efficiencyScore = manualPoints + systemsPoints;
+    
+    const aodaRisk = answers.aoda !== 'Yes, professionally audited.';
+    
+    return { presenceScore, efficiencyScore, aodaRisk };
   };
 
   const getResultContent = () => {
-    // Analyze answers to determine scenario
-    const hasWebsite = answers.visitors !== 'Under 500' && answers.visitors !== 'Not sure';
-    const hasSystemChaos = answers.tools === '7+ tools' || answers.tools === 'Lost count';
-    const poorConversion = answers.conversion === '0-1 contacts' || answers.conversion === 'No idea';
-    const slowSpeed = answers.speed === 'Still loading' || answers.speed === 'Gave up';
-    const highTraffic = answers.visitors === '2000-5000' || answers.visitors === '5000+';
-    const goodConversion = answers.conversion === '4-5 contacts' || answers.conversion === '6+ contacts';
-    const fastSpeed = answers.speed === 'Yes, fast!' || answers.speed === 'Just finished';
-    const timeWaste = answers.time === '10+ hours' || answers.time === 'Too many';
+    const { presenceScore, efficiencyScore, aodaRisk } = calculateScores();
+    
+    const getManualHours = () => {
+      const hours = {
+        '10+ hours': '10+ hours',
+        '5-10 hours': '5-10 hours',
+        '2-5 hours': '2-5 hours',
+        'Fewer than 2 hours': 'fewer than 2 hours'
+      };
+      return hours[answers.manual as keyof typeof hours] || 'several hours';
+    };
 
-    // Scenario 1: No Website / Very Low Traffic
-    if (!hasWebsite) {
-      return {
-        headline: "You Need a Professional Web Presence",
-        subhead: "You need a professional web presence to start generating leads",
-        color: "#ff4444",
-        recommendation: "Fast-Track Website",
-        reason: "You need a professional website that actually converts",
-        cta1: "Book a Discovery Call",
-        cta2: "Email Me These Results"
+    const getYearlyHours = () => {
+      const weeklyHours = {
+        '10+ hours': 15,
+        '5-10 hours': 7.5,
+        '2-5 hours': 3.5,
+        'Fewer than 2 hours': 1
+      };
+      const weekly = weeklyHours[answers.manual as keyof typeof weeklyHours] || 7.5;
+      return Math.round(weekly * 52);
+    };
+
+    let result;
+
+    // Primary logic: Efficiency Score < 55
+    if (efficiencyScore < 55) {
+      result = {
+        headline: "Your Biggest Hidden Cost is Manual Work",
+        diagnosis: `Based on your answers, your business is spending over **${getManualHours()}** on manual administrative tasks. That's more than **${getYearlyHours()} hours** of valuable time lost to updating disconnected software. While your website may be performing adequately, the real opportunity for growth lies in automating the work that happens behind the scenes.`,
+        recommendation: "Connected Business System",
+        description: "This is our flagship service for businesses ready to eliminate manual work and integrate their operations into one seamless system.",
+        cta: "Schedule a Free Strategy Call"
+      };
+    }
+    // Secondary logic: Presence Score < 55
+    else if (presenceScore < 55) {
+      result = {
+        headline: "Your Digital First Impression is Costing You Clients",
+        diagnosis: "Based on your answers, your website is not converting leads effectively and may not appear as professional as your competitors. This creates a leaky bucket—even if your internal systems are efficient, you're losing customers at the front door before they even get a chance to see your value.",
+        recommendation: "Professional Foundation",
+        description: "Our first step is to build you a strategic, high-performing website that commands respect, builds trust, and turns visitors into high-quality leads.",
+        cta: "Schedule a Free Strategy Call"
+      };
+    }
+    // Tertiary logic: Both scores 55+
+    else {
+      result = {
+        headline: "You've Built a Solid Foundation. Now it's Time to Optimize",
+        diagnosis: "Congratulations! You have a strong digital presence and solid operational processes. Your business is in the top tier, and the next stage of growth comes from targeted, expert-level optimizations to outperform the competition and maximize your profitability.",
+        recommendation: "Design & Consulting Services",
+        description: "We can help you achieve incremental growth through advanced strategies like an in-depth AODA Compliance Audit, advanced Conversion Rate Optimization, or strategic Brand Refinement.",
+        cta: "Explore Consulting Options"
       };
     }
 
-    // Scenario 2: Have Website but Poor Performance
-    if (hasWebsite && (poorConversion || slowSpeed) && !hasSystemChaos) {
-      return {
-        headline: "Your Current Website is Costing You Customers",
-        subhead: "Your current website is costing you customers. Time for a conversion-focused rebuild",
-        color: "#ff4444",
-        recommendation: "Fast-Track Website (rebuild)",
-        reason: "Your website is failing to convert the traffic you have",
-        cta1: "Book a Discovery Call",
-        cta2: "Email Me These Results"
-      };
-    }
-
-    // Scenario 3: Have Website but System Chaos
-    if (hasSystemChaos || timeWaste) {
-      return {
-        headline: "Your Real Problem is System Chaos",
-        subhead: "Your website needs optimization, but your real problem is system chaos",
-        color: "#ffaa00",
-        recommendation: "Conversion Growth Studio",
-        reason: "You need more than a website fix - you need a complete business system",
-        cta1: "Book a Discovery Call",
-        cta2: "Email Me These Results"
-      };
-    }
-
-    // Scenario 4: Good Website, Minor Issues
-    if (highTraffic && goodConversion && fastSpeed) {
-      return {
-        headline: "Your Foundation is Solid",
-        subhead: "Your foundation is solid. Let's optimize specific areas for even better results",
-        color: "#00aa44",
-        recommendation: "A La Carte Solutions",
-        reason: "You're doing great! Let's fine-tune for maximum performance",
-        cta1: "Get A La Carte Estimate",
-        cta2: "Email Me These Results"
-      };
-    }
-
-    // Score-based fallbacks with context
-    if (score <= 40) {
-      if (!hasWebsite) {
-        return {
-          headline: "You Need a Professional Website",
-          subhead: "Without a converting website, you're invisible to potential customers",
-          color: "#ff4444",
-          recommendation: "Fast-Track Website",
-          reason: "You need a professional website that actually converts",
-          cta1: "Book a Discovery Call",
-          cta2: "Email Me These Results"
-        };
-      } else {
-        return {
-          headline: "Your Website is Failing to Convert",
-          subhead: "Time for a conversion-focused rebuild",
-          color: "#ff4444",
-          recommendation: "Fast-Track Website (rebuild)",
-          reason: "Your website is failing to convert the traffic you have",
-          cta1: "Book a Discovery Call",
-          cta2: "Email Me These Results"
-        };
-      }
-    } else if (score > 40 && score <= 70) {
-      // First check if they have no website (score 41-70 + No/Low Traffic)
-      if (!hasWebsite) {
-        return {
-          headline: "You Need a Professional Website",
-          subhead: "Without a converting website, you're invisible to potential customers",
-          color: "#ff4444",
-          recommendation: "Fast-Track Website",
-          reason: "You need a professional website that actually converts",
-          cta1: "Book a Discovery Call",
-          cta2: "Email Me These Results"
-        };
-      }
-      // Then check for system chaos (score 41-70 + Multiple Tools/Time Waste)
-      else if (hasSystemChaos || timeWaste) {
-        return {
-          headline: "You Need a Complete Business System",
-          subhead: "Website issues are just the tip of the iceberg",
-          color: "#ffaa00",
-          recommendation: "Conversion Growth Studio",
-          reason: "You need more than a website fix - you need a complete business system",
-          cta1: "Book a Discovery Call",
-          cta2: "Email Me These Results"
-        };
-      }
-      // Otherwise, simple setup (score 41-70 + Simple Setup)
-      else {
-        return {
-          headline: "Target Your Specific Weak Points",
-          subhead: "Strategic improvements without overhauling everything",
-          color: "#ffaa00",
-          recommendation: "A La Carte Solutions",
-          reason: "Target your specific weak points without overhauling everything",
-          cta1: "Get A La Carte Estimate",
-          cta2: "Email Me These Results"
-        };
-      }
-    } else {
-      return {
-        headline: "You're Doing Great!",
-        subhead: "Let's fine-tune for maximum performance",
-        color: "#00aa44",
-        recommendation: "A La Carte Solutions or Ongoing Conversion Care",
-        reason: "You're doing great! Let's fine-tune for maximum performance",
-        cta1: "Get A La Carte Estimate",
-        cta2: "Email Me These Results"
-      };
-    }
+    return { ...result, aodaRisk, presenceScore, efficiencyScore };
   };
 
   const renderWelcomeScreen = () => (
     <div className="quiz-screen welcome-screen">
       <div className="welcome-content">
-        <div className="quiz-headline">Is Your Website Actually Working?</div>
-        <p className="quiz-subhead">Find out in 5 minutes where you're losing money</p>
+        <div className="quiz-headline">The Hidden Revenue Finder</div>
+        <p className="quiz-subhead">Your business is likely losing money to inefficient systems and manual processes. Our 2-minute audit will show you exactly where.</p>
         <button 
           className="services-cta-button"
           onClick={() => setScreen(1)}
         >
-          Start Free Diagnostic
+          Start Quiz
         </button>
         <p className="quiz-small-text">No email required • Instant results</p>
       </div>
@@ -340,9 +244,9 @@ export default function ConversionDiagnosticTool() {
             <button
               key={index}
               className={`answer-button ${selectedAnswer === option.text ? 'selected' : ''}`}
-              onClick={() => handleAnswer(currentQuestion.id, option.text, option.points)}
+              onClick={() => handleAnswer(currentQuestion.id, option.text, option.points, option.fullText)}
             >
-              {option.text}
+              {selectedAnswer === option.text && option.fullText ? option.fullText : option.text}
             </button>
           ))}
         </div>
@@ -361,42 +265,41 @@ export default function ConversionDiagnosticTool() {
 
   const renderResultsScreen = () => {
     const result = getResultContent();
-    const lostRevenue = calculateLostRevenue();
 
     return (
       <div className="quiz-screen results-screen">
-        <div className="score-gauge">
-          <div className="gauge-container">
-            <div 
-              className="gauge-fill" 
-              style={{ 
-                width: `${score}%`
-              }}
-            ></div>
-          </div>
+        <h2 className="results-headline">{result.headline}</h2>
+        
+        <div className="diagnosis" style={{ margin: '2rem 0', lineHeight: 1.6, fontSize: '1rem' }}>
+          <p dangerouslySetInnerHTML={{ __html: result.diagnosis }}></p>
         </div>
         
-        <h2 className="results-headline">{result.headline}</h2>
-        <div className="results-score">{score}/100</div>
-        <p className="results-subhead">{result.subhead}</p>
+        <div className="recommendation">
+          <p><strong>Primary Recommendation:</strong> {result.recommendation}</p>
+          <p className="recommendation-reason">{result.description}</p>
+        </div>
         
-        {lostRevenue > 0 && (
-          <div className="lost-revenue">
-            <p>Based on your answers, you could be losing <strong>up to ${lostRevenue.toLocaleString()}</strong> per month</p>
+        {result.aodaRisk && (
+          <div className="secondary-priority" style={{ 
+            backgroundColor: '#fff3cd', 
+            border: '1px solid #ffeaa7', 
+            padding: '1rem', 
+            margin: '1rem 0',
+            borderRadius: '4px'
+          }}>
+            <p><strong>Secondary Priority:</strong> AODA Compliance Review</p>
+            <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.9rem', color: '#666' }}>
+              Based on your answers, your website may not meet Ontario's accessibility standards, which could expose your business to significant legal and financial risks.
+            </p>
           </div>
         )}
         
-        <div className="recommendation">
-          <p><strong>Our Recommendation:</strong> {result.recommendation}</p>
-          {result.reason && <p className="recommendation-reason">{result.reason}</p>}
-        </div>
-        
         <div className="results-actions">
           <Link 
-            href={result.recommendation.includes("A La Carte") ? "/estimate" : "/contacts"} 
+            href={result.recommendation.includes("Consulting") ? "/estimate" : "/contacts"} 
             className="services-cta-button primary"
           >
-            {result.cta1}
+            {result.cta}
           </Link>
         </div>
         
@@ -428,7 +331,7 @@ export default function ConversionDiagnosticTool() {
           width: 100%;
           margin: 0 auto;
           padding: 0 40px;
-          border: 1px solid var(--foreground);
+          border: 1px solid #35332f;
           background: var(--raw-white);
           border-radius: 1rem;
           box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
@@ -482,40 +385,6 @@ export default function ConversionDiagnosticTool() {
           text-align: center;
         }
 
-        .services-cta-button {
-          border: 1px solid var(--foreground) !important;
-          border-style: solid !important;
-          border-width: 1px !important;
-          border-color: var(--foreground) !important;
-          outline: none !important;
-          background-color: var(--raw-white) !important;
-          box-shadow: 0 2px 5px 0 var(--yellow) !important;
-          color: var(--foreground) !important;
-          text-align: center !important;
-          letter-spacing: 2px !important;
-          text-transform: uppercase !important;
-          border-radius: 0 !important;
-          padding: 18px 1.25rem !important;
-          font-family: futura-pt, sans-serif !important;
-          font-size: 1rem !important;
-          font-weight: 400 !important;
-          line-height: 18px !important;
-          transition: all .4s cubic-bezier(.23, 1, .32, 1) !important;
-          display: inline-block !important;
-          text-decoration: none !important;
-          cursor: pointer !important;
-          box-sizing: border-box !important;
-          margin: 10px;
-        }
-
-        .services-cta-button:hover {
-          background-color: var(--foreground) !important;
-          box-shadow: 2px 9px 20px 2px var(--yellow) !important;
-          color: #faf9f6 !important;
-          border-color: var(--foreground) !important;
-          transform: scale(.9) !important;
-          text-decoration: none !important;
-        }
 
         .services-cta-button.secondary {
           background: transparent;
@@ -590,10 +459,10 @@ export default function ConversionDiagnosticTool() {
           background: transparent;
           color: var(--foreground);
           padding: 18px 36px;
-          border: 1px solid var(--foreground);
+          border: 1px solid #ccc;
           font-family: ff-real-text-pro, sans-serif;
           font-size: 1rem;
-          font-weight: 600;
+          font-weight: 400;
           cursor: pointer;
           transition: all 0.3s ease;
           text-decoration: none;
@@ -672,10 +541,9 @@ export default function ConversionDiagnosticTool() {
         }
 
         .back-button:hover {
-          background: var(--foreground);
-          color: var(--raw-white);
+          background: transparent;
+          color: var(--foreground);
           transform: translateY(-2px);
-          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         }
 
         .score-gauge {

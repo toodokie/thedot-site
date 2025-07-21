@@ -38,11 +38,11 @@ export default function QuoteSection() {
         <div className="quote-content animate-on-scroll">
           <p className="dot-quote">
             Design has the power to <em className="italic-text">move</em> brands and people{' '}
-            <em className="italic-text-2">forward</em>. We believe that both unique designs and 
-            emotional experiences are essential in order to bring people together and{' '}
-            <em className="italic-text-3">inspire brands to flourish</em>. We foster that 
-            anything can become more unique with enough love. Because of this, we have a 
-            personal and professional commitment to making everything we touch more beautiful.
+            <em className="italic-text-2">forward</em>. We believe that both distinctive craft and 
+            seamless connection are essential to bring people together and{' '}
+            <em className="italic-text-3">inspire brands to flourish</em>. We find beauty in 
+            systems that speak to each other, elegance in processes that simply work. This is why we hold a 
+            personal and professional commitment to <em className="italic-text-3">elevating</em> everything we touch.
           </p>
         </div>
       </div>

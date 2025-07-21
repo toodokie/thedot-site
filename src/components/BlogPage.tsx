@@ -25,12 +25,14 @@ export default function BlogPage() {
   const [selectedCategory, setSelectedCategory] = useState('All');
 
   useEffect(() => {
-    // Prevent layout shifts by setting critical styles immediately
-    const criticalElements = document.querySelectorAll('.blog-container, .main-content, .featured-section, .review-cta-section');
-    criticalElements.forEach(element => {
-      (element as HTMLElement).style.contain = 'layout style';
-    });
-
+    // Apply critical containment styles immediately after hydration
+    if (typeof window !== 'undefined') {
+      const criticalElements = document.querySelectorAll('.blog-container, .main-content, .featured-section, .review-cta-section');
+      criticalElements.forEach(element => {
+        (element as HTMLElement).style.contain = 'layout style';
+      });
+    }
+    
     // Preload posts API to reduce loading time
     const link = document.createElement('link');
     link.rel = 'prefetch';
@@ -74,7 +76,7 @@ export default function BlogPage() {
         observer.unobserve(element);
       });
     };
-  }, [])
+  }, []);
 
   const fetchPosts = async () => {
     try {
@@ -440,7 +442,7 @@ export default function BlogPage() {
         .featured-content h2 {
           font-family: futura-pt, sans-serif;
           font-size: 2.5rem !important;
-          font-weight: 400;
+          font-weight: 300;
           color: var(--black);
           margin-bottom: 15px;
           line-height: 1.2;
@@ -493,6 +495,8 @@ export default function BlogPage() {
           color: var(--foreground) !important;
           padding: 0;
           text-decoration: underline !important;
+          text-decoration-thickness: 1px !important;
+          text-underline-offset: 4px !important;
           font-weight: 200;
           transition: all 0.3s ease;
           display: inline-block;
@@ -502,9 +506,9 @@ export default function BlogPage() {
         
         .read-more-btn:hover {
           background: transparent;
-          color: #888;
+          color: var(--foreground) !important;
           text-decoration: underline !important;
-          transform: none;
+          transform: translateX(5px);
         }
         
         .featured-image {
@@ -1047,13 +1051,15 @@ export default function BlogPage() {
                   </div>
                   <p className="featured-excerpt">{featuredPost.excerpt}</p>
                   <Link 
-                    href={`/blog/${featuredPost.slug}`} 
-                    className="read-more-btn"
+                    href={`/blog/${featuredPost.slug}`}
+                    style={{ textDecoration: 'none', color: 'inherit' }}
                     onClick={() => {
                       trackContent.blogPostView(featuredPost.slug, featuredPost.title, featuredPost.category);
                     }}
                   >
-                    Read Full Article
+                    <div className="read-more-btn">
+                      Read Full Article
+                    </div>
                   </Link>
                 </div>
                 <div className="featured-image">

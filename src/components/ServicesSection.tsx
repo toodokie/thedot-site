@@ -14,10 +14,10 @@ export default function ServicesSection() {
   const services = [
     {
       id: 4,
-      title: "The Fast-Track Website",
-      price: "$1,497",
-      description: "Get your professional, conversion-focused website live in 14 business days. This high-value bundle gives new businesses everything needed to start converting visitors into customers immediately.",
-      hoverDescription: "• A Strategic 5-Page Conversion Website\n• Conversion-Ready Brand Basics\n• Mobile-First and Optimized for Speed\n• Basic Conversion Tracking Setup",
+      title: "Professional Foundation",
+      price: "$2,500-$4,500",
+      description: "Strategic website design that positions your business for growth. Professional aesthetics meet thoughtful user experience, creating digital presence that commands respect and converts visitors.",
+      hoverDescription: "• 5-7 page strategic website\n• Professional brand implementation\n• Mobile-first responsive design\n• AODA compliance standards\n• 30-day post-launch support",
       slug: "conversion-essentials",
       icon: (
           <svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="100" height="100" viewBox="0,0,256,256">
@@ -41,10 +41,10 @@ export default function ServicesSection() {
       },
     {
       id: 5,
-      title: "The Conversion Growth Studio",
-      price: "$1,000/month (12-month partnership) or\n$10,000 paid in full (save $2,000)",
-      description: "Transform your entire business with our 12-month partnership. We don't just build a website—we create the complete system that runs your business, replacing chaos with one elegant engine.",
-      hoverDescription: "• A Brand That Magnetically Attracts Your Ideal Clients\n• A Website That Converts 3x Better Than Industry Average\n• One Integrated System Replacing 5-7 Disconnected Tools\n• Complete Team Training So You Own Your Success",
+      title: "Connected Business System",
+      price: "$5,500-$7,500",
+      description: "Your complete digital transformation. We design exceptional websites then connect them to your existing business tools, creating one intelligent system that saves 10+ hours weekly.",
+      hoverDescription: "• Typically reduces admin time by 25-40%\n• Strategic website design\n• Business systems integration\n• Workflow automation setup\n• Team training & documentation\n• 90-day optimization period",
       slug: "conversion-growth-studio",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="100" height="100" viewBox="0,0,256,256">
@@ -63,10 +63,10 @@ export default function ServicesSection() {
       },
     {
       id: 6,
-      title: "A La Carte Solutions",
-      price: "From $350",
-      description: "Already have a website but need specific improvements? Choose exactly what you need from our menu of conversion-focused solutions. Perfect for targeted upgrades without the full package.",
-      hoverDescription: "• Conversion-Optimized Websites: From $650\n• Strategic Brand Design: From $350\n• Professional Photo & Video: From $450\n• Speed Optimization, Email Design & More",
+      title: "Design & Consulting Services",
+      price: "Starting at $350",
+      description: "Targeted solutions for businesses seeking specific improvements or ongoing partnership. From brand refinement to system optimization.",
+      hoverDescription: "Options:\n• Brand Identity Systems\n• AODA Compliance Audit\n• System Integration Consulting\n• Performance Optimization",
       slug: "conversion-essentials",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="100" height="100" viewBox="0,0,256,256">
@@ -113,11 +113,17 @@ export default function ServicesSection() {
             }}
           >
             <h2 className="section-title">
-              Services
+              Selected services
             </h2>
             <h3 className="section-description">
-              Every service we offer is designed with one goal: turning more of your visitors into customers.
+              Solutions curated for our most common client partnerships. From strategic websites to fully integrated business systems.
             </h3>
+            
+            <div className="services-header-link">
+              <a href="/services" className="view-all-link">
+                View All Our Solutions
+              </a>
+            </div>
           </div>
   
           {/* Services Grid */}
@@ -168,6 +174,7 @@ export default function ServicesSection() {
                     height: '100%',
                     display: 'flex',
                     flexDirection: 'column',
+                    justifyContent: 'space-between',
                   }}
                 >
                   {/* Service Icon */}
@@ -221,7 +228,7 @@ export default function ServicesSection() {
                         margin: '0 0 1rem 0',
                       }}
                     >
-                      Most popular for startups & new businesses
+                      Ideal for businesses ready to elevate their digital presence
                     </p>
                   )}
 
@@ -238,7 +245,7 @@ export default function ServicesSection() {
                         margin: '0 0 1rem 0',
                       }}
                     >
-                      Signature service
+                      For growing businesses with operational complexity
                     </p>
                   )}
 
@@ -255,7 +262,7 @@ export default function ServicesSection() {
                         margin: '0 0 1rem 0',
                       }}
                     >
-                      Perfect for targeted improvements
+                      For specific needs and ongoing optimization
                     </p>
                   )}
                   
@@ -274,7 +281,7 @@ export default function ServicesSection() {
                     {service.description}
                   </p>
 
-                  {/* Bullet Points for Fast-Track Website */}
+                  {/* Bullet Points for services */}
                   {(service.id === 4 || service.id === 5 || service.id === 6) && (
                     <div 
                       className="service-bullets"
@@ -284,7 +291,7 @@ export default function ServicesSection() {
                         fontWeight: 200,
                         lineHeight: 1.6,
                         color: 'var(--foreground)',
-                        margin: '0 0 2.25rem 0',
+                        margin: '0 0 1.25rem 0',
                         whiteSpace: 'pre-line',
                       }}
                     >
@@ -292,14 +299,11 @@ export default function ServicesSection() {
                     </div>
                   )}
 
+
                   {/* CTA Button for Fast-Track Website */}
                   {(service.id === 4 || service.id === 5 || service.id === 6) && (
                     <button 
-                      className="services-cta-button fast-track-cta"
-                      style={{
-                        marginTop: 'auto',
-                        whiteSpace: 'nowrap',
-                      }}
+                      className="services-cta-button"
                       onClick={(e) => {
                         e.stopPropagation();
                         router.push(service.id === 6 ? '/estimate' : '/contacts');
@@ -349,29 +353,56 @@ export default function ServicesSection() {
             padding: 8rem 0 0 0;
           }
           
-          .fast-track-cta {
-            font-size: 1rem !important;
-            text-align: center !important;
-            padding: 18px 1.25rem !important;
+          .services-header-link {
+            margin-top: 2rem;
+            display: block;
           }
           
-          .fast-track-cta:hover {
-            background: var(--foreground) !important;
-            color: #faf9f6 !important;
-            border-color: var(--foreground) !important;
+          .view-all-link {
+            font-family: 'ff-real-text-pro', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 200;
+            color: var(--foreground);
+            text-decoration: underline;
+            text-decoration-thickness: 1px;
+            text-underline-offset: 4px;
+            display: inline-block;
+            padding: 0.5rem 1rem 0.5rem 0;
+            transition: all 0.3s ease;
           }
+          
+          .view-all-link:hover {
+            color: var(--foreground);
+            text-decoration: underline;
+            transform: translateX(5px);
+          }
+          
+          /* Responsive font scaling to match blog page pattern */
+          @media (min-width: 1000px) {
+            .view-all-link {
+              font-size: 1.25rem !important;
+            }
+          }
+          
+          @media (min-width: 1240px) {
+            .view-all-link {
+              font-size: 1.375rem !important;
+            }
+          }
+          
           
           .fast-track-card {
             pointer-events: none !important;
           }
           
-          .fast-track-card .fast-track-cta {
-            pointer-events: auto !important;
+          .fast-track-card .services-cta-button {
+            pointer-events: auto;
           }
           
           .service-card {
             background: radial-gradient(circle at center top, rgba(218, 255, 0, 0.4) 0%, rgba(218, 255, 0, 0.3) 15%, rgba(218, 255, 0, 0.2) 20%, rgba(218, 255, 0, 0.1) 25%, rgba(218, 255, 0, 0.05) 28%, var(--raw-white) 30%) !important;
             transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
+            height: 100% !important;
           }
           
           .service-card:hover {
@@ -394,14 +425,14 @@ export default function ServicesSection() {
               padding: 2rem 0 2rem 0;
             }
             
-            .fast-track-cta {
-              width: 100% !important;
-              display: block !important;
-              max-width: none !important;
-              margin-left: 0 !important;
-              margin-right: 0 !important;
-              box-sizing: border-box !important;
+            .services-header-link {
+              text-align: left;
             }
+            
+            .view-all-link {
+              font-size: 1rem;
+            }
+            
           }
           
           @media (max-width: 768px) {
@@ -415,7 +446,7 @@ export default function ServicesSection() {
             
             .service-card-text {
               font-size: 1rem !important;
-              font-weight: 400 !important;
+              font-weight: 200 !important;
               line-height: 1.8 !important;
             }
           }
