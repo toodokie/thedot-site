@@ -386,16 +386,6 @@ export default function ConversionDiagnosticTool() {
         }
 
 
-        .services-cta-button.secondary {
-          background: transparent;
-          color: var(--foreground);
-          border-color: var(--foreground);
-        }
-
-        .services-cta-button.secondary:hover {
-          background: var(--foreground);
-          color: var(--raw-white);
-        }
 
         .quiz-small-text {
           font-size: 0.875rem;
@@ -691,19 +681,8 @@ export default function ConversionDiagnosticTool() {
             justify-content: center;
           }
 
-          .services-cta-button {
-            width: 100%;
-            max-width: 300px;
-            margin: 0 auto;
-          }
         }
 
-        /* Color variables */
-        :root {
-          --foreground: var(--foreground);
-          --raw-white: #faf9f6;
-          --yellow: #daff00;
-        }
       `}</style>
 
       <section className="diagnostic-tool-section">
