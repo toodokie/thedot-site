@@ -43,27 +43,53 @@ async function refreshUrlIfNeeded(originalUrl: string): Promise<string> {
   
   // URL is expired or about to expire, refresh from Notion
   try {
-    console.log('🔄 Refreshing portfolio URLs from Notion...');
-    const projects = await getProjects();
+    console.log('🔄 Refreshing URLs from Notion (portfolio and blog)...');
     
     // Clear old cache
     urlCache.clear();
     lastRefresh = now;
     
-    // Build new cache with all image URLs
-    for (const project of projects) {
-      // Map old URLs to new URLs based on filename
-      const allImages = [...(project.images || []), project.heroImage].filter(Boolean);
-      
-      for (const newUrl of allImages) {
-        // Extract filename from URL
-        const filename = newUrl.split('/').pop()?.split('?')[0];
-        if (filename && originalUrl.includes(filename)) {
-          urlCache.set(originalUrl, newUrl);
-          console.log(`✅ Found fresh URL for ${filename}`);
-          return newUrl;
+    // Refresh portfolio images
+    try {
+      const projects = await getProjects();
+      for (const project of projects) {
+        const allImages = [...(project.images || []), project.heroImage].filter(Boolean);
+        
+        for (const newUrl of allImages) {
+          // Extract filename from URL
+          const filename = newUrl.split('/').pop()?.split('?')[0];
+          if (filename && originalUrl.includes(filename)) {
+            urlCache.set(originalUrl, newUrl);
+            console.log(`✅ Found fresh portfolio URL for ${filename}`);
+            return newUrl;
+          }
         }
       }
+    } catch (error) {
+      console.warn('Could not refresh portfolio URLs:', error);
+    }
+
+    // Refresh blog post images
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+      const blogResponse = await fetch(`${baseUrl}/api/blog?includeContent=true`);
+      const blogData = await blogResponse.json();
+      
+      for (const post of blogData.posts) {
+        const images = [post.featuredImage, post.socialImage].filter(Boolean);
+        
+        for (const newUrl of images) {
+          // Extract filename from URL
+          const filename = newUrl.split('/').pop()?.split('?')[0];
+          if (filename && originalUrl.includes(filename)) {
+            urlCache.set(originalUrl, newUrl);
+            console.log(`✅ Found fresh blog URL for ${filename}`);
+            return newUrl;
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Could not refresh blog URLs:', error);
     }
     
     console.log('⚠️  Could not find matching fresh URL');
