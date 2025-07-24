@@ -68,13 +68,13 @@ export async function generateMetadata({ params }: BlogPostProps): Promise<Metad
     description: metaDescription,
     keywords: post.tags.join(', '),
     alternates: {
-      canonical: `https://www.thedotcreative.co/blog/${post.slug}`,
+      canonical: `/blog/${post.slug}`,
     },
     
     openGraph: {
       title: metaTitle,
       description: metaDescription,
-      url: `https://thedotcreative.co/blog/${post.slug}`,
+      url: `https://www.thedotcreative.co/blog/${post.slug}`,
       siteName: 'The Dot Creative Agency',
       images: [
         {

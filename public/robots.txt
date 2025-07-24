@@ -9,3 +9,6 @@ Disallow: /api/
 
 # Sitemap location
 Sitemap: https://www.thedotcreative.co/sitemap.xml
+
+# Canonical host
+Host: https://www.thedotcreative.co

@@ -95,6 +95,16 @@ const nextConfig: NextConfig = {
   // Redirects for SEO migration from Webflow
   async redirects() {
     return [
+      // Fix the strange /$ URL
+      {
+        source: '/\\$',
+        destination: '/',
+        permanent: true,
+      },
+      
+      // Note: Some old project URLs are intentionally NOT redirected
+      // because the projects don't exist - they will return 404
+      
       // Specific project slug mappings (old Webflow → new Next.js)
       {
         source: '/project/lending-dlya-konferencii',
@@ -116,6 +126,7 @@ const nextConfig: NextConfig = {
         destination: '/projects/wellness-studio-care-clinic',
         permanent: true,
       },
+      
       // Direct matches (same slug, just /project → /projects)
       {
         source: '/project/capital-3',
@@ -132,12 +143,21 @@ const nextConfig: NextConfig = {
         destination: '/projects/lido',
         permanent: true,
       },
+      
+      // Blog tag pages - redirect to main blog
+      {
+        source: '/blog/tag/:tag*',
+        destination: '/blog',
+        permanent: true,
+      },
+      
       // Catch-all for any other /project/* URLs → /projects/*
       {
         source: '/project/:slug*',
         destination: '/projects/:slug*',
         permanent: true,
       },
+      
       // Old contact page redirect
       {
         source: '/contact',

@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = 'https://thedotcreative.co';
+  const baseUrl = 'https://www.thedotcreative.co';
   
   // Static pages with priority and change frequency
   const staticPages = [

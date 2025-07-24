@@ -380,3 +380,165 @@ export async function sendAgencyEmail(data: BriefData, pdfBuffer: Buffer): Promi
   await transporter.sendMail(mailOptions);
   console.log('Agency email sent successfully to:', process.env.AGENCY_EMAIL);
 }
+
+export interface EfficiencyBriefData {
+  companyName: string;
+  contactName: string;
+  contactEmail: string;
+  role: string;
+  websiteUrl?: string;
+  industry: string;
+  servicesProducts: string;
+  websiteGoal: string;
+  biggestFrustration: string;
+  aodaAware: string;
+  softwareAudit: string;
+  connectionScore: number;
+  leadFlow: string;
+  competitors: string;
+}
+
+export function generateEfficiencyBriefEmailTemplate(data: EfficiencyBriefData): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>New Efficiency Brief - ${data.contactName}</title>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .header { background: #35332f; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .alert { background: #daff00; color: #35332f; padding: 15px; border-radius: 6px; margin-bottom: 20px; font-weight: 600; }
+        .client-info { background: #f8f9fa; padding: 20px; border-radius: 6px; margin-bottom: 20px; }
+        .project-details { background: white; padding: 20px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 20px; }
+        .section { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+        .section:last-child { border-bottom: none; }
+        .score { background: #e7f3ff; padding: 10px; border-radius: 4px; font-weight: 600; }
+        .urgent { color: #d63384; font-weight: 600; }
+        .high-value { color: #198754; font-weight: 600; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>💼 New Business Efficiency Assessment</h1>
+        <p>Efficiency brief submitted from potential client</p>
+      </div>
+
+      <div class="alert">
+        ⚡ NEW EFFICIENCY BRIEF - FOLLOW UP WITHIN 2 HOURS FOR FREE AUDIT OFFER
+      </div>
+
+      <div class="client-info">
+        <h2>👤 Client Information</h2>
+        <p><strong>Contact Name:</strong> ${data.contactName}</p>
+        <p><strong>Email:</strong> <a href="mailto:${data.contactEmail}">${data.contactEmail}</a></p>
+        <p><strong>Company:</strong> ${data.companyName}</p>
+        <p><strong>Role:</strong> ${data.role}</p>
+        <p><strong>Website:</strong> ${data.websiteUrl ? `<a href="${data.websiteUrl}" target="_blank">${data.websiteUrl}</a>` : 'Not provided'}</p>
+        <p><strong>Industry:</strong> ${data.industry}</p>
+      </div>
+
+      <div class="project-details">
+        <h2>🎯 Business Overview</h2>
+        
+        <div class="section">
+          <h3>Services/Products:</h3>
+          <p>${data.servicesProducts}</p>
+        </div>
+
+        <div class="section">
+          <h3>Primary Website Goal:</h3>
+          <p><strong>${data.websiteGoal}</strong></p>
+        </div>
+
+        <div class="section">
+          <h3>Biggest Business Frustration:</h3>
+          <p>${data.biggestFrustration}</p>
+        </div>
+
+        <div class="section">
+          <h3>AODA Awareness:</h3>
+          <p><strong>${data.aodaAware}</strong></p>
+        </div>
+      </div>
+
+      <div class="project-details">
+        <h2>⚙️ Systems & Process Analysis</h2>
+        
+        <div class="section">
+          <h3>Software Stack Audit:</h3>
+          <p>${data.softwareAudit}</p>
+        </div>
+
+        <div class="section">
+          <h3>System Connection Score:</h3>
+          <div class="score">
+            ${data.connectionScore}/10 - ${data.connectionScore <= 3 ? '🔴 Critical disconnection' : 
+                                          data.connectionScore <= 6 ? '🟡 Moderate issues' : 
+                                          '🟢 Good integration'}
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>Lead Flow Process:</h3>
+          <p>${data.leadFlow}</p>
+        </div>
+
+        <div class="section">
+          <h3>Competitor Analysis:</h3>
+          <p>${data.competitors}</p>
+        </div>
+      </div>
+
+      <div style="background: #e7f3ff; padding: 20px; border-radius: 6px; margin-top: 20px;">
+        <h3>🎯 Next Steps:</h3>
+        <ol>
+          <li><strong>Immediate follow-up</strong> - Contact within 2 hours while interest is hot</li>
+          <li><strong>Schedule video audit call</strong> - Offer personalized efficiency assessment</li>
+          <li><strong>Analyze their systems</strong> - Review software stack and connection issues</li>
+          <li><strong>Prepare recommendations</strong> - Focus on ${data.connectionScore <= 6 ? 'system integration improvements' : 'optimization opportunities'}</li>
+        </ol>
+        
+        <h3>💡 Key Opportunities:</h3>
+        <ul>
+          ${data.connectionScore <= 6 ? '<li><strong>High Priority:</strong> System integration consulting</li>' : ''}
+          ${data.aodaAware === 'No' || data.aodaAware === 'Unsure' ? '<li><strong>Compliance Opportunity:</strong> AODA accessibility audit</li>' : ''}
+          <li><strong>Website Goal:</strong> ${data.websiteGoal} optimization</li>
+          <li><strong>Process Improvement:</strong> Lead flow automation</li>
+        </ul>
+      </div>
+
+      <div style="background: #35332f; color: white; padding: 15px; border-radius: 6px; margin-top: 20px; text-align: center;">
+        <p><strong>⚡ Quick Contact:</strong> <a href="mailto:${data.contactEmail}" style="color: #daff00;">${data.contactEmail}</a></p>
+        <p><strong>🌐 Their Website:</strong> ${data.websiteUrl ? `<a href="${data.websiteUrl}" style="color: #daff00;" target="_blank">${data.websiteUrl}</a>` : 'Not provided'}</p>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+export async function sendEfficiencyBriefEmail(data: EfficiencyBriefData): Promise<void> {
+  console.log('sendEfficiencyBriefEmail called with:', { 
+    email: data.contactEmail, 
+    name: data.contactName,
+    company: data.companyName 
+  });
+  
+  const htmlContent = generateEfficiencyBriefEmailTemplate(data);
+  
+  const mailOptions = {
+    from: process.env.FROM_EMAIL,
+    to: 'info@thedotcreative.co',
+    subject: `💼 NEW EFFICIENCY BRIEF: ${data.companyName} - ${data.contactName} (Score: ${data.connectionScore}/10)`,
+    html: htmlContent,
+  };
+  
+  console.log('Sending efficiency brief email with options:', { 
+    from: mailOptions.from, 
+    to: mailOptions.to, 
+    subject: mailOptions.subject
+  });
+  
+  await transporter.sendMail(mailOptions);
+  console.log('Efficiency brief email sent successfully to: info@thedotcreative.co');
+}

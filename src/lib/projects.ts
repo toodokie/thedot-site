@@ -338,13 +338,13 @@ export function generateProjectMetadata(project: Project) {
     description: seoDescription,
     keywords: `web design portfolio, ${project.category || 'website design'}, professional web development Ontario, custom design solutions GTA, ${project.tools?.slice(0, 3).join(', ') || ''}`,
     alternates: {
-      canonical: `https://www.thedotcreative.co/projects/${project.slug}`,
+      canonical: `/projects/${project.slug}`,
     },
     
     openGraph: {
       title: `${project.title} | The Dot Creative Portfolio`,
       description: seoDescription,
-      url: `https://thedotcreative.co/projects/${project.slug}`,
+      url: `https://www.thedotcreative.co/projects/${project.slug}`,
       siteName: 'The Dot Creative Agency',
       images: [
         {

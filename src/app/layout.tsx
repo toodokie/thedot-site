@@ -7,12 +7,12 @@ import { Analytics } from "@vercel/analytics/next";
 import "./styles/globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'),
+  metadataBase: new URL('https://www.thedotcreative.co'),
   title: "The Dot Creative Agency | Web Design & Development | GTA Ontario",
   description: "Professional web design agency in Ontario, Canada. International design expertise for GTA businesses. Custom websites that convert visitors into customers.",
   keywords: "web design agency GTA, website design Ontario, professional web development Toronto, custom website design Canada, international design standards",
   alternates: {
-    canonical: 'https://www.thedotcreative.co',
+    canonical: '/',
   },
   icons: {
     icon: [
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "The Dot Creative Agency | Professional Web Design GTA",
     description: "International design expertise for GTA businesses. Custom websites that convert visitors into customers.",
-    url: "https://thedotcreative.co",
+    url: "https://www.thedotcreative.co",
     siteName: "The Dot Creative Agency",
     images: [
       {
@@ -174,7 +174,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   };
 
   return (
-    <html lang="en">
+    <html lang="en-CA">
       <head>
         {/* FAVICON FIRST - Safari prefers early favicon declarations */}
         <link rel="icon" href="/favicon.ico?v=5" />

@@ -211,7 +211,7 @@ export default function ProjectBrief() {
                                   <h1 className="brief-title">Websites Brief</h1>
                                   
                                   <div className="w-layout-blockcontainer form-container w-container">
-                                    <h1 className="dot_forms_title sites">Your Contacts:</h1>
+                                    <h2 className="dot_forms_title sites">Your Contacts:</h2>
                                     <label htmlFor="name-3" className="dot_field_label">Name:</label>
                                     <input className="text-field-3 w-input" maxLength={256} name="name-2" data-name="Name 2" placeholder="" type="text" id="name-3" required />
                                     <label htmlFor="email-3" className="dot_field_label">Email:</label>
@@ -219,9 +219,9 @@ export default function ProjectBrief() {
                                   </div>
 
                                   <div className="w-layout-blockcontainer form-container w-container">
-                                    <h1 className="dot_forms_title sites">Lead Qualification:</h1>
+                                    <h2 className="dot_forms_title sites">Lead Qualification:</h2>
                                     
-                                    <h1 className="dot_field_label"><strong>Company Size</strong></h1>
+                                    <div className="dot_field_label"><strong>Company Size</strong></div>
                                     <label className="radio-button-field w-radio">
                                       <input type="radio" name="company-size" className="w-form-formradioinput radio-button w-radio-input" value="Solo" />
                                       <span className="radio-button-label w-form-label">Solo</span>
@@ -239,7 +239,7 @@ export default function ProjectBrief() {
                                       <span className="radio-button-label w-form-label">50+ employees</span>
                                     </label>
 
-                                    <h1 className="dot_field_label"><strong>Decision Maker Level</strong></h1>
+                                    <div className="dot_field_label"><strong>Decision Maker Level</strong></div>
                                     <label className="radio-button-field w-radio">
                                       <input type="radio" name="decision-level" className="w-form-formradioinput radio-button w-radio-input" value="I make decisions" />
                                       <span className="radio-button-label w-form-label">I make decisions</span>
@@ -253,7 +253,7 @@ export default function ProjectBrief() {
                                       <span className="radio-button-label w-form-label">Team decision</span>
                                     </label>
 
-                                    <h1 className="dot_field_label"><strong>Project Urgency</strong></h1>
+                                    <div className="dot_field_label"><strong>Project Urgency</strong></div>
                                     <label className="radio-button-field w-radio">
                                       <input type="radio" name="project-urgency" className="w-form-formradioinput radio-button w-radio-input" value="ASAP" />
                                       <span className="radio-button-label w-form-label">ASAP</span>
@@ -271,7 +271,7 @@ export default function ProjectBrief() {
                                       <span className="radio-button-label w-form-label">Planning ahead</span>
                                     </label>
 
-                                    <h1 className="dot_field_label"><strong>How Did You Hear About Us?</strong></h1>
+                                    <div className="dot_field_label"><strong>How Did You Hear About Us?</strong></div>
                                     <label className="radio-button-field w-radio">
                                       <input type="radio" name="how-did-you-hear" className="w-form-formradioinput radio-button w-radio-input" value="Google" />
                                       <span className="radio-button-label w-form-label">Google</span>
@@ -291,30 +291,30 @@ export default function ProjectBrief() {
                                   </div>
 
                                   <div className="w-layout-blockcontainer form-container w-container">
-                                    <h1 className="dot_forms_title sites">1/6 Company&apos;s Info:</h1>
-                                    <h1 className="dot_field_label"><strong className="bold-text-6">Business Sector</strong></h1>
+                                    <h2 className="dot_forms_title sites">1/6 Company&apos;s Info:</h1>
+                                    <div className="dot_field_label"><strong className="bold-text-6">Business Sector</strong></div>
                                     <textarea id="sphere-3" name="sphere-2" maxLength={5000} data-name="Sphere 2" placeholder="" className="text-filed-3 w-input"></textarea>
-                                    <h1 className="dot_field_label"><strong className="bold-text-5">Key Competitors</strong></h1>
+                                    <div className="dot_field_label"><strong className="bold-text-5">Key Competitors</strong></div>
                                     <textarea id="competitors-3" name="competitors-2" maxLength={5000} data-name="Competitors 2" placeholder="" className="text-filed-3 w-input"></textarea>
-                                    <h1 className="dot_field_label"><strong className="bold-text-16">Competitive Edge</strong></h1>
+                                    <div className="dot_field_label"><strong className="bold-text-16">Competitive Edge</strong></div>
                                     <textarea id="stand-out-3" name="stand-out-2" maxLength={5000} data-name="Stand Out 2" placeholder="" className="text-filed-3 w-input"></textarea>
                                   </div>
 
                                   <div className="w-layout-blockcontainer form-container w-container">
-                                    <h1 className="dot_forms_title sites">2/6 <strong className="bold-text-7">Core Business Activities</strong>:</h1>
-                                    <h1 className="dot_field_label"><strong className="bold-text-8">Products/Services Offered</strong></h1>
+                                    <h2 className="dot_forms_title sites">2/6 <strong className="bold-text-7">Core Business Activities</strong>:</h1>
+                                    <div className="dot_field_label"><strong className="bold-text-8">Products/Services Offered</strong></div>
                                     <textarea id="produces-3" name="produces-2" maxLength={5000} data-name="Produces 2" placeholder="" className="text-filed-3 w-input"></textarea>
-                                    <h1 className="dot_field_label"><strong className="bold-text-9">Target Audience Description</strong></h1>
+                                    <div className="dot_field_label"><strong className="bold-text-9">Target Audience Description</strong></div>
                                     <textarea id="audience-3" name="audience-2" maxLength={5000} data-name="Audience 2" placeholder="" className="text-filed-3 w-input"></textarea>
-                                    <h1 className="dot_field_label"><strong className="bold-text-10">Primary Sales Channels</strong></h1>
+                                    <div className="dot_field_label"><strong className="bold-text-10">Primary Sales Channels</strong></div>
                                     <textarea id="sales-channel-3" name="sales-channel-2" maxLength={5000} data-name="Sales Channel 2" placeholder="" className="text-filed-3 w-input"></textarea>
-                                    <h1 className="dot_field_label"><strong className="bold-text-11">Sales Regions</strong></h1>
+                                    <div className="dot_field_label"><strong className="bold-text-11">Sales Regions</strong></div>
                                     <textarea id="sales-geography-3" name="sales-geography-2" maxLength={5000} data-name="Sales Geography 2" placeholder="" className="text-filed-3 w-input"></textarea>
-                                    <h1 className="dot_field_label"><strong className="bold-text-12">Unique Selling Points</strong></h1>
+                                    <div className="dot_field_label"><strong className="bold-text-12">Unique Selling Points</strong></div>
                                     <textarea id="produce-benefits-3" name="produce-benefits-2" maxLength={5000} data-name="Produce Benefits 2" placeholder="" className="text-filed-3 w-input"></textarea>
-                                    <h1 className="dot_field_label"><strong className="bold-text-13">Pricing Strategy</strong></h1>
+                                    <div className="dot_field_label"><strong className="bold-text-13">Pricing Strategy</strong></div>
                                     <textarea id="pricing-niche-2" name="pricing-niche-2" maxLength={5000} data-name="Pricing Niche 2" placeholder="" className="text-filed-3 w-input"></textarea>
-                                    <h1 className="dot_field_label"><strong className="bold-text-14">Main Source of Customers</strong></h1>
+                                    <div className="dot_field_label"><strong className="bold-text-14">Main Source of Customers</strong></div>
                                     <label data-w-id="fedee880-7b4d-c63e-75bd-9f4fb22a387f" className="radio-button-field-14 w-radio">
                                       <input id="search-2" type="radio" name="getting-clients" data-name="getting clients" className="w-form-formradioinput radio-button-13 w-radio-input" value="search" />
                                       <span htmlFor="search-2" className="radio-button-label w-form-label">Search Engine Advertising</span>
@@ -331,12 +331,12 @@ export default function ProjectBrief() {
                                   </div>
 
                                   <div className="w-layout-blockcontainer form-container-web w-container">
-                                    <h1 className="dot_forms_title sites">3/6 Website Development Preferences</h1>
+                                    <h2 className="dot_forms_title sites">3/6 Website Development Preferences</h1>
                                     
-                                    <h1 className="dot_field_label">Current Website</h1>
+                                    <div className="dot_field_label">Current Website</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="current-website" data-name="Current Website" placeholder="Website URL or 'No current website'" type="text" id="current-website" />
                                     
-                                    <h1 className="dot_field_label">Biggest Website Challenge</h1>
+                                    <div className="dot_field_label">Biggest Website Challenge</h1>
                                     <label className="radio-button-field w-radio">
                                       <input type="radio" name="website-challenge" className="w-form-formradioinput radio-button w-radio-input" value="Traffic" />
                                       <span className="radio-button-label w-form-label">Traffic</span>
@@ -354,7 +354,7 @@ export default function ProjectBrief() {
                                       <span className="radio-button-label w-form-label">Technical</span>
                                     </label>
                                     
-                                    <h1 className="dot_field_label">Success Metrics</h1>
+                                    <div className="dot_field_label">Success Metrics</h1>
                                     <label className="radio-button-field w-radio">
                                       <input type="radio" name="success-metrics" className="w-form-formradioinput radio-button w-radio-input" value="More leads" />
                                       <span className="radio-button-label w-form-label">More leads</span>
@@ -372,7 +372,7 @@ export default function ProjectBrief() {
                                       <span className="radio-button-label w-form-label">User experience</span>
                                     </label>
 
-                                    <h1 className="dot_field_label">What Type of Website Are You Interested In?</h1>
+                                    <div className="dot_field_label">What Type of Website Are You Interested In?</h1>
                                     <label data-w-id="fedee880-7b4d-c63e-75bd-9f4fb22a3893" className="radio-button-field-8 w-radio">
                                       <input id="company " type="radio" name="site-type" data-name="site type" className="w-form-formradioinput radio-button-3 w-radio-input" value="company " />
                                       <span htmlFor="company " className="radio-button-label w-form-label">Company&apos;s Website</span>
@@ -391,13 +391,13 @@ export default function ProjectBrief() {
                                     </label>
                                     <input className="text-filed-3 w-input" maxLength={256} name="site-type-other-text-2" data-name="Site Type Other Text 2" placeholder="Provide Details" type="text" id="site-type-other-text-3" />
                                     
-                                    <h1 className="dot_field_label">Domain&apos;s Address, if applicable<span className="text-span-38"></span></h1>
+                                    <div className="dot_field_label">Domain&apos;s Address, if applicable<span className="text-span-38"></span></h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="domain-name-2" data-name="Domain Name 2" placeholder="" type="text" id="domain-name-2" />
                                     
-                                    <h1 className="dot_field_label">What do you think could set your website apart from others in your niche?</h1>
+                                    <div className="dot_field_label">What do you think could set your website apart from others in your niche?</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="site-stand-out-2" data-name="Site Stand Out 2" placeholder="" type="text" id="site-stand-out-2" />
                                     
-                                    <h1 className="dot_field_label">Expected action from the website visitor</h1>
+                                    <div className="dot_field_label">Expected action from the website visitor</h1>
                                     <label data-w-id="fedee880-7b4d-c63e-75bd-9f4fb22a38ae" className="radio-button-field-4 w-radio">
                                       <input id="form" type="radio" name="desired-behavior" data-name="desired behavior" className="w-form-formradioinput radio-button-7 w-radio-input" value="form" />
                                       <span htmlFor="form" className="radio-button-label w-form-label">Form Filling</span>
@@ -416,31 +416,31 @@ export default function ProjectBrief() {
                                     </label>
                                     <input className="text-filed-3 w-input" maxLength={256} name="desired-behavior-other-text-2" data-name="Desired Behavior Other Text 2" placeholder="Provide Details" type="text" id="desired-behavior-other-text-2" />
                                     
-                                    <h1 className="dot_field_label">Approximate Number of Pages</h1>
+                                    <div className="dot_field_label">Approximate Number of Pages</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="pages-per-site-2" data-name="Pages Per Site 2" placeholder="" type="text" id="pages-per-site-2" />
                                     
-                                    <h1 className="dot_field_label">Website Structure with Section Titles</h1>
+                                    <div className="dot_field_label">Website Structure with Section Titles</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="site-structure-2" data-name="Site Structure 2" placeholder="" type="text" id="site-structure-2" required />
                                     
-                                    <h1 className="dot_field_label">Desired Content Blocks on the Main Page</h1>
+                                    <div className="dot_field_label">Desired Content Blocks on the Main Page</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="main-page-architecture-2" data-name="Main Page Architecture 2" placeholder="" type="text" id="main-page-architecture-2" />
                                     
-                                    <h1 className="dot_field_label">Desired Content Blocks on Other Pages</h1>
+                                    <div className="dot_field_label">Desired Content Blocks on Other Pages</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="other-pages-architecture-2" data-name="Other Pages Architecture 2" placeholder="" type="text" id="other-pages-architecture-2" />
                                   </div>
 
                                   <div className="w-layout-blockcontainer form-container-web w-container">
-                                    <h1 className="dot_forms_title sites">4/6 Design & Contents</h1>
-                                    <h1 className="dot_field_label">Please indicate what elements of corporate identity your company has</h1>
+                                    <h2 className="dot_forms_title sites">4/6 Design & Contents</h1>
+                                    <div className="dot_field_label">Please indicate what elements of corporate identity your company has</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="brand-assets-2" data-name="Brand Assets 2" placeholder="" type="text" id="brand-assets-2" required />
                                     
-                                    <h1 className="dot_field_label">Examples of websites you like (try to note what exactly caught your attention)</h1>
+                                    <div className="dot_field_label">Examples of websites you like (try to note what exactly caught your attention)</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="reference-sites-2" data-name="Reference Sites 2" placeholder="" type="text" id="reference-sites-2" required />
                                     
-                                    <h1 className="dot_field_label">Examples of websites you do not like (try to specify the reasons)</h1>
+                                    <div className="dot_field_label">Examples of websites you do not like (try to specify the reasons)</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="sites-no-follow-2" data-name="Sites No Follow 2" placeholder="" type="text" id="sites-no-follow-2" required />
                                     
-                                    <h1 className="dot_field_label">Will there be a need for creating and selecting visual content for the website (photos, illustrations, 3D graphics, etc.)?</h1>
+                                    <div className="dot_field_label">Will there be a need for creating and selecting visual content for the website (photos, illustrations, 3D graphics, etc.)?</h1>
                                     <label data-w-id="fedee880-7b4d-c63e-75bd-9f4fb22a38eb" className="radio-button-label w-radio">
                                       <input id="yes" type="radio" name="assets-creation" data-name="assets creation" className="w-form-formradioinput radio-button w-radio-input" value="yes" />
                                       <span htmlFor="yes" className="radio-button-label w-form-label">Yes</span>
@@ -451,13 +451,13 @@ export default function ProjectBrief() {
                                     </label>
                                     <input className="text-filed-3 w-input" maxLength={256} name="assets-creation-yes-text-2" data-name="Assets Creation Yes Text 2" placeholder="Specify please" type="text" id="assets-creation-yes-text-2" required />
                                     
-                                    <h1 className="dot_field_label">Overall style and mood (for example, modern/ elegant/ bright/ minimalistic/classic, etc.)</h1>
+                                    <div className="dot_field_label">Overall style and mood (for example, modern/ elegant/ bright/ minimalistic/classic, etc.)</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="overall-site-style-2" data-name="Overall Site Style 2" placeholder="" type="text" id="overall-site-style-2" required />
                                   </div>
 
                                   <div className="w-layout-blockcontainer form-container-web w-container">
-                                    <h1 className="dot_forms_title sites">5/6 Functional Features</h1>
-                                    <h1 className="dot_field_label">What embedded elements are necessary for the website (select multiple if required)</h1>
+                                    <h2 className="dot_forms_title sites">5/6 Functional Features</h1>
+                                    <div className="dot_field_label">What embedded elements are necessary for the website (select multiple if required)</h1>
                                     <label data-w-id="fedee880-7b4d-c63e-75bd-9f4fb22a38ff" className="w-checkbox checkbox-field-6">
                                       <input id="built in elements catalog" type="checkbox" name="built-in-elements-catalog" data-name="built in elements catalog" className="w-checkbox-input checkbox" />
                                       <span htmlFor="built-in-elements-catalog" className="checkbox-label w-form-label">Product Catalog</span>
@@ -484,10 +484,10 @@ export default function ProjectBrief() {
                                     </label>
                                     <input className="text-filed-3 w-input" maxLength={256} name="built-in-elements-other-text-2" data-name="Built In Elements Other Text 2" placeholder="Specify please" type="text" id="built-in-elements-other-text-2" />
                                     
-                                    <h1 className="dot_field_label">How often do you plan to update the content on the website?</h1>
+                                    <div className="dot_field_label">How often do you plan to update the content on the website?</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="update-frequency-2" data-name="Update Frequency 2" placeholder="for example, a couple of times a week" type="text" id="update-frequency-2" required />
                                     
-                                    <h1 className="dot_field_label">Who will be responsible for updating the content?</h1>
+                                    <div className="dot_field_label">Who will be responsible for updating the content?</h1>
                                     <label data-w-id="fedee880-7b4d-c63e-75bd-9f4fb22a391d" className="radio-button-field-3 w-radio">
                                       <input id="skilled" type="radio" name="update-person" data-name="update person" className="w-form-formradioinput radio-button-11 w-radio-input" value="skilled" />
                                       <span htmlFor="skilled" className="radio-button-label w-form-label">Skilled Specialist </span>
@@ -499,11 +499,11 @@ export default function ProjectBrief() {
                                   </div>
 
                                   <div className="w-layout-blockcontainer form-container-web w-container">
-                                    <h1 className="dot_forms_title sites">6/6 General information about the project:</h1>
-                                    <h1 className="dot_field_label">Desired launch date for the website?</h1>
+                                    <h2 className="dot_forms_title sites">6/6 General information about the project:</h1>
+                                    <div className="dot_field_label">Desired launch date for the website?</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="deadline-date-2" data-name="Deadline Date 2" placeholder="" type="text" id="deadline-date-3" required />
                                     
-                                    <h1 className="dot_field_label">Approximate Budget</h1>
+                                    <div className="dot_field_label">Approximate Budget</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="project-budjet-2" data-name="Project Budjet 2" placeholder="" type="text" id="project-budjet-3" required />
                                     
                                     <div className="w-layout-blockcontainer form-container-web w-container">
@@ -573,7 +573,7 @@ export default function ProjectBrief() {
                                   <h1 className="brief-title">Graphic Design Brief</h1>
                                   
                                   <div className="w-layout-blockcontainer form-container w-container">
-                                    <h1 className="dot_forms_title sites">Your Contacts:</h1>
+                                    <h2 className="dot_forms_title sites">Your Contacts:</h2>
                                     <label htmlFor="name-2" className="dot_field_label">Name:</label>
                                     <input className="text-field-3 w-input" maxLength={256} name="name-2" data-name="Name 2" placeholder="" type="text" id="name-2" required />
                                     <label htmlFor="email-2" className="dot_field_label">Email:</label>
@@ -581,9 +581,9 @@ export default function ProjectBrief() {
                                   </div>
 
                                   <div className="w-layout-blockcontainer form-container w-container">
-                                    <h1 className="dot_forms_title sites">Lead Qualification:</h1>
+                                    <h2 className="dot_forms_title sites">Lead Qualification:</h2>
                                     
-                                    <h1 className="dot_field_label"><strong>Company Size</strong></h1>
+                                    <div className="dot_field_label"><strong>Company Size</strong></div>
                                     <label className="radio-button-field w-radio">
                                       <input type="radio" name="company-size" className="w-form-formradioinput radio-button w-radio-input" value="Solo" />
                                       <span className="radio-button-label w-form-label">Solo</span>
@@ -601,7 +601,7 @@ export default function ProjectBrief() {
                                       <span className="radio-button-label w-form-label">50+ employees</span>
                                     </label>
 
-                                    <h1 className="dot_field_label"><strong>Decision Maker Level</strong></h1>
+                                    <div className="dot_field_label"><strong>Decision Maker Level</strong></div>
                                     <label className="radio-button-field w-radio">
                                       <input type="radio" name="decision-level" className="w-form-formradioinput radio-button w-radio-input" value="I make decisions" />
                                       <span className="radio-button-label w-form-label">I make decisions</span>
@@ -615,7 +615,7 @@ export default function ProjectBrief() {
                                       <span className="radio-button-label w-form-label">Team decision</span>
                                     </label>
 
-                                    <h1 className="dot_field_label"><strong>Project Urgency</strong></h1>
+                                    <div className="dot_field_label"><strong>Project Urgency</strong></div>
                                     <label className="radio-button-field w-radio">
                                       <input type="radio" name="project-urgency" className="w-form-formradioinput radio-button w-radio-input" value="ASAP" />
                                       <span className="radio-button-label w-form-label">ASAP</span>
@@ -633,7 +633,7 @@ export default function ProjectBrief() {
                                       <span className="radio-button-label w-form-label">Planning ahead</span>
                                     </label>
 
-                                    <h1 className="dot_field_label"><strong>How Did You Hear About Us?</strong></h1>
+                                    <div className="dot_field_label"><strong>How Did You Hear About Us?</strong></div>
                                     <label className="radio-button-field w-radio">
                                       <input type="radio" name="how-did-you-hear" className="w-form-formradioinput radio-button w-radio-input" value="Google" />
                                       <span className="radio-button-label w-form-label">Google</span>
@@ -653,28 +653,28 @@ export default function ProjectBrief() {
                                   </div>
 
                                   <div className="w-layout-blockcontainer form-container w-container">
-                                    <h1 className="dot_forms_title sites">1/5 Company&apos;s Info:</h1>
-                                    <h1 className="dot_field_label"><strong className="bold-text-6">Business Sector</strong></h1>
+                                    <h2 className="dot_forms_title sites">1/5 Company&apos;s Info:</h1>
+                                    <div className="dot_field_label"><strong className="bold-text-6">Business Sector</strong></div>
                                     <textarea id="sphere-2" name="sphere-2" maxLength={5000} data-name="Sphere 2" placeholder="" className="text-filed-3 w-input"></textarea>
-                                    <h1 className="dot_field_label"><strong className="bold-text-5">Key Competitors</strong></h1>
+                                    <div className="dot_field_label"><strong className="bold-text-5">Key Competitors</strong></div>
                                     <textarea id="competitors-2" name="competitors-2" maxLength={5000} data-name="Competitors 2" placeholder="" className="text-filed-3 w-input"></textarea>
-                                    <h1 className="dot_field_label"><strong className="bold-text-16">Competitive Edge</strong></h1>
+                                    <div className="dot_field_label"><strong className="bold-text-16">Competitive Edge</strong></div>
                                     <textarea id="stand-out-2" name="stand-out-2" maxLength={5000} data-name="Stand Out 2" placeholder="" className="text-filed-3 w-input"></textarea>
                                   </div>
 
                                   <div className="w-layout-blockcontainer form-container w-container">
-                                    <h1 className="dot_forms_title sites">2/5 <strong className="bold-text-7">Core Business Activities</strong>:</h1>
-                                    <h1 className="dot_field_label"><strong className="bold-text-8">Products/Services Offered</strong></h1>
+                                    <h2 className="dot_forms_title sites">2/5 <strong className="bold-text-7">Core Business Activities</strong>:</h1>
+                                    <div className="dot_field_label"><strong className="bold-text-8">Products/Services Offered</strong></div>
                                     <textarea id="produces-2" name="produces-2" maxLength={5000} data-name="Produces 2" placeholder="" className="text-filed-3 w-input"></textarea>
-                                    <h1 className="dot_field_label"><strong className="bold-text-9">Target Audience Description</strong></h1>
+                                    <div className="dot_field_label"><strong className="bold-text-9">Target Audience Description</strong></div>
                                     <textarea id="audience-2" name="audience-2" maxLength={5000} data-name="Audience 2" placeholder="" className="text-filed-3 w-input"></textarea>
-                                    <h1 className="dot_field_label"><strong className="bold-text-10">Primary Sales Channels</strong></h1>
+                                    <div className="dot_field_label"><strong className="bold-text-10">Primary Sales Channels</strong></div>
                                     <textarea id="sales-channel-2" name="sales-channel-2" maxLength={5000} data-name="Sales Channel 2" placeholder="" className="text-filed-3 w-input"></textarea>
-                                    <h1 className="dot_field_label"><strong className="bold-text-11">Sales Regions</strong></h1>
+                                    <div className="dot_field_label"><strong className="bold-text-11">Sales Regions</strong></div>
                                     <textarea id="sales-geography-2" name="sales-geography-2" maxLength={5000} data-name="Sales Geography 2" placeholder="" className="text-filed-3 w-input"></textarea>
-                                    <h1 className="dot_field_label"><strong className="bold-text-12">Unique Selling Points</strong></h1>
+                                    <div className="dot_field_label"><strong className="bold-text-12">Unique Selling Points</strong></div>
                                     <textarea id="produce-benefits-2" name="produce-benefits-2" maxLength={5000} data-name="Produce Benefits 2" placeholder="" className="text-filed-3 w-input"></textarea>
-                                    <h1 className="dot_field_label"><strong className="bold-text-14">Main Source of Customers</strong></h1>
+                                    <div className="dot_field_label"><strong className="bold-text-14">Main Source of Customers</strong></div>
                                     <label data-w-id="0d26b044-80d0-a38f-eccd-c3ce5a46d423" className="radio-button-field-14 w-radio">
                                       <input id="search" type="radio" name="getting-clients" data-name="getting clients" className="w-form-formradioinput radio-button-13 w-radio-input" value="search" />
                                       <span htmlFor="search" className="radio-button-label w-form-label">Search Engine Advertising</span>
@@ -691,9 +691,9 @@ export default function ProjectBrief() {
                                   </div>
 
                                   <div className="w-layout-blockcontainer form-container-web w-container">
-                                    <h1 className="dot_forms_title sites">3/5 Preferences:</h1>
+                                    <h2 className="dot_forms_title sites">3/5 Preferences:</h1>
                                     
-                                    <h1 className="dot_field_label">Brand Maturity</h1>
+                                    <div className="dot_field_label">Brand Maturity</h1>
                                     <label className="radio-button-field w-radio">
                                       <input type="radio" name="brand-maturity" className="w-form-formradioinput radio-button w-radio-input" value="Startup" />
                                       <span className="radio-button-label w-form-label">Startup</span>
@@ -707,7 +707,7 @@ export default function ProjectBrief() {
                                       <span className="radio-button-label w-form-label">Established evolution</span>
                                     </label>
                                     
-                                    <h1 className="dot_field_label">Usage Timeline</h1>
+                                    <div className="dot_field_label">Usage Timeline</h1>
                                     <label className="radio-button-field w-radio">
                                       <input type="radio" name="usage-timeline" className="w-form-formradioinput radio-button w-radio-input" value="Immediate launch" />
                                       <span className="radio-button-label w-form-label">Immediate launch</span>
@@ -721,7 +721,7 @@ export default function ProjectBrief() {
                                       <span className="radio-button-label w-form-label">Future planning</span>
                                     </label>
                                     
-                                    <h1 className="dot_field_label">Internal Resources</h1>
+                                    <div className="dot_field_label">Internal Resources</h1>
                                     <label className="radio-button-field w-radio">
                                       <input type="radio" name="internal-resources" className="w-form-formradioinput radio-button w-radio-input" value="No design team" />
                                       <span className="radio-button-label w-form-label">No design team</span>
@@ -735,7 +735,7 @@ export default function ProjectBrief() {
                                       <span className="radio-button-label w-form-label">Full team</span>
                                     </label>
 
-                                    <h1 className="dot_field_label">Type of Design Service Required:</h1>
+                                    <div className="dot_field_label">Type of Design Service Required:</h1>
                                     <label data-w-id="0d26b044-80d0-a38f-eccd-c3ce5a46d436" className="radio-button-field-8 w-radio">
                                       <input id="Logo-Design" type="radio" name="Services-Required" data-name="Services Required" className="w-form-formradioinput radio-button-3 w-radio-input" value="Logo Design" />
                                       <span htmlFor="Logo-Design" className="radio-button-label graphic w-form-label"><strong>Logo Design</strong>: This is ideal if you&apos;re starting a new business or venture and require a logo. We will focus solely on creating a unique, impactful logo that represents your brand.</span>
@@ -754,13 +754,13 @@ export default function ProjectBrief() {
                                     </label>
                                     <input className="text-filed-3 w-input" maxLength={256} name="site-type-other-text-2" data-name="Site Type Other Text 2" placeholder="Provide Details" type="text" id="site-type-other-text-2" />
                                     
-                                    <h1 className="dot_field_label">What adjectives would you use to describe the desired style? (e.g., modern, traditional, playful, elegant)</h1>
+                                    <div className="dot_field_label">What adjectives would you use to describe the desired style? (e.g., modern, traditional, playful, elegant)</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="Desired-Style" data-name="Desired Style" placeholder="" type="text" id="Desired-Style" />
                                     
-                                    <h1 className="dot_field_label">Are there any specific color schemes you&apos;re interested in?</h1>
+                                    <div className="dot_field_label">Are there any specific color schemes you&apos;re interested in?</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="Preferred-Colors" data-name="Preferred Colors" placeholder="" type="text" id="Preferred-Colors" />
                                     
-                                    <h1 className="dot_field_label">Do you have existing brand guidelines that the design needs to adhere to?</h1>
+                                    <div className="dot_field_label">Do you have existing brand guidelines that the design needs to adhere to?</h1>
                                     <label data-w-id="0d26b044-80d0-a38f-eccd-c3ce5a46d451" className="radio-button-field-4 w-radio">
                                       <input id="Yes-2" type="radio" name="Exciting-Guidelines" data-name="Exciting Guidelines" className="w-form-formradioinput radio-button-7 w-radio-input" value="Yes" />
                                       <span htmlFor="Yes-2" className="radio-button-label w-form-label">Yes</span>
@@ -770,40 +770,40 @@ export default function ProjectBrief() {
                                       <span htmlFor="No-2" className="radio-button-label w-form-label">No</span>
                                     </label>
                                     
-                                    <h1 className="dot_field_label">What is the primary message you want the design to convey?</h1>
+                                    <div className="dot_field_label">What is the primary message you want the design to convey?</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="Audience-Message" data-name="Audience Message" placeholder="" type="text" id="Audience-Message" />
                                     
-                                    <h1 className="dot_field_label">Do you have preferred fonts or typography?</h1>
+                                    <div className="dot_field_label">Do you have preferred fonts or typography?</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="Preferred-fonts" data-name="Preferred fonts" placeholder="" type="text" id="Preferred-fonts" required />
                                     
-                                    <h1 className="dot_field_label">Do you have examples of designs you love? What do you love about them?</h1>
+                                    <div className="dot_field_label">Do you have examples of designs you love? What do you love about them?</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="Design-Examples" data-name="Design Examples" placeholder="" type="text" id="Design-Examples" />
                                     
-                                    <h1 className="dot_field_label">Are there designs you dislike? What elements are unappealing to you?</h1>
+                                    <div className="dot_field_label">Are there designs you dislike? What elements are unappealing to you?</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="Dislike-examples" data-name="Dislike examples" placeholder="" type="text" id="Dislike-examples" />
                                   </div>
 
                                   <div className="w-layout-blockcontainer form-container-web w-container">
-                                    <h1 className="dot_forms_title sites">4/5 Contents</h1>
-                                    <h1 className="dot_field_label">Are there any specific elements that must be included? (e.g., QR code, social media icons)</h1>
+                                    <h2 className="dot_forms_title sites">4/5 Contents</h1>
+                                    <div className="dot_field_label">Are there any specific elements that must be included? (e.g., QR code, social media icons)</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="Special-elements" data-name="Special elements" placeholder="" type="text" id="Special-elements" required />
                                     
-                                    <h1 className="dot_field_label">What is the call-to-action, if applicable?</h1>
+                                    <div className="dot_field_label">What is the call-to-action, if applicable?</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="Call-to-Action" data-name="Call to Action" placeholder="" type="text" id="Call-to-Action" required />
                                     
-                                    <h1 className="dot_field_label">What file formats do you require? (e.g., JPEG, PNG, SVG)</h1>
+                                    <div className="dot_field_label">What file formats do you require? (e.g., JPEG, PNG, SVG)</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="File-Formats" data-name="File Formats" placeholder="" type="text" id="File-Formats" required />
                                     
-                                    <h1 className="dot_field_label">What are the dimensions or layout restrictions? (e.g., print size, digital dimensions)</h1>
+                                    <div className="dot_field_label">What are the dimensions or layout restrictions? (e.g., print size, digital dimensions)</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="Layout-Considerations" data-name="Layout Considerations" placeholder="" type="text" id="Layout-Considerations" required />
                                   </div>
 
                                   <div className="w-layout-blockcontainer form-container-web w-container">
-                                    <h1 className="dot_forms_title sites">5/5 General information about the project:</h1>
-                                    <h1 className="dot_field_label">What is your targeted completion date for the graphic design project?</h1>
+                                    <h2 className="dot_forms_title sites">5/5 General information about the project:</h1>
+                                    <div className="dot_field_label">What is your targeted completion date for the graphic design project?</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="deadline-date-2" data-name="Deadline Date 2" placeholder="" type="text" id="deadline-date-2" required />
                                     
-                                    <h1 className="dot_field_label">Approximate Budget</h1>
+                                    <div className="dot_field_label">Approximate Budget</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="project-budjet-2" data-name="Project Budjet 2" placeholder="" type="text" id="project-budjet-2" required />
                                     
                                     <div className="w-layout-blockcontainer form-container-web w-container">
@@ -873,7 +873,7 @@ export default function ProjectBrief() {
                                   <h1 className="brief-title">Photo & Video Brief</h1>
                                   
                                   <div className="w-layout-blockcontainer form-container w-container">
-                                    <h1 className="dot_forms_title sites">Your Contacts:</h1>
+                                    <h2 className="dot_forms_title sites">Your Contacts:</h2>
                                     <label htmlFor="name-4" className="dot_field_label">Name:</label>
                                     <input className="text-field-3 w-input" maxLength={256} name="name-3" data-name="Name 3" placeholder="" type="text" id="name-4" required />
                                     <label htmlFor="email-4" className="dot_field_label">Email:</label>
@@ -881,9 +881,9 @@ export default function ProjectBrief() {
                                   </div>
 
                                   <div className="w-layout-blockcontainer form-container w-container">
-                                    <h1 className="dot_forms_title sites">Lead Qualification:</h1>
+                                    <h2 className="dot_forms_title sites">Lead Qualification:</h2>
                                     
-                                    <h1 className="dot_field_label"><strong>Company Size</strong></h1>
+                                    <div className="dot_field_label"><strong>Company Size</strong></div>
                                     <label className="radio-button-field w-radio">
                                       <input type="radio" name="company-size" className="w-form-formradioinput radio-button w-radio-input" value="Solo" />
                                       <span className="radio-button-label w-form-label">Solo</span>
@@ -901,7 +901,7 @@ export default function ProjectBrief() {
                                       <span className="radio-button-label w-form-label">50+ employees</span>
                                     </label>
 
-                                    <h1 className="dot_field_label"><strong>Decision Maker Level</strong></h1>
+                                    <div className="dot_field_label"><strong>Decision Maker Level</strong></div>
                                     <label className="radio-button-field w-radio">
                                       <input type="radio" name="decision-level" className="w-form-formradioinput radio-button w-radio-input" value="I make decisions" />
                                       <span className="radio-button-label w-form-label">I make decisions</span>
@@ -915,7 +915,7 @@ export default function ProjectBrief() {
                                       <span className="radio-button-label w-form-label">Team decision</span>
                                     </label>
 
-                                    <h1 className="dot_field_label"><strong>Project Urgency</strong></h1>
+                                    <div className="dot_field_label"><strong>Project Urgency</strong></div>
                                     <label className="radio-button-field w-radio">
                                       <input type="radio" name="project-urgency" className="w-form-formradioinput radio-button w-radio-input" value="ASAP" />
                                       <span className="radio-button-label w-form-label">ASAP</span>
@@ -933,7 +933,7 @@ export default function ProjectBrief() {
                                       <span className="radio-button-label w-form-label">Planning ahead</span>
                                     </label>
 
-                                    <h1 className="dot_field_label"><strong>How Did You Hear About Us?</strong></h1>
+                                    <div className="dot_field_label"><strong>How Did You Hear About Us?</strong></div>
                                     <label className="radio-button-field w-radio">
                                       <input type="radio" name="how-did-you-hear" className="w-form-formradioinput radio-button w-radio-input" value="Google" />
                                       <span className="radio-button-label w-form-label">Google</span>
@@ -953,28 +953,28 @@ export default function ProjectBrief() {
                                   </div>
 
                                   <div className="w-layout-blockcontainer form-container w-container">
-                                    <h1 className="dot_forms_title sites">1/6 Company&apos;s Info:</h1>
-                                    <h1 className="dot_field_label"><strong className="bold-text-6">Business Sector</strong></h1>
+                                    <h2 className="dot_forms_title sites">1/6 Company&apos;s Info:</h1>
+                                    <div className="dot_field_label"><strong className="bold-text-6">Business Sector</strong></div>
                                     <textarea id="sphere-4" name="sphere-3" maxLength={5000} data-name="Sphere 3" placeholder="" className="text-filed-3 w-input"></textarea>
-                                    <h1 className="dot_field_label"><strong className="bold-text-5">Key Competitors</strong></h1>
+                                    <div className="dot_field_label"><strong className="bold-text-5">Key Competitors</strong></div>
                                     <textarea id="competitors-4" name="competitors-3" maxLength={5000} data-name="Competitors 3" placeholder="" className="text-filed-3 w-input"></textarea>
-                                    <h1 className="dot_field_label"><strong className="bold-text-16">Competitive Edge</strong></h1>
+                                    <div className="dot_field_label"><strong className="bold-text-16">Competitive Edge</strong></div>
                                     <textarea id="stand-out-4" name="stand-out-3" maxLength={5000} data-name="Stand Out 3" placeholder="" className="text-filed-3 w-input"></textarea>
                                   </div>
 
                                   <div className="w-layout-blockcontainer form-container w-container">
-                                    <h1 className="dot_forms_title sites">2/6 <strong className="bold-text-7">Core Business Activities</strong>:</h1>
-                                    <h1 className="dot_field_label"><strong className="bold-text-8">Products/Services Offered</strong></h1>
+                                    <h2 className="dot_forms_title sites">2/6 <strong className="bold-text-7">Core Business Activities</strong>:</h1>
+                                    <div className="dot_field_label"><strong className="bold-text-8">Products/Services Offered</strong></div>
                                     <textarea id="produces-4" name="produces-3" maxLength={5000} data-name="Produces 3" placeholder="" className="text-filed-3 w-input"></textarea>
-                                    <h1 className="dot_field_label"><strong className="bold-text-9">Target Audience Description</strong></h1>
+                                    <div className="dot_field_label"><strong className="bold-text-9">Target Audience Description</strong></div>
                                     <textarea id="audience-4" name="audience-3" maxLength={5000} data-name="Audience 3" placeholder="" className="text-filed-3 w-input"></textarea>
-                                    <h1 className="dot_field_label"><strong className="bold-text-10">Primary Sales Channels</strong></h1>
+                                    <div className="dot_field_label"><strong className="bold-text-10">Primary Sales Channels</strong></div>
                                     <textarea id="sales-channel-4" name="sales-channel-3" maxLength={5000} data-name="Sales Channel 3" placeholder="" className="text-filed-3 w-input"></textarea>
-                                    <h1 className="dot_field_label"><strong className="bold-text-11">Sales Regions</strong></h1>
+                                    <div className="dot_field_label"><strong className="bold-text-11">Sales Regions</strong></div>
                                     <textarea id="sales-geography-4" name="sales-geography-3" maxLength={5000} data-name="Sales Geography 3" placeholder="" className="text-filed-3 w-input"></textarea>
-                                    <h1 className="dot_field_label"><strong className="bold-text-12">Unique Selling Points</strong></h1>
+                                    <div className="dot_field_label"><strong className="bold-text-12">Unique Selling Points</strong></div>
                                     <textarea id="produce-benefits-4" name="produce-benefits-3" maxLength={5000} data-name="Produce Benefits 3" placeholder="" className="text-filed-3 w-input"></textarea>
-                                    <h1 className="dot_field_label"><strong className="bold-text-14">Main Source of Customers</strong></h1>
+                                    <div className="dot_field_label"><strong className="bold-text-14">Main Source of Customers</strong></div>
                                     <label className="radio-button-field-14 w-radio">
                                       <input id="search-photo" type="radio" name="getting-clients-photo" data-name="getting clients photo" className="w-form-formradioinput radio-button-13 w-radio-input" value="search" />
                                       <span htmlFor="search-photo" className="radio-button-label w-form-label">Search Engine Advertising</span>
@@ -991,9 +991,9 @@ export default function ProjectBrief() {
                                   </div>
 
                                   <div className="w-layout-blockcontainer form-container-web w-container">
-                                    <h1 className="dot_forms_title sites">3/6 Project Preferences:</h1>
+                                    <h2 className="dot_forms_title sites">3/6 Project Preferences:</h1>
                                     
-                                    <h1 className="dot_field_label">Content Library Needs</h1>
+                                    <div className="dot_field_label">Content Library Needs</h1>
                                     <label className="radio-button-field w-radio">
                                       <input type="radio" name="content-library" className="w-form-formradioinput radio-button w-radio-input" value="One-time" />
                                       <span className="radio-button-label w-form-label">One-time</span>
@@ -1007,7 +1007,7 @@ export default function ProjectBrief() {
                                       <span className="radio-button-label w-form-label">Seasonal campaigns</span>
                                     </label>
                                     
-                                    <h1 className="dot_field_label">Distribution Channels</h1>
+                                    <div className="dot_field_label">Distribution Channels</h1>
                                     <label className="radio-button-field w-radio">
                                       <input type="radio" name="distribution-channels" className="w-form-formradioinput radio-button w-radio-input" value="Website only" />
                                       <span className="radio-button-label w-form-label">Website only</span>
@@ -1025,7 +1025,7 @@ export default function ProjectBrief() {
                                       <span className="radio-button-label w-form-label">Print</span>
                                     </label>
                                     
-                                    <h1 className="dot_field_label">Production Scale</h1>
+                                    <div className="dot_field_label">Production Scale</h1>
                                     <label className="radio-button-field w-radio">
                                       <input type="radio" name="production-scale" className="w-form-formradioinput radio-button w-radio-input" value="Small/intimate" />
                                       <span className="radio-button-label w-form-label">Small/intimate</span>
@@ -1039,7 +1039,7 @@ export default function ProjectBrief() {
                                       <span className="radio-button-label w-form-label">Large/commercial</span>
                                     </label>
 
-                                    <h1 className="dot_field_label">Type of Photo/Video Service Required:</h1>
+                                    <div className="dot_field_label">Type of Photo/Video Service Required:</h1>
                                     <label className="radio-button-field-8 w-radio">
                                       <input id="corporate-headshots" type="radio" name="photo-service-type" data-name="photo service type" className="w-form-formradioinput radio-button-3 w-radio-input" value="corporate-headshots" />
                                       <span htmlFor="corporate-headshots" className="radio-button-label w-form-label">Corporate Headshots</span>
@@ -1066,67 +1066,67 @@ export default function ProjectBrief() {
                                     </label>
                                     <input className="text-filed-3 w-input" maxLength={256} name="photo-service-other-text" data-name="Photo Service Other Text" placeholder="Provide Details" type="text" id="photo-service-other-text" />
                                     
-                                    <h1 className="dot_field_label">What is the primary purpose of this photo/video content?</h1>
+                                    <div className="dot_field_label">What is the primary purpose of this photo/video content?</h1>
                                     <textarea className="text-filed-3 w-input" maxLength={5000} name="project-purpose" data-name="Project Purpose" placeholder="" id="project-purpose"></textarea>
                                     
-                                    <h1 className="dot_field_label">Where will the shooting take place? (studio, on-location, specific venue)</h1>
+                                    <div className="dot_field_label">Where will the shooting take place? (studio, on-location, specific venue)</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="shooting-location" data-name="Shooting Location" placeholder="" type="text" id="shooting-location" />
                                     
-                                    <h1 className="dot_field_label">Estimated duration of the shoot/final video length</h1>
+                                    <div className="dot_field_label">Estimated duration of the shoot/final video length</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="duration" data-name="Duration" placeholder="" type="text" id="duration" />
                                     
-                                    <h1 className="dot_field_label">How many people will be involved in the shoot? (talent, staff, etc.)</h1>
+                                    <div className="dot_field_label">How many people will be involved in the shoot? (talent, staff, etc.)</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="number-of-people" data-name="Number of People" placeholder="" type="text" id="number-of-people" />
                                     
-                                    <h1 className="dot_field_label">Any special equipment or setup requirements?</h1>
+                                    <div className="dot_field_label">Any special equipment or setup requirements?</h1>
                                     <textarea className="text-filed-3 w-input" maxLength={5000} name="equipment-needs" data-name="Equipment Needs" placeholder="" id="equipment-needs"></textarea>
                                     
-                                    <h1 className="dot_field_label">Style preferences (e.g., candid, formal, creative, documentary)</h1>
+                                    <div className="dot_field_label">Style preferences (e.g., candid, formal, creative, documentary)</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="style-preferences" data-name="Style Preferences" placeholder="" type="text" id="style-preferences" />
                                     
-                                    <h1 className="dot_field_label">Reference examples of photo/video styles you love</h1>
+                                    <div className="dot_field_label">Reference examples of photo/video styles you love</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="reference-examples" data-name="Reference Examples" placeholder="" type="text" id="reference-examples" />
                                     
-                                    <h1 className="dot_field_label">Examples of styles you want to avoid</h1>
+                                    <div className="dot_field_label">Examples of styles you want to avoid</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="dislike-examples-photo" data-name="Dislike Examples Photo" placeholder="" type="text" id="dislike-examples-photo" />
                                   </div>
 
                                   <div className="w-layout-blockcontainer form-container-web w-container">
-                                    <h1 className="dot_forms_title sites">4/6 Technical Requirements:</h1>
-                                    <h1 className="dot_field_label">For video: required resolution and frame rate (e.g., 4K, 1080p, 60fps)</h1>
+                                    <h2 className="dot_forms_title sites">4/6 Technical Requirements:</h1>
+                                    <div className="dot_field_label">For video: required resolution and frame rate (e.g., 4K, 1080p, 60fps)</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="video-resolution" data-name="Video Resolution" placeholder="" type="text" id="video-resolution" />
                                     
-                                    <h1 className="dot_field_label">Audio requirements (voiceover, background music, ambient sound)</h1>
+                                    <div className="dot_field_label">Audio requirements (voiceover, background music, ambient sound)</h1>
                                     <textarea className="text-filed-3 w-input" maxLength={5000} name="audio-requirements" data-name="Audio Requirements" placeholder="" id="audio-requirements"></textarea>
                                     
-                                    <h1 className="dot_field_label">Editing style preferences (fast-paced, smooth transitions, minimal editing)</h1>
+                                    <div className="dot_field_label">Editing style preferences (fast-paced, smooth transitions, minimal editing)</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="editing-style" data-name="Editing Style" placeholder="" type="text" id="editing-style" />
                                     
-                                    <h1 className="dot_field_label">Music/soundtrack preferences</h1>
+                                    <div className="dot_field_label">Music/soundtrack preferences</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="music-preferences" data-name="Music Preferences" placeholder="" type="text" id="music-preferences" />
                                     
-                                    <h1 className="dot_field_label">Branding elements to include (logo placement, colors, graphics)</h1>
+                                    <div className="dot_field_label">Branding elements to include (logo placement, colors, graphics)</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="branding-elements" data-name="Branding Elements" placeholder="" type="text" id="branding-elements" />
                                   </div>
 
                                   <div className="w-layout-blockcontainer form-container-web w-container">
-                                    <h1 className="dot_forms_title sites">5/6 Logistics:</h1>
-                                    <h1 className="dot_field_label">Preferred shooting dates or time constraints</h1>
+                                    <h2 className="dot_forms_title sites">5/6 Logistics:</h1>
+                                    <div className="dot_field_label">Preferred shooting dates or time constraints</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="preferred-dates" data-name="Preferred Dates" placeholder="" type="text" id="preferred-dates" />
                                     
-                                    <h1 className="dot_field_label">Timeline for final delivery</h1>
+                                    <div className="dot_field_label">Timeline for final delivery</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="timeline" data-name="Timeline" placeholder="" type="text" id="timeline" />
                                     
-                                    <h1 className="dot_field_label">Any special requirements or considerations</h1>
+                                    <div className="dot_field_label">Any special requirements or considerations</h1>
                                     <textarea className="text-filed-3 w-input" maxLength={5000} name="special-requirements" data-name="Special Requirements" placeholder="" id="special-requirements"></textarea>
                                   </div>
 
                                   <div className="w-layout-blockcontainer form-container-web w-container">
-                                    <h1 className="dot_forms_title sites">6/6 General information about the project:</h1>
-                                    <h1 className="dot_field_label">Project completion deadline</h1>
+                                    <h2 className="dot_forms_title sites">6/6 General information about the project:</h1>
+                                    <div className="dot_field_label">Project completion deadline</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="deadline-date-photo" data-name="Deadline Date Photo" placeholder="" type="text" id="deadline-date-photo" required />
                                     
-                                    <h1 className="dot_field_label">Approximate Budget</h1>
+                                    <div className="dot_field_label">Approximate Budget</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="project-budjet-photo" data-name="Project Budjet Photo" placeholder="" type="text" id="project-budjet-photo" required />
                                     
                                     <div className="w-layout-blockcontainer form-container-web w-container">

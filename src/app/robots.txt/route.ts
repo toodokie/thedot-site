@@ -6,10 +6,21 @@ User-agent: *
 Allow: /
 Disallow: /api/
 Disallow: /brief/results
+Disallow: /blog/tag/
+Disallow: /project/
+Disallow: /press/
+Disallow: /projects-eng/
+Disallow: /favicon.ico
+Disallow: /favicon.png
+Disallow: /*.ico
+Disallow: /*.png
 Crawl-delay: 1
 
 # Sitemap location
 Sitemap: ${baseUrl}/sitemap.xml
+
+# Canonical host
+Host: ${baseUrl}
 
 # Google specific
 User-agent: Googlebot
