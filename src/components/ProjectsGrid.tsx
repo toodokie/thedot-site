@@ -15,22 +15,8 @@ interface ProjectsGridProps {
 
 export default function ProjectsGrid({ projects }: ProjectsGridProps) {
   useEffect(() => {
-    // Prefetch critical portfolio images immediately
-    const prefetchImages = () => {
-      projects.slice(0, 3).forEach((project) => {
-        const imageUrl = project.heroImage || (project.images && project.images.length > 0 ? project.images[0] : null);
-        if (imageUrl) {
-          const link = document.createElement('link');
-          link.rel = 'prefetch';
-          link.href = imageUrl;
-          link.as = 'image';
-          document.head.appendChild(link);
-        }
-      });
-    };
-
-    // Prefetch immediately
-    prefetchImages();
+    // Don't prefetch S3 images directly as they expire
+    // The image proxy will handle caching
 
     const observerOptions = {
       threshold: 0.1,
@@ -46,46 +32,16 @@ export default function ProjectsGrid({ projects }: ProjectsGridProps) {
       });
     }, observerOptions);
 
-    // Intersection observer for preloading upcoming images
-    const preloadObserver = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          const projectIndex = parseInt(entry.target.getAttribute('data-project-index') || '0');
-          const nextProjects = projects.slice(projectIndex + 1, projectIndex + 3);
-          
-          nextProjects.forEach((project) => {
-            const imageUrl = project.heroImage || (project.images && project.images.length > 0 ? project.images[0] : null);
-            if (imageUrl) {
-              const link = document.createElement('link');
-              link.rel = 'prefetch';
-              link.href = imageUrl;
-              link.as = 'image';
-              document.head.appendChild(link);
-            }
-          });
-          
-          preloadObserver.unobserve(entry.target);
-        }
-      });
-    }, { rootMargin: '200px 0px' });
 
     const animatedElements = document.querySelectorAll('.animate-on-scroll');
     animatedElements.forEach((element) => {
       observer.observe(element);
     });
 
-    // Observe project cards for preloading
-    const projectCards = document.querySelectorAll('.project-list-link');
-    projectCards.forEach((card) => {
-      preloadObserver.observe(card);
-    });
 
     return () => {
       animatedElements.forEach((element) => {
         observer.unobserve(element);
-      });
-      projectCards.forEach((card) => {
-        preloadObserver.unobserve(card);
       });
     };
   }, [projects]);
