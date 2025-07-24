@@ -23,6 +23,7 @@ interface BlogPost {
 export default function BlogPage() {
   const [posts, setPosts] = useState<BlogPost[]>(samplePosts); // Start with sample data to prevent layout shifts
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Apply critical containment styles immediately after hydration
@@ -129,11 +130,13 @@ export default function BlogPage() {
         });
         
         setPosts(posts);
+        setIsLoading(false);
       }
     } catch (error) {
       console.error('Error fetching posts:', error);
       // Keep sample data on error to prevent layout shifts
       setPosts(samplePosts);
+      setIsLoading(false);
     }
   };
 
@@ -557,11 +560,12 @@ export default function BlogPage() {
         
         .posts-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
           gap: 40px;
           margin-bottom: 80px;
           contain: layout style;
-          grid-auto-rows: 1fr; /* Ensure consistent row heights */
+          grid-auto-rows: minmax(320px, 1fr); /* Fixed minimum height */
+          min-height: 600px; /* Minimum height for grid */
         }
         
         .post-card {
@@ -573,6 +577,7 @@ export default function BlogPage() {
           display: flex;
           flex-direction: column;
           height: 100%;
+          min-height: 320px; /* Fixed minimum height */
           font-weight: 400;
           contain: layout style;
           transform: translateZ(0);
@@ -632,6 +637,76 @@ export default function BlogPage() {
           margin-bottom: 20px;
           flex-grow: 1;
           font-weight: 200;
+        }
+        
+        /* Loading skeleton styles */
+        .post-card-skeleton {
+          background: #fff;
+          border: 1px solid #e0e0e0;
+          padding: 40px;
+          min-height: 320px;
+          display: flex;
+          flex-direction: column;
+        }
+        
+        .skeleton-element {
+          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite;
+          border-radius: 4px;
+        }
+        
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        
+        .skeleton-category {
+          width: 80px;
+          height: 16px;
+          margin-bottom: 20px;
+        }
+        
+        .skeleton-title {
+          width: 100%;
+          height: 24px;
+          margin-bottom: 10px;
+        }
+        
+        .skeleton-title-2 {
+          width: 70%;
+          height: 24px;
+          margin-bottom: 20px;
+        }
+        
+        .skeleton-meta {
+          width: 150px;
+          height: 16px;
+          margin-bottom: 20px;
+        }
+        
+        .skeleton-excerpt {
+          width: 100%;
+          height: 16px;
+          margin-bottom: 10px;
+        }
+        
+        .skeleton-excerpt-2 {
+          width: 90%;
+          height: 16px;
+          margin-bottom: 10px;
+        }
+        
+        .skeleton-excerpt-3 {
+          width: 80%;
+          height: 16px;
+          margin-bottom: 30px;
+        }
+        
+        .skeleton-button {
+          width: 120px;
+          height: 40px;
+          margin-top: auto;
         }
         
         .post-category {
@@ -1121,7 +1196,24 @@ export default function BlogPage() {
 
           {/* Posts Grid */}
           <section className="posts-grid">
-            {filteredPosts.filter(post => !post.featured).map(post => (
+            {isLoading ? (
+              // Show skeleton loaders while loading
+              <>
+                {[1, 2, 3, 4, 5, 6].map((index) => (
+                  <div key={`skeleton-${index}`} className="post-card-skeleton">
+                    <div className="skeleton-element skeleton-category"></div>
+                    <div className="skeleton-element skeleton-title"></div>
+                    <div className="skeleton-element skeleton-title-2"></div>
+                    <div className="skeleton-element skeleton-meta"></div>
+                    <div className="skeleton-element skeleton-excerpt"></div>
+                    <div className="skeleton-element skeleton-excerpt-2"></div>
+                    <div className="skeleton-element skeleton-excerpt-3"></div>
+                    <div className="skeleton-element skeleton-button"></div>
+                  </div>
+                ))}
+              </>
+            ) : (
+              filteredPosts.filter(post => !post.featured).map(post => (
               <Link 
                 key={post.slug}
                 href={`/blog/${post.slug}`}
@@ -1144,7 +1236,7 @@ export default function BlogPage() {
                   </div>
                 </article>
               </Link>
-            ))}
+            )))}
           </section>
         </div>
 
