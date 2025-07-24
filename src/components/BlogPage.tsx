@@ -85,16 +85,44 @@ export default function BlogPage() {
         const data = await response.json();
         let posts = data.posts || [];
         
-        // Override featured image for the emotional brand strategy post
+        // Override featured image for all featured posts since S3 URLs are expiring
         posts = posts.map((post: BlogPost) => {
-          if (post.featured && (
-            post.slug.includes('emotional-brand') || 
-            post.title.includes('emotional brand') ||
-            post.title.toLowerCase().includes('emotional brand strategy')
-          )) {
+          if (post.featured) {
+            console.log('Featured post found:', post.title, post.slug);
+            
+            // Use local images based on slug or title
+            if (post.slug.includes('emotional-brand') || 
+                post.title.toLowerCase().includes('emotional brand')) {
+              return {
+                ...post,
+                featuredImage: '/images/blog/emotional-brand-strategy-306-percent-lifetime-value-ontario-business/emotional-brand-800x600 px.webp'
+              };
+            } else if (post.slug.includes('software-subscription') || 
+                       post.title.toLowerCase().includes('software subscription')) {
+              return {
+                ...post,
+                featuredImage: '/images/blog/software-subscription-trap-ontario-business/software-subscription-trap-ontario-business 800.webp'
+              };
+            } else if (post.slug.includes('website-design-trends') || 
+                       post.title.toLowerCase().includes('website design trends')) {
+              return {
+                ...post,
+                featuredImage: '/images/blog/website-design-trends-europe/Website Design Trends.webp'
+              };
+            } else if (post.slug.includes('website-mistakes') || 
+                       post.title.toLowerCase().includes('gta small business')) {
+              return {
+                ...post,
+                featuredImage: '/images/blog/website-mistakes-gta-businesses/hero-hourglass.gif'
+              };
+            }
+            
+            // Fallback: try to use S3 URL via proxy, but if it fails, use first available local image
             return {
               ...post,
-              featuredImage: '/images/blog/emotional-brand-strategy-306-percent-lifetime-value-ontario-business/emotional-brand-800x600 px.webp'
+              featuredImage: post.featuredImage && post.featuredImage.includes('prod-files-secure.s3.us-west-2.amazonaws.com') 
+                ? '/images/blog/emotional-brand-strategy-306-percent-lifetime-value-ontario-business/emotional-brand-800x600 px.webp'
+                : post.featuredImage
             };
           }
           return post;
