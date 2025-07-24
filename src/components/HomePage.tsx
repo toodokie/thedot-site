@@ -1,6 +1,7 @@
 // src/components/HomePage.tsx (Server Component)
 import { getAllProjects } from '@/lib/projects';
-import Hero from '@/components/Hero';
+import HeroContent from '@/components/HeroContent';
+import HeroVideoLoader from '@/components/Hero';
 import WelcomeSection from '@/components/WelcomeSection';
 import ServicesSection from '@/components/ServicesSection';
 import ConversionDiagnosticTool from '@/components/ConversionDiagnosticTool';
@@ -17,7 +18,8 @@ export default async function HomePage() {
   return (
     <>
       <ClientAnimations />
-      <Hero />
+      <HeroContent />
+      <HeroVideoLoader />
       <WelcomeSection />
       <BoutiqueSection />
       <ServicesSection />
