@@ -228,7 +228,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
           max-width: 1200px;
           margin: 40px auto;
           padding: 0 20px;
-          min-height: 400px; /* Reserve space to prevent CLS */
+          min-height: 600px; /* Reserve space to prevent CLS */
           display: flex;
           align-items: center;
           justify-content: center;
@@ -609,7 +609,7 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
           }
           
           .post-featured-image {
-            min-height: 250px; /* Adjusted for mobile */
+            min-height: 300px; /* Adjusted for mobile */
             margin: 20px auto;
             padding: 0 10px;
           }
@@ -681,12 +681,12 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
               }
               alt={post.title}
               width={800}
-              height={400}
+              height={600}
               style={{
                 width: '100%',
                 height: 'auto',
                 objectFit: 'cover',
-                maxHeight: '500px'
+                maxHeight: '600px'
               }}
               priority
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 800px"

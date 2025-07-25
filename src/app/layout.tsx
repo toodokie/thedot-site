@@ -190,8 +190,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://www.google-analytics.com" />
         <link rel="dns-prefetch" href="https://prod-files-secure.s3.us-west-2.amazonaws.com" />
         
-        {/* LCP Optimization - preload critical resources */}
-        <link rel="preload" href="/images/line.png" as="image" type="image/png" />
+        {/* LCP Optimization - preload critical resources removed due to console warnings on pages that don't immediately use line.png */}
         
         {/* Adobe Fonts - Simple loading strategy */}
         <link
