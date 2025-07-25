@@ -116,6 +116,13 @@ export default function BlogPage() {
                 ...post,
                 featuredImage: '/images/blog/website-mistakes-gta-businesses/hero-hourglass.gif'
               };
+            } else if (post.slug.includes('true-cost-of-free') || 
+                       post.title.toLowerCase().includes('true cost of free') ||
+                       post.title.toLowerCase().includes('manual work')) {
+              return {
+                ...post,
+                featuredImage: '/images/blog/true-cost-of-free-manual-work/manual-vs-automated-workflow.webp'
+              };
             }
             
             // Fallback: try to use S3 URL via proxy, but if it fails, use first available local image
