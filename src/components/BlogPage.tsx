@@ -121,7 +121,7 @@ export default function BlogPage() {
                        post.title.toLowerCase().includes('manual work')) {
               return {
                 ...post,
-                featuredImage: '/images/blog/true-cost-of-free-manual-work/manual-vs-automated-workflow.webp'
+                featuredImage: '/images/blog/the-true-cost-of-free-manual-work/the-true-cost-of-free-manual-work.webp'
               };
             }
             
