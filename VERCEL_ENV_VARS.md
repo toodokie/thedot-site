@@ -40,17 +40,39 @@ Add these environment variables in your Vercel project settings:
 
 ### Email Configuration
 
-7. **GMAIL_USER**
-   - Your Gmail address for sending emails
+7. **SMTP_HOST**
+   - SMTP server hostname
+   - For Gmail: `smtp.gmail.com`
+   - For other providers: Check your email provider's SMTP settings
+
+8. **SMTP_PORT**
+   - SMTP server port
+   - For Gmail: `587` (TLS) or `465` (SSL)
+   - Default: `587`
+
+9. **SMTP_USER**
+   - Your email address for SMTP authentication
    - Example: `info@thedotcreative.co`
 
-8. **GMAIL_APP_PASSWORD**
-   - Gmail app-specific password (not your regular password)
-   - How to get: https://support.google.com/accounts/answer/185833
+10. **SMTP_PASS**
+    - SMTP password or app-specific password
+    - For Gmail: App-specific password (not your regular password)
+    - How to get Gmail app password: https://support.google.com/accounts/answer/185833
+    - Current value (generated 2025): `zaco tpqc khmh ydrf` (remove spaces when adding to Vercel: `zacotpqckhmhydrf`)
+
+11. **FROM_EMAIL**
+    - Email address that appears in the "From" field
+    - Example: `info@thedotcreative.co`
+    - Should match SMTP_USER for most providers
+
+12. **AGENCY_EMAIL**
+    - Internal email address to receive notifications
+    - Example: `hello@thedotcreative.co`
+    - This is where you'll receive contact form submissions, leads, etc.
 
 ### Analytics
 
-9. **NEXT_PUBLIC_GA_MEASUREMENT_ID**
+13. **NEXT_PUBLIC_GA_MEASUREMENT_ID**
    - Google Analytics 4 Measurement ID
    - Format: `G-XXXXXXXXXX`
    - How to get: Create a property in Google Analytics 4
@@ -75,10 +97,29 @@ After setting up, test each integration:
 
 ## Troubleshooting
 
+### Portfolio Issues
 - If portfolio doesn't load: Check NOTION_TOKEN_PORTFOLIO and NOTION_PORTFOLIO_DB_ID
+- Verify the integration has read access to the portfolio database
+
+### Form Submission Issues
 - If forms don't submit: Check NOTION_TOKEN and respective database IDs
-- If emails don't send: Verify Gmail credentials and app password
+- Ensure NOTION_TOKEN has write access to lead databases
+- Check that all required database IDs are correctly configured
+
+### Email Issues
+- **Not receiving emails?** Check these in order:
+  1. Verify all 6 SMTP variables are set: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, FROM_EMAIL, AGENCY_EMAIL
+  2. For Gmail users: Make sure you're using an App Password, not your regular password
+  3. Verify SMTP_HOST is correct (e.g., `smtp.gmail.com` for Gmail)
+  4. Check SMTP_PORT is `587` for TLS or `465` for SSL
+  5. Ensure FROM_EMAIL matches your SMTP_USER
+  6. Check Vercel function logs for SMTP errors
+  7. Test your SMTP credentials using a tool like https://www.smtper.net/
+
+### General Debugging
 - Check Vercel function logs for detailed error messages
+- Enable console logging to trace execution flow
+- Verify all environment variables are set for the correct environment (Production/Preview/Development)
 
 ## Security Notes
 
