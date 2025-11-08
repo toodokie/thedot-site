@@ -1,12 +1,52 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+// Known malicious bot user agents
+const BLOCKED_USER_AGENTS = [
+  'LieBaoFast',
+  'UCBrowser',
+  'MQQBrowser',
+  'Mb2345Browser',
+  'MicroMessenger',
+  'Baiduspider',
+  'Sogou',
+  '360Spider',
+  'YisouSpider',
+  'zh-CN',
+  'zh_CN',
+  // Generic scrapers
+  'python-requests',
+  'scrapy',
+  'curl',
+  'wget',
+  'Bytespider', // TikTok bot
+  'PetalBot', // Huawei bot
+];
+
 export function middleware(request: NextRequest) {
-  const { pathname, protocol, host } = request.nextUrl;
-  
+  const { pathname } = request.nextUrl;
+
   // Get the hostname (www.thedotcreative.co or thedotcreative.co)
   const hostname = request.headers.get('host') || '';
-  
+
+  // Bot protection: Check user agent
+  const userAgent = request.headers.get('user-agent') || '';
+
+  // Block known malicious bots
+  const isBlockedBot = BLOCKED_USER_AGENTS.some(bot =>
+    userAgent.toLowerCase().includes(bot.toLowerCase())
+  );
+
+  if (isBlockedBot) {
+    // Return 403 Forbidden for blocked bots
+    return new NextResponse('Forbidden', { status: 403 });
+  }
+
+  // Optional: Block requests with no user agent (likely bots)
+  if (!userAgent || userAgent.trim() === '') {
+    return new NextResponse('Forbidden', { status: 403 });
+  }
+
   // Create response
   let response = NextResponse.next();
   
