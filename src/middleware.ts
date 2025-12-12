@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { incrementBotBlocks } from './lib/security-stats';
 
 // Known malicious bot user agents
 const BLOCKED_USER_AGENTS = [
@@ -38,12 +39,16 @@ export function middleware(request: NextRequest) {
   );
 
   if (isBlockedBot) {
+    // Track bot block for admin dashboard
+    incrementBotBlocks();
     // Return 403 Forbidden for blocked bots
     return new NextResponse('Forbidden', { status: 403 });
   }
 
   // Optional: Block requests with no user agent (likely bots)
   if (!userAgent || userAgent.trim() === '') {
+    // Track bot block for admin dashboard
+    incrementBotBlocks();
     return new NextResponse('Forbidden', { status: 403 });
   }
 

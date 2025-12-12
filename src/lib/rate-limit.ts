@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server';
 interface RateLimitConfig {
   limit?: number; // Max attempts
   window?: number; // Time window in milliseconds
+  key?: string; // Optional key to differentiate rate limit types
 }
 
 interface AttemptRecord {
@@ -20,14 +21,17 @@ const attemptStore = new Map<string, AttemptRecord>();
  * @returns true if request is allowed, false if rate limited
  */
 export function rateLimit(
-  identifier: string, 
+  identifier: string,
   config: RateLimitConfig = {}
 ): { success: boolean; remaining: number; resetTime: number } {
-  const { limit = 5, window = 15 * 60 * 1000 } = config; // Default: 5 requests per 15 minutes
+  const { limit = 5, window = 15 * 60 * 1000, key } = config; // Default: 5 requests per 15 minutes
   const now = Date.now();
-  
+
+  // Create unique identifier with optional key
+  const uniqueId = key ? `${key}:${identifier}` : identifier;
+
   // Get or create attempt record
-  let record = attemptStore.get(identifier);
+  let record = attemptStore.get(uniqueId);
   
   if (!record || now > record.resetTime) {
     // Create new record or reset expired one
@@ -42,17 +46,17 @@ export function rateLimit(
   
   // Check if limit exceeded
   if (record.attempts.length >= limit) {
-    attemptStore.set(identifier, record);
+    attemptStore.set(uniqueId, record);
     return {
       success: false,
       remaining: 0,
       resetTime: record.resetTime
     };
   }
-  
+
   // Add current attempt
   record.attempts.push(now);
-  attemptStore.set(identifier, record);
+  attemptStore.set(uniqueId, record);
   
   return {
     success: true,

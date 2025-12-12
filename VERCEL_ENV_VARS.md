@@ -78,6 +78,49 @@ Add these environment variables in your Vercel project settings:
    - How to get: Create a property in Google Analytics 4
    - Required for: Tracking website traffic and user behavior
 
+### Google Analytics Data API (Admin Dashboard)
+
+14. **GA_PROPERTY_ID**
+   - Google Analytics 4 Property ID
+   - Format: `123456789` (numeric ID without "properties/" prefix)
+   - How to get:
+     - Go to Google Analytics → Admin → Property Settings
+     - Find the Property ID number
+   - Required for: Displaying traffic metrics in admin dashboard
+
+15. **GA_SERVICE_ACCOUNT_CREDENTIALS**
+   - Google Cloud Service Account credentials JSON
+   - Format: Single-line JSON string (see setup instructions below)
+   - How to get:
+     1. Go to Google Cloud Console (https://console.cloud.google.com)
+     2. Create a new project or select existing project
+     3. Enable Google Analytics Data API
+     4. Create a Service Account:
+        - Navigate to IAM & Admin → Service Accounts
+        - Click "Create Service Account"
+        - Give it a name (e.g., "analytics-dashboard")
+        - Click "Create and Continue"
+        - Skip role assignment, click "Continue"
+        - Click "Done"
+     5. Create JSON key:
+        - Click on the service account you created
+        - Go to "Keys" tab
+        - Click "Add Key" → "Create new key"
+        - Select JSON format
+        - Download the JSON file
+     6. Grant Analytics access:
+        - Go to Google Analytics → Admin
+        - Click "Property Access Management"
+        - Click "Add users"
+        - Add the service account email (looks like: name@project-id.iam.gserviceaccount.com)
+        - Select "Viewer" role
+        - Click "Add"
+     7. Format for Vercel:
+        - Open the downloaded JSON file
+        - Remove all line breaks and spaces to create a single-line JSON string
+        - Example: `{"type":"service_account","project_id":"...","private_key_id":"...","private_key":"...","client_email":"...","client_id":"...","auth_uri":"...","token_uri":"...","auth_provider_x509_cert_url":"...","client_x509_cert_url":"..."}`
+   - Required for: Fetching traffic metrics from Google Analytics for admin dashboard
+
 ## Setup Steps in Vercel
 
 1. Go to your Vercel project dashboard
@@ -94,6 +137,7 @@ After setting up, test each integration:
 2. **Calculator**: Submit a test calculation to verify lead capture
 3. **Contact Form**: Send a test message if using contact form
 4. **Email**: Verify email notifications are received
+5. **Google Analytics**: Log in to admin dashboard and verify "Website Traffic" section displays metrics
 
 ## Troubleshooting
 
@@ -115,6 +159,16 @@ After setting up, test each integration:
   5. Ensure FROM_EMAIL matches your SMTP_USER
   6. Check Vercel function logs for SMTP errors
   7. Test your SMTP credentials using a tool like https://www.smtper.net/
+
+### Google Analytics Issues
+- **No traffic data in dashboard?** Check these in order:
+  1. Verify GA_PROPERTY_ID is correct (should be numeric ID only)
+  2. Verify GA_SERVICE_ACCOUNT_CREDENTIALS is properly formatted (single-line JSON)
+  3. Ensure the service account email has "Viewer" access in Google Analytics Property Access Management
+  4. Check that Google Analytics Data API is enabled in Google Cloud Console
+  5. Verify the service account JSON key is from the correct Google Cloud project
+  6. Check Vercel function logs for API errors
+  7. Test that the property ID has collected data (check Google Analytics directly)
 
 ### General Debugging
 - Check Vercel function logs for detailed error messages
