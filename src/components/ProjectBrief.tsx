@@ -51,6 +51,67 @@ type BriefData = WebsiteBriefData | GraphicBriefData | PhotoBriefData;
 
 export default function ProjectBrief() {
   const [activeTab, setActiveTab] = useState<'Tab 1 - Websites' | 'Tab 2 - Graphic' | 'Tab 3 - Photo'>('Tab 1 - Websites');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const submitBrief = async (
+    formType: 'website' | 'graphic' | 'photo',
+    leadData: LeadData,
+    briefData: BriefData,
+    company: string
+  ): Promise<void> => {
+    if (isSubmitting) return;
+    setSubmitError(null);
+
+    if (!leadData.name || !leadData.name.trim() || !leadData.email || !leadData.email.trim()) {
+      setSubmitError('Please fill in your name and email before submitting.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const honeypotInput = document.querySelector<HTMLInputElement>(`input[name="hp_website_${formType}"]`);
+      const honeypotValue = honeypotInput?.value || '';
+
+      const response = await fetch('/api/brief-submission', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formType,
+          name: leadData.name,
+          email: leadData.email,
+          company,
+          briefData,
+          website: honeypotValue,
+        }),
+      });
+
+      if (!response.ok) {
+        let detail = '';
+        try {
+          const errBody = await response.json();
+          detail = errBody?.error || '';
+        } catch {}
+        if (response.status === 429) {
+          setSubmitError('Too many submissions in a short period. Please try again in a few minutes.');
+        } else if (response.status === 400 && detail) {
+          setSubmitError(detail);
+        } else {
+          setSubmitError('We couldn\'t submit your brief. Please try again, or email info@thedotcreative.co.');
+        }
+        return;
+      }
+
+      const result = await response.json();
+      briefData.briefId = result.briefId;
+      handleBriefSubmission(formType, leadData, briefData);
+    } catch (error) {
+      console.error('Failed to submit brief:', error);
+      setSubmitError('We couldn\'t reach the server. Please check your connection and try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     const observerOptions: IntersectionObserverInit = {
@@ -506,11 +567,24 @@ export default function ProjectBrief() {
                                     <h1 className="dot_field_label">Approximate Budget</h1>
                                     <input className="text-filed-3 w-input" maxLength={256} name="project-budjet-2" data-name="Project Budjet 2" placeholder="" type="text" id="project-budjet-3" required />
                                     
+                                    <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', top: '-9999px', height: 0, width: 0, overflow: 'hidden' }}>
+                                      <label>Website (leave blank)<input type="text" name="hp_website_website" tabIndex={-1} autoComplete="off" defaultValue="" /></label>
+                                    </div>
                                     <div className="w-layout-blockcontainer form-container-web w-container">
-                                      <button type="button" className="button-submit" onClick={async (e) => {
-                                        e.preventDefault();
-                                        const form = e.currentTarget.closest('form');
-                                        if (form) {
+                                      {submitError && activeTab === 'Tab 1 - Websites' && (
+                                        <div role="alert" style={{ background: '#ffe5e5', border: '1px solid #d63384', color: '#721c24', padding: '12px 16px', borderRadius: 6, marginBottom: 12 }}>
+                                          {submitError}
+                                        </div>
+                                      )}
+                                      <button
+                                        type="button"
+                                        className="button-submit"
+                                        disabled={isSubmitting}
+                                        style={{ opacity: isSubmitting ? 0.7 : 1, cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
+                                        onClick={async (e) => {
+                                          e.preventDefault();
+                                          const form = e.currentTarget.closest('form');
+                                          if (!form) return;
                                           const formData = new FormData(form);
                                           const briefData: WebsiteBriefData = {} as WebsiteBriefData;
                                           for (const [key, value] of formData.entries()) {
@@ -518,37 +592,11 @@ export default function ProjectBrief() {
                                           }
                                           const leadData = {
                                             name: formData.get('name-2') as string,
-                                            email: formData.get('email-2') as string
+                                            email: formData.get('email-2') as string,
                                           };
-                                          
-                                          // Submit to API first and get briefId
-                                          let briefId = null;
-                                          try {
-                                            const response = await fetch('/api/brief-submission', {
-                                              method: 'POST',
-                                              headers: { 'Content-Type': 'application/json' },
-                                              body: JSON.stringify({
-                                                formType: 'website',
-                                                name: leadData.name,
-                                                email: leadData.email,
-                                                company: briefData['sphere-2'] || '',
-                                                briefData
-                                              })
-                                            });
-                                            if (response.ok) {
-                                              const result = await response.json();
-                                              briefId = result.briefId;
-                                            }
-                                          } catch (error) {
-                                            console.error('Failed to submit to API:', error);
-                                          }
-                                          
-                                          // Add briefId to briefData
-                                          briefData.briefId = briefId;
-                                          
-                                          handleBriefSubmission('website', leadData, briefData);
-                                        }
-                                      }}>Submit Brief</button>
+                                          await submitBrief('website', leadData, briefData, (briefData['sphere-2'] as string) || '');
+                                        }}
+                                      >{isSubmitting ? 'Submitting...' : 'Submit Brief'}</button>
                                     </div>
                                   </div>
                                 </div>
@@ -807,10 +855,23 @@ export default function ProjectBrief() {
                                     <input className="text-filed-3 w-input" maxLength={256} name="project-budjet-2" data-name="Project Budjet 2" placeholder="" type="text" id="project-budjet-2" required />
                                     
                                     <div className="w-layout-blockcontainer form-container-web w-container">
-                                      <button type="button" className="button-submit" onClick={async (e) => {
-                                        e.preventDefault();
-                                        const form = e.currentTarget.closest('form');
-                                        if (form) {
+                                      <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', top: '-9999px', height: 0, width: 0, overflow: 'hidden' }}>
+                                        <label>Website (leave blank)<input type="text" name="hp_website_graphic" tabIndex={-1} autoComplete="off" defaultValue="" /></label>
+                                      </div>
+                                      {submitError && activeTab === 'Tab 2 - Graphic' && (
+                                        <div role="alert" style={{ background: '#ffe5e5', border: '1px solid #d63384', color: '#721c24', padding: '12px 16px', borderRadius: 6, marginBottom: 12 }}>
+                                          {submitError}
+                                        </div>
+                                      )}
+                                      <button
+                                        type="button"
+                                        className="button-submit"
+                                        disabled={isSubmitting}
+                                        style={{ opacity: isSubmitting ? 0.7 : 1, cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
+                                        onClick={async (e) => {
+                                          e.preventDefault();
+                                          const form = e.currentTarget.closest('form');
+                                          if (!form) return;
                                           const formData = new FormData(form);
                                           const briefData: GraphicBriefData = {} as GraphicBriefData;
                                           for (const [key, value] of formData.entries()) {
@@ -818,37 +879,11 @@ export default function ProjectBrief() {
                                           }
                                           const leadData = {
                                             name: formData.get('name-2') as string,
-                                            email: formData.get('email-2') as string
+                                            email: formData.get('email-2') as string,
                                           };
-                                          
-                                          // Submit to API first and get briefId
-                                          let briefId = null;
-                                          try {
-                                            const response = await fetch('/api/brief-submission', {
-                                              method: 'POST',
-                                              headers: { 'Content-Type': 'application/json' },
-                                              body: JSON.stringify({
-                                                formType: 'graphic',
-                                                name: leadData.name,
-                                                email: leadData.email,
-                                                company: briefData['sphere-2'] || '',
-                                                briefData
-                                              })
-                                            });
-                                            if (response.ok) {
-                                              const result = await response.json();
-                                              briefId = result.briefId;
-                                            }
-                                          } catch (error) {
-                                            console.error('Failed to submit to API:', error);
-                                          }
-                                          
-                                          // Add briefId to briefData
-                                          briefData.briefId = briefId;
-                                          
-                                          handleBriefSubmission('graphic', leadData, briefData);
-                                        }
-                                      }}>Submit Brief</button>
+                                          await submitBrief('graphic', leadData, briefData, (briefData['sphere-2'] as string) || '');
+                                        }}
+                                      >{isSubmitting ? 'Submitting...' : 'Submit Brief'}</button>
                                     </div>
                                   </div>
                                 </div>
@@ -1130,10 +1165,23 @@ export default function ProjectBrief() {
                                     <input className="text-filed-3 w-input" maxLength={256} name="project-budjet-photo" data-name="Project Budjet Photo" placeholder="" type="text" id="project-budjet-photo" required />
                                     
                                     <div className="w-layout-blockcontainer form-container-web w-container">
-                                      <button type="button" className="button-submit" onClick={async (e) => {
-                                        e.preventDefault();
-                                        const form = e.currentTarget.closest('form');
-                                        if (form) {
+                                      <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', top: '-9999px', height: 0, width: 0, overflow: 'hidden' }}>
+                                        <label>Website (leave blank)<input type="text" name="hp_website_photo" tabIndex={-1} autoComplete="off" defaultValue="" /></label>
+                                      </div>
+                                      {submitError && activeTab === 'Tab 3 - Photo' && (
+                                        <div role="alert" style={{ background: '#ffe5e5', border: '1px solid #d63384', color: '#721c24', padding: '12px 16px', borderRadius: 6, marginBottom: 12 }}>
+                                          {submitError}
+                                        </div>
+                                      )}
+                                      <button
+                                        type="button"
+                                        className="button-submit"
+                                        disabled={isSubmitting}
+                                        style={{ opacity: isSubmitting ? 0.7 : 1, cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
+                                        onClick={async (e) => {
+                                          e.preventDefault();
+                                          const form = e.currentTarget.closest('form');
+                                          if (!form) return;
                                           const formData = new FormData(form);
                                           const briefData: PhotoBriefData = {} as PhotoBriefData;
                                           for (const [key, value] of formData.entries()) {
@@ -1141,37 +1189,11 @@ export default function ProjectBrief() {
                                           }
                                           const leadData = {
                                             name: formData.get('name-3') as string,
-                                            email: formData.get('email-3') as string
+                                            email: formData.get('email-3') as string,
                                           };
-                                          
-                                          // Submit to API first and get briefId
-                                          let briefId = null;
-                                          try {
-                                            const response = await fetch('/api/brief-submission', {
-                                              method: 'POST',
-                                              headers: { 'Content-Type': 'application/json' },
-                                              body: JSON.stringify({
-                                                formType: 'photo',
-                                                name: leadData.name,
-                                                email: leadData.email,
-                                                company: briefData['sphere-3'] || '',
-                                                briefData
-                                              })
-                                            });
-                                            if (response.ok) {
-                                              const result = await response.json();
-                                              briefId = result.briefId;
-                                            }
-                                          } catch (error) {
-                                            console.error('Failed to submit to API:', error);
-                                          }
-                                          
-                                          // Add briefId to briefData
-                                          briefData.briefId = briefId;
-                                          
-                                          handleBriefSubmission('photo', leadData, briefData);
-                                        }
-                                      }}>Submit Brief</button>
+                                          await submitBrief('photo', leadData, briefData, (briefData['sphere-3'] as string) || '');
+                                        }}
+                                      >{isSubmitting ? 'Submitting...' : 'Submit Brief'}</button>
                                     </div>
                                   </div>
                                 </div>

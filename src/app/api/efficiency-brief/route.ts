@@ -1,19 +1,67 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { Client } from '@notionhq/client';
 import { sendEfficiencyBriefEmail, EfficiencyBriefData } from '@/lib/email';
+import { rateLimit, getClientIP } from '@/lib/rate-limit';
+import { validateEmail, validateName, validateMessage, isBot } from '@/lib/input-sanitization';
 
-const notion = new Client({
-  auth: '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',
-});
+const notionToken = process.env.NOTION_TOKEN || process.env.NOTION_EFFICIENCY_TOKEN;
+const databaseId = process.env.NOTION_EFFICIENCY_BRIEF_DB_ID || '239d0f0c254480368e21f4e1379a3496';
 
-const databaseId = '239d0f0c254480368e21f4e1379a3496';
-
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    if (!notionToken) {
+      console.error('Efficiency brief: NOTION_TOKEN env var not configured');
+      return NextResponse.json(
+        { success: false, error: 'Server is not configured to accept submissions. Please contact us directly.' },
+        { status: 500 }
+      );
+    }
+
+    const clientIP = getClientIP(request);
+    const rateLimitResult = rateLimit(clientIP, { limit: 3, window: 10 * 60 * 1000, key: 'efficiency-brief' });
+    if (!rateLimitResult.success) {
+      console.warn('Rate limit exceeded for efficiency brief, IP:', clientIP);
+      return NextResponse.json(
+        { success: false, error: 'Too many submissions. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
 
-    // Parse software list into multi-select options
-    const softwareList = body.softwareAudit
+    if (isBot(body.website)) {
+      console.warn('Bot detected via honeypot for efficiency brief, IP:', clientIP);
+      return NextResponse.json(
+        { success: false, error: 'Invalid submission' },
+        { status: 400 }
+      );
+    }
+
+    const nameValidation = validateName(body.contactName);
+    const emailValidation = validateEmail(body.contactEmail);
+    const companyValidation = validateName(body.companyName);
+
+    const errors: string[] = [
+      ...nameValidation.errors,
+      ...emailValidation.errors,
+      ...companyValidation.errors,
+    ];
+
+    if (errors.length > 0) {
+      return NextResponse.json(
+        { success: false, error: 'Validation failed', details: errors },
+        { status: 400 }
+      );
+    }
+
+    const sanitizedName = nameValidation.sanitized;
+    const sanitizedEmail = emailValidation.sanitized;
+    const sanitizedCompany = companyValidation.sanitized;
+
+    const notion = new Client({ auth: notionToken });
+
+    const softwareAuditRaw = typeof body.softwareAudit === 'string' ? body.softwareAudit : '';
+    const softwareList = softwareAuditRaw
       .split(',')
       .map((item: string) => item.trim())
       .filter((item: string) => {
@@ -41,7 +89,7 @@ export async function POST(request: Request) {
           title: [
             {
               text: {
-                content: body.companyName || 'Untitled',
+                content: sanitizedCompany || 'Untitled',
               },
             },
           ],
@@ -55,13 +103,13 @@ export async function POST(request: Request) {
           rich_text: [
             {
               text: {
-                content: body.contactName || '',
+                content: sanitizedName,
               },
             },
           ],
         },
         'Contact Email': {
-          email: body.contactEmail || '',
+          email: sanitizedEmail,
         },
         'Submission Date': {
           date: {
@@ -85,7 +133,7 @@ export async function POST(request: Request) {
           rich_text: [
             {
               text: {
-                content: body.biggestFrustration || '',
+                content: typeof body.biggestFrustration === 'string' ? body.biggestFrustration.slice(0, 2000) : '',
               },
             },
           ],
@@ -105,7 +153,7 @@ export async function POST(request: Request) {
           rich_text: [
             {
               text: {
-                content: body.leadFlow || '',
+                content: typeof body.leadFlow === 'string' ? body.leadFlow.slice(0, 2000) : '',
               },
             },
           ],
@@ -114,7 +162,7 @@ export async function POST(request: Request) {
           rich_text: [
             {
               text: {
-                content: body.competitors || '',
+                content: typeof body.competitors === 'string' ? body.competitors.slice(0, 2000) : '',
               },
             },
           ],
@@ -122,7 +170,6 @@ export async function POST(request: Request) {
       },
     });
 
-    // Also store the full software audit text and services/products in the page content
     await notion.blocks.children.append({
       block_id: response.id,
       children: [
@@ -144,7 +191,7 @@ export async function POST(request: Request) {
           object: 'block',
           type: 'paragraph',
           paragraph: {
-            rich_text: [{ type: 'text', text: { content: body.servicesProducts || '' } }],
+            rich_text: [{ type: 'text', text: { content: typeof body.servicesProducts === 'string' ? body.servicesProducts.slice(0, 2000) : '' } }],
           },
         },
         {
@@ -158,7 +205,7 @@ export async function POST(request: Request) {
           object: 'block',
           type: 'paragraph',
           paragraph: {
-            rich_text: [{ type: 'text', text: { content: body.softwareAudit || '' } }],
+            rich_text: [{ type: 'text', text: { content: softwareAuditRaw.slice(0, 2000) } }],
           },
         },
         {
@@ -172,18 +219,18 @@ export async function POST(request: Request) {
           object: 'block',
           type: 'paragraph',
           paragraph: {
-            rich_text: [{ type: 'text', text: { content: body.role || '' } }],
+            rich_text: [{ type: 'text', text: { content: typeof body.role === 'string' ? body.role.slice(0, 500) : '' } }],
           },
         },
       ],
     });
 
-    // Send email notification to agency
+    let emailSent = false;
     try {
       const emailData: EfficiencyBriefData = {
-        companyName: body.companyName || 'Untitled',
-        contactName: body.contactName || '',
-        contactEmail: body.contactEmail || '',
+        companyName: sanitizedCompany || 'Untitled',
+        contactName: sanitizedName,
+        contactEmail: sanitizedEmail,
         role: body.role || '',
         websiteUrl: body.websiteUrl || undefined,
         industry: body.industry || 'Other',
@@ -191,22 +238,23 @@ export async function POST(request: Request) {
         websiteGoal: body.websiteGoal || 'Get More Leads/Clients',
         biggestFrustration: body.biggestFrustration || '',
         aodaAware: body.aodaAware || 'Unsure',
-        softwareAudit: body.softwareAudit || '',
+        softwareAudit: softwareAuditRaw,
         connectionScore: parseInt(body.connectionScore) || 5,
         leadFlow: body.leadFlow || '',
         competitors: body.competitors || '',
       };
 
       await sendEfficiencyBriefEmail(emailData);
-      console.log('Email notification sent successfully');
+      emailSent = true;
+      console.log('Efficiency brief email notification sent successfully');
     } catch (emailError) {
-      console.error('Failed to send email notification:', emailError);
-      // Don't fail the request if email fails
+      console.error('Failed to send efficiency brief email notification:', emailError);
+      // Notion save succeeded — submission is preserved. Email is recoverable from dashboard.
     }
 
-    return NextResponse.json({ success: true, pageId: response.id });
+    return NextResponse.json({ success: true, pageId: response.id, emailSent });
   } catch (error) {
-    console.error('Error creating Notion page:', error);
+    console.error('Error creating efficiency brief Notion page:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to submit brief' },
       { status: 500 }

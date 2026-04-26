@@ -361,6 +361,8 @@ export default function EfficiencyBrief() {
                                     connectionScore: formData.get('connectionScore'),
                                     leadFlow: formData.get('leadFlow'),
                                     competitors: formData.get('competitors'),
+                                    // Honeypot field — real users leave this empty; bots fill it.
+                                    website: formData.get('hp_website') || '',
                                   };
 
                                   try {
@@ -386,6 +388,9 @@ export default function EfficiencyBrief() {
                                     setIsSubmitting(false);
                                   }
                                 }}>
+                                <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', top: '-9999px', height: 0, width: 0, overflow: 'hidden' }}>
+                                  <label>Website (leave blank)<input type="text" name="hp_website" tabIndex={-1} autoComplete="off" defaultValue="" /></label>
+                                </div>
                                 <div className="w-layout-blockcontainer form-container-web-section w-container">
                                   
                                   <div className="w-layout-blockcontainer form-container w-container">

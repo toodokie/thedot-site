@@ -1813,7 +1813,7 @@ function LeadCaptureForm({ action, formType, onClose }: LeadCaptureFormProps) {
     phone: '',
     message: ''
   });
-  const [honeypotData, setHoneypotData] = useState({});
+  const [honeypotData, setHoneypotData] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
@@ -1824,8 +1824,9 @@ function LeadCaptureForm({ action, formType, onClose }: LeadCaptureFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setIsSubmitting(true);
-    
+
     try {
       // Collect estimate data from the calculator
       const estimateData = {
@@ -1844,6 +1845,39 @@ function LeadCaptureForm({ action, formType, onClose }: LeadCaptureFormProps) {
         serviceType: formType,
         timestamp: new Date().toISOString()
       };
+
+      // For "discuss", validate inputs up front before any network calls.
+      if (action === 'discuss') {
+        if (!estimateData.total || estimateData.total === 0) {
+          throw new Error('Please select your project requirements first to get an estimate.');
+        }
+        if (!leadData.name || !leadData.email) {
+          throw new Error('Please fill in your name and email address.');
+        }
+      }
+
+      // Save the lead FIRST so it is captured even if the user closes the tab
+      // or the email/PDF step fails. Map action to the Notion action string.
+      const leadAction = action === 'pdf' ? 'pdf_download'
+                       : action === 'email' ? 'email_sent'
+                       : 'contact_request';
+      try {
+        const leadSaveResponse = await fetch('/api/save-calculator-lead', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            estimateData,
+            leadData: { ...leadData, action: leadAction },
+            website: honeypotData,
+          }),
+        });
+        if (!leadSaveResponse.ok) {
+          console.error('Failed to save calculator lead:', await leadSaveResponse.text());
+        }
+      } catch (leadErr) {
+        console.error('Failed to save calculator lead (network):', leadErr);
+        // Continue — we'd rather still send the email than block the user entirely.
+      }
 
       if (action === 'pdf') {
         // Generate and download HTML-based PDF
@@ -1933,23 +1967,6 @@ function LeadCaptureForm({ action, formType, onClose }: LeadCaptureFormProps) {
         } else {
           throw new Error('Failed to generate PDF');
         }
-        
-        // Save to Calculator Leads database (PDF download = Cold lead)
-        const leadSaveResponse = await fetch('/api/save-calculator-lead', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            estimateData, 
-            leadData: { ...leadData, action: 'pdf_download' },
-            website: honeypotData
-          }),
-        });
-        
-        if (!leadSaveResponse.ok) {
-          console.error('Failed to save PDF lead:', await leadSaveResponse.text());
-        }
 
       } else if (action === 'email') {
         // Send email estimate to client and save lead
@@ -1966,37 +1983,8 @@ function LeadCaptureForm({ action, formType, onClose }: LeadCaptureFormProps) {
           console.error('Email API error:', errorText);
           throw new Error('Failed to send email');
         }
-        
-        // Save to Calculator Leads database (Email request = Warm lead)
-        const leadSaveResponse = await fetch('/api/save-calculator-lead', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            estimateData, 
-            leadData: { ...leadData, action: 'email_sent' },
-            website: honeypotData
-          }),
-        });
-        
-        if (!leadSaveResponse.ok) {
-          console.error('Failed to save email lead:', await leadSaveResponse.text());
-        }
 
       } else if (action === 'discuss') {
-        // Validate estimateData before sending
-        console.log('Estimate data being sent:', estimateData);
-        console.log('Lead data being sent:', leadData);
-        
-        if (!estimateData.total || estimateData.total === 0) {
-          throw new Error('Please select your project requirements first to get an estimate.');
-        }
-        
-        if (!leadData.name || !leadData.email) {
-          throw new Error('Please fill in your name and email address.');
-        }
-        
         // For "discuss", send consultation request email with estimate data
         const consultationResponse = await fetch('/api/send-consultation-request', {
           method: 'POST',
@@ -2031,23 +2019,6 @@ function LeadCaptureForm({ action, formType, onClose }: LeadCaptureFormProps) {
         if (responseData.warning) {
           console.warn('Consultation request warning:', responseData.warning);
           alert(responseData.warning);
-        }
-        
-        // Save to Calculator Leads database (Consultation request = Hot lead)
-        const leadSaveResponse = await fetch('/api/save-calculator-lead', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            estimateData, 
-            leadData: { ...leadData, action: 'contact_request' },
-            website: honeypotData
-          }),
-        });
-        
-        if (!leadSaveResponse.ok) {
-          console.error('Failed to save consultation lead:', await leadSaveResponse.text());
         }
       }
 
@@ -2153,7 +2124,7 @@ function LeadCaptureForm({ action, formType, onClose }: LeadCaptureFormProps) {
         </div>
 
         <form onSubmit={handleSubmit}>
-          <HoneypotField onUpdate={setHoneypotData} />
+          <HoneypotField onChange={setHoneypotData} />
           
           <div className="form-row">
             <div className="form-field">

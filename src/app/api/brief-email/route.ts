@@ -1,23 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendClientEmail } from '@/lib/email';
 import { updateBriefAction, BriefData, saveBriefToNotion } from '@/lib/notion';
+import { rateLimit, getClientIP } from '@/lib/rate-limit';
+import { validateEmail, validateName, isBot } from '@/lib/input-sanitization';
 
 export async function POST(request: NextRequest) {
   try {
+    const clientIP = getClientIP(request);
+    const rateLimitResult = rateLimit(clientIP, { limit: 3, window: 10 * 60 * 1000, key: 'brief-email' });
+    if (!rateLimitResult.success) {
+      console.warn('Rate limit exceeded for brief-email, IP:', clientIP);
+      return NextResponse.json(
+        { error: 'Too many email requests. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
-    console.log('Brief email API received:', body);
-    const { formType, name, email, company, briefData, briefId } = body;
+    console.log('Brief email API received from IP:', clientIP);
+    const { formType, name, email, company, briefData, briefId, website } = body;
+
+    if (isBot(website)) {
+      console.warn('Bot detected via honeypot for brief-email, IP:', clientIP);
+      return NextResponse.json({ error: 'Invalid submission' }, { status: 400 });
+    }
 
     // Validate required fields
-    if (!formType || !name || !email || !briefData) {
-      console.error('Missing required fields:', { formType, name, email, briefData: !!briefData });
+    if (!formType || !briefData) {
       return NextResponse.json(
-        { error: 'Missing required fields: formType, name, email, briefData' },
+        { error: 'Missing required fields: formType, briefData' },
         { status: 400 }
       );
     }
 
-    // Validate form type
     if (!['website', 'graphic', 'photo'].includes(formType)) {
       return NextResponse.json(
         { error: 'Invalid form type. Must be: website, graphic, or photo' },
@@ -25,22 +40,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    const nameValidation = validateName(name);
+    const emailValidation = validateEmail(email);
+
+    if (!nameValidation.isValid || !emailValidation.isValid) {
       return NextResponse.json(
-        { error: 'Invalid email format' },
+        { error: 'Validation failed', details: [...nameValidation.errors, ...emailValidation.errors] },
         { status: 400 }
       );
     }
 
-    // Prepare data
     const briefDataObj: BriefData = {
       formType,
-      name,
-      email,
+      name: nameValidation.sanitized,
+      email: emailValidation.sanitized,
       company: company || '',
-      briefData
+      briefData,
     };
 
     // Send email to client
@@ -69,13 +84,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Brief email sent successfully',
-      briefId: notionBriefId
+      briefId: notionBriefId,
     });
 
   } catch (error) {
     console.error('Email sending error:', error);
-    
-    // Check if it's an email-specific error
+
     if (error instanceof Error) {
       if (error.message.includes('Invalid email') || error.message.includes('SMTP')) {
         return NextResponse.json(

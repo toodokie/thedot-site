@@ -276,11 +276,15 @@ export async function POST(request: NextRequest) {
 
     // Send internal notification email for all calculator leads
     try {
+      const internalHeaders: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (process.env.INTERNAL_API_SECRET) {
+        internalHeaders['x-internal-secret'] = process.env.INTERNAL_API_SECRET;
+      }
       await fetch(new URL('/api/send-internal-notification', request.url), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: internalHeaders,
         body: JSON.stringify({
           type: 'calculator_lead',
           leadData,
