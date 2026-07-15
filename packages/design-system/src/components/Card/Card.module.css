@@ -1,0 +1,6 @@
+.card { background: var(--dot-white); border: 1px solid var(--dot-hairline); border-radius: var(--dot-radius);
+  padding: var(--dot-space-6); max-width: 340px; }
+.eyebrow { display: block; font-family: var(--dot-font-display); font-weight: var(--dot-weight-demi);
+  text-transform: uppercase; letter-spacing: 0.18em; font-size: 0.68rem; color: var(--dot-grey); margin-bottom: 10px; }
+.title { margin: 0 0 8px; font-family: var(--dot-font-text); font-weight: var(--dot-weight-book); font-size: 1.5rem; line-height: 1.25; color: var(--dot-black); }
+.body { font-family: var(--dot-font-text); font-size: 0.9rem; color: var(--dot-grey); }

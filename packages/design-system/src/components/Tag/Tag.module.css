@@ -1,0 +1,4 @@
+.tag { display: inline-block; font-family: var(--dot-font-display); font-weight: var(--dot-weight-demi);
+  text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.66rem; padding: 6px 12px; border-radius: var(--dot-radius); }
+.yellow { background: var(--dot-yellow); color: var(--dot-black); }
+.black { background: var(--dot-black); color: var(--dot-cream); }
