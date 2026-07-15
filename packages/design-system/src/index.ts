@@ -10,3 +10,4 @@ export * from './components/Card';
 export * from './components/Tag';
 export * from './components/Input';
 export * from './components/Textarea';
+export * from './components/Selector';
