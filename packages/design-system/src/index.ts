@@ -15,3 +15,4 @@ export * from './components/Dot';
 export * from './components/DotGrid';
 export * from './components/Stripe';
 export * from './components/Arrow';
+export * from './assets';
