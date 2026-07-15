@@ -1,0 +1,9 @@
+.button { display: inline-block; font-family: var(--dot-font-display); font-weight: var(--dot-weight-demi);
+  text-transform: uppercase; letter-spacing: 0.1em; border-radius: var(--dot-radius); border: 2px solid var(--dot-black);
+  cursor: pointer; text-decoration: none; line-height: 1; transition: background .2s, color .2s; }
+.md { font-size: 0.8rem; padding: 14px 30px; }
+.sm { font-size: 0.72rem; padding: 10px 20px; }
+.black { background: var(--dot-black); color: var(--dot-cream); }
+.yellow { background: var(--dot-yellow); color: var(--dot-black); border-color: var(--dot-black); }
+.ghost { background: transparent; color: var(--dot-black); }
+.ghost:hover { background: var(--dot-black); color: var(--dot-cream); }
