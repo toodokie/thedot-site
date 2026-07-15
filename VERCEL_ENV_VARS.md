@@ -121,6 +121,17 @@ Add these environment variables in your Vercel project settings:
         - Example: `{"type":"service_account","project_id":"...","private_key_id":"...","private_key":"...","client_email":"...","client_id":"...","auth_uri":"...","token_uri":"...","auth_provider_x509_cert_url":"...","client_x509_cert_url":"..."}`
    - Required for: Fetching traffic metrics from Google Analytics for admin dashboard
 
+### Client Portal (Supabase)
+
+These power the `/client` portal. **Names only — never paste key values into this file (it is committed).**
+
+16. **NEXT_PUBLIC_SUPABASE_URL** — Supabase project URL (public). Add to **all** environments (Production, Preview, Development).
+17. **NEXT_PUBLIC_SUPABASE_ANON_KEY** — Supabase anon/publishable key (public, RLS-guarded). Add to **all** environments.
+18. **SUPABASE_SERVICE_ROLE_KEY** — service-role key (SECRET). Used **only** by the local/CI `sync-content` script, never by runtime app code. Add **only** to the environment(s) that run the sync (local `.env.local` + CI), **not** to the app's Vercel runtime env.
+19. **PORTAL_CONTENT_DIR** — path the `sync-content` script reads Markdown from. Same scope as the service-role key: local/CI only, not app runtime.
+
+> The portal's browser + server runtime needs only the two `NEXT_PUBLIC_*` values. The service-role key and content dir belong to the content-sync tooling, so keeping them out of the app runtime env limits blast radius.
+
 ## Setup Steps in Vercel
 
 1. Go to your Vercel project dashboard

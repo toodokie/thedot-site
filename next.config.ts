@@ -55,7 +55,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline' *.typekit.net use.typekit.net fonts.googleapis.com",
               "font-src 'self' *.typekit.net use.typekit.net fonts.gstatic.com data:",
               "img-src 'self' data: blob: *.typekit.net prod-files-secure.s3.us-west-2.amazonaws.com https://www.google-analytics.com https://www.googletagmanager.com",
-              "connect-src 'self' *.typekit.net *.adobe.com https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://challenges.cloudflare.com vitals.vercel-insights.com",
+              "connect-src 'self' *.typekit.net *.adobe.com https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://challenges.cloudflare.com vitals.vercel-insights.com https://ltotkkpytvtcgelrgdkg.supabase.co wss://ltotkkpytvtcgelrgdkg.supabase.co",
               "frame-src 'self' https://calendar.google.com https://player.vimeo.com https://vimeo.com https://www.youtube.com https://youtube.com https://challenges.cloudflare.com",
               "worker-src 'self' blob:",
               "object-src 'none'",
