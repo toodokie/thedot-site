@@ -2,7 +2,7 @@
 import { Client } from '@notionhq/client';
 
 const notion = new Client({ 
-  auth: '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'
+  auth: process.env.NOTION_TOKEN
 });
 
 async function debugDatabaseProperties() {

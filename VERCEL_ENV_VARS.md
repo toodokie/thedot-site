@@ -58,7 +58,7 @@ Add these environment variables in your Vercel project settings:
     - SMTP password or app-specific password
     - For Gmail: App-specific password (not your regular password)
     - How to get Gmail app password: https://support.google.com/accounts/answer/185833
-    - Current value (generated 2025): `zaco tpqc khmh ydrf` (remove spaces when adding to Vercel: `zacotpqckhmhydrf`)
+    - Value REMOVED (it was committed and is now burned). Rotate the Gmail app password and set the new one only in Vercel env, never in this file.
 
 11. **FROM_EMAIL**
     - Email address that appears in the "From" field

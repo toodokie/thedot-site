@@ -71,12 +71,6 @@ export async function deleteSession() {
 }
 
 export async function authenticateAdmin(password: string): Promise<boolean> {
-  console.log('[AUTH] Authenticating admin...');
-  console.log('[AUTH] Password length:', password.length);
-  console.log('[AUTH] Hash present:', !!ADMIN_PASSWORD_HASH);
-  console.log('[AUTH] Hash length:', ADMIN_PASSWORD_HASH?.length);
-  console.log('[AUTH] Full hash:', ADMIN_PASSWORD_HASH);
-  console.log('[AUTH] Expected hash:', '$2b$10$v9Q4v7BJQJY7OGysCLPjmOIQE3ftvaGLMCHgeBwpHa0yMUEN2v.Cq');
 
   if (!ADMIN_PASSWORD_HASH) {
     console.error('[AUTH] ADMIN_PASSWORD_HASH not set in environment variables');
@@ -84,6 +78,5 @@ export async function authenticateAdmin(password: string): Promise<boolean> {
   }
 
   const result = await verifyPassword(password, ADMIN_PASSWORD_HASH);
-  console.log('[AUTH] Verification result:', result);
   return result;
 }

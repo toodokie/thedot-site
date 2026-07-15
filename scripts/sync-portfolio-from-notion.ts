@@ -1,7 +1,10 @@
 // scripts/sync-portfolio-from-notion.ts
+import { loadEnvConfig } from '@next/env';
 import { Client } from '@notionhq/client';
 import fs from 'fs';
 import path from 'path';
+
+loadEnvConfig(process.cwd());
 
 interface PortfolioProject {
   slug: string;
@@ -37,7 +40,7 @@ class PortfolioNotionSync {
 
   constructor() {
     this.portfolioNotion = new Client({ 
-      auth: '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'
+      auth: process.env.NOTION_TOKEN_PORTFOLIO
     });
     this.portfolioDatabaseId = '224d0f0c2544806aba32c82f0d08f463';
     this.outputDir = path.join(process.cwd(), 'src/data/portfolio');
