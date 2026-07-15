@@ -475,7 +475,7 @@ export default config;
 Create `packages/design-system/.storybook/preview.tsx` (note the `.tsx` extension — the decorator returns JSX):
 
 ```tsx
-import type { Preview } from '@storybook/react-vite';
+import type { Preview } from '@storybook/react';
 import '../src/styles/fonts.css';
 import '../src/tokens/tokens.css';
 import '../src/styles/reset.css';
@@ -565,7 +565,7 @@ Create `packages/design-system/src/components/Heading/Heading.module.css`:
 Create `packages/design-system/src/components/Heading/Heading.stories.tsx`:
 
 ```tsx
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import type { Meta, StoryObj } from '@storybook/react';
 import { Heading } from './Heading';
 
 const meta: Meta<typeof Heading> = { title: 'Type/Heading', component: Heading };
@@ -658,7 +658,7 @@ export function Text({ size = 'md', tone = 'black', as, className, children }: T
 - [ ] **Step 3: Create Text.stories.tsx**
 
 ```tsx
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import type { Meta, StoryObj } from '@storybook/react';
 import { Text } from './Text';
 
 const meta: Meta<typeof Text> = { title: 'Type/Text', component: Text };
@@ -714,7 +714,7 @@ export function Eyebrow({ tone = 'grey', className, children }: EyebrowProps) {
 - [ ] **Step 7: Create Eyebrow.stories.tsx**
 
 ```tsx
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import type { Meta, StoryObj } from '@storybook/react';
 import { Eyebrow } from './Eyebrow';
 
 const meta: Meta<typeof Eyebrow> = { title: 'Type/Eyebrow', component: Eyebrow };
@@ -794,7 +794,7 @@ export function Button(props: ButtonProps) {
 - [ ] **Step 3: Create Button.stories.tsx**
 
 ```tsx
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import type { Meta, StoryObj } from '@storybook/react';
 import { Button } from './Button';
 
 const meta: Meta<typeof Button> = { title: 'Actions/Button', component: Button };
@@ -882,7 +882,7 @@ export function Card({ eyebrow, title, className, children }: CardProps) {
 - [ ] **Step 3: Create Card.stories.tsx**
 
 ```tsx
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import type { Meta, StoryObj } from '@storybook/react';
 import { Card } from './Card';
 
 const meta: Meta<typeof Card> = { title: 'Content/Card', component: Card };
@@ -930,7 +930,7 @@ export function Tag({ tone = 'yellow', className, children }: TagProps) {
 - [ ] **Step 7: Create Tag.stories.tsx**
 
 ```tsx
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import type { Meta, StoryObj } from '@storybook/react';
 import { Tag } from './Tag';
 
 const meta: Meta<typeof Tag> = { title: 'Content/Tag', component: Tag };
@@ -1063,7 +1063,7 @@ Expected: PASS (Input tests green).
 `Input.stories.tsx`:
 
 ```tsx
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import type { Meta, StoryObj } from '@storybook/react';
 import { Input } from './Input';
 
 const meta: Meta<typeof Input> = { title: 'Forms/Input', component: Input };
@@ -1157,7 +1157,7 @@ Expected: PASS.
 `Textarea.stories.tsx`:
 
 ```tsx
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import type { Meta, StoryObj } from '@storybook/react';
 import { Textarea } from './Textarea';
 
 const meta: Meta<typeof Textarea> = { title: 'Forms/Textarea', component: Textarea };
@@ -1278,7 +1278,7 @@ Expected: PASS.
 `Selector.stories.tsx`:
 
 ```tsx
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import type { Meta, StoryObj } from '@storybook/react';
 import { useState } from 'react';
 import { Selector } from './Selector';
 
@@ -1357,7 +1357,7 @@ export function Dot({ fill = 'silver', size = 48, className }: DotProps) {
 `Dot.stories.tsx`:
 
 ```tsx
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import type { Meta, StoryObj } from '@storybook/react';
 import { Dot } from './Dot';
 
 const meta: Meta<typeof Dot> = { title: 'Brand/Dot', component: Dot };
@@ -1419,7 +1419,7 @@ export function DotGrid({ cols = 8, rows = 6, gap = 16, dotSize = 44, className 
 `DotGrid.stories.tsx`:
 
 ```tsx
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import type { Meta, StoryObj } from '@storybook/react';
 import { DotGrid } from './DotGrid';
 
 const meta: Meta<typeof DotGrid> = { title: 'Brand/DotGrid', component: DotGrid };
@@ -1486,7 +1486,7 @@ export function Stripe({ tone = 'black', height = 22, className }: StripeProps) 
 `Stripe.stories.tsx`:
 
 ```tsx
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import type { Meta, StoryObj } from '@storybook/react';
 import { Stripe } from './Stripe';
 
 const meta: Meta<typeof Stripe> = { title: 'Brand/Stripe', component: Stripe, parameters: { layout: 'fullscreen' } };
@@ -1536,7 +1536,7 @@ export function Arrow({ direction = 'right', size = 48, className }: ArrowProps)
 `Arrow.stories.tsx`:
 
 ```tsx
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import type { Meta, StoryObj } from '@storybook/react';
 import { Arrow } from './Arrow';
 
 const meta: Meta<typeof Arrow> = { title: 'Brand/Arrow', component: Arrow };
@@ -1596,7 +1596,7 @@ export * from './assets';
 Create `packages/design-system/src/assets/Assets.stories.tsx`:
 
 ```tsx
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import type { Meta, StoryObj } from '@storybook/react';
 import logo from './main-logo.svg';
 import dotPattern from './dot-pattern.svg';
 
