@@ -13,3 +13,5 @@ export * from './components/Textarea';
 export * from './components/Selector';
 export * from './components/Dot';
 export * from './components/DotGrid';
+export * from './components/Stripe';
+export * from './components/Arrow';
