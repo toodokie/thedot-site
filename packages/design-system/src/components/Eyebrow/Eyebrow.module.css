@@ -1,0 +1,4 @@
+.eyebrow { font-family: var(--dot-font-display); font-weight: var(--dot-weight-demi);
+  text-transform: uppercase; letter-spacing: 0.2em; font-size: var(--dot-text-eyebrow); }
+.grey { color: var(--dot-grey); }
+.black { color: var(--dot-black); }
