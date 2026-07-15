@@ -1,0 +1,6 @@
+/* Adobe Typekit kit gac6jnd — futura-pt + ff-real-text-pro.
+   Consumers MUST load this in their document <head>:
+   <link rel="stylesheet" href="https://use.typekit.net/gac6jnd.css">
+   @import is declared here so Storybook/preview picks it up; production
+   apps should prefer the <link> for performance. */
+@import url('https://use.typekit.net/gac6jnd.css');

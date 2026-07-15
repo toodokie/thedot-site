@@ -1,0 +1,2 @@
+.dot-root, .dot-root * { box-sizing: border-box; }
+.dot-root { margin: 0; color: var(--dot-black); font-family: var(--dot-font-text); background: var(--dot-cream); }
