@@ -1,0 +1,7 @@
+.field { display: flex; flex-direction: column; gap: 6px; }
+.label { font-family: var(--dot-font-display); font-weight: var(--dot-weight-demi); text-transform: uppercase;
+  letter-spacing: 0.12em; font-size: 0.7rem; color: var(--dot-grey); }
+.input { font-family: var(--dot-font-text); font-size: 1rem; color: var(--dot-black); background: var(--dot-white);
+  border: 1px solid var(--dot-hairline); border-radius: var(--dot-radius); padding: 12px 14px; outline: none; }
+.input:focus { border-color: var(--dot-black); }
+.invalid { border-color: #c0392b; }
