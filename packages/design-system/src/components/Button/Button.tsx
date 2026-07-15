@@ -1,14 +1,24 @@
-import type { ButtonHTMLAttributes, AnchorHTMLAttributes, ReactNode } from 'react';
+import type { ComponentPropsWithoutRef, ElementType, ReactNode } from 'react';
 import styles from './Button.module.css';
 
-type Common = { variant?: 'black' | 'yellow' | 'ghost'; size?: 'md' | 'sm'; className?: string; children: ReactNode };
-export type ButtonProps =
-  | (Common & { as?: 'button' } & ButtonHTMLAttributes<HTMLButtonElement>)
-  | (Common & { as: 'a' } & AnchorHTMLAttributes<HTMLAnchorElement>);
+type ButtonOwnProps = {
+  variant?: 'black' | 'yellow' | 'ghost';
+  size?: 'md' | 'sm';
+  className?: string;
+  children: ReactNode;
+};
 
-export function Button(props: ButtonProps) {
-  const { variant = 'black', size = 'md', className, children, as = 'button', ...rest } = props as Common & { as?: 'button' | 'a' };
+export type ButtonProps<E extends ElementType = 'button'> = ButtonOwnProps & {
+  as?: E;
+} & Omit<ComponentPropsWithoutRef<E>, keyof ButtonOwnProps | 'as'>;
+
+export function Button<E extends ElementType = 'button'>(props: ButtonProps<E>) {
+  const { variant = 'black', size = 'md', className, children, as, ...rest } = props;
+  const Comp = (as ?? 'button') as ElementType;
   const cls = [styles.button, styles[variant], styles[size], className].filter(Boolean).join(' ');
-  if (as === 'a') return <a className={cls} {...(rest as AnchorHTMLAttributes<HTMLAnchorElement>)}>{children}</a>;
-  return <button className={cls} {...(rest as ButtonHTMLAttributes<HTMLButtonElement>)}>{children}</button>;
+  return (
+    <Comp className={cls} {...rest}>
+      {children}
+    </Comp>
+  );
 }

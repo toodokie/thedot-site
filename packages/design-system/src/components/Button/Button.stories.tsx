@@ -15,3 +15,11 @@ export const Variants: Story = {
     </div>
   ),
 };
+
+export const AsLink: Story = {
+  render: () => (
+    <Button as="a" href="https://thedotcreative.co" variant="yellow">
+      Visit the site
+    </Button>
+  ),
+};
