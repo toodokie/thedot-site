@@ -1,0 +1,29 @@
+:root {
+  /* Brand palette — Figma "The Dot Styleguide" (superset: 6) */
+  --dot-black:#35332f; --dot-cream:#faf9f6; --dot-yellow:#daff00;
+  --dot-white:#ffffff; --dot-grey:#7a776f; --dot-graphite:#47453f;
+  --dot-yellow-pale:#eefb9d; --dot-hairline:#ebebe7;
+
+  /* Signature gradients (from site CSS) */
+  --dot-grad-fill:radial-gradient(circle farthest-corner at 50% 50%, #daff00cc, #faf9f6);
+  --dot-grad-corner:radial-gradient(circle farthest-corner at 100% 0%, #daff00cf, #eefb9dbd 34%, #faf9f6 53%);
+  --dot-grad-edge:radial-gradient(circle farthest-corner at 100% 50%, #daff00a1, #faf9f6);
+  --dot-grad-wash:linear-gradient(to bottom, #faf9f6, #daff00a3);
+  --dot-grad-96:linear-gradient(96deg, #faf9f6, #daff00);
+  --dot-grad-135:linear-gradient(135deg, #daff00 0%, #faf9f6 100%);
+  --dot-grad-silver:radial-gradient(circle at 35% 30%, #ffffff, #d8d6d1 52%, #9c9a94 100%);
+
+  /* Type */
+  --dot-font-display:'futura-pt','Futura','Avenir Next','Helvetica Neue',Arial,sans-serif;
+  --dot-font-text:'ff-real-text-pro',sans-serif;
+  --dot-weight-light:200; --dot-weight-book:300; --dot-weight-medium:500; --dot-weight-demi:600;
+  --dot-text-hero:clamp(3rem,8vw,6rem); --dot-text-h1:clamp(3rem,8vw,5rem);
+  --dot-text-h2:clamp(2.5rem,6vw,4rem); --dot-text-section:4.2rem;
+  --dot-text-h3:clamp(1.5rem,4vw,2.375rem); --dot-text-h4:clamp(1.25rem,3vw,1.875rem);
+  --dot-text-body:1.0625rem; --dot-text-eyebrow:0.78rem;
+
+  /* Space + radius */
+  --dot-space-1:4px; --dot-space-2:8px; --dot-space-3:12px; --dot-space-4:16px;
+  --dot-space-5:24px; --dot-space-6:32px; --dot-space-7:48px; --dot-space-8:64px;
+  --dot-radius:0; --dot-radius-circle:50%;
+}
