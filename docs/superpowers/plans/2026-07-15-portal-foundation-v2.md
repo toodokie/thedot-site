@@ -137,6 +137,11 @@ export default defineConfig({
 
 **File:** `supabase/migrations/0001_portal.sql`
 
+> **Review-3 fixes (applied 2026-07-15, from the Codex pass on the written migration; the file is canonical, the SQL block below is the pre-review version kept for context):**
+> 1. **Dropped the `activity_log.content_id` FK.** Its `on delete set null` nulled only `content_id` and left `content_version`, tripping the pairing CHECK and aborting any content delete (e.g. sync removing a stale item). The log is now append-only and keeps the historical content UUID; client deletion still cascades via `client_id`.
+> 2. **Made all Data API grants explicit** (new Supabase projects no longer auto-grant table privileges since 2026-05-30). Explicit `revoke all` from `anon` + `authenticated`, then column-level `grant select` to `authenticated` on clients / client_users / content_items / approvals (the view's subquery columns) / activity_log / the view; minimum service-role grants (select on clients, CRUD on content_items). Without this the `security_invoker` view and the sync would silently break. A comment marks where to add `grant insert on activity_log to service_role` if a later task has the sync emit lifecycle events.
+> 3. **Locked the content row** in `record_content_decision` (`select ... for update of ci`) so the membership + version guard is linearizable against a concurrent sync version bump.
+
 - [ ] **Step 1: Write the migration**
 ```sql
 -- === tables ===
