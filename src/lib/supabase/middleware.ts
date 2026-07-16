@@ -1,0 +1,28 @@
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
+
+export async function refreshPortalSession(request: NextRequest) {
+  let response = NextResponse.next({ request })
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(list, headers) {
+          list.forEach(({ name, value }) => request.cookies.set(name, value))
+          response = NextResponse.next({ request })
+          list.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
+          // @supabase/ssr 0.12.x passes cache-prevention headers alongside the
+          // cookies (Cache-Control / Expires / Pragma); copy them so a session
+          // response is never cached by a CDN or reverse proxy.
+          Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value))
+        },
+      },
+    }
+  )
+  await supabase.auth.getUser() // triggers refresh + cookie writes
+  return response
+}

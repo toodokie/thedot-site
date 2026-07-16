@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { incrementBotBlocks } from './lib/security-stats';
+import { refreshPortalSession } from '@/lib/supabase/middleware';
 
 // Known malicious bot user agents
 const BLOCKED_USER_AGENTS = [
@@ -24,7 +25,7 @@ const BLOCKED_USER_AGENTS = [
   'PetalBot', // Huawei bot
 ];
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Get the hostname (www.thedotcreative.co or thedotcreative.co)
@@ -52,17 +53,14 @@ export function middleware(request: NextRequest) {
     return new NextResponse('Forbidden', { status: 403 });
   }
 
-  // Create response
-  let response = NextResponse.next();
-  
   // Force HTTPS in production
   if (process.env.NODE_ENV === 'production' && request.headers.get('x-forwarded-proto') !== 'https') {
     return NextResponse.redirect(
-      `https://${hostname}${pathname}`,
+      `https://${hostname}${pathname}${request.nextUrl.search}`,
       301
     );
   }
-  
+
   // Redirect non-www to www (consolidate to single domain)
   if (process.env.NODE_ENV === 'production' && !hostname.startsWith('www.') && !hostname.includes('localhost')) {
     return NextResponse.redirect(
@@ -70,10 +68,17 @@ export function middleware(request: NextRequest) {
       301
     );
   }
-  
+
+  // Refresh the portal session on /client and /client/* only; plain pass-through elsewhere
+  // (startsWith('/client') would also match /clientele, /clients, etc.)
+  const isPortalRoute = pathname === '/client' || pathname.startsWith('/client/');
+  const response = isPortalRoute
+    ? await refreshPortalSession(request)
+    : NextResponse.next();
+
   // Add canonical header to help with SEO
   response.headers.set('Link', `<https://www.thedotcreative.co${pathname}>; rel="canonical"`);
-  
+
   return response;
 }
 

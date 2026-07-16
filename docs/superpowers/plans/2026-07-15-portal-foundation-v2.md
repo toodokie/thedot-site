@@ -336,6 +336,12 @@ from clients c, auth.users u where c.slug = 'kanset' and u.email = '<maria-email
 
 ### Task 4: Supabase clients + middleware refresh + portal guard
 
+> **Review-4 fixes (applied 2026-07-15, from the Codex pass on Task 4):**
+> 1. **`getClientSession(clientSlug)` is now slug-specific** (`clients!inner(slug)` + `.eq('clients.slug', slug)`, `.limit(1)` removed). The schema allows a user to belong to multiple clients (e.g. Anastasia's own account), so the old arbitrary `.limit(1)` could resolve the wrong client. **Downstream: Task 7's `[slug]` layout guard and every action must call `getClientSession(slug)`.**
+> 2. **Logged-out is handled, not thrown.** `getUser()` returns `AuthSessionMissingError` when there is no session; auth.ts returns null for that case (via `isAuthSessionMissingError` from `@supabase/auth-js`) and throws `PortalAuthError` only on real auth/network failures.
+> 3. **`createSupabaseServer({ writable })`.** Read-only by default (safe in Server Components); **Task 7's auth callback + logout handlers must pass `{ writable: true }`** so a real cookie-write failure surfaces instead of being swallowed.
+> 4. **Middleware:** `/client` boundary tightened to `pathname === '/client' || startsWith('/client/')` (was `startsWith('/client')`, which also matched `/clientele`, `/clients`); the prod HTTPS 301 now preserves the query string (pre-existing drop, matched to the www redirect).
+
 - [ ] **Step 1: `src/lib/supabase/server.ts`**
 ```ts
 import { createServerClient } from '@supabase/ssr'
