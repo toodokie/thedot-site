@@ -96,7 +96,7 @@ function mode(arr: string[]): string {
 function buildInput(f: { biz: string; city: string; service: string; need: string; site: string }, needPrompt: string): string {
   const siteLine = f.site ? `\nWebsite: ${f.site}` : '';
   return [
-    'You are auditing whether a local business shows up in AI-powered search. Use web search to check real, current results, not your training memory. Be honest and specific. Do NOT mention ChatGPT, OpenAI, Google, Bing, or any specific AI or search-engine name anywhere in your answer.',
+    'You are auditing whether a local business shows up in AI-powered search. Use web search to check real, current results, not your training memory. Be honest and specific. Do NOT mention ChatGPT, OpenAI, Google, Bing, or any specific AI or search-engine name anywhere in your answer. In every summary, do NOT use positional words like "above", "below", "following", or "as listed"; the app shows the businesses in a separate list, so refer to them by name or generically.',
     '',
     `Business name: ${f.biz}`,
     `City / area: ${f.city}`,
