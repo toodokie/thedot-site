@@ -23,7 +23,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Report = {
   byName: { found: boolean; wouldRecommend: string; summary: string };
-  byNeed: { namedCount: number; runs: number; competitors: string[]; summary: string };
+  byNeed: { namedCount: number; runs: number; competitors: string[]; matchedAs?: string[]; summary: string };
   readability?: { clear: boolean; summary: string };
   verdict: string;
 };
@@ -301,6 +301,9 @@ export default function AiVisibilitySelfCheck({
                     <span className={'tag ' + ns.pill}>{ns.tag}</span>
                   </div>
                   <p className="rec"><strong>{ns.line}</strong></p>
+                  {report.byNeed.namedCount > 0 && report.byNeed.matchedAs && report.byNeed.matchedAs.length > 0 && (
+                    <p className="matched">AI listed you as <strong>{report.byNeed.matchedAs.join(', ')}</strong>. <span className="matched-hint">Not you? Then the match was a coincidence, tell us.</span></p>
+                  )}
                   <p className="check-note">{report.byNeed.summary}</p>
                   {report.byNeed.competitors.length > 0 && (
                     <div className="rivals">
@@ -445,6 +448,8 @@ export default function AiVisibilitySelfCheck({
         .tag.flat { background: transparent; }
         .rec { font-size: 0.94rem; margin: 0.5em 0 0.2em; }
         .check-note { color: #47453f; font-size: 0.92rem; margin: 0.35em 0 0; }
+        .matched { font-size: 0.9rem; margin: 0.55em 0 0; padding: 0.55em 0.75em; background: var(--background, #faf9f6); border: 1px solid var(--white-smoke-2, #ebebe7); }
+        .matched-hint { color: var(--grey-2, #7a776f); }
 
         .rivals { margin-top: 0.9em; }
         .rivals-label { font-family: ${DISPLAY}; font-size: 0.66rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #47453f; }

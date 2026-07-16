@@ -78,7 +78,12 @@ function isSameBusiness(candidate: string, biz: string): boolean {
   const bt = coreTokens(biz);
   if (bt.length === 0) return false;
   const ct = new Set(coreTokens(candidate));
-  return bt.some((t) => ct.has(t));
+  const shared = bt.filter((t) => ct.has(t)).length;
+  // Require the real name, not a single shared generic word: short names need
+  // all their distinctive words (so "Envy Creative" does NOT match "The Dot
+  // Creative" on "creative" alone); longer names need 60%+ of their words.
+  if (bt.length <= 2) return shared === bt.length;
+  return shared >= Math.ceil(bt.length * 0.6);
 }
 function normKey(name: string): string {
   return coreTokens(name).sort().join(' ');
@@ -131,7 +136,7 @@ type Single = {
 
 type Report = {
   byName: { found: boolean; wouldRecommend: string; summary: string };
-  byNeed: { namedCount: number; runs: number; competitors: string[]; summary: string };
+  byNeed: { namedCount: number; runs: number; competitors: string[]; matchedAs: string[]; summary: string };
   readability?: { clear: boolean; summary: string };
   verdict: string;
 };
@@ -316,6 +321,7 @@ async function captureNotion(
   email: string,
   f: { biz: string; city: string; service: string; need: string; site: string },
   report: Report,
+  runs: { prompt: string; single: Single }[],
 ): Promise<void> {
   try {
     const db = process.env.NOTION_AIVC_LEADS_DB_ID?.trim();
@@ -323,8 +329,25 @@ async function captureNotion(
     const site = f.site ? (/^https?:\/\//i.test(f.site) ? f.site : 'https://' + f.site) : null;
     const opportunity =
       `AI-visibility: named ${report.byNeed.namedCount}/${report.byNeed.runs} by need for "${f.service}"${site ? ' · ' + site : ''}. ${report.verdict}`.slice(0, 1900);
+
+    // Audit trail: store the raw AI output per question as page body blocks, so
+    // any "named X/N" number can be verified after the fact.
+    const rawBlocks: Record<string, unknown>[] = [
+      { object: 'block', type: 'heading_3', heading_3: { rich_text: [{ type: 'text', text: { content: 'Raw AI output (audit trail)' } }] } },
+    ];
+    for (let i = 0; i < runs.length; i++) {
+      const r = runs[i];
+      const matched = r.single.recs.some((x) => isSameBusiness(x, f.biz));
+      rawBlocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: `Q${i + 1}${matched ? ' — NAMED' : ''}: ${r.prompt}`.slice(0, 1900) }, annotations: { bold: true } }] } });
+      rawBlocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: (r.single.recs.join('  ·  ') || '(model returned no list)').slice(0, 1900) } }] } });
+    }
+    if (report.byNeed.matchedAs.length > 0) {
+      rawBlocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: `Matched to this business as: ${report.byNeed.matchedAs.join(', ')}`.slice(0, 1900) }, annotations: { italic: true } }] } });
+    }
+
     await notion.pages.create({
       parent: { database_id: db },
+      children: rawBlocks,
       properties: {
         'Business Name': { title: [{ text: { content: f.biz } }] },
         'Contact Email': { email },
@@ -384,7 +407,10 @@ export async function POST(req: NextRequest) {
       if (attempt.status === 'rejected') console.error(`[ai-visibility] model run ${index + 1} failed:`, attempt.reason);
     });
     const texts = attempts.map((attempt) => attempt.status === 'fulfilled' ? attempt.value : '');
-    const singles = texts.map(parseSingle).filter((s): s is Single => s !== null);
+    const runs = needPrompts
+      .map((prompt, i) => ({ prompt, single: parseSingle(texts[i] || '') }))
+      .filter((r): r is { prompt: string; single: Single } => r.single !== null);
+    const singles = runs.map((r) => r.single);
     if (singles.length < texts.filter(Boolean).length) {
       console.error(`[ai-visibility] failed to parse ${texts.filter(Boolean).length - singles.length} model response(s)`);
     }
@@ -394,6 +420,7 @@ export async function POST(req: NextRequest) {
 
     const runsDone = singles.length;
     const namedCount = singles.filter((s) => s.recs.some((r) => isSameBusiness(r, f.biz))).length;
+    const matchedAs = [...new Set(singles.flatMap((s) => s.recs.filter((r) => isSameBusiness(r, f.biz))))];
     const found = singles.filter((s) => s.found).length * 2 >= runsDone;
     const wouldRecommend = mode(singles.map((s) => s.wouldRecommend));
     const nameSummary = singles.find((s) => s.nameSummary)?.nameSummary ?? '';
@@ -417,12 +444,12 @@ export async function POST(req: NextRequest) {
 
     const report: Report = {
       byName: { found, wouldRecommend, summary: nameSummary },
-      byNeed: { namedCount, runs: runsDone, competitors, summary: needSummary },
+      byNeed: { namedCount, runs: runsDone, competitors, matchedAs, summary: needSummary },
       ...(readGiven ? { readability: { clear: readClear, summary: readSummary } } : {}),
       verdict: makeVerdict(found, namedCount, runsDone, f.biz),
     };
 
-    captureNotion(email, f, report).catch(() => {});
+    captureNotion(email, f, report, runs).catch(() => {});
     const emailSent = await deliverReport(email, f, report);
     return NextResponse.json({
       ok: true,
