@@ -28,7 +28,7 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
         </p>
         <section className={styles.grid}>
           <div>
-            <h2 style={{ fontWeight: 300, fontSize: 24, marginBottom: 16 }}>Needs your approval</h2>
+            <h2 style={{ fontWeight: 300, fontSize: 24, margin: '0 0 16px' }}>Needs your approval</h2>
             {needs.length === 0 && <p style={{ color: MUTED }}>Nothing right now.</p>}
             {needs.map((it) => {
               const meta = [(it.platforms || []).join(' · '), it.fact_check].filter(Boolean).join(' · ')
@@ -51,21 +51,23 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
               </>
             )}
           </div>
-          <aside style={{ border: '1px solid #e8e5db', borderRadius: 10, padding: 20, background: '#fff' }}>
-            <h2 style={{ fontWeight: 300, fontSize: 20, marginBottom: 12 }}>Activity</h2>
-            {activity.length === 0 ? (
-              <p style={{ color: MUTED, fontSize: 14 }}>No activity yet.</p>
-            ) : (
-              <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-                {activity.map((a) => (
-                  <li key={a.id} style={{ padding: '10px 0', borderTop: '1px solid #eee', fontSize: 14 }}>
-                    <div><b style={{ fontWeight: 500 }}>{a.actor_name}</b> · {a.title}</div>
-                    {a.summary && <div style={{ color: MUTED }}>{a.summary}</div>}
-                    <time dateTime={a.created_at} style={{ color: MUTED, fontSize: 12 }}>{a.created_at.slice(0, 10)}</time>
-                  </li>
-                ))}
-              </ul>
-            )}
+          <aside>
+            <h2 style={{ fontWeight: 300, fontSize: 24, margin: '0 0 16px' }}>Activity</h2>
+            <div style={{ border: '1px solid #e8e5db', borderRadius: 10, padding: 20, background: '#fff' }}>
+              {activity.length === 0 ? (
+                <p style={{ color: MUTED, fontSize: 14 }}>No activity yet.</p>
+              ) : (
+                <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                  {activity.map((a) => (
+                    <li key={a.id} style={{ padding: '10px 0', borderTop: '1px solid #eee', fontSize: 14 }}>
+                      <div><b style={{ fontWeight: 500 }}>{a.actor_name}</b> · {a.title}</div>
+                      {a.summary && <div style={{ color: MUTED }}>{a.summary}</div>}
+                      <time dateTime={a.created_at} style={{ color: MUTED, fontSize: 12 }}>{a.created_at.slice(0, 10)}</time>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </aside>
         </section>
         <form action="/client/logout" method="post" style={{ marginTop: 32 }}>

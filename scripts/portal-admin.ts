@@ -74,8 +74,26 @@ async function link(email: string, name: string) {
   console.log('link created:', inserted?.[0])
 }
 
+// Mint a one-time sign-in URL WITHOUT sending email (bypasses the built-in email rate limit and any
+// mail-client link pre-consumption). Uses the token_hash flow, which the callback verifies server-side.
+async function signinLink(email: string, origin: string) {
+  const { data, error } = await admin.auth.admin.generateLink({ type: 'magiclink', email })
+  if (error) throw new Error(`generateLink: ${error.message}`)
+  const props = data.properties as { hashed_token?: string; verification_type?: string }
+  if (!props?.hashed_token) throw new Error('generateLink returned no hashed_token')
+  const type = props.verification_type ?? 'magiclink'
+  const url = `${origin}/client/auth/callback?token_hash=${encodeURIComponent(props.hashed_token)}&type=${encodeURIComponent(type)}&next=/client/kanset`
+  console.log(`One-time sign-in link for ${email} (type=${type}); paste into your browser (no email, single use):\n`)
+  console.log(url)
+}
+
 async function main() {
   const [action, email, name] = process.argv.slice(2)
+  if (action === 'signin-link') {
+    if (!email) throw new Error('usage: portal-admin.ts signin-link <email> [origin]')
+    await signinLink(email, name ?? 'http://localhost:3000') // 3rd positional = origin
+    return
+  }
   if (action === 'link') {
     if (!email) throw new Error('usage: portal-admin.ts link <email> "<name>"')
     await link(email, name ?? email)

@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server'
+import type { EmailOtpType } from '@supabase/auth-js'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { safeNext } from '@/lib/portal/redirect'
+
+const OTP_TYPES: EmailOtpType[] = ['email', 'magiclink', 'signup', 'invite', 'recovery', 'email_change']
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')            // default template (PKCE, same-device)
-  const tokenHash = searchParams.get('token_hash') // custom token_hash template (cross-device, needs SMTP)
+  const tokenHash = searchParams.get('token_hash') // token_hash template / admin-minted link
+  const rawType = searchParams.get('type')         // Supabase sets this in the link; default to 'email'
+  const type: EmailOtpType = OTP_TYPES.includes(rawType as EmailOtpType) ? (rawType as EmailOtpType) : 'email'
   const destination = safeNext(searchParams.get('next'), origin) // validated: no off-origin open redirect
   const noStore = { headers: { 'Cache-Control': 'private, no-store' } }
   const supabase = await createSupabaseServer({ writable: true })
@@ -12,7 +18,7 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) return NextResponse.redirect(destination, noStore)
   } else if (tokenHash) {
-    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'email' }) // fixed type
+    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
     if (!error) return NextResponse.redirect(destination, noStore)
   }
   return NextResponse.redirect(`${origin}/client/login?error=auth`, noStore)
