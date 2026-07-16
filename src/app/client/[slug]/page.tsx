@@ -24,12 +24,14 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
           Good day{session.name ? `, ${session.name.split(' ')[0]}` : ''}.
         </h1>
         <p style={{ color: MUTED, fontSize: 18, marginBottom: 36 }}>
-          <b style={{ color: 'var(--foreground)', fontWeight: 500 }}>{needs.length}</b> waiting for you.
+          {needs.length === 0
+            ? "You're all caught up."
+            : <><b style={{ color: 'var(--foreground)', fontWeight: 500 }}>{needs.length}</b> waiting for you.</>}
         </p>
         <section className={styles.grid}>
           <div>
             <h2 style={{ fontWeight: 300, fontSize: 24, margin: '0 0 16px' }}>Needs your approval</h2>
-            {needs.length === 0 && <p style={{ color: MUTED }}>Nothing right now.</p>}
+            {needs.length === 0 && <p style={{ color: MUTED }}>Nothing needs your approval right now.</p>}
             {needs.map((it) => {
               const meta = [(it.platforms || []).join(' · '), it.fact_check].filter(Boolean).join(' · ')
               return (
