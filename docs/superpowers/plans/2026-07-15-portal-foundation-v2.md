@@ -559,6 +559,12 @@ main().catch((e) => { console.error(e); process.exitCode = 1 })
 
 ### Task 6: State derivation (TDD) + readers (fail-loud)
 
+> **Review-6 fixes (applied 2026-07-16, from the Codex pass on Task 6):**
+> 1. **Open change requests no longer hidden (must-fix).** `deriveClientState` returns `with_dot` FIRST whenever `currentDecision === 'change_requested'`, before any lifecycle check. `content_with_state` only surfaces the current-version decision, so a live change request is never stale, and it previously got masked by `approved`/`scheduled`/`posted`/`idea` (e.g. `approved` + `change_requested` wrongly showed "approved").
+> 2. **Fail loud on unknown status.** Narrowed the param types (`ContentStatus`, `CurrentDecision`); `deriveClientState` now throws on an unrecognized status instead of silently returning `needs_review`. Tests grew to 7 (added a change_requested case covering all 4 lifecycle statuses + the unknown-status throw).
+> 3. **Deterministic ordering** in `data.ts`: `getContent` adds explicit `nullsFirst: false` + a `content_id` tiebreaker; `getActivity` adds an `id` tiebreaker on equal `created_at`.
+> **Declined:** Codex also suggested locking the decision RPC to `status = 'draft'`. Kept open so a client can request a change late (e.g. before a scheduled post goes out); fix #1 surfaces that correctly as "with_dot" rather than hiding it.
+
 - [ ] **Step 1: Failing test `src/lib/portal/state.test.ts`**
 ```ts
 import { describe, it, expect } from 'vitest'
