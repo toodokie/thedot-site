@@ -25,6 +25,21 @@ About to write a `<button>` or a hex color? **STOP — use the design system.**
 - Marketing site + a **Notion-sourced blog** + interactive lead tools. Brand = warm mono (`#faf9f6` canvas, `#35332f` ink) with **one acid-yellow `#daff00` used as glow/marker, never flat fills**; sharp corners on buttons; fonts **futura-pt** (display) + **ff-real-text-pro** (body) via **Adobe Typekit** (kit `gac6jnd`, loaded in `layout.tsx`).
   - ⚠️ **Typekit fonts cannot load in claude.ai artifacts / any non-authorized domain** (kit is domain-locked). Preview brand pages via the real dev server (`npm run dev`, localhost is authorized), not artifacts.
 
+## 🎨 Design system — USE IT for all UI (`@thedot/design-system`)
+**When writing or restyling UI, build with the design system, do NOT hand-roll styled-jsx** (it fights the aggressive globals.css and comes out off-brand — see the styling gotcha below). This is the standing convention for code-writing agents.
+- Local **workspace package** at `packages/design-system/` (v0.0.1, on the `feat/thedot-design-system` branch, built to `dist/`, symlinked into `node_modules/@thedot/design-system`). Ships its own reset + tokens + fonts CSS.
+- Import: `import { Card, Heading, Text, Eyebrow, Tag, Arrow, Button } from '@thedot/design-system';`
+- Exports:
+  - **Heading** `{ level?: 1|2|3|4, variant?: 'display'|'section', as?, className }`
+  - **Text** `{ size?: 'lg'|'md'|'sm', tone?, as?, className }`
+  - **Eyebrow** `{ tone?, className }`
+  - **Button** `{ variant?: 'black'|'yellow'|'ghost', size?: 'md'|'sm', as? (polymorphic) }`
+  - **Card** `{ eyebrow?, title?, className, children }`
+  - **Tag** `{ tone?, className }` · **Dot** `{ fill?, size? }` · **DotGrid** `{ cols, rows, gap, dotSize }` · **Stripe** `{ tone?, height? }` · **Arrow** `{ direction?, size? }`
+  - **Input** / **Textarea** `{ label, invalid, ... }` · **Selector** `{ selected, onSelect, size }`
+  - Tokens: `colors, fonts, radius, space, weights, assetPaths`
+- If you edit DS source, rebuild it (`npm run build` in `packages/design-system`) before the app sees the change. When wrapping a `<Card>` in a Next `<Link>`, still add `text-decoration: none` on the link (globals.css underlines every link's text).
+
 ## 🚀 Deploy — READ THIS (the site is CLI-deployed, and it's fragile on flaky wifi)
 - Production is deployed via **`vercel --prod`** from the working tree (NOT git-connected; the active branch `feat/thedot-design-system` is ~25 commits ahead of origin, unpushed). So a deploy ships the **local working tree**, committed or not.
 - **On flaky/travel wifi, `vercel --prod` frequently dies with `read ETIMEDOUT`** on the `/v13/deployments` POST — but **Vercel still builds it server-side**. Do NOT trust the CLI exit code.
