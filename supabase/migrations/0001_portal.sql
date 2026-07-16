@@ -102,22 +102,40 @@ declare
   v_client_id uuid;
   v_title text;
   v_current_version int;
+  v_status text;
+  v_note text := nullif(pg_catalog.btrim(p_note), '');  -- normalize: trim, and treat blank as null
   v_actor text;
   v_approval uuid;
 begin
+  -- Business invariants live HERE. The RPC is granted to authenticated and IS the write boundary,
+  -- so the Server Action's checks are UX-only; a direct rpc() call must not bypass these.
   if p_decision not in ('approved','change_requested') then
     raise exception 'invalid decision: %', p_decision;
+  end if;
+  if p_decision = 'change_requested' and v_note is null then
+    raise exception 'change request note is required';
+  end if;
+  if v_note is not null and pg_catalog.char_length(v_note) > 2000 then
+    raise exception 'decision note is too long';
   end if;
   -- Lock the content row and validate membership + current version atomically, so a concurrent
   -- service-role version bump cannot slip a stale decision past the guard. (Review-3: was two
   -- separate unlocked statements.)
-  select ci.client_id, ci.title, ci.version
-    into v_client_id, v_title, v_current_version
+  select ci.client_id, ci.title, ci.version, ci.status
+    into v_client_id, v_title, v_current_version, v_status
   from public.content_items ci
   join public.client_users cu on cu.client_id = ci.client_id and cu.auth_user_id = v_uid
   where ci.id = p_content_id
   for update of ci;
   if v_client_id is null then raise exception 'not authorized for this content'; end if;
+  -- Transition matrix, enforced at the boundary (not inferred from UI form visibility):
+  -- approve only while under review (draft); request a change anytime except an unstarted idea.
+  if p_decision = 'approved' and v_status <> 'draft' then
+    raise exception 'this piece is not open for approval';
+  end if;
+  if p_decision = 'change_requested' and v_status = 'idea' then
+    raise exception 'this piece is not open for review';
+  end if;
   if v_current_version is distinct from p_content_version then
     raise exception 'stale content version';
   end if;
@@ -127,7 +145,7 @@ begin
 
   v_approval := null;
   insert into public.approvals (content_id, client_id, content_version, state, note, decided_by)
-  values (p_content_id, v_client_id, p_content_version, p_decision, p_note, v_uid)
+  values (p_content_id, v_client_id, p_content_version, p_decision, v_note, v_uid)
   on conflict (content_id, content_version, decided_by)
   do update set state = excluded.state, note = excluded.note, created_at = pg_catalog.now()
     where (public.approvals.state, public.approvals.note)
@@ -144,7 +162,7 @@ begin
   insert into public.activity_log (client_id, content_id, content_version, event_type, title, summary, actor_type, actor_name)
   values (v_client_id, p_content_id, p_content_version, p_decision,
     case when p_decision = 'approved' then 'Approved: ' else 'Change requested: ' end || v_title,
-    p_note, 'client', coalesce(v_actor, 'Client'));
+    v_note, 'client', coalesce(v_actor, 'Client'));
 
   return v_approval;
 end;

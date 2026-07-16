@@ -21,7 +21,7 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
         <div style={{ color: MUTED, fontSize: 13, marginBottom: 20 }}>
           {(item.platforms || []).join(' · ')} · v{item.version}{item.fact_check ? ` · ${item.fact_check}` : ''}
         </div>
-        {item.canva_url && <a href={item.canva_url} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginBottom: 20 }}>Open the design in Canva →</a>}
+        {item.canva_url && /^https:\/\//i.test(item.canva_url) && <a href={item.canva_url} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginBottom: 20 }}>Open the design in Canva →</a>}
         <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, marginBottom: 28 }}>{item.client_body}</p>
         {item.state === 'needs_review'
           ? <DecideForm slug={slug} contentId={item.content_id} />

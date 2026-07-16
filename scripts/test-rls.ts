@@ -137,6 +137,14 @@ async function main(): Promise<void> {
     if (biErr || !bItemRow) throw new Error(`insert content_items B: ${biErr?.message ?? 'no row'}`)
     const bItemId = bItemRow.id as string
 
+    // A second B item in 'idea' status, to prove the RPC's transition guard rejects decisions on it.
+    const { data: bIdeaRow, error: biErr2 } = await admin.from('content_items').insert({
+      content_id: `${B_CONTENT_ID}-idea`, client_id: bClientId, title: 'Idea piece B',
+      platforms: [], status: 'idea', version: 1, client_body: 'idea',
+    }).select('id').single()
+    if (biErr2 || !bIdeaRow) throw new Error(`insert idea content B: ${biErr2?.message ?? 'no row'}`)
+    const bIdeaId = bIdeaRow.id as string
+
     // --- Real user JWTs + per-user PostgREST clients ---
     const kansetToken = await tokenFor(KANSET_EMAIL)
     const bToken = await tokenFor(B_EMAIL)
@@ -165,9 +173,10 @@ async function main(): Promise<void> {
         check('B: test user reads content_with_state', false, error.message)
       } else {
         const ids = (data ?? []).map((r) => r.content_id as string)
-        const onlyB = ids.length === 1 && ids[0] === B_CONTENT_ID
+        const bContentIds = new Set([B_CONTENT_ID, `${B_CONTENT_ID}-idea`])
+        const onlyB = ids.length >= 1 && ids.every((id) => bContentIds.has(id))
         const noKanset = !ids.some((id) => kansetContentIds.has(id))
-        check('B: test user sees ONLY rls-test-piece and no kanset content', onlyB && noKanset, `rows=${ids.length}`)
+        check('B: test user sees ONLY its own content and no kanset content', onlyB && noKanset, `rows=${ids.length}`)
       }
     }
 
@@ -201,6 +210,27 @@ async function main(): Promise<void> {
       if (after.error) throw new Error(`idempotency count after: ${after.error.message}`)
       const gained = (after.count ?? 0) - (before.count ?? 0)
       check('Idempotency: two identical calls add exactly ONE activity_log row', gained === 1, `gained=${gained}`)
+    }
+
+    // RPC business invariants: must be enforced in SQL, not only in the Server Action (the RPC is
+    // granted to authenticated, so a direct rpc() call must not bypass these).
+    {
+      const { error } = await bClient.rpc('record_content_decision', {
+        p_content_id: bItemId, p_content_version: 1, p_decision: 'change_requested', p_note: null,
+      })
+      check('RPC rejects change_requested with no note', !!error, error ? error.message : 'NO ERROR returned')
+    }
+    {
+      const { error } = await bClient.rpc('record_content_decision', {
+        p_content_id: bItemId, p_content_version: 1, p_decision: 'change_requested', p_note: 'x'.repeat(2001),
+      })
+      check('RPC rejects an over-long note (>2000)', !!error, error ? error.message : 'NO ERROR returned')
+    }
+    {
+      const { error } = await bClient.rpc('record_content_decision', {
+        p_content_id: bIdeaId, p_content_version: 1, p_decision: 'change_requested', p_note: 'please fix',
+      })
+      check('RPC rejects a decision on an idea-status piece', !!error, error ? error.message : 'NO ERROR returned')
     }
   } finally {
     // Cleanup (service role), always. Delete client B FIRST: it cascades content_items, client_users,

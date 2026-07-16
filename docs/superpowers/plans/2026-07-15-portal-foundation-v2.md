@@ -860,6 +860,14 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
 
 ### Task 9: Decision via the RPC (transactional, guarded form)
 
+> **Review-9 fixes (applied 2026-07-16, from the Codex pass on Task 9):**
+> 1. **Required-note bypass closed (blocker).** `record_content_decision` is granted to `authenticated` and IS the write boundary, so the Server Action's note check could be bypassed by a direct `rpc()` call. Moved the invariants INTO the RPC: `change_requested` requires a note, a 2000-char cap, and note normalization (`nullif(btrim(...), '')`, which also tightens idempotency). **The updated RPC must be re-run in Supabase.**
+> 2. **Transition matrix in the RPC.** Approve only while under review (`status = 'draft'`); request-a-change anytime except an unstarted `idea`. Enforced transactionally after the row lock, not inferred from UI form visibility. Mirrored in the action for fast feedback.
+> 3. **Strict FormData parsing** in the action (missing/File fields are null, not "null" / "[object File]").
+> 4. **Form a11y**: real `<label>`, `maxLength=2000`, `aria-invalid` / `aria-describedby`, `role="alert"`; the clicked button now shows "Saving…" (via `useFormStatus().data`).
+> 5. **Canva link HTTPS-guarded** on the piece page.
+> Added test-rls assertions for blank-note, over-long-note, and idea-transition rejection. **Deferred (documented):** RPC error observability (needs production monitoring; console is stripped in prod) and a finer approve-transition matrix, both post-launch.
+
 - [ ] **Step 1: `src/app/client/[slug]/actions.ts`**
 ```ts
 'use server'

@@ -5,19 +5,31 @@ import { getClientSession } from '@/lib/portal/auth'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { getContentItem } from '@/lib/portal/data'
 
+// Strict: a missing field or a File is null, not the strings "null" / "[object File]".
+function textField(data: FormData, key: string): string | null {
+  const v = data.get(key)
+  return typeof v === 'string' ? v : null
+}
+
 export async function decide(formData: FormData): Promise<{ error?: string }> {
-  const slug = String(formData.get('slug'))
-  const contentId = String(formData.get('contentId'))
-  const decision = String(formData.get('decision'))
-  const note = String(formData.get('note') || '').trim()
+  const slug = textField(formData, 'slug')
+  const contentId = textField(formData, 'contentId')
+  const decision = textField(formData, 'decision')
+  const note = (textField(formData, 'note') ?? '').trim()
+
+  if (!slug || !contentId) return { error: 'Something went wrong. Please reload and try again.' }
 
   const session = await getClientSession(slug)
   if (!session) redirect('/client/login')
   if (decision !== 'approved' && decision !== 'change_requested') return { error: 'Invalid action.' }
   if (decision === 'change_requested' && !note) return { error: 'Please add a note describing the change.' }
+  if (note.length > 2000) return { error: 'That note is too long (2000 characters max).' }
 
   const item = await getContentItem(session.clientId, contentId)
   if (!item) return { error: 'That piece is no longer available.' }
+  // Mirror the RPC's transition matrix for fast feedback; the RPC is the authoritative boundary.
+  if (decision === 'approved' && item.status !== 'draft') return { error: 'This piece is not open for approval.' }
+  if (decision === 'change_requested' && item.status === 'idea') return { error: 'This piece is not open for review.' }
 
   const supabase = await createSupabaseServer()
   const { error } = await supabase.rpc('record_content_decision', {
