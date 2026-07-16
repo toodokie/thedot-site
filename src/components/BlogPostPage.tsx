@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import Footer from './Footer';
+import AiVisibilitySelfCheck from './AiVisibilitySelfCheck';
 
 interface BlogPost {
   id: string;
@@ -704,8 +705,27 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
           </div>
         )}
 
-        {/* Post Content */}
-        <article className="post-content" dangerouslySetInnerHTML={{ __html: post.content }} />
+        {/* Post Content: embeds the self-check where the content contains the
+            [[ai-visibility-tool]] marker (optionally wrapped in <p> by the CMS).
+            Posts without the marker render exactly as before. */}
+        {(() => {
+          const TOOL_RE = /(?:<p>\s*)?\[\[ai-visibility-tool\]\](?:\s*<\/p>)?/;
+          if (!TOOL_RE.test(post.content)) {
+            return <article className="post-content" dangerouslySetInnerHTML={{ __html: post.content }} />;
+          }
+          const parts = post.content.split(TOOL_RE);
+          const before = parts[0];
+          const after = parts.slice(1).join('');
+          return (
+            <>
+              <article className="post-content" dangerouslySetInnerHTML={{ __html: before }} />
+              <div className="post-content" style={{ margin: '3.5rem auto' }}>
+                <AiVisibilitySelfCheck />
+              </div>
+              <article className="post-content" dangerouslySetInnerHTML={{ __html: after }} />
+            </>
+          );
+        })()}
 
         {/* Tags */}
         {post.tags && post.tags.length > 0 && (
