@@ -69,6 +69,9 @@ async function getFullPageContent(pageId: string): Promise<string> {
       } else if (blockData.type === 'quote' && blockData.quote?.rich_text) {
         const html = richTextToHtml(blockData.quote.rich_text);
         content += `<blockquote>${html}</blockquote>\n`;
+      } else if (blockData.type === 'callout' && blockData.callout?.rich_text) {
+        const html = richTextToHtml(blockData.callout.rich_text);
+        content += `<div class="tech-note"><p>${html}</p></div>\n`;
       } else if (blockData.type === 'code' && blockData.code?.rich_text) {
         const text = blockData.code.rich_text.map((t: any) => t.plain_text).join('');
         const language = blockData.code.language || '';

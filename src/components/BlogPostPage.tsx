@@ -27,6 +27,37 @@ interface BlogPostPageProps {
   post: BlogPost;
 }
 
+// Build FAQPage structured data from a post's FAQ section (h2 "Frequently asked
+// questions" followed by h3/p question-answer pairs). Returns null if none.
+function buildFaqSchema(content: string) {
+  if (!content) return null;
+  const idx = content.search(/<h2>[^<]*(?:frequently asked questions|faq)[^<]*<\/h2>/i);
+  if (idx === -1) return null;
+  const afterH2 = idx + content.slice(idx).indexOf('</h2>') + '</h2>'.length;
+  const rest = content.slice(afterH2);
+  const nextH2 = rest.search(/<h2>/i);
+  const nextHr = rest.search(/<hr\s*\/?>/i);
+  let end = rest.length;
+  if (nextH2 !== -1) end = Math.min(end, nextH2);
+  if (nextHr !== -1) end = Math.min(end, nextHr);
+  const body = rest.slice(0, end);
+  const pairs = [...body.matchAll(/<h3>(.*?)<\/h3>\s*<p>(.*?)<\/p>/gis)];
+  if (!pairs.length) return null;
+  const strip = (s: string) =>
+    s.replace(/<[^>]+>/g, '')
+      .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: pairs.map((m) => ({
+      '@type': 'Question',
+      name: strip(m[1]),
+      acceptedAnswer: { '@type': 'Answer', text: strip(m[2]) },
+    })),
+  };
+}
+
 export default function BlogPostPage({ post }: BlogPostPageProps) {
   const [relatedPosts, setRelatedPosts] = useState<BlogPost[]>([]);
   const [nextPost, setNextPost] = useState<BlogPost | null>(null);
@@ -70,6 +101,8 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
       "name": "The Dot Creative Agency"
     }
   };
+
+  const faqStructuredData = buildFaqSchema(post.content);
 
   useEffect(() => {
     const fetchRelatedAndNextPosts = async () => {
@@ -143,6 +176,16 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
           __html: JSON.stringify(articleStructuredData)
         }}
       />
+
+      {/* FAQ Structured Data (only when the post has an FAQ section) */}
+      {faqStructuredData && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(faqStructuredData)
+          }}
+        />
+      )}
       
       <style jsx>{`
         .post-container {
@@ -284,6 +327,19 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
           font-style: italic;
           font-size: 1.15rem;
           text-align: center;
+        }
+
+        /* Tech aside: left-aligned callout, same grey + yellow DNA as blockquote */
+        .post-content .tech-note {
+          background: #f8f9fa;
+          border-left: 4px solid var(--yellow);
+          padding: 25px 30px;
+          margin: 40px 0;
+          text-align: left;
+        }
+
+        .post-content .tech-note p {
+          margin: 0;
         }
         
         .post-content ul, .post-content ol {
