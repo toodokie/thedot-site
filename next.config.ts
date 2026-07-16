@@ -82,6 +82,18 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'www.thedotcreative.co',
+        port: '',
+        pathname: '/images/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'thedotcreative.co',
+        port: '',
+        pathname: '/images/**',
+      },
     ],
   },
   
