@@ -44,4 +44,7 @@ describe('parseContentFile', () => {
   it('rejects an impossible calendar date', () => {
     expect(() => parseContentFile('---\ncontent_id: a\nclient: kanset\ntitle: x\nscheduled_date: "2026-02-31"\n---\nb\n<!-- internal -->', 'p.md')).toThrow(/scheduled_date/)
   })
+  it('rejects a bad version (must be an integer >= 1, so 0 throws)', () => {
+    expect(() => parseContentFile('---\ncontent_id: a\nclient: kanset\ntitle: x\nversion: 0\n---\nb\n<!-- internal -->', 'p.md')).toThrow(/version/)
+  })
 })

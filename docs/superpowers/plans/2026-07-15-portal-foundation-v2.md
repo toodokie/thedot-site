@@ -965,6 +965,8 @@ export default function DecideForm({ slug, contentId }: { slug: string; contentI
 
 ### Task 10: Test set
 
+> **Task 10 status (2026-07-16):** the security-critical proof is automated and PASSING. `scripts/test-rls.ts` spins up a throwaway second tenant with real user JWTs and asserts, against the live DB, that (a) each user sees ONLY their own client's `content_with_state` + `activity_log`, (b) a cross-tenant `record_content_decision` is rejected ("not authorized"), and (c) two identical decisions add exactly one `activity_log` row (idempotency); it cleans up after itself. Unit suite: 23 portal tests (frontmatter 8, state 7, redirect/safeNext 8) all green; `npx tsc --noEmit` adds no portal errors. **Deferred: the Playwright E2E (Step 3)** — the happy path was validated manually in the browser (approve + request-change), and a full magic-link E2E needs `npx playwright install` + auth seeding; tracked as a follow-up.
+
 - [ ] **Step 1:** SQL/RLS test with REAL role impersonation (a plain SQL Editor query runs as the owner and bypasses RLS). In a transaction: `set local role authenticated;` then `set local request.jwt.claims = '{"sub":"<user-uuid>"}';` before querying. Two tenants; assert user A cannot select user B's `content_with_state` / `activity_log` rows; `record_content_decision` on A's content by B raises "not authorized"; and a second identical Approve inserts NO new `activity_log` row (idempotent).
 - [ ] **Step 2:** parser tests already cover enums/date/body split (Task 5); add a URL + version-bound case.
 - [ ] **Step 3: E2E `e2e/portal.spec.ts`** (Playwright): magic-link login (use a Supabase test inbox or a seeded session), approve, request-change, double-submit, and an expired-session redirect. Run `npm run test:e2e`.
