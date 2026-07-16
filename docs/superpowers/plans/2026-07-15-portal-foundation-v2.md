@@ -658,6 +658,12 @@ export async function getActivity(clientId: string): Promise<ActivityRow[]> {
 
 ### Task 7: Auth pages (token_hash), logout, guard layout, error/loading
 
+> **Review-7 fixes (applied 2026-07-16, from the Codex pass on Task 7):**
+> 1. **Open redirect closed (must-fix).** The callback built its redirect as `${origin}${next}`; `next=@evil.com` (or `%40evil.com`) yields `https://host@evil.com`, real origin evil.com. Added `safeNext()` in `src/lib/portal/redirect.ts` (accepts only a decoded, single-slash, same-origin `/client` path, else falls back), with unit tests `redirect.test.ts` (@evil.com, //evil.com, /\evil.com, absolute URLs, non-portal path, valid paths).
+> 2. **Logout redirect status (must-fix).** POST logout returned Next's default 307, so the browser re-POSTed to the GET-only login route (405). Now returns 303 (See Other -> GET), `signOut({ scope: 'local' })`, and 502 JSON on a signOut error.
+> 3. **Enumeration hardening.** The login page now shows the same "check your email" state after every Auth response (was success-vs-error observable). Callback URL built with `new URL('/client/auth/callback', base)` to avoid a double slash. (Network-level enumeration still needs rate limits / CAPTCHA, out of scope.)
+> **Deferred (pre-multi-client, documented in code):** (a) the guard conflates logged-out and authenticated-but-forbidden (both redirect to login), fine while Kanset is the only client; before client #2, distinguish via a discriminated `getClientSession` result (logged out -> login, forbidden -> notFound). (b) the hardcoded `/client/kanset` landing fallback. (c) surfacing `?error=auth` on the login page.
+
 - [ ] **Step 1: `src/app/client/auth/callback/route.ts`** (verify the token hash → session cookie)
 ```ts
 import { NextResponse } from 'next/server'
