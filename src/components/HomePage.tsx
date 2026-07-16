@@ -4,6 +4,7 @@ import HeroContent from '@/components/HeroContent';
 import HeroVideoLoader from '@/components/Hero';
 import WelcomeSection from '@/components/WelcomeSection';
 import ServicesSection from '@/components/ServicesSection';
+import LatestFromJournal from '@/components/LatestFromJournal';
 import ConversionDiagnosticTool from '@/components/ConversionDiagnosticTool';
 import ProjectsGrid from '@/components/ProjectsGrid';
 import ClientAnimations from './ClientAnimations';
@@ -22,6 +23,7 @@ export default async function HomePage() {
       <HeroVideoLoader />
       <WelcomeSection />
       <BoutiqueSection />
+      <LatestFromJournal />
       <ServicesSection />
       <ConversionDiagnosticTool />
       <ProjectsGrid projects={projects} />
