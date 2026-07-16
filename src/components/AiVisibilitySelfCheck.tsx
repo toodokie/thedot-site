@@ -1,15 +1,18 @@
 'use client';
 
 import { useRef, useState, type FormEvent } from 'react';
+import { byNamePrompt, byNeedPrompts, readabilityPrompt, SOURCE_PROMPT, type AivcFields } from '@/lib/aivc-prompts';
 
 /**
  * AiVisibilitySelfCheck
  * "Can AI find your business?" self-check.
  *
- * Email is required before running. It posts to /api/ai-visibility, which runs the
- * by-need check several times and returns a consistency report (named in X of N),
- * plus a by-name and optional readability check. On cap/error it falls back to a
- * manual prompt list so it never looks broken. The underlying AI engine is never named.
+ * The visitor sees the exact prompts before running (shared with the API via
+ * lib/aivc-prompts, so shown === run). It posts to /api/ai-visibility, which runs
+ * three different real-customer by-need phrasings plus a by-name and optional
+ * readability check, and reports how many of the three name the business. On
+ * cap/error it falls back to the same prompts to run by hand. The results credit
+ * the engine (ChatGPT / the model) in small print.
  */
 
 const DISPLAY = "'futura-pt','Futura','Avenir Next','Helvetica Neue',Arial,sans-serif";
@@ -86,6 +89,8 @@ export default function AiVisibilitySelfCheck({
   const [service, setService] = useState('');
   const [need, setNeed] = useState('');
   const [site, setSite] = useState('');
+  const [prompts, setPrompts] = useState<{ byName: string; byNeed: string[] } | null>(null);
+  const [engine, setEngine] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'report' | 'manual'>('idle');
   const [report, setReport] = useState<Report | null>(null);
   const [manual, setManual] = useState<Manual | null>(null);
@@ -95,25 +100,13 @@ export default function AiVisibilitySelfCheck({
   const resultsRef = useRef<HTMLDivElement | null>(null);
 
   function buildManual(): Manual {
-    const B = biz.trim() || '[your business]';
-    const C = city.trim() || '[your city]';
-    const S = service.trim() || '[your service]';
-    const N = need.trim() || '[your typical customer and their problem]';
-    let bonus: string[] = [];
-    const raw = site.trim();
-    if (raw) {
-      const url = /^https?:\/\//i.test(raw) ? raw : 'https://' + raw;
-      bonus = [`Read this page: ${url} . In two or three sentences, who is this business for, what do they do best, and where are they based? Then list anything important that is unclear or missing.`];
-    }
+    const f: AivcFields = { biz, city, service, need, site };
+    const rp = readabilityPrompt(f);
     return {
-      check1: [`What do you know about ${B} in ${C}? Would you recommend them, and what would make you recommend them more strongly?`],
-      check2: [
-        `I'm ${N}. Who are the best ${S} providers in ${C} I should contact, and why?`,
-        `What are the best ${S} providers in ${C} in 2026, and who would you recommend first?`,
-        `Who are the most trusted ${S} businesses near ${C}, and what makes each one stand out?`,
-      ],
-      bonus,
-      source: 'What sources are you basing that on?',
+      check1: [byNamePrompt(f)],
+      check2: byNeedPrompts(f),
+      bonus: rp ? [rp] : [],
+      source: SOURCE_PROMPT,
     };
   }
 
@@ -135,6 +128,8 @@ export default function AiVisibilitySelfCheck({
     setReport(null);
     setManual(null);
     setEmailSent(null);
+    setPrompts(null);
+    setEngine('');
     setNote('');
     setStatus('loading');
     scrollToResults();
@@ -150,6 +145,8 @@ export default function AiVisibilitySelfCheck({
         const data = await res.json();
         if (data?.ok && data.report) {
           setReport(data.report as Report);
+          setPrompts(data.prompts ?? null);
+          setEngine(typeof data.engine === 'string' ? data.engine : '');
           setEmailSent(data.emailSent === true);
           setStatus('report');
           scrollToResults();
@@ -185,6 +182,8 @@ export default function AiVisibilitySelfCheck({
     setStatus('idle');
     setReport(null);
     setManual(null);
+    setPrompts(null);
+    setEngine('');
     setEmailSent(null);
     setNote('');
     setFormError('');
@@ -197,9 +196,9 @@ export default function AiVisibilitySelfCheck({
 
 
   function needStatus(nc: number, runs: number) {
-    if (nc >= runs) return { pill: 'good', tag: `Named ${nc}/${runs}`, line: `Named in all ${runs} checks, consistent visibility.` };
-    if (nc > 0) return { pill: 'flag', tag: `Named ${nc}/${runs}`, line: `Named in only ${nc} of ${runs} checks, fragile, inconsistent visibility.` };
-    return { pill: 'flag', tag: `0/${runs}`, line: `Not named in any of the ${runs} checks.` };
+    if (nc >= runs) return { pill: 'good', tag: `Named ${nc}/${runs}`, line: `Named across all ${runs} customer questions, consistent visibility.` };
+    if (nc > 0) return { pill: 'flag', tag: `Named ${nc}/${runs}`, line: `Named in only ${nc} of ${runs} customer questions, fragile, inconsistent visibility.` };
+    return { pill: 'flag', tag: `0/${runs}`, line: `Not named in any of the ${runs} customer questions.` };
   }
 
   const recWord: Record<string, string> = { yes: 'Yes', maybe: 'Maybe', no: 'No', unknown: 'Unclear' };
@@ -209,16 +208,11 @@ export default function AiVisibilitySelfCheck({
       <div className="eyebrow"><span className="dot" aria-hidden="true" />Free tool · The Dot Creative</div>
       <h2 className="title">Can AI find your business?</h2>
       <p className="sub">
-        When someone asks AI for a recommendation, does it name you? Enter your details and we run a live AI
-        search, several times over, on the two questions that matter, then hand you a short report.
+        When a potential customer asks AI for a recommendation, does it name you? Enter your details, see the exact
+        questions we&apos;ll ask, then we run them live and hand you a short, honest report.
       </p>
 
       <form className="panel" onSubmit={run} noValidate>
-        <div className="field">
-          <label htmlFor="aivc-email">Your email</label>
-          <span className="hint">We run your live check and send a copy of the report here.</span>
-          <input id="aivc-email" type="email" autoComplete="email" placeholder="you@yourbusiness.ca" value={email} onChange={(e) => setEmail(e.target.value)} />
-        </div>
         <div className="field">
           <label htmlFor="aivc-biz">Your business name</label>
           <span className="hint">Exactly as it appears online.</span>
@@ -242,6 +236,26 @@ export default function AiVisibilitySelfCheck({
           <label htmlFor="aivc-site">Your website <span className="optional">optional</span></label>
           <span className="hint">Add it to also check whether AI can read and describe your site correctly.</span>
           <input id="aivc-site" type="text" inputMode="url" autoComplete="url" placeholder="e.g. yourbusiness.ca" value={site} onChange={(e) => setSite(e.target.value)} />
+        </div>
+
+        {biz.trim() && city.trim() && service.trim() && need.trim() && (() => {
+          const f: AivcFields = { biz, city, service, need, site };
+          return (
+            <div className="preview">
+              <p className="preview-label">The questions we&apos;ll ask AI on your behalf</p>
+              <ol className="preview-list">
+                <li><span className="ptag">by name</span>{byNamePrompt(f)}</li>
+                {byNeedPrompts(f).map((p, i) => <li key={i}><span className="ptag">by need</span>{p}</li>)}
+              </ol>
+              <p className="preview-note">These are real questions your customers ask. We run all four live, then report how you show up.</p>
+            </div>
+          );
+        })()}
+
+        <div className="field">
+          <label htmlFor="aivc-email">Your email</label>
+          <span className="hint">We run your live check and send a copy of the report here.</span>
+          <input id="aivc-email" type="email" autoComplete="email" placeholder="you@yourbusiness.ca" value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
         <button type="submit" className="btn-primary" disabled={status === 'loading'}>
           {status === 'loading' ? 'Checking…' : 'Check my AI visibility'}
@@ -296,6 +310,14 @@ export default function AiVisibilitySelfCheck({
                       </div>
                     </div>
                   )}
+                  {prompts && prompts.byNeed.length > 0 && (
+                    <div className="asked">
+                      <span className="asked-label">The customer questions we asked</span>
+                      <ul className="asked-list">
+                        {prompts.byNeed.map((p, i) => <li key={i}>{p}</li>)}
+                      </ul>
+                    </div>
+                  )}
                 </div>
 
                 {report.readability && (
@@ -316,6 +338,7 @@ export default function AiVisibilitySelfCheck({
                   <a href={bookingUrl}>Book an AI-visibility audit &rarr;</a>
                 </div>
 
+                {engine && <p className="engine">{engine}</p>}
                 <button type="button" className="restart" onClick={reset}>Run another check</button>
               </>
             );
@@ -445,6 +468,18 @@ export default function AiVisibilitySelfCheck({
         .restart { display: block; margin: 1.3em auto 0; background: none; border: none; cursor: pointer; color: var(--grey-2, #7a776f); font-family: ${BODY}; font-size: 0.85rem; text-decoration: underline; text-underline-offset: 3px; }
         .restart:hover { color: var(--foreground, #35332f); }
         .foot { display: flex; align-items: center; gap: 0.5em; justify-content: center; margin-top: 1.9em; padding-top: 1.2em; border-top: 1px solid var(--white-smoke-2, #ebebe7); color: var(--grey-2, #7a776f); font-family: ${DISPLAY}; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; }
+
+        .preview { border: 1px solid var(--foreground, #35332f); background: var(--white-3, #fffefc); border-radius: 12px; padding: 14px 16px; margin: 0 0 1.4em; box-shadow: 0 2px 10px rgba(218,255,0,0.25); }
+        .preview-label { font-family: ${DISPLAY}; font-weight: 600; font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--grey-2, #7a776f); margin: 0 0 0.7em; }
+        .preview-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.55em; }
+        .preview-list li { font-family: ${MONO}; font-size: 0.8rem; line-height: 1.5; color: var(--foreground, #35332f); }
+        .ptag { display: inline-block; font-family: ${DISPLAY}; font-size: 0.6rem; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--grey-2, #7a776f); background: var(--background, #faf9f6); border: 1px solid var(--white-smoke-2, #ebebe7); padding: 0.12em 0.5em; margin-right: 0.55em; vertical-align: 1px; }
+        .preview-note { font-size: 0.8rem; color: #47453f; margin: 0.8em 0 0; }
+        .asked { margin-top: 0.9em; }
+        .asked-label { font-family: ${DISPLAY}; font-size: 0.66rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #47453f; }
+        .asked-list { margin: 0.4em 0 0; padding: 0 0 0 1.1em; }
+        .asked-list li { font-family: ${MONO}; font-size: 0.76rem; line-height: 1.5; color: #47453f; margin-bottom: 0.3em; }
+        .engine { font-family: ${DISPLAY}; font-size: 0.66rem; letter-spacing: 0.06em; color: var(--grey-2, #7a776f); text-align: center; margin: 1.3em 0 0; }
 
         @media (prefers-reduced-motion: reduce) { .spin { animation: none; } .btn-primary, .cta a { transition: none; } }
       `}</style>

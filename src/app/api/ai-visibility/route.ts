@@ -3,6 +3,7 @@ import OpenAI from 'openai';
 import { Redis } from '@upstash/redis';
 import { transporter } from '@/lib/email';
 import { Client as NotionClient } from '@notionhq/client';
+import { byNamePrompt, byNeedPrompts } from '@/lib/aivc-prompts';
 
 const notion = process.env.NOTION_TOKEN ? new NotionClient({ auth: process.env.NOTION_TOKEN }) : null;
 
@@ -15,7 +16,6 @@ const PER_VISITOR_DAILY = Number(process.env.AIVC_PER_VISITOR_DAILY ?? 3);
 const GLOBAL_DAILY = Number(process.env.AIVC_GLOBAL_DAILY ?? 120);
 const MODEL = process.env.AIVC_MODEL ?? 'gpt-5.2';
 const MODEL_TIMEOUT_MS = Number(process.env.AIVC_MODEL_TIMEOUT_MS ?? 42_000);
-const RUNS = 3; // by-need is run this many times; we report consistency
 const MAX_LEN = 200;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -93,7 +93,7 @@ function mode(arr: string[]): string {
   return best;
 }
 
-function buildInput(f: { biz: string; city: string; service: string; need: string; site: string }): string {
+function buildInput(f: { biz: string; city: string; service: string; need: string; site: string }, needPrompt: string): string {
   const siteLine = f.site ? `\nWebsite: ${f.site}` : '';
   return [
     'You are auditing whether a local business shows up in AI-powered search. Use web search to check real, current results, not your training memory. Be honest and specific. Do NOT mention ChatGPT, OpenAI, Google, Bing, or any specific AI or search-engine name anywhere in your answer.',
@@ -105,7 +105,7 @@ function buildInput(f: { biz: string; city: string; service: string; need: strin
     '',
     'Run these checks:',
     `1) BY NAME: Search for "${f.biz}" in ${f.city}. Is the business findable and identifiable? What is said about it? Would you recommend it based on what you find?`,
-    `2) BY NEED: Search the way a prospective customer would, for the best ${f.service} in ${f.city} for someone who is ${f.need}. Search thoroughly across several sources, and weight authoritative, widely-cited ones (recognized rankings, directories, and reputable best-of lists) over any single page or random directory listing. List the 5 to 8 businesses that show up most consistently as the genuine top ${f.service} for this need, in ranked order, using their real names. Report the truth: include every business that genuinely ranks, and do NOT deliberately include or exclude ${f.biz}. Only real, findable businesses; never invent or pad. Return this as "recommendations".`,
+    `2) BY NEED: A prospective customer searches with this exact question: "${needPrompt}". Search thoroughly the way they would, across several sources, weighting authoritative, widely-cited ones (recognized rankings, directories, and reputable best-of lists) over any single page or random directory listing. List the 5 to 8 businesses that show up most consistently as the genuine top ${f.service} for this need, in ranked order, using their real names. Report the truth: include every business that genuinely ranks, and do NOT deliberately include or exclude ${f.biz}. Only real, findable businesses; never invent or pad. Return this as "recommendations".`,
     f.site ? `3) READABILITY: Based on the website, is it clear who they serve, what they do best, and where they are? Note anything unclear or missing.` : '',
     '',
     'Return ONLY a JSON object, no prose, no code fences, in exactly this shape:',
@@ -378,8 +378,8 @@ export async function POST(req: NextRequest) {
       timeout: MODEL_TIMEOUT_MS,
       maxRetries: 0,
     });
-    const input = buildInput(f);
-    const attempts = await Promise.allSettled(Array.from({ length: RUNS }, () => callModel(client, input)));
+    const needPrompts = byNeedPrompts(f);
+    const attempts = await Promise.allSettled(needPrompts.map((np) => callModel(client, buildInput(f, np))));
     attempts.forEach((attempt, index) => {
       if (attempt.status === 'rejected') console.error(`[ai-visibility] model run ${index + 1} failed:`, attempt.reason);
     });
@@ -424,7 +424,13 @@ export async function POST(req: NextRequest) {
 
     captureNotion(email, f, report).catch(() => {});
     const emailSent = await deliverReport(email, f, report);
-    return NextResponse.json({ ok: true, report, emailSent });
+    return NextResponse.json({
+      ok: true,
+      report,
+      emailSent,
+      prompts: { byName: byNamePrompt(f), byNeed: needPrompts },
+      engine: `Checked with ChatGPT (OpenAI ${MODEL}) and live web search`,
+    });
   } catch (err) {
     console.error('[ai-visibility] error:', err);
     return NextResponse.json({ ok: false, error: 'upstream' }, { status: 502 });
