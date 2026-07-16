@@ -421,6 +421,15 @@ export async function getClientSession(): Promise<ClientSession | null> {
 
 ### Task 5: Frontmatter parser (TDD) + sync + seed
 
+> **Review-5 fixes (applied 2026-07-16, from the Codex pass on Task 5):**
+> 1. **Internal-notes leak closed (must-fix).** `parseContentFile` now requires EXACTLY ONE `<!-- internal -->` marker per file. A missing or misspelled marker used to dump the whole body (internal text included) into `client_body`, which the sync uploads. Note-less files must still end with an empty marker. Also rejects >1 marker (which previously silently discarded trailing text).
+> 2. **Silent date rollover closed (must-fix).** `scheduled_date` must be a quoted `"YYYY-MM-DD"` string; unquoted YAML dates parse to a JS `Date` and roll invalid components over (2026-02-31 to Mar 3) without error. `ymd()` rejects non-strings and validates a real calendar date. **Fixtures now quote the date.**
+> 3. **Duplicate `content_id` guard (must-fix).** The sync pre-parses ALL files and throws on a duplicate `content_id` before any DB write (prevents last-writer-wins and cross-tenant reassignment).
+> 4. **Strict frontmatter typing.** No truthiness coercion: `content_id: []` no longer becomes `""`, `platforms: instagram` no longer becomes `[]`, `version: 0` no longer defaults to 1, `status: false` no longer defaults to draft. Bad values throw.
+> 5. **Atomic sync.** One array `upsert` (single statement) instead of a per-file loop, so a mid-run failure cannot leave a partially updated read-model.
+> 6. **Documented deferrals:** deletion reconciliation (upsert-only; removing a source file does not delete its row) and the flat/lowercase/trusted-directory assumption are noted in the sync script.
+> Tests hardened accordingly (7 tests: added missing-marker, double-marker, unquoted-date, and impossible-date cases).
+
 - [ ] **Step 1: Failing test `src/lib/portal/frontmatter.test.ts`**
 ```ts
 import { describe, it, expect } from 'vitest'
