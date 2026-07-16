@@ -773,6 +773,13 @@ export default function PortalLoading() {
 
 ### Task 8: Overview + activity feed
 
+> **Review-8 fixes (applied 2026-07-16, from the Codex pass on Task 8; no security/XSS/tenant issues found):**
+> 1. **Parent error/loading boundaries** (`src/app/client/error.tsx` + `loading.tsx`): a segment's own `error.tsx` does NOT catch errors thrown by that segment's layout, so a Supabase outage in the `[slug]` layout guard bypassed the `[slug]` boundary. Added parent-level boundaries above `[slug]`.
+> 2. **Responsive layout** via `overview.module.css` (inline styles cannot do media queries): the `1.5fr 1fr` grid now collapses to one column and the wrap padding shrinks under 720px.
+> 3. **Contrast + hit area**: replaced `--dim-grey` (#888, ~3.5:1, fails AA for the 11-14px text) with a portal `MUTED` (#68665f, >5:1); enlarged the sign-out button hit area.
+> 4. **Request-deduped session**: `getClientSession` wrapped in React `cache()`, so the layout guard and the page share one `getUser()` + membership lookup per request.
+> 5. Nice-to-haves: `encodeURIComponent` on the piece href; activity rendered as a `<ul>` with `<time dateTime>`; empty-metadata `<div>` no longer rendered. (Logout 303 was already fixed in Task 7; the hardcoded Kanset eyebrow is the tracked single-client debt.)
+
 - [ ] **Step 1: `src/app/client/[slug]/page.tsx`**
 ```tsx
 import Link from 'next/link'

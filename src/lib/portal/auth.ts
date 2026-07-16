@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { isAuthSessionMissingError } from '@supabase/auth-js'
 
@@ -14,7 +15,9 @@ export type ClientSession = {
 // Resolves the signed-in user's membership for a SPECIFIC client (by slug).
 // Returns null when logged out or not a member of that client; throws
 // PortalAuthError only on a real Supabase/auth failure (an outage is NOT "logged out").
-export async function getClientSession(clientSlug: string): Promise<ClientSession | null> {
+// Wrapped in React cache() so the layout guard and the page share ONE lookup per request
+// (request-scoped, cookie/identity dependent, so not a persistent cache).
+export const getClientSession = cache(async (clientSlug: string): Promise<ClientSession | null> => {
   const supabase = await createSupabaseServer()
   const {
     data: { user },
@@ -42,4 +45,4 @@ export async function getClientSession(clientSlug: string): Promise<ClientSessio
     clientId: data.client_id,
     clientSlug: client.slug,
   }
-}
+})
