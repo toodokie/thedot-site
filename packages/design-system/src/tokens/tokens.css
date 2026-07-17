@@ -16,11 +16,11 @@
   /* Type */
   --dot-font-display:'futura-pt','Futura','Avenir Next','Helvetica Neue',Arial,sans-serif;
   --dot-font-text:'ff-real-text-pro',sans-serif;
-  --dot-weight-light:200; --dot-weight-book:300; --dot-weight-medium:500; --dot-weight-demi:600;
+  --dot-weight-light:200; --dot-weight-book:300; --dot-weight-regular:400; --dot-weight-medium:500; --dot-weight-demi:600;
   --dot-text-hero:clamp(3rem,8vw,6rem); --dot-text-h1:clamp(3rem,8vw,5rem);
   --dot-text-h2:clamp(2.5rem,6vw,4rem); --dot-text-section:4.2rem;
   --dot-text-h3:clamp(1.5rem,4vw,2.375rem); --dot-text-h4:clamp(1.25rem,3vw,1.875rem);
-  --dot-text-body:1.0625rem; --dot-text-eyebrow:0.78rem;
+  --dot-text-body:1rem; --dot-text-eyebrow:0.78rem;
 
   /* Space + radius */
   --dot-space-1:4px; --dot-space-2:8px; --dot-space-3:12px; --dot-space-4:16px;

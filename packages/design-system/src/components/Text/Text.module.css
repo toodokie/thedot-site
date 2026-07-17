@@ -1,7 +1,7 @@
-.text { margin: 0; font-family: var(--dot-font-text); font-weight: 400; line-height: 1.55; }
-.lg { font-size: 1.15rem; }
+.text { margin: 0; font-family: var(--dot-font-text); font-weight: var(--dot-weight-book); line-height: 1.5; }
+.lg { font-size: 1.125rem; }
 .md { font-size: var(--dot-text-body); }
-.sm { font-size: 0.9rem; }
+.sm { font-size: 0.875rem; }
 .black { color: var(--dot-black); }
 .grey { color: var(--dot-grey); }
 .graphite { color: var(--dot-graphite); }

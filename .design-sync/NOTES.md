@@ -12,3 +12,8 @@
 - **Story caps:** every component has ≤2 stories, all graded from images — no capped/ungraded tail.
 - **Assets story:** if `Brand/Assets` is renamed, or real asset components are added later, revisit `titleMap`.
 - **First sync verdict:** all 13 components graded `match` (every story) on the first pass — no `close` accepted, no skips.
+
+## Type system — SOURCE OF TRUTH IS THE WEBSITE (globals.css), not Figma
+- Body copy = `ff-real-text-pro` **weight 300** (light), **1rem/16px**, line-height **1.5** (site `.service-card p` etc.). Earlier shipped 400/17px/1.55 — too heavy; corrected 2026-07-17.
+- H1 = Futura **400** (added `--dot-weight-regular:400`; H1 was 200). H2/hero = Futura 200. H3/H4/section = Real Text 300.
+- When DS and site disagree on type, match `src/app/styles/globals.css`.

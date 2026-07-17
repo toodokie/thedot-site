@@ -9,7 +9,7 @@ export const fonts = {
   text: "'ff-real-text-pro',sans-serif",
 } as const;
 
-export const weights = { light: 200, book: 300, medium: 500, demi: 600 } as const;
+export const weights = { light: 200, book: 300, regular: 400, medium: 500, demi: 600 } as const;
 
 export const space = { 1: '4px', 2: '8px', 3: '12px', 4: '16px', 5: '24px', 6: '32px', 7: '48px', 8: '64px' } as const;
 
