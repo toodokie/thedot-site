@@ -350,6 +350,47 @@ async function main(): Promise<void> {
         check('C8: B\'s own item exposes its copy_blocks array', hasBlock, `blocks=${JSON.stringify(blocks)}`)
       }
     }
+
+    // C9: TWO-WAY. The Dot (service role, the portal-admin `reply` path) posts a reply on B's item;
+    // B then reads a thread containing BOTH its own comment (author_type 'client') and The Dot's
+    // reply (author_type 'anastasia'). Proves comments work in both directions, not just client->Dot.
+    {
+      const ins = await admin.from('comments').insert({
+        content_id: bItemId, client_id: bClientId,
+        author_type: 'anastasia', author_name: 'The Dot', body: 'Dot reply to B',
+      }).select('id').single()
+      check('C9: The Dot posts a reply on B item (service role)', !ins.error, ins.error ? ins.error.message : 'ok')
+
+      const { data, error } = await bClient.from('comments').select('author_type, body')
+      if (error) {
+        check('C9: B reads the two-way thread', false, error.message)
+      } else {
+        const rows = data ?? []
+        const seesDotReply = rows.some((r) => r.author_type === 'anastasia' && r.body === 'Dot reply to B')
+        const seesOwn = rows.some((r) => r.author_type === 'client')
+        check('C9: B sees BOTH its own comment and The Dot reply (two-way)', seesDotReply && seesOwn, `rows=${rows.length}`)
+      }
+    }
+
+    // C10: the Dot reply also logs a client-visible 'comment_added' activity authored by 'anastasia',
+    // so the client's overview shows that The Dot responded (the reverse of the client-comment signal).
+    {
+      const act = await admin.from('activity_log').insert({
+        client_id: bClientId, content_id: bItemId, content_version: 1,
+        event_type: 'comment_added', title: 'Comment: Test piece B', summary: 'Dot reply to B',
+        actor_type: 'anastasia', actor_name: 'The Dot',
+      }).select('id').single()
+      check('C10: The Dot reply logs activity (service role)', !act.error, act.error ? act.error.message : 'ok')
+
+      const { data, error } = await bClient.from('activity_log').select('actor_type, event_type')
+      if (error) {
+        check('C10: B reads Dot-authored activity', false, error.message)
+      } else {
+        const rows = data ?? []
+        const seesDotActivity = rows.some((r) => r.actor_type === 'anastasia' && r.event_type === 'comment_added')
+        check('C10: B sees a Dot-authored comment_added activity', seesDotActivity, `rows=${rows.length}`)
+      }
+    }
   } finally {
     // Cleanup (service role), always. Delete client B FIRST: it cascades content_items, client_users,
     // approvals, and activity_log. Only then delete the auth user (approvals.decided_by has no cascade,

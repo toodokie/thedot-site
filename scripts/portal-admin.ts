@@ -1,7 +1,9 @@
 // scripts/portal-admin.ts
 // Dev/admin utility for the client portal DB. Uses the service-role key (read from .env.local,
-// never hardcoded) to verify the schema, seed, and memberships, and to link a test/client user.
-// Run: npx tsx scripts/portal-admin.ts [status | link <email> "<name>"]
+// never hardcoded) to verify the schema, seed, and memberships, link a test/client user, and post
+// a reply into a piece's comment thread on The Dot's behalf (the agency side of a two-way thread).
+// Run: npx tsx scripts/portal-admin.ts [status | link <email> "<name>"
+//   | signin-link <email> [origin] | reply <slug> <content_id> "<body>" ["<author name>"]]
 // Default action is `status`. `link` is idempotent.
 import { loadEnvConfig } from '@next/env'
 import { createClient } from '@supabase/supabase-js'
@@ -87,8 +89,53 @@ async function signinLink(email: string, origin: string) {
   console.log(url)
 }
 
+// Post a reply into a piece's comment thread AS THE DOT (the agency side). Uses the service role,
+// which has insert on comments + activity_log; mirrors what the client's add_comment RPC does, so the
+// client reads the reply in the same thread and sees a client-visible 'comment_added' activity. This
+// is the teammate write path: the client comments in the portal, The Dot replies from here.
+async function reply(slug: string, contentId: string, body: string, authorName: string) {
+  const text = (body ?? '').trim()
+  if (!text) throw new Error('reply body is required')
+  if (text.length > 4000) throw new Error('reply body is too long (4000 characters max)')
+
+  const { data: clients, error: cErr } = await admin.from('clients').select('id').eq('slug', slug)
+  if (cErr) throw new Error(`select clients: ${cErr.message}`)
+  const client = clients?.[0]
+  if (!client) throw new Error(`client with slug "${slug}" not found`)
+
+  const { data: items, error: iErr } = await admin
+    .from('content_items').select('id, title, version')
+    .eq('client_id', client.id).eq('content_id', contentId)
+  if (iErr) throw new Error(`select content_items: ${iErr.message}`)
+  const item = items?.[0]
+  if (!item) throw new Error(`content "${contentId}" not found for client "${slug}"`)
+
+  const { data: inserted, error: insErr } = await admin.from('comments').insert({
+    content_id: item.id, client_id: client.id,
+    author_type: 'anastasia', author_name: authorName, body: text,
+  }).select('id').single()
+  if (insErr) throw new Error(`insert comment: ${insErr.message}`)
+
+  const { error: actErr } = await admin.from('activity_log').insert({
+    client_id: client.id, content_id: item.id, content_version: item.version,
+    event_type: 'comment_added', title: `Comment: ${item.title}`, summary: text,
+    actor_type: 'anastasia', actor_name: authorName,
+  })
+  if (actErr) throw new Error(`insert activity: ${actErr.message}`)
+
+  console.log(`reply posted on "${item.title}" (${slug}/${contentId}) as ${authorName}: ${inserted?.id}`)
+}
+
 async function main() {
   const [action, email, name] = process.argv.slice(2)
+  if (action === 'reply') {
+    const [, slug, contentId, body, authorName] = process.argv.slice(2)
+    if (!slug || !contentId || !body) {
+      throw new Error('usage: portal-admin.ts reply <slug> <content_id> "<body>" ["<author name>"]')
+    }
+    await reply(slug, contentId, body, authorName ?? 'The Dot')
+    return
+  }
   if (action === 'signin-link') {
     if (!email) throw new Error('usage: portal-admin.ts signin-link <email> [origin]')
     await signinLink(email, name ?? 'http://localhost:3000') // 3rd positional = origin

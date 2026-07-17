@@ -50,13 +50,29 @@ export default function CommentThread({ slug, contentId, comments }: { slug: str
 
       <div style={{ marginTop: 12 }}>
         {comments.length === 0 && <Text tone="graphite">No comments yet.</Text>}
-        {comments.map((c) => (
-          <div key={c.id} style={{ borderTop: '1px solid var(--dot-hairline)', padding: '14px 0' }}>
-            {c.quoted_text && <div style={quoteBox}><Text size="sm" tone="graphite">{c.quoted_text}</Text></div>}
-            <Text as="div" size="sm" tone="black"><strong>{c.author_name}</strong> {c.body}</Text>
-            <time dateTime={c.created_at} style={{ display: 'block', marginTop: 4, fontSize: 12, color: 'var(--dot-graphite)', fontVariantNumeric: 'tabular-nums' }}>{c.created_at.slice(0, 10)}</time>
-          </div>
-        ))}
+        {comments.map((c) => {
+          // A reply from The Dot (anastasia/agent) reads as the agency side of the thread: a yellow
+          // accent, an uppercase name label, and a slight indent. A client comment stays plain, with
+          // the name inline. That makes a two-way conversation legible at a glance.
+          const isAgency = c.author_type !== 'client'
+          return (
+            <div key={c.id} style={{
+              borderTop: '1px solid var(--dot-hairline)', padding: '14px 0',
+              ...(isAgency ? { borderLeft: '2px solid var(--dot-yellow)', paddingLeft: 14, marginLeft: 12 } : {}),
+            }}>
+              {c.quoted_text && <div style={quoteBox}><Text size="sm" tone="graphite">{c.quoted_text}</Text></div>}
+              {isAgency ? (
+                <>
+                  <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--dot-graphite)', marginBottom: 3 }}>{c.author_name}</div>
+                  <Text as="div" size="sm" tone="black">{c.body}</Text>
+                </>
+              ) : (
+                <Text as="div" size="sm" tone="black"><strong>{c.author_name}</strong> {c.body}</Text>
+              )}
+              <time dateTime={c.created_at} style={{ display: 'block', marginTop: 4, fontSize: 12, color: 'var(--dot-graphite)', fontVariantNumeric: 'tabular-nums' }}>{c.created_at.slice(0, 10)}</time>
+            </div>
+          )
+        })}
       </div>
 
       {selection && quote !== selection && (
