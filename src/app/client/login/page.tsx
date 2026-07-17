@@ -1,6 +1,8 @@
 'use client'
 import { useState } from 'react'
+import Image from 'next/image'
 import { createSupabaseBrowser } from '@/lib/supabase/client'
+import { Heading, Text, Input, Button } from '@thedot/design-system'
 export default function ClientLogin() {
   const [email, setEmail] = useState(''); const [sent, setSent] = useState(false)
   async function send(e: React.FormEvent) {
@@ -16,17 +18,16 @@ export default function ClientLogin() {
     setSent(true)
   }
   return (
-    <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--background)',
-      color: 'var(--foreground)', fontFamily: "'futura-pt', Arial, sans-serif", padding: 24 }}>
-      <div style={{ width: '100%', maxWidth: 420 }}>
-        <h1 style={{ fontWeight: 300, fontSize: 34, marginBottom: 8 }}>Your workspace</h1>
-        {sent ? <p style={{ color: 'var(--dim-grey)' }}>Check your email for a one-tap sign-in link.</p> : (
-          <form onSubmit={send}>
-            <p style={{ color: 'var(--dim-grey)', marginBottom: 20 }}>Enter your email and we will send a sign-in link.</p>
-            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com"
-              style={{ width: '100%', padding: '14px 16px', fontSize: 16, borderRadius: 6, border: '1px solid #ccc', background: '#fff', marginBottom: 14 }} />
-            <button type="submit" style={{ width: '100%', padding: '14px 16px', fontSize: 15, borderRadius: 999,
-              border: 'none', background: 'var(--foreground)', color: 'var(--background)', cursor: 'pointer' }}>Send me a link</button>
+    <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--dot-cream)', padding: 24 }}>
+      <div style={{ width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <Image src="/images/logo.png" alt="The Dot Creative" width={80} height={50} priority style={{ marginBottom: 8 }} />
+        <Heading level={2}>Your workspace</Heading>
+        {sent ? <Text tone="grey">Check your email for a one-tap sign-in link.</Text> : (
+          <form onSubmit={send} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <Text tone="grey">Enter your email and we will send a sign-in link.</Text>
+            <Input label="Email" id="login-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@company.com" />
+            <Button type="submit" variant="black" style={{ width: '100%', textAlign: 'center' }}>Send me a link</Button>
           </form>
         )}
       </div>

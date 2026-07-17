@@ -1,11 +1,39 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { getClientSession } from '@/lib/portal/auth'
 import { redirect } from 'next/navigation'
-import { getContent, getActivity } from '@/lib/portal/data'
+import { getContent, getActivity, type ContentRow as ContentRowType } from '@/lib/portal/data'
+import { Eyebrow, Heading, Text, Button, Dot } from '@thedot/design-system'
 import styles from './overview.module.css'
 
-// Portal muted text: >5:1 on white and on the portal background (AA for small text), unlike --dim-grey.
-const MUTED = '#68665f'
+// One consistent section box for every group.
+function Panel({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <section className={styles.panel}>
+      <div className={styles.panelHead}><Eyebrow tone="grey">{label}</Eyebrow></div>
+      {children}
+    </section>
+  )
+}
+
+// A clickable content row; `priority` shows a yellow dot marker (needs the client's eyes).
+function ContentRow({ it, slug, priority }: { it: ContentRowType; slug: string; priority?: boolean }) {
+  const platforms = it.platforms || []
+  return (
+    <Link className={styles.row} href={`/client/${encodeURIComponent(slug)}/piece/${encodeURIComponent(it.content_id)}`}>
+      {priority && <span className={styles.marker}><Dot fill="yellow" size={8} /></span>}
+      <span className={styles.rowMain}>
+        <Text as="span" size="md" tone="black">{it.title}</Text>
+        {(platforms.length > 0 || it.fact_check) && (
+          <span className={styles.chipRow}>
+            {platforms.map((p) => <span key={p} className={styles.chip}>{p}</span>)}
+            {it.fact_check && <span className={`${styles.chip} ${styles.chipFact}`}>{it.fact_check}</span>}
+          </span>
+        )}
+      </span>
+    </Link>
+  )
+}
 
 export default async function Overview({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
@@ -15,65 +43,76 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
   const [items, activity] = await Promise.all([getContent(session.clientId), getActivity(session.clientId)])
   const needs = items.filter((i) => i.state === 'needs_review')
   const withDot = items.filter((i) => i.state === 'with_dot')
+  const approved = items.filter((i) => i.state === 'approved')
+  const scheduled = items.filter((i) => i.state === 'scheduled')
+  const live = items.filter((i) => i.state === 'live')
+  const firstName = session.name ? session.name.split(' ')[0] : ''
 
   return (
-    <main style={{ background: 'var(--background)', minHeight: '100vh' }}>
+    <main style={{ background: 'var(--dot-cream)', minHeight: '100vh' }}>
       <div className={styles.wrap}>
-        <p style={{ letterSpacing: '.14em', textTransform: 'uppercase', fontSize: 11, color: MUTED }}>Kanset · workspace</p>
-        <h1 style={{ fontWeight: 300, fontSize: 'clamp(2.2rem,5vw,3.2rem)', margin: '8px 0 4px' }}>
-          Good day{session.name ? `, ${session.name.split(' ')[0]}` : ''}.
-        </h1>
-        <p style={{ color: MUTED, fontSize: 18, marginBottom: 36 }}>
-          {needs.length === 0
-            ? "You're all caught up."
-            : <><b style={{ color: 'var(--foreground)', fontWeight: 500 }}>{needs.length}</b> waiting for you.</>}
-        </p>
-        <section className={styles.grid}>
+        <Image className={styles.logo} src="/images/logo.png" alt="The Dot Creative" width={72} height={45} priority />
+        <div className={styles.eyebrow}><Eyebrow tone="grey">Kanset · Workspace</Eyebrow></div>
+        <div className={styles.greeting}>
+          <Heading level={1} variant="display">Good day{firstName ? `, ${firstName}` : ''}.</Heading>
+        </div>
+        <div className={styles.status}>
+          <Text size="lg" tone="graphite">
+            {needs.length === 0
+              ? "You're all caught up."
+              : <><span className={styles.statusCount}>{needs.length}</span> waiting for you.</>}
+          </Text>
+        </div>
+
+        <div className={styles.grid}>
           <div>
-            <h2 style={{ fontWeight: 300, fontSize: 24, margin: '0 0 16px' }}>Needs your approval</h2>
-            {needs.length === 0 && <p style={{ color: MUTED }}>Nothing needs your approval right now.</p>}
-            {needs.map((it) => {
-              const meta = [(it.platforms || []).join(' · '), it.fact_check].filter(Boolean).join(' · ')
-              return (
-                <Link key={it.id} href={`/client/${encodeURIComponent(slug)}/piece/${encodeURIComponent(it.content_id)}`}
-                  style={{ display: 'block', textDecoration: 'none', color: 'inherit', border: '1px solid #e8e5db', borderRadius: 10, padding: 18, marginBottom: 14, background: '#fff' }}>
-                  <div style={{ fontWeight: 400, fontSize: 18 }}>{it.title}</div>
-                  {meta && <div style={{ color: MUTED, fontSize: 13, marginTop: 6 }}>{meta}</div>}
-                </Link>
-              )
-            })}
+            <Panel label="Needs your approval">
+              {needs.length === 0 ? (
+                <div className={styles.emptyRow}><Text size="md" tone="graphite">Nothing needs your approval right now.</Text></div>
+              ) : (
+                needs.map((it) => <ContentRow key={it.id} it={it} slug={slug} priority />)
+              )}
+            </Panel>
+
             {withDot.length > 0 && (
-              <>
-                <h3 style={{ fontWeight: 300, fontSize: 18, margin: '24px 0 12px', color: MUTED }}>Back with The Dot</h3>
+              <Panel label="Back with The Dot">
                 {withDot.map((it) => (
-                  <div key={it.id} style={{ border: '1px dashed #dcd8cc', borderRadius: 10, padding: 14, marginBottom: 10, color: MUTED }}>
-                    {it.title} <span style={{ fontSize: 13 }}>(we are revising this)</span>
+                  <div key={it.id} className={styles.row}>
+                    <span className={styles.rowMain}>
+                      <Text as="span" size="md" tone="graphite">{it.title}</Text>{' '}
+                      <Text as="span" size="sm" tone="grey">(we are revising this)</Text>
+                    </span>
                   </div>
                 ))}
-              </>
+              </Panel>
             )}
+
+            {approved.length > 0 && <Panel label="Approved">{approved.map((it) => <ContentRow key={it.id} it={it} slug={slug} />)}</Panel>}
+            {scheduled.length > 0 && <Panel label="Scheduled">{scheduled.map((it) => <ContentRow key={it.id} it={it} slug={slug} />)}</Panel>}
+            {live.length > 0 && <Panel label="Published">{live.map((it) => <ContentRow key={it.id} it={it} slug={slug} />)}</Panel>}
           </div>
+
           <aside>
-            <h2 style={{ fontWeight: 300, fontSize: 24, margin: '0 0 16px' }}>Activity</h2>
-            <div style={{ border: '1px solid #e8e5db', borderRadius: 10, padding: 20, background: '#fff' }}>
+            <Panel label="Activity">
               {activity.length === 0 ? (
-                <p style={{ color: MUTED, fontSize: 14 }}>No activity yet.</p>
+                <div className={styles.emptyRow}><Text size="md" tone="graphite">No activity yet.</Text></div>
               ) : (
-                <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-                  {activity.map((a) => (
-                    <li key={a.id} style={{ padding: '10px 0', borderTop: '1px solid #eee', fontSize: 14 }}>
-                      <div><b style={{ fontWeight: 500 }}>{a.actor_name}</b> · {a.title}</div>
-                      {a.summary && <div style={{ color: MUTED }}>{a.summary}</div>}
-                      <time dateTime={a.created_at} style={{ color: MUTED, fontSize: 12 }}>{a.created_at.slice(0, 10)}</time>
-                    </li>
-                  ))}
-                </ul>
+                activity.map((a) => (
+                  <div key={a.id} className={styles.row}>
+                    <span className={styles.rowMain}>
+                      <Text as="div" size="sm" tone="graphite">{a.actor_name} · {a.title}</Text>
+                      {a.summary && <Text as="div" size="sm" tone="graphite">{a.summary}</Text>}
+                      <time className={styles.activityDate} dateTime={a.created_at}>{a.created_at.slice(0, 10)}</time>
+                    </span>
+                  </div>
+                ))
               )}
-            </div>
+            </Panel>
           </aside>
-        </section>
-        <form action="/client/logout" method="post" style={{ marginTop: 32 }}>
-          <button type="submit" style={{ background: 'none', border: 'none', color: MUTED, fontSize: 13, cursor: 'pointer', textDecoration: 'underline', padding: '10px 4px' }}>Sign out</button>
+        </div>
+
+        <form className={styles.signout} action="/client/logout" method="post">
+          <Button as="button" type="submit" variant="ghost" size="sm">Sign out</Button>
         </form>
       </div>
     </main>
