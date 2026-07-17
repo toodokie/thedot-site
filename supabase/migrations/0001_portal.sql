@@ -20,7 +20,7 @@ create table client_users (
 
 create table content_items (
   id uuid primary key default gen_random_uuid(),
-  content_id text not null,
+  content_id text unique not null,
   client_id uuid not null references clients(id) on delete cascade,
   title text not null,
   format text,
@@ -35,7 +35,6 @@ create table content_items (
   client_body text,               -- the ONLY client-facing content; internal notes are NOT stored in Supabase
   source_path text,
   updated_at timestamptz not null default now(),
-  unique (client_id, content_id), -- content_id is unique PER CLIENT, so a reused id cannot reassign a row across tenants
   unique (id, client_id)          -- enables composite tenant FKs
 );
 

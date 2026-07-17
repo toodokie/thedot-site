@@ -1,4 +1,5 @@
 'use server'
+import { after } from 'next/server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { getClientSession } from '@/lib/portal/auth'
@@ -38,15 +39,15 @@ export async function decide(formData: FormData): Promise<{ error?: string }> {
   })
   if (error) return { error: 'Could not save your decision. Please try again.' }
 
-  // Notify The Dot that the client acted (best-effort; never blocks the decision).
-  await notifyDecision({
+  // Notify The Dot AFTER the response is sent, so a slow SMTP server never stalls the decision.
+  after(() => notifyDecision({
     actorName: session.name ?? session.email,
     decision,
     title: item.title,
     note: note || null,
     slug,
     contentId,
-  })
+  }))
 
   revalidatePath(`/client/${slug}`)
   redirect(`/client/${slug}`)

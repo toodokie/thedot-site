@@ -1,4 +1,5 @@
 'use server'
+import { after } from 'next/server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { getClientSession } from '@/lib/portal/auth'
@@ -25,6 +26,7 @@ export async function addComment(formData: FormData): Promise<{ error?: string }
 
   if (!body) return { error: 'Please write a comment before sending.' }
   if (body.length > 4000) return { error: 'That comment is too long (4000 characters max).' }
+  if (quotedText.length > 2000) return { error: 'The selected quote is too long (2000 characters max).' }
 
   const item = await getContentItem(session.clientId, contentId)
   if (!item) return { error: 'That piece is no longer available.' }
@@ -37,15 +39,15 @@ export async function addComment(formData: FormData): Promise<{ error?: string }
   })
   if (error) return { error: 'Could not post your comment. Please try again.' }
 
-  // Notify The Dot that the client commented (best-effort; never blocks the comment).
-  await notifyComment({
+  // Notify The Dot AFTER the response is sent, so a slow SMTP server never stalls the comment.
+  after(() => notifyComment({
     actorName: session.name ?? session.email,
     title: item.title,
     body,
     quotedText: quotedText || null,
     slug,
     contentId,
-  })
+  }))
 
   // Re-render the piece page in place (no redirect; the thread reappears with the new comment).
   revalidatePath(`/client/${slug}/piece/${contentId}`)

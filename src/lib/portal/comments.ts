@@ -25,6 +25,7 @@ export async function getComments(clientId: string, contentUuid: string): Promis
     .eq('content_id', contentUuid)
     .eq('client_id', clientId)
     .order('created_at', { ascending: true })
+    .order('id', { ascending: true })
   if (error) throw new PortalDataError(error.message)
   return (data ?? []) as CommentRow[]
 }

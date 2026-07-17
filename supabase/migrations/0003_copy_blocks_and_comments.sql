@@ -18,7 +18,8 @@ select ci.id, ci.content_id, ci.client_id, ci.title, ci.format, ci.pillar, ci.pl
      where a.content_id = ci.id and a.content_version = ci.version
      order by a.created_at desc limit 1) as current_decision
 from public.content_items ci;
-revoke all on public.content_with_state from anon;
+revoke all on public.content_with_state from public;
+revoke all on public.content_with_state from anon, authenticated;
 grant select on public.content_with_state to authenticated;
 
 -- === comment thread per piece ===
