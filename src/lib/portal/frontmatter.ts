@@ -17,6 +17,7 @@ export type ParsedContent = {
   version: number
   fact_check: string | null
   client_body: string
+  copy_blocks: { label: string; body: string }[]
   internal_notes: string | null
   source_path: string
 }
@@ -62,6 +63,27 @@ function parsePlatforms(value: unknown, source: string): string[] {
     throw new Error(`platforms must be an array of non-empty strings in ${source}`)
   }
   return value.map((x) => (x as string).trim())
+}
+
+// Split the client-facing body into per-surface labeled blocks. Authors write each surface as a
+// `## Label` markdown H2, and everything until the next `## ` (or end of body) is that block's body.
+// Text before the first `## ` heading is ignored here (client_body still keeps the whole body for
+// backward compatibility). A body with no `## ` headings yields [] so the piece page falls back to
+// showing client_body as a single caption.
+function parseCopyBlocks(clientBody: string): { label: string; body: string }[] {
+  const blocks: { label: string; body: string }[] = []
+  let current: { label: string; lines: string[] } | null = null
+  for (const line of clientBody.split('\n')) {
+    const heading = /^##\s+(.+?)\s*$/.exec(line)  // H2 only: `### ` (H3) has no space after `##`
+    if (heading) {
+      if (current) blocks.push({ label: current.label, body: current.lines.join('\n').trim() })
+      current = { label: heading[1].trim(), lines: [] }
+    } else if (current) {
+      current.lines.push(line)
+    }
+  }
+  if (current) blocks.push({ label: current.label, body: current.lines.join('\n').trim() })
+  return blocks
 }
 
 // scheduled_date MUST be a quoted "YYYY-MM-DD" string. gray-matter's YAML turns an UNQUOTED date
@@ -132,6 +154,7 @@ export function parseContentFile(raw: string, sourcePath: string): ParsedContent
     version,
     fact_check,
     client_body,
+    copy_blocks: parseCopyBlocks(client_body),
     internal_notes: internal.trim() ? internal.trim() : null,
     source_path: sourcePath,
   }

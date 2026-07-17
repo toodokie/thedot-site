@@ -1,10 +1,13 @@
 import { redirect } from 'next/navigation'
-import { getClientSession } from '@/lib/portal/auth'
-import { getContentItem } from '@/lib/portal/data'
 import type { CSSProperties } from 'react'
 import Image from 'next/image'
+import { getClientSession } from '@/lib/portal/auth'
+import { getContentItem } from '@/lib/portal/data'
+import { getComments } from '@/lib/portal/comments'
 import { Heading, Text, Button } from '@thedot/design-system'
 import DecideForm from './DecideForm'
+import CopyBlock from './CopyBlock'
+import CommentThread from './CommentThread'
 
 const chip: CSSProperties = {
   fontFamily: 'var(--dot-font-text)', fontSize: 11, color: 'var(--dot-graphite)',
@@ -21,6 +24,11 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
   if (!session) redirect('/client/login')
   const item = await getContentItem(session.clientId, contentId)
   if (!item) redirect(`/client/${slug}`)
+  const comments = await getComments(session.clientId, item.id)
+
+  const blocks = item.copy_blocks && item.copy_blocks.length > 0
+    ? item.copy_blocks
+    : (item.client_body ? [{ label: 'Caption', body: item.client_body }] : [])
 
   return (
     <main style={{ background: 'var(--dot-cream)', minHeight: '100vh' }}>
@@ -41,19 +49,22 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
         {item.canva_url && /^https:\/\//i.test(item.canva_url) && (
           <div style={{ marginBottom: 24 }}>
             <Button as="a" href={item.canva_url} target="_blank" rel="noreferrer" variant="yellow" size="sm">
-              Open the design in Canva →
+              Open the design in Canva
             </Button>
           </div>
         )}
 
-        {/* white-space is inherited, so pre-wrap on the wrapper reaches the Text paragraph. */}
-        <div style={{ whiteSpace: 'pre-wrap', marginBottom: 28 }}>
-          <Text size="md" tone="black">{item.client_body}</Text>
+        <div id="piece-copy" style={{ marginBottom: 28 }}>
+          {blocks.length === 0
+            ? <Text tone="grey">No copy for this piece yet.</Text>
+            : blocks.map((b, i) => <CopyBlock key={`${b.label}-${i}`} label={b.label} body={b.body} />)}
         </div>
 
         {item.state === 'needs_review'
           ? <DecideForm slug={slug} contentId={item.content_id} />
           : <Text tone="grey">This piece is {item.state === 'with_dot' ? 'back with The Dot' : item.state}.</Text>}
+
+        <CommentThread slug={slug} contentId={item.content_id} comments={comments} />
       </div>
     </main>
   )

@@ -7,6 +7,7 @@ export type ContentRow = {
   id: string; content_id: string; title: string; format: string | null; pillar: string | null
   platforms: string[]; status: string; scheduled_date: string | null; canva_url: string | null
   client_body: string | null; fact_check: string | null; version: number; current_decision: string | null
+  copy_blocks: { label: string; body: string }[]
   state: ClientState
 }
 export type ActivityRow = {
@@ -14,7 +15,7 @@ export type ActivityRow = {
   actor_type: string; actor_name: string; created_at: string
 }
 
-const SELECT = 'id, content_id, title, format, pillar, platforms, status, scheduled_date, canva_url, client_body, fact_check, version, current_decision'
+const SELECT = 'id, content_id, title, format, pillar, platforms, status, scheduled_date, canva_url, client_body, copy_blocks, fact_check, version, current_decision'
 
 export async function getContent(clientId: string): Promise<ContentRow[]> {
   const supabase = await createSupabaseServer()

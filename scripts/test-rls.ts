@@ -80,10 +80,12 @@ async function findAuthUser(email: string) {
 
 // Remove anything a prior run may have left behind, so the script is re-runnable.
 async function preClean(): Promise<void> {
-  // Deleting client B cascades its content_items / client_users / approvals / activity_log.
+  // Deleting client B cascades its content_items / client_users / approvals / activity_log, so the
+  // fresh per-tenant insert (unique on client_id, content_id, under a brand-new client uuid) cannot collide.
   const { error: dcErr } = await admin.from('clients').delete().eq('slug', B_SLUG)
   if (dcErr) throw new Error(`preClean delete client B: ${dcErr.message}`)
-  // content_id is globally unique; drop any stray row directly so the fresh insert cannot collide.
+  // Defensive extra sweep of any test-named stray row (redundant with the cascade above now that
+  // content_id is unique per client rather than globally, but harmless).
   const { error: diErr } = await admin.from('content_items').delete().eq('content_id', B_CONTENT_ID)
   if (diErr) throw new Error(`preClean delete content B: ${diErr.message}`)
   // Deleting the auth user cascades its client_users link.

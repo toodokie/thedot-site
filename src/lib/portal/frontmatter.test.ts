@@ -47,4 +47,37 @@ describe('parseContentFile', () => {
   it('rejects a bad version (must be an integer >= 1, so 0 throws)', () => {
     expect(() => parseContentFile('---\ncontent_id: a\nclient: kanset\ntitle: x\nversion: 0\n---\nb\n<!-- internal -->', 'p.md')).toThrow(/version/)
   })
+  it('parses ## sections into copy_blocks (labels + trimmed bodies)', () => {
+    const withSections = `---
+content_id: kanset-2026-07-oinp-employer
+client: kanset
+title: "OINP employer job offer carousel"
+status: draft
+---
+## Instagram + Facebook caption
+Thinking about supporting a worker's PR through the OINP?
+
+A strong job offer is the anchor.
+
+## Hashtags
+#OINP #Immigration #HireInOntario
+
+<!-- internal -->
+Internal note: verify tiers.`
+    const r = parseContentFile(withSections, 'content/portal/x.md')
+    expect(r.copy_blocks).toEqual([
+      {
+        label: 'Instagram + Facebook caption',
+        body: "Thinking about supporting a worker's PR through the OINP?\n\nA strong job offer is the anchor.",
+      },
+      { label: 'Hashtags', body: '#OINP #Immigration #HireInOntario' },
+    ])
+    // client_body still holds the whole client-facing text for backward compatibility
+    expect(r.client_body.includes('## Instagram + Facebook caption')).toBe(true)
+  })
+  it('yields copy_blocks: [] when the client body has no ## headings', () => {
+    const r = parseContentFile(sample, 'content/portal/x.md')
+    expect(r.copy_blocks).toEqual([])
+    expect(r.client_body.trim()).toBe('Client caption here.')
+  })
 })
