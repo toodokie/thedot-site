@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{background:#faf9f6;}
+  .cover{
+    position:relative; width:1080px; height:1350px; background:#faf9f6; overflow:hidden;
+    font-family:"Futura","Avenir Next","Helvetica Neue",Arial,sans-serif; color:#35332f;
+  }
+  .glow{position:absolute; inset:0;
+    background:radial-gradient(circle farthest-corner at 112% -6%, #daff00d9, #eefb9d99 26%, rgba(250,249,246,0) 46%);}
+  .content{position:absolute; left:84px; right:84px; top:96px;}
+  .eyebrow{display:flex; align-items:center; gap:14px; font-size:22px; font-weight:600; letter-spacing:.26em; text-transform:uppercase; color:#7a776f;}
+  .eyebrow .d{width:13px;height:13px;border-radius:50%; background:radial-gradient(circle at 34% 30%,#fff,#daff00); border:1px solid #35332f;}
+  h1{margin-top:64px; font-size:108px; font-weight:300; line-height:.98; letter-spacing:-.02em;}
+  h1 .hl{background-image:linear-gradient(180deg, rgba(218,255,0,.5), #daff00); background-repeat:no-repeat; background-position:0 90%; background-size:100% .3em; padding:0 .02em;}
+  .tick{margin-top:64px; width:420px; height:14px;
+    background:repeating-linear-gradient(90deg, #35332f 0 1.5px, transparent 1.5px 8px);}
+  .statwrap{margin-top:76px;}
+  .stat{font-size:280px; font-weight:300; line-height:.9; letter-spacing:-.03em;}
+  .stat .hl{background-image:linear-gradient(180deg, rgba(218,255,0,.55), #daff00); background-repeat:no-repeat; background-position:0 88%; background-size:100% .2em; padding:0 .02em;}
+  .statcap{margin-top:26px; font-size:34px; font-weight:400; line-height:1.32; color:#47453f; max-width:840px;}
+  .statcap b{color:#35332f; font-weight:600;}
+  .foot{position:absolute; left:84px; right:84px; bottom:92px;}
+  .cta{font-size:30px; font-weight:600; letter-spacing:.02em; color:#35332f;}
+  .url{margin-top:14px; font-size:24px; font-weight:600; letter-spacing:.18em; text-transform:uppercase; color:#7a776f;}
+  .dots{position:absolute; right:84px; bottom:322px; display:grid; grid-template-columns:repeat(3,30px); gap:16px;}
+  .dots i{width:30px;height:30px;border-radius:50%;border:1.5px solid #35332f;display:block;}
+  .dots i.f{background:radial-gradient(circle at 34% 30%,#ffffff,#daff00); border-color:rgba(53,51,47,.18);}
+  .dots i.k{background:#35332f;}
+</style></head>
+<body>
+  <div class="cover">
+    <div class="glow"></div>
+    <div class="content">
+      <div class="eyebrow"><span class="d"></span>The Dot Creative</div>
+      <h1>Can <span class="hl">AI</span> find<br>your business?</h1>
+      <div class="tick"></div>
+      <div class="statwrap">
+        <div class="stat"><span class="hl">45%</span></div>
+        <div class="statcap">of people now ask AI to find a local business, up from just <b>6% a year ago</b>. If it can’t name you, you are not on the list.</div>
+      </div>
+    </div>
+    <div class="dots">
+      <i class="k"></i><i></i><i class="f"></i>
+      <i class="f"></i><i class="k"></i><i></i>
+    </div>
+    <div class="foot">
+      <div class="cta">New on the blog, plus a free 5-minute self-check.</div>
+      <div class="url">thedotcreative.co &nbsp;·&nbsp; @thedotcreativeagency</div>
+    </div>
+  </div>
+</body></html>
