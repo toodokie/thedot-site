@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "npm run sync-portfolio && next build",
+    "build": "npm run build -w @thedot/design-system && npm run sync-portfolio && next build",
     "start": "next start",
     "lint": "next lint",
     "sync-portfolio": "tsx scripts/sync-portfolio-from-notion.ts",
