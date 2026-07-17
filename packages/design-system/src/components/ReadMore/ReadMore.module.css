@@ -1,0 +1,5 @@
+.readMore { display: inline-block; align-self: flex-start; margin-top: auto;
+  font-family: var(--dot-font-text); font-weight: var(--dot-weight-light); color: var(--dot-black);
+  text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px;
+  transition: transform 0.3s ease; cursor: pointer; }
+.readMore:hover { transform: translateX(5px); }

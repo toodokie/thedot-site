@@ -8,6 +8,7 @@ export * from './components/Eyebrow';
 export * from './components/Button';
 export * from './components/Card';
 export * from './components/Tag';
+export * from './components/ReadMore';
 export * from './components/Input';
 export * from './components/Textarea';
 export * from './components/Selector';
