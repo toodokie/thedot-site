@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { getClientSession } from '@/lib/portal/auth'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { getContentItem } from '@/lib/portal/data'
+import { notifyDecision } from '@/lib/portal/notify'
 
 // Strict: a missing field or a File is null, not the strings "null" / "[object File]".
 function textField(data: FormData, key: string): string | null {
@@ -36,6 +37,16 @@ export async function decide(formData: FormData): Promise<{ error?: string }> {
     p_content_id: item.id, p_content_version: item.version, p_decision: decision, p_note: note || null,
   })
   if (error) return { error: 'Could not save your decision. Please try again.' }
+
+  // Notify The Dot that the client acted (best-effort; never blocks the decision).
+  await notifyDecision({
+    actorName: session.name ?? session.email,
+    decision,
+    title: item.title,
+    note: note || null,
+    slug,
+    contentId,
+  })
 
   revalidatePath(`/client/${slug}`)
   redirect(`/client/${slug}`)
