@@ -46,7 +46,7 @@ export default function LatestFromJournal() {
     <section className="jrnl-section">
       <div className="jrnl-inner">
         <div className="jrnl-header">
-          <h2 className="jrnl-heading">Latest thinking</h2>
+          <h2 className="section-title">Latest thinking</h2>
           <p className="jrnl-desc">Ideas on design, AI visibility, and building a business that actually gets found.</p>
           <div className="jrnl-header-link">
             <Link href="/blog" className="jrnl-viewall">View all articles</Link>
@@ -82,18 +82,8 @@ export default function LatestFromJournal() {
         .jrnl-inner { max-width: 120rem; margin: 0 auto; padding: 0 2.5rem; width: 100%; box-sizing: border-box; }
 
         .jrnl-header { text-align: left; margin-bottom: 6rem; }
-        .jrnl-heading {
-          font-family: futura-pt, sans-serif;
-          font-size: clamp(2.5rem, 6vw, 4rem);
-          font-weight: 300;
-          line-height: 1.2;
-          letter-spacing: 0;
-          text-transform: none;
-          color: var(--foreground, #35332f);
-          margin: 0 0 2rem 0;
-          padding: 0;
-          text-indent: 0;
-        }
+        /* Heading uses the global .section-title (ff-real-text-pro, 4.2/3.5/2.2rem,
+           !important) so it matches "Selected services" exactly at every breakpoint. */
         .jrnl-desc {
           font-family: ff-real-text-pro, sans-serif;
           font-size: clamp(1.25rem, 2.2vw, 1.5rem);
