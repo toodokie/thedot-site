@@ -1,5 +1,5 @@
 'use client'
-import { useActionState, useEffect, useState } from 'react'
+import { useActionState, useEffect, useRef, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 import { Eyebrow, Text, Button, Textarea } from '@thedot/design-system'
 import { addComment } from '../../comment-actions'
@@ -19,6 +19,17 @@ export default function CommentThread({ slug, contentId, comments }: { slug: str
   const [state, action] = useActionState(async (_p: { error?: string }, fd: FormData) => addComment(fd), {})
   const [quote, setQuote] = useState('')
   const [selection, setSelection] = useState('')
+  const formRef = useRef<HTMLFormElement>(null)
+  const prevCount = useRef(comments.length)
+
+  // A new comment arriving (after revalidate) means our submit succeeded: clear the form + the quote.
+  useEffect(() => {
+    if (comments.length > prevCount.current) {
+      formRef.current?.reset()
+      setQuote('')
+    }
+    prevCount.current = comments.length
+  }, [comments.length])
 
   // Offer "comment on the selected text" only when the selection is inside the copy area (#piece-copy).
   useEffect(() => {
@@ -54,7 +65,7 @@ export default function CommentThread({ slug, contentId, comments }: { slug: str
         </div>
       )}
 
-      <form action={action} style={{ marginTop: 16, borderTop: '1px solid var(--dot-hairline)', paddingTop: 16 }}>
+      <form ref={formRef} action={action} style={{ marginTop: 16, borderTop: '1px solid var(--dot-hairline)', paddingTop: 16 }}>
         <input type="hidden" name="slug" value={slug} />
         <input type="hidden" name="contentId" value={contentId} />
         <input type="hidden" name="quotedText" value={quote} />

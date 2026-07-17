@@ -45,8 +45,10 @@ grant select (id, content_id, client_id, author_type, author_name, body, quoted_
   on public.comments to authenticated;
 grant select, insert, update, delete on public.comments to service_role;
 
--- allow a 'comment_added' activity event
-alter table public.activity_log drop constraint activity_log_event_type_check;
+-- allow a 'comment_added' activity event.
+-- If the DROP is a no-op because the constraint has a non-default name, find the real name via the
+-- Supabase table view (or \d activity_log) and drop it, or the old check will reject comment_added.
+alter table public.activity_log drop constraint if exists activity_log_event_type_check;
 alter table public.activity_log add constraint activity_log_event_type_check check (event_type in
   ('needs_review','approved','change_requested','scheduled','posted',
    'recommendation_added','monthly_report_added','meeting_email_note_added','idea_captured','comment_added'));
