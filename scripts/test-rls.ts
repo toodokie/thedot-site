@@ -135,6 +135,7 @@ async function main(): Promise<void> {
     const { data: bItemRow, error: biErr } = await admin.from('content_items').insert({
       content_id: B_CONTENT_ID, client_id: bClientId, title: 'Test piece B',
       platforms: [], status: 'draft', version: 1, client_body: 'test',
+      copy_blocks: [{ label: 'Test', body: 'x' }], // phase-2: proven to ride along on B's own read (C8)
     }).select('id').single()
     if (biErr || !bItemRow) throw new Error(`insert content_items B: ${biErr?.message ?? 'no row'}`)
     const bItemId = bItemRow.id as string
@@ -233,6 +234,121 @@ async function main(): Promise<void> {
         p_content_id: bIdeaId, p_content_version: 1, p_decision: 'change_requested', p_note: 'please fix',
       })
       check('RPC rejects a decision on an idea-status piece', !!error, error ? error.message : 'NO ERROR returned')
+    }
+
+    // === Phase 2 surface: comments + add_comment RPC + copy_blocks ===
+    // Comments B creates need NO explicit cleanup: comments.client_id -> clients(id) ON DELETE CASCADE,
+    // so deleting client B in the finally block removes every comment (and its activity_log row) too.
+
+    // C1: B can add a comment on B's OWN item, then reads back exactly that one comment.
+    {
+      const { error } = await bClient.rpc('add_comment', { p_content_id: bItemId, p_body: 'test comment' })
+      check('C1: B adds a comment on its own item (no error)', !error, error ? error.message : 'ok')
+
+      const { data, error: rErr } = await bClient.from('comments').select('id, body')
+      if (rErr) {
+        check('C1: B reads back its comment', false, rErr.message)
+      } else {
+        const rows = data ?? []
+        const one = rows.length === 1 && rows[0].body === 'test comment'
+        check('C1: B reads back exactly one comment with the right body', one, `rows=${rows.length}`)
+      }
+    }
+
+    // C2: a single add_comment logs EXACTLY ONE 'comment_added' activity row (measured as a delta so
+    // it is independent of C1's comment). Runs after C1's read so C1's "exactly one" stays valid.
+    {
+      const before = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
+      if (before.error) throw new Error(`comment activity count before: ${before.error.message}`)
+
+      const { error } = await bClient.rpc('add_comment', { p_content_id: bItemId, p_body: 'second comment' })
+      check('C2: second add_comment on B item succeeds', !error, error ? error.message : 'ok')
+
+      const after = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
+      if (after.error) throw new Error(`comment activity count after: ${after.error.message}`)
+      const gained = (after.count ?? 0) - (before.count ?? 0)
+      check('C2: add_comment adds exactly ONE activity_log row', gained === 1, `gained=${gained}`)
+
+      const { data: evRows, error: evErr } = await bClient
+        .from('activity_log').select('event_type').eq('event_type', 'comment_added')
+      check('C2: a comment_added activity row exists for B', !evErr && (evRows ?? []).length >= 1,
+        evErr ? evErr.message : `rows=${(evRows ?? []).length}`)
+    }
+
+    // C3: B canNOT add_comment on a KANSET item (not a member of that tenant).
+    {
+      const { error } = await bClient.rpc('add_comment', { p_content_id: kansetItemId, p_body: 'x' })
+      check('C3: add_comment on kanset content is NOT authorized (returns error)', !!error,
+        error ? error.message : 'NO ERROR returned')
+    }
+
+    // C4: B reads ONLY its own comments; every visible row carries B's client_id, none kanset's.
+    {
+      const { data, error } = await bClient.from('comments').select('client_id')
+      if (error) {
+        check('C4: B reads comments', false, error.message)
+      } else {
+        const rows = data ?? []
+        const allB = rows.length >= 1 && rows.every((r) => r.client_id === bClientId)
+        const noKanset = !rows.some((r) => r.client_id === kansetClientId)
+        check('C4: every comment B sees is B\'s own, none kanset\'s', allB && noKanset, `rows=${rows.length}`)
+      }
+    }
+
+    // C5: authenticated has SELECT only on comments; a DIRECT insert must be rejected (privilege revoked,
+    // so the add_comment RPC is the only authenticated write path).
+    {
+      const { error } = await bClient.from('comments').insert({
+        content_id: bItemId, client_id: bClientId, author_type: 'client', author_name: 'x', body: 'y',
+      })
+      check('C5: direct INSERT into comments by authenticated is rejected', !!error,
+        error ? error.message : 'NO ERROR returned')
+    }
+
+    // C6: a plain anon client (no JWT) is locked out of comments entirely, read AND write.
+    {
+      const anonClient = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false } })
+      const sel = await anonClient.from('comments').select('id')
+      const readBlocked = !!sel.error || (sel.data ?? []).length === 0
+      check('C6: anon selecting comments returns zero rows or an error', readBlocked,
+        sel.error ? sel.error.message : `rows=${(sel.data ?? []).length}`)
+
+      const { error: rpcErr } = await anonClient.rpc('add_comment', { p_content_id: bItemId, p_body: 'x' })
+      check('C6: anon calling add_comment is rejected', !!rpcErr, rpcErr ? rpcErr.message : 'NO ERROR returned')
+    }
+
+    // C7: add_comment validation is enforced in SQL (not only in the Server Action), since the RPC is
+    // granted to authenticated: empty body, body > 4000, and quoted_text > 2000 must each raise.
+    {
+      const empty = await bClient.rpc('add_comment', { p_content_id: bItemId, p_body: '   ' })
+      check('C7: add_comment rejects an empty/whitespace body', !!empty.error,
+        empty.error ? empty.error.message : 'NO ERROR returned')
+
+      const tooLong = await bClient.rpc('add_comment', { p_content_id: bItemId, p_body: 'x'.repeat(4001) })
+      check('C7: add_comment rejects a body over 4000 chars', !!tooLong.error,
+        tooLong.error ? tooLong.error.message : 'NO ERROR returned')
+
+      const badQuote = await bClient.rpc('add_comment', {
+        p_content_id: bItemId, p_body: 'valid body', p_quoted_text: 'x'.repeat(2001),
+      })
+      check('C7: add_comment rejects quoted_text over 2000 chars', !!badQuote.error,
+        badQuote.error ? badQuote.error.message : 'NO ERROR returned')
+    }
+
+    // C8: copy_blocks (set on B's item in setup) rides along on B's own content_with_state read. B not
+    // surfacing any kanset content is already proven in assertion B; here we just confirm the array.
+    {
+      const { data, error } = await bClient
+        .from('content_with_state').select('content_id, copy_blocks').eq('content_id', B_CONTENT_ID)
+      if (error) {
+        check('C8: B reads copy_blocks via content_with_state', false, error.message)
+      } else {
+        const rows = data ?? []
+        const blocks = (rows[0]?.copy_blocks ?? []) as Array<{ label?: string; body?: string }>
+        const hasBlock = rows.length === 1 && Array.isArray(blocks)
+          && blocks.some((b) => b.label === 'Test' && b.body === 'x')
+        check('C8: B\'s own item exposes its copy_blocks array', hasBlock, `blocks=${JSON.stringify(blocks)}`)
+      }
     }
   } finally {
     // Cleanup (service role), always. Delete client B FIRST: it cascades content_items, client_users,
