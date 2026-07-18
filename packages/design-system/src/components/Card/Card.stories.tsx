@@ -14,7 +14,7 @@ export const Default: Story = {
   render: () => (
     <div style={{ width: 360 }}>
       <Card eyebrow={<Tag>Strategy</Tag>} title="How emotional branding drives 306% lifetime value">
-        <Text tone="graphite">A warm, human brand identity compounds over time — here&apos;s the Ontario data behind it.</Text>
+        <Text size="lg" tone="grey">A warm, human brand identity compounds over time — here&apos;s the Ontario data behind it.</Text>
         <ReadMore />
       </Card>
     </div>

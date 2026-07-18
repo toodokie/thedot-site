@@ -17,3 +17,13 @@
 - Body copy = `ff-real-text-pro` **weight 300** (light), **1rem/16px**, line-height **1.5** (site `.service-card p` etc.). Earlier shipped 400/17px/1.55 — too heavy; corrected 2026-07-17.
 - H1 = Futura **400** (added `--dot-weight-regular:400`; H1 was 200). H2/hero = Futura 200. H3/H4/section = Real Text 300.
 - When DS and site disagree on type, match `src/app/styles/globals.css`.
+
+## Body type — MEASURE THE LIVE RENDERED SITE, not globals.css (2026-07-18)
+`globals.css` is overridden by styled-jsx, so its declared weights ≠ what renders. Measure the live
+page with Playwright `getComputedStyle` (browser UA to pass the bot-block; Typekit loads on the real domain):
+  node .ds-sync/... (see scratchpad inspect-blog.cjs) → https://www.thedotcreative.co/blog + a post.
+- **Body copy (article `p`): ff-real-text-pro weight 200, 16px, line-height 1.8, #333.**
+- **Card excerpt (blog card): weight 200, 20px, line-height 1.6, #555.**
+- Blog card title: futura-pt 400, ~1.8rem, lh 1.3. Category chip: real-text 500, 0.8rem, 0.5px.
+- So DS `Text` base weight = **200 (light)**, not 300/400 (both earlier guesses were wrong).
+- **Logo** component inlines the wordmark as a data URI (the Figma svg is raster-in-svg) so it renders in Claude Design.

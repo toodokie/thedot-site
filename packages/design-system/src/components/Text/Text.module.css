@@ -1,5 +1,7 @@
-.text { margin: 0; font-family: var(--dot-font-text); font-weight: var(--dot-weight-book); line-height: 1.5; }
-.lg { font-size: 1.125rem; }
+/* Matches the live site's Real Text body copy: light 200, generous leading.
+   Body (md) 16px/1.8 like article paragraphs; lg 20px/1.6 like blog-card excerpts. */
+.text { margin: 0; font-family: var(--dot-font-text); font-weight: var(--dot-weight-light); line-height: 1.8; }
+.lg { font-size: 1.25rem; line-height: 1.6; }
 .md { font-size: var(--dot-text-body); }
 .sm { font-size: 0.875rem; }
 .black { color: var(--dot-black); }
