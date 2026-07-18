@@ -5,7 +5,7 @@ import { PortalDataError } from './data'
 export type LinkRow = {
   id: string
   client_id: string
-  category: 'brand' | 'video'
+  category: 'brand' | 'video' | 'posting'
   label: string
   url: string
   description: string | null
@@ -15,7 +15,7 @@ export type LinkRow = {
 
 const SELECT = 'id, client_id, category, label, url, description, sort, created_at'
 
-// All of a client's Library links, brand first then video, each section in sort order
+// All of a client's Library links, grouped by category and then by explicit sort order
 // (matches the links_by_client index: client_id, category, sort). Throws PortalDataError on failure.
 export async function getLinks(clientId: string): Promise<LinkRow[]> {
   const supabase = await createSupabaseServer()

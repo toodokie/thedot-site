@@ -3,7 +3,9 @@
 // never hardcoded) to verify the schema, seed, and memberships, link a test/client user, and post
 // a reply into a piece's comment thread on The Dot's behalf (the agency side of a two-way thread).
 // Run: npx tsx scripts/portal-admin.ts [status | link <email> "<name>"
-//   | signin-link <email> [origin] | reply <slug> <content_id> "<body>" ["<author name>"]]
+//   | signin-link <email> [origin] | ready <slug> <content_id> [version]
+//   | begin-revision <slug> <content_id> [released-version]
+//   | reply <slug> <content_id> "<body>" ["<author name>"]]
 // Default action is `status`. `link` is idempotent.
 import { loadEnvConfig } from '@next/env'
 import { createClient } from '@supabase/supabase-js'
@@ -89,10 +91,81 @@ async function signinLink(email: string, origin: string) {
   console.log(url)
 }
 
-// Post a reply into a piece's comment thread AS THE DOT (the agency side). Uses the service role,
-// which has insert on comments + activity_log; mirrors what the client's add_comment RPC does, so the
-// client reads the reply in the same thread and sees a client-visible 'comment_added' activity. This
-// is the teammate write path: the client comments in the portal, The Dot replies from here.
+// Explicit human release gate after an immutable snapshot has synced. Sync itself never advances
+// client_visible_version. Supplying an optional version makes automation fail closed if the local
+// file advanced after it was reviewed; omitting it releases the currently locked working version.
+async function ready(slug: string, contentId: string, expectedVersion?: string) {
+  const parsedVersion = expectedVersion === undefined ? null : Number(expectedVersion)
+  if (parsedVersion !== null && (!Number.isInteger(parsedVersion) || parsedVersion < 1)) {
+    throw new Error('version must be an integer >= 1')
+  }
+
+  const { data: client, error: clientError } = await admin
+    .from('clients').select('id').eq('slug', slug).single()
+  if (clientError || !client) {
+    throw new Error(`client with slug "${slug}" not found: ${clientError?.message ?? 'missing'}`)
+  }
+
+  const { data: item, error: itemError } = await admin
+    .from('content_items')
+    .select('id, working_version, client_visible_version, client_visible, status')
+    .eq('client_id', client.id)
+    .eq('content_id', contentId)
+    .single()
+  if (itemError || !item) {
+    throw new Error(`content "${contentId}" not found for client "${slug}": ${itemError?.message ?? 'missing'}`)
+  }
+
+  const version = parsedVersion ?? item.working_version
+  if (version !== item.working_version) {
+    throw new Error(`reviewed version ${version} is stale; current working version is ${item.working_version}`)
+  }
+
+  const { error } = await admin.rpc('mark_content_ready', {
+    p_content_id: item.id,
+    p_content_version: version,
+  })
+  if (error) throw new Error(`mark_content_ready: ${error.message}`)
+
+  console.log(`released ${slug}/${contentId} v${version} for client review`)
+}
+
+// Pull a currently released/reviewing piece back to The Dot before syncing changed authored copy.
+// This is deliberately separate from file sync so a background projection cannot change workflow.
+async function beginRevision(slug: string, contentId: string, expectedVersion?: string) {
+  const parsedVersion = expectedVersion === undefined ? null : Number(expectedVersion)
+  if (parsedVersion !== null && (!Number.isInteger(parsedVersion) || parsedVersion < 1)) {
+    throw new Error('released version must be an integer >= 1')
+  }
+
+  const { data: client, error: clientError } = await admin
+    .from('clients').select('id').eq('slug', slug).single()
+  if (clientError || !client) {
+    throw new Error(`client with slug "${slug}" not found: ${clientError?.message ?? 'missing'}`)
+  }
+  const { data: item, error: itemError } = await admin
+    .from('content_items')
+    .select('id, client_visible_version')
+    .eq('client_id', client.id)
+    .eq('content_id', contentId)
+    .single()
+  if (itemError || !item) {
+    throw new Error(`content "${contentId}" not found for client "${slug}": ${itemError?.message ?? 'missing'}`)
+  }
+
+  const version = parsedVersion ?? item.client_visible_version
+  if (!version) throw new Error('content has never been released; no revision transition is needed')
+  const { error } = await admin.rpc('begin_content_revision', {
+    p_content_id: item.id,
+    p_content_version: version,
+  })
+  if (error) throw new Error(`begin_content_revision: ${error.message}`)
+  console.log(`revision opened for ${slug}/${contentId} from released v${version}`)
+}
+
+// Post a reply into a piece's comment thread AS THE DOT. The service-only RPC locks the released
+// version and inserts the comment + activity atomically, so a version change or partial write cannot
+// detach the reply from the snapshot the client sees.
 async function reply(slug: string, contentId: string, body: string, authorName: string) {
   const text = (body ?? '').trim()
   if (!text) throw new Error('reply body is required')
@@ -104,30 +177,40 @@ async function reply(slug: string, contentId: string, body: string, authorName: 
   if (!client) throw new Error(`client with slug "${slug}" not found`)
 
   const { data: items, error: iErr } = await admin
-    .from('content_items').select('id, title, version')
+    .from('content_with_state').select('id, title, version')
     .eq('client_id', client.id).eq('content_id', contentId)
   if (iErr) throw new Error(`select content_items: ${iErr.message}`)
   const item = items?.[0]
   if (!item) throw new Error(`content "${contentId}" not found for client "${slug}"`)
 
-  const { data: inserted, error: insErr } = await admin.from('comments').insert({
-    content_id: item.id, client_id: client.id,
-    author_type: 'anastasia', author_name: authorName, body: text,
-  }).select('id').single()
-  if (insErr) throw new Error(`insert comment: ${insErr.message}`)
-
-  const { error: actErr } = await admin.from('activity_log').insert({
-    client_id: client.id, content_id: item.id, content_version: item.version,
-    event_type: 'comment_added', title: `Comment: ${item.title}`, summary: text,
-    actor_type: 'anastasia', actor_name: authorName,
+  const { data: commentId, error: replyErr } = await admin.rpc('add_agency_comment', {
+    p_content_id: item.id,
+    p_body: text,
+    p_author_name: authorName,
   })
-  if (actErr) throw new Error(`insert activity: ${actErr.message}`)
+  if (replyErr) throw new Error(`add_agency_comment: ${replyErr.message}`)
 
-  console.log(`reply posted on "${item.title}" (${slug}/${contentId}) as ${authorName}: ${inserted?.id}`)
+  console.log(`reply posted on "${item.title}" (${slug}/${contentId}) as ${authorName}: ${commentId}`)
 }
 
 async function main() {
   const [action, email, name] = process.argv.slice(2)
+  if (action === 'ready') {
+    const [, slug, contentId, version] = process.argv.slice(2)
+    if (!slug || !contentId) {
+      throw new Error('usage: portal-admin.ts ready <slug> <content_id> [version]')
+    }
+    await ready(slug, contentId, version)
+    return
+  }
+  if (action === 'begin-revision') {
+    const [, slug, contentId, version] = process.argv.slice(2)
+    if (!slug || !contentId) {
+      throw new Error('usage: portal-admin.ts begin-revision <slug> <content_id> [released-version]')
+    }
+    await beginRevision(slug, contentId, version)
+    return
+  }
   if (action === 'reply') {
     const [, slug, contentId, body, authorName] = process.argv.slice(2)
     if (!slug || !contentId || !body) {

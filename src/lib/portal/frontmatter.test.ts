@@ -12,6 +12,8 @@ status: draft
 version: 3
 fact_check: confirmed
 ---
+<!-- portal-block:caption -->
+## Caption
 Client caption here.
 
 <!-- internal -->
@@ -23,7 +25,8 @@ describe('parseContentFile', () => {
     expect(r.platforms).toEqual(['instagram', 'facebook'])
     expect(r.scheduled_date).toBe('2026-07-16')      // string, not a Date object
     expect(r.version).toBe(3)
-    expect(r.client_body.trim()).toBe('Client caption here.')
+    expect(r.client_body).not.toContain('portal-block:')
+    expect(r.client_body).toContain('Client caption here.')
     expect(r.internal_notes?.includes('verify revenue tiers')).toBe(true)
   })
   it('rejects a bad status enum', () => {
@@ -47,18 +50,20 @@ describe('parseContentFile', () => {
   it('rejects a bad version (must be an integer >= 1, so 0 throws)', () => {
     expect(() => parseContentFile('---\ncontent_id: a\nclient: kanset\ntitle: x\nversion: 0\n---\nb\n<!-- internal -->', 'p.md')).toThrow(/version/)
   })
-  it('parses ## sections into copy_blocks (labels + trimmed bodies)', () => {
+  it('parses explicitly keyed sections into stable copy_blocks and strips control comments', () => {
     const withSections = `---
 content_id: kanset-2026-07-oinp-employer
 client: kanset
 title: "OINP employer job offer carousel"
 status: draft
 ---
+<!-- portal-block:instagram-facebook-caption -->
 ## Instagram + Facebook caption
 Thinking about supporting a worker's PR through the OINP?
 
 A strong job offer is the anchor.
 
+<!-- portal-block:hashtags -->
 ## Hashtags
 #OINP #Immigration #HireInOntario
 
@@ -67,17 +72,36 @@ Internal note: verify tiers.`
     const r = parseContentFile(withSections, 'content/portal/x.md')
     expect(r.copy_blocks).toEqual([
       {
+        key: 'instagram-facebook-caption',
         label: 'Instagram + Facebook caption',
         body: "Thinking about supporting a worker's PR through the OINP?\n\nA strong job offer is the anchor.",
       },
-      { label: 'Hashtags', body: '#OINP #Immigration #HireInOntario' },
+      { key: 'hashtags', label: 'Hashtags', body: '#OINP #Immigration #HireInOntario' },
     ])
-    // client_body still holds the whole client-facing text for backward compatibility
+    expect(r.client_body).not.toContain('portal-block:')
     expect(r.client_body.includes('## Instagram + Facebook caption')).toBe(true)
   })
-  it('yields copy_blocks: [] when the client body has no ## headings', () => {
-    const r = parseContentFile(sample, 'content/portal/x.md')
-    expect(r.copy_blocks).toEqual([])
-    expect(r.client_body.trim()).toBe('Client caption here.')
+  it('rejects unkeyed headings and duplicate block keys', () => {
+    const unkeyed = `---\ncontent_id: a\nclient: kanset\ntitle: x\n---\n## Caption\nx\n<!-- internal -->`
+    expect(() => parseContentFile(unkeyed, 'p.md')).toThrow(/portal-block key/)
+    const duplicate = `---\ncontent_id: a\nclient: kanset\ntitle: x\n---\n<!-- portal-block:caption -->\n## One\nx\n<!-- portal-block:caption -->\n## Two\ny\n<!-- internal -->`
+    expect(() => parseContentFile(duplicate, 'p.md')).toThrow(/Duplicate portal block key/)
+  })
+  it('handles CRLF without leaking the internal section', () => {
+    const crlf = sample.replaceAll('\n', '\r\n')
+    const r = parseContentFile(crlf, 'windows.md')
+    expect(r.copy_blocks).toEqual([{ key: 'caption', label: 'Caption', body: 'Client caption here.' }])
+    expect(r.client_body).not.toContain('Internal note')
+    expect(r.internal_notes).toContain('verify revenue tiers')
+  })
+  it('rejects empty keyed blocks instead of releasing a blank approval surface', () => {
+    const empty = `---\ncontent_id: a\nclient: kanset\ntitle: x\n---\n<!-- portal-block:caption -->\n## Caption\n\n<!-- internal -->`
+    expect(() => parseContentFile(empty, 'p.md')).toThrow(/body must not be empty/)
+  })
+  it('rejects non-string scalar fields and platform coercion', () => {
+    const numericTitle = `---\ncontent_id: a\nclient: kanset\ntitle: 123\n---\nbody\n<!-- internal -->`
+    expect(() => parseContentFile(numericTitle, 'p.md')).toThrow(/title must be a non-empty string/)
+    const scalarPlatforms = `---\ncontent_id: a\nclient: kanset\ntitle: x\nplatforms: instagram\n---\nbody\n<!-- internal -->`
+    expect(() => parseContentFile(scalarPlatforms, 'p.md')).toThrow(/platforms must be an array/)
   })
 })

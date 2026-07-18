@@ -1,7 +1,7 @@
 import { loadEnvConfig } from '@next/env'
 loadEnvConfig(process.cwd())
 import { createClient } from '@supabase/supabase-js'
-import { readdirSync, readFileSync } from 'node:fs'
+import { lstatSync, readdirSync, readFileSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseContentFile } from '../src/lib/portal/frontmatter'
 
@@ -11,20 +11,29 @@ const dir = process.env.PORTAL_CONTENT_DIR   // REQUIRED (Kanset workspace in pr
 if (!url || !key) { throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY') }
 if (!dir) { throw new Error('Missing PORTAL_CONTENT_DIR (no silent fallback; use npm run sync-content:fixtures for seeds)') }
 
-// Assumptions: PORTAL_CONTENT_DIR is a FLAT, trusted directory of lowercase `.md` files (the Kanset
-// workspace, or content/portal for fixtures). Nested subdirectories, uppercase `.MD`, and symlinks
-// are intentionally NOT traversed.
+// PORTAL_CONTENT_DIR is a FLAT, trusted directory of lowercase `.md` files (the dedicated canonical
+// checkout, or content/portal for fixtures). Nested directories are not traversed; directory/file
+// symlinks are rejected rather than followed into an unintended source tree.
 // LIMITATION (deliberately deferred): this sync is upsert-only. Deleting a source `.md` file does
 // NOT remove its content_items row. Deletion reconciliation is a later, deliberately client-scoped
 // step (an unscoped delete is unsafe because PORTAL_CONTENT_DIR may hold only one client's files).
 async function main() {
   const supabase = createClient(url!, key!, { auth: { persistSession: false } })
-  const files = readdirSync(dir!).filter((f) => f.endsWith('.md'))
+  if (lstatSync(dir!).isSymbolicLink()) throw new Error(`PORTAL_CONTENT_DIR must not be a symlink: ${dir}`)
+  const root = realpathSync(dir!)
+  const entries = readdirSync(root, { withFileTypes: true })
+  const markdownEntries = entries.filter((entry) => entry.name.endsWith('.md'))
+  for (const entry of markdownEntries) {
+    if (!entry.isFile() || entry.isSymbolicLink()) {
+      throw new Error(`Portal content source must be a regular file, not a link/directory: ${join(root, entry.name)}`)
+    }
+  }
+  const files = markdownEntries.map((entry) => entry.name).sort()
   if (files.length === 0) throw new Error(`No .md files in ${dir}`)
 
   // Parse everything first: any parse error stops the run before a single DB write.
   const parsed = files.map((file) => {
-    const p = join(dir!, file)
+    const p = join(root, file)
     return parseContentFile(readFileSync(p, 'utf8'), p)
   })
 
@@ -47,7 +56,6 @@ async function main() {
     clientIdBySlug.set(slug, client.id)
   }
 
-  const now = new Date().toISOString()
   const rows = parsed.map((p) => ({
     content_id: p.content_id,
     client_id: clientIdBySlug.get(p.client)!,
@@ -55,22 +63,25 @@ async function main() {
     format: p.format,
     pillar: p.pillar,
     platforms: p.platforms,
-    scheduled_date: p.scheduled_date,
-    status: p.status,
+    planned_date: p.scheduled_date,
     canva_url: p.canva_url,
     drive_url: p.drive_url,
     version: p.version,
     fact_check: p.fact_check,
+    fact_check_ledger: [],
     client_body: p.client_body,   // internal_notes deliberately NOT stored
     copy_blocks: p.copy_blocks,
     source_path: p.source_path,
-    updated_at: now,
   }))
 
-  // One array upsert is a single atomic statement: all rows land, or none do (no partial read-model).
-  // Requires the 0002 migration (unique on client_id, content_id) applied first, or this onConflict target will not match.
-  const { error } = await supabase.from('content_items').upsert(rows, { onConflict: 'client_id,content_id' })
+  // One security-definer RPC owns identity creation, immutable snapshot insertion, checksum retry
+  // semantics, and working-version advancement. The JSON array is processed in one DB transaction:
+  // one invalid/conflicting item rolls back the entire batch. File status is deliberately ignored;
+  // Supabase workflow transitions own approval/schedule/publication state.
+  const { data, error } = await supabase.rpc('sync_content_item_versions', { p_items: rows })
   if (error) throw new Error(`Content sync failed: ${error.message}`)
+  const results = Array.isArray(data) ? data : []
   console.log(`Synced ${rows.length} content item(s): ${rows.map((r) => r.content_id).join(', ')}`)
+  for (const result of results) console.log(result)
 }
 main().catch((e) => { console.error(e); process.exitCode = 1 })

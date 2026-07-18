@@ -18,6 +18,7 @@ export async function addComment(formData: FormData): Promise<{ error?: string }
   const contentId = textField(formData, 'contentId')
   const body = (textField(formData, 'body') ?? '').trim()
   const quotedText = (textField(formData, 'quotedText') ?? '').trim()
+  const copyBlockKey = (textField(formData, 'copyBlockKey') ?? '').trim()
 
   if (!slug || !contentId) return { error: 'Something went wrong. Please reload and try again.' }
 
@@ -27,6 +28,8 @@ export async function addComment(formData: FormData): Promise<{ error?: string }
   if (!body) return { error: 'Please write a comment before sending.' }
   if (body.length > 4000) return { error: 'That comment is too long (4000 characters max).' }
   if (quotedText.length > 2000) return { error: 'The selected quote is too long (2000 characters max).' }
+  if (quotedText && !copyBlockKey) return { error: 'Please select the text again before commenting.' }
+  if (!quotedText && copyBlockKey) return { error: 'Please select the text again before commenting.' }
 
   const item = await getContentItem(session.clientId, contentId)
   if (!item) return { error: 'That piece is no longer available.' }
@@ -36,6 +39,7 @@ export async function addComment(formData: FormData): Promise<{ error?: string }
     p_content_id: item.id,
     p_body: body,
     p_quoted_text: quotedText || null,
+    p_copy_block_key: copyBlockKey || null,
   })
   if (error) return { error: 'Could not post your comment. Please try again.' }
 

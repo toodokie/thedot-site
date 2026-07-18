@@ -1,13 +1,13 @@
 import { createSupabaseServer } from '@/lib/supabase/server'
-import { deriveClientState, type ClientState } from './state'
+import { parseClientState, type ClientState, type ContentStatus } from './state'
 
 export class PortalDataError extends Error {}
 
 export type ContentRow = {
   id: string; content_id: string; title: string; format: string | null; pillar: string | null
-  platforms: string[]; status: string; scheduled_date: string | null; canva_url: string | null
+  platforms: string[]; status: ContentStatus; scheduled_date: string | null; canva_url: string | null
   client_body: string | null; fact_check: string | null; version: number; current_decision: string | null
-  copy_blocks: { label: string; body: string }[]
+  copy_blocks: { key: string; label: string; body: string }[]
   state: ClientState
 }
 export type ActivityRow = {
@@ -15,7 +15,13 @@ export type ActivityRow = {
   actor_type: string; actor_name: string; created_at: string
 }
 
-const SELECT = 'id, content_id, title, format, pillar, platforms, status, scheduled_date, canva_url, client_body, copy_blocks, fact_check, version, current_decision'
+const SELECT = 'id, content_id, title, format, pillar, platforms, status, scheduled_date, canva_url, client_body, copy_blocks, fact_check, version, current_decision, client_state'
+
+function mapContentRow(value: unknown): ContentRow {
+  if (!value || typeof value !== 'object') throw new PortalDataError('Invalid content row')
+  const row = value as Record<string, unknown>
+  return { ...row, state: parseClientState(row.client_state) } as unknown as ContentRow
+}
 
 export async function getContent(clientId: string): Promise<ContentRow[]> {
   const supabase = await createSupabaseServer()
@@ -25,7 +31,7 @@ export async function getContent(clientId: string): Promise<ContentRow[]> {
     .order('scheduled_date', { ascending: true, nullsFirst: false })
     .order('content_id', { ascending: true })
   if (error) throw new PortalDataError(error.message)
-  return (data ?? []).map((r: any) => ({ ...r, state: deriveClientState(r.status, r.current_decision) }))
+  return (data ?? []).map(mapContentRow)
 }
 export async function getContentItem(clientId: string, contentId: string): Promise<ContentRow | null> {
   const supabase = await createSupabaseServer()
@@ -34,7 +40,7 @@ export async function getContentItem(clientId: string, contentId: string): Promi
     .eq('client_id', clientId).eq('content_id', contentId).maybeSingle()
   if (error) throw new PortalDataError(error.message)
   if (!data) return null
-  return { ...(data as any), state: deriveClientState((data as any).status, (data as any).current_decision) }
+  return mapContentRow(data)
 }
 export async function getActivity(clientId: string): Promise<ActivityRow[]> {
   const supabase = await createSupabaseServer()

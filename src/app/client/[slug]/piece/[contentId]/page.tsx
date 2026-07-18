@@ -27,7 +27,7 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
 
   const blocks = item.copy_blocks && item.copy_blocks.length > 0
     ? item.copy_blocks
-    : (item.client_body ? [{ label: 'Caption', body: item.client_body }] : [])
+    : (item.client_body ? [{ key: null, label: 'Caption', body: item.client_body }] : [])
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: '40px 32px' }}>
@@ -54,7 +54,7 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
       <div id="piece-copy" style={{ marginBottom: 28 }}>
         {blocks.length === 0
           ? <Text tone="grey">No copy for this piece yet.</Text>
-          : blocks.map((b, i) => <CopyBlock key={`${b.label}-${i}`} label={b.label} body={b.body} />)}
+          : blocks.map((b, i) => <CopyBlock key={b.key ?? `${b.label}-${i}`} blockKey={b.key} label={b.label} body={b.body} />)}
       </div>
 
       {item.state === 'needs_review'

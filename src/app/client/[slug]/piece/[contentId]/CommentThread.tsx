@@ -17,8 +17,8 @@ const quoteBox = {
 
 export default function CommentThread({ slug, contentId, comments }: { slug: string; contentId: string; comments: CommentRow[] }) {
   const [state, action] = useActionState(async (_p: { error?: string }, fd: FormData) => addComment(fd), {})
-  const [quote, setQuote] = useState('')
-  const [selection, setSelection] = useState('')
+  const [quote, setQuote] = useState<{ text: string; blockKey: string } | null>(null)
+  const [selection, setSelection] = useState<{ text: string; blockKey: string } | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const prevCount = useRef(comments.length)
 
@@ -26,7 +26,7 @@ export default function CommentThread({ slug, contentId, comments }: { slug: str
   useEffect(() => {
     if (comments.length > prevCount.current) {
       formRef.current?.reset()
-      setQuote('')
+      setQuote(null)
     }
     prevCount.current = comments.length
   }, [comments.length])
@@ -38,7 +38,9 @@ export default function CommentThread({ slug, contentId, comments }: { slug: str
       const text = sel?.toString().trim() ?? ''
       const node = sel?.anchorNode
       const el = node ? (node.nodeType === 1 ? (node as Element) : node.parentElement) : null
-      setSelection(text && el?.closest('#piece-copy') ? text : '')
+      const block = text ? el?.closest<HTMLElement>('[data-copy-block-key]') : null
+      const blockKey = block?.dataset.copyBlockKey
+      setSelection(text && blockKey ? { text, blockKey } : null)
     }
     document.addEventListener('selectionchange', onSel)
     return () => document.removeEventListener('selectionchange', onSel)
@@ -75,7 +77,7 @@ export default function CommentThread({ slug, contentId, comments }: { slug: str
         })}
       </div>
 
-      {selection && quote !== selection && (
+      {selection && (quote?.text !== selection.text || quote.blockKey !== selection.blockKey) && (
         <div style={{ marginTop: 16 }}>
           <Button as="button" variant="yellow" size="sm" onClick={() => setQuote(selection)}>Comment on the selected text</Button>
         </div>
@@ -84,11 +86,12 @@ export default function CommentThread({ slug, contentId, comments }: { slug: str
       <form ref={formRef} action={action} style={{ marginTop: 16, borderTop: '1px solid var(--dot-hairline)', paddingTop: 16 }}>
         <input type="hidden" name="slug" value={slug} />
         <input type="hidden" name="contentId" value={contentId} />
-        <input type="hidden" name="quotedText" value={quote} />
+        <input type="hidden" name="quotedText" value={quote?.text ?? ''} />
+        <input type="hidden" name="copyBlockKey" value={quote?.blockKey ?? ''} />
         {quote && (
           <div style={{ ...quoteBox, display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-            <Text size="sm" tone="graphite">{quote}</Text>
-            <button type="button" onClick={() => setQuote('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dot-graphite)', fontSize: 12 }}>clear</button>
+            <Text size="sm" tone="graphite">{quote.text}</Text>
+            <button type="button" onClick={() => setQuote(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dot-graphite)', fontSize: 12 }}>clear</button>
           </div>
         )}
         <Textarea label="Add a comment" id="comment-body" name="body" rows={3} maxLength={4000}

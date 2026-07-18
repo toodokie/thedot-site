@@ -17,7 +17,7 @@ export type ParsedContent = {
   version: number
   fact_check: string | null
   client_body: string
-  copy_blocks: { label: string; body: string }[]
+  copy_blocks: { key: string; label: string; body: string }[]
   internal_notes: string | null
   source_path: string
 }
@@ -65,24 +65,46 @@ function parsePlatforms(value: unknown, source: string): string[] {
   return value.map((x) => (x as string).trim())
 }
 
-// Split the client-facing body into per-surface labeled blocks. Authors write each surface as a
-// `## Label` markdown H2, and everything until the next `## ` (or end of body) is that block's body.
-// Text before the first `## ` heading is ignored here (client_body still keeps the whole body for
-// backward compatibility). A body with no `## ` headings yields [] so the piece page falls back to
-// showing client_body as a single caption.
-function parseCopyBlocks(clientBody: string): { label: string; body: string }[] {
-  const blocks: { label: string; body: string }[] = []
-  let current: { label: string; lines: string[] } | null = null
+// Every client-facing copy block has a stable machine key that survives label edits and reordering:
+//   <!-- portal-block:ig-facebook-caption -->
+//   ## Instagram + Facebook caption
+// Control comments are removed from client_body before anything can reach the client.
+function parseCopyBlocks(clientBody: string, source: string): { key: string; label: string; body: string }[] {
+  const blocks: { key: string; label: string; body: string }[] = []
+  let current: { key: string; label: string; lines: string[] } | null = null
+  let pendingKey: string | null = null
   for (const line of clientBody.split('\n')) {
+    const control = /^\s*<!--\s*portal-block:([a-z0-9][a-z0-9_-]{0,63})\s*-->\s*$/.exec(line)
+    if (control) {
+      if (pendingKey) throw new Error(`Portal block "${pendingKey}" has no heading in ${source}`)
+      if (current) {
+        blocks.push({ key: current.key, label: current.label, body: current.lines.join('\n').trim() })
+        current = null
+      }
+      pendingKey = control[1]
+      continue
+    }
     const heading = /^##\s+(.+?)\s*$/.exec(line)  // H2 only: `### ` (H3) has no space after `##`
     if (heading) {
-      if (current) blocks.push({ label: current.label, body: current.lines.join('\n').trim() })
-      current = { label: heading[1].trim(), lines: [] }
+      if (!pendingKey) throw new Error(`Copy block heading is missing a portal-block key in ${source}`)
+      current = { key: pendingKey, label: heading[1].trim(), lines: [] }
+      pendingKey = null
+    } else if (pendingKey) {
+      if (line.trim()) throw new Error(`Portal block "${pendingKey}" must be followed by an H2 heading in ${source}`)
     } else if (current) {
       current.lines.push(line)
     }
   }
-  if (current) blocks.push({ label: current.label, body: current.lines.join('\n').trim() })
+  if (pendingKey) throw new Error(`Portal block "${pendingKey}" has no heading in ${source}`)
+  if (current) blocks.push({ key: current.key, label: current.label, body: current.lines.join('\n').trim() })
+  if (blocks.length === 0) throw new Error(`At least one keyed portal copy block is required in ${source}`)
+  const keys = new Set<string>()
+  for (const block of blocks) {
+    if (!block.label) throw new Error(`Copy block label must not be empty in ${source}`)
+    if (!block.body) throw new Error(`Copy block "${block.key}" body must not be empty in ${source}`)
+    if (keys.has(block.key)) throw new Error(`Duplicate portal block key "${block.key}" in ${source}`)
+    keys.add(block.key)
+  }
   return blocks
 }
 
@@ -136,9 +158,14 @@ export function parseContentFile(raw: string, sourcePath: string): ParsedContent
     throw new Error(`Expected exactly one <!-- internal --> marker in ${sourcePath}; found ${matches.length}`)
   }
   const idx = matches[0].index!
-  const client_body = content.slice(0, idx)
+  const rawClientBody = content.slice(0, idx)
   const internal = content.slice(idx + matches[0][0].length)
-  if (!client_body.trim()) throw new Error(`Empty client body in ${sourcePath}`)
+  if (!rawClientBody.trim()) throw new Error(`Empty client body in ${sourcePath}`)
+  const copy_blocks = parseCopyBlocks(rawClientBody, sourcePath)
+  const client_body = rawClientBody
+    .split('\n')
+    .filter((line) => !/^\s*<!--\s*portal-block:[^>]+-->\s*$/.test(line))
+    .join('\n')
 
   return {
     content_id,
@@ -154,7 +181,7 @@ export function parseContentFile(raw: string, sourcePath: string): ParsedContent
     version,
     fact_check,
     client_body,
-    copy_blocks: parseCopyBlocks(client_body),
+    copy_blocks,
     internal_notes: internal.trim() ? internal.trim() : null,
     source_path: sourcePath,
   }

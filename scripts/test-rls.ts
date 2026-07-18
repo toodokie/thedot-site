@@ -1,69 +1,53 @@
-// scripts/test-rls.ts
-// Standalone tsx script that PROVES multi-tenant isolation, RPC authorization, and RPC idempotency
-// for the client portal, using REAL user JWTs against PostgREST (the exact path the app uses), and
-// cleans up after itself.
-//
-// It mutates the REAL database: it creates a throwaway tenant B (client + auth user + one content
-// item), signs in as real users, runs read/RPC assertions, and deletes everything in a finally block.
-//
-// Run: npx tsx scripts/test-rls.ts
-// Safe to re-run: it pre-deletes any leftover 'rls-test-*' client/user/content before setup, and it
-// always cleans up (finally), even if an assertion or setup step throws. Exits non-zero on any failure.
+// PostgREST integration proof for portal tenant isolation and the immutable released-version model.
+// This script mutates the configured database only with a throwaway tenant/user and always cleans up.
+// Run only after applying 0001..0006 to a disposable/staging database first.
 import { loadEnvConfig } from '@next/env'
-loadEnvConfig(process.cwd())
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+
+loadEnvConfig(process.cwd())
 
 const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const rawAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 const rawService = process.env.SUPABASE_SERVICE_ROLE_KEY
 if (!rawUrl || !rawAnon || !rawService) {
-  throw new Error(
-    'Missing NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY in .env.local',
-  )
+  throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY')
 }
-// After the guard these are guaranteed strings; capture them so closures below see `string`, not
-// `string | undefined` (control-flow narrowing does not reliably reach into nested functions).
-const SUPABASE_URL: string = rawUrl
-const ANON_KEY: string = rawAnon
-const SERVICE_KEY: string = rawService
+const SUPABASE_URL = rawUrl
+const ANON_KEY = rawAnon
+const SERVICE_KEY = rawService
 
-// Fixed identifiers for the throwaway tenant B, so a leftover from a prior run is deterministically
-// found and deleted at the start.
 const B_SLUG = 'rls-test-tenant'
 const B_EMAIL = 'rls-test-userb@example.com'
 const B_CONTENT_ID = 'rls-test-piece'
+const B_LEAK_ID = 'rls-test-leak'
+const B_HIDDEN_ID = 'rls-test-hidden'
 const KANSET_SLUG = 'kanset'
 const KANSET_EMAIL = 'info@thedotcreative.co'
 
-// Admin (service-role) client. persistSession off: this is a one-shot script, not a browser session.
 const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
-
 let failures = 0
+
 function check(name: string, passed: boolean, detail = ''): void {
   const suffix = detail ? ` (${detail})` : ''
-  if (passed) {
-    console.log(`PASS  ${name}${suffix}`)
-  } else {
+  if (passed) console.log(`PASS  ${name}${suffix}`)
+  else {
     failures++
     console.log(`FAIL  ${name}${suffix}`)
   }
 }
 
-// Mint a REAL user access token (JWT) without sending any email: generateLink returns a hashed_token
-// server-side, verifyOtp exchanges it for a session. Same token_hash flow the portal callback uses.
 async function tokenFor(email: string): Promise<string> {
   const { data, error } = await admin.auth.admin.generateLink({ type: 'magiclink', email })
   if (error) throw error
   const anon = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false } })
-  const { data: s, error: e2 } = await anon.auth.verifyOtp({
+  const { data: verified, error: verifyError } = await anon.auth.verifyOtp({
     token_hash: (data.properties as { hashed_token: string }).hashed_token,
     type: 'magiclink',
   })
-  if (e2 || !s.session) throw e2 ?? new Error(`no session for ${email}`)
-  return s.session.access_token
+  if (verifyError || !verified.session) throw verifyError ?? new Error(`no session for ${email}`)
+  return verified.session.access_token
 }
 
-// A per-user PostgREST client that sends the user's JWT, so every read/RPC runs under that user's RLS.
 function clientForToken(token: string): SupabaseClient {
   return createClient(SUPABASE_URL, ANON_KEY, {
     auth: { persistSession: false },
@@ -72,407 +56,378 @@ function clientForToken(token: string): SupabaseClient {
 }
 
 async function findAuthUser(email: string) {
-  const target = email.toLowerCase()
   const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
   if (error) throw error
-  return data.users.find((u) => u.email?.toLowerCase() === target) ?? null
+  return data.users.find((user) => user.email?.toLowerCase() === email.toLowerCase()) ?? null
 }
 
-// Remove anything a prior run may have left behind, so the script is re-runnable.
 async function preClean(): Promise<void> {
-  // Deleting client B cascades its content_items / client_users / approvals / activity_log, so the
-  // fresh per-tenant insert (unique on client_id, content_id, under a brand-new client uuid) cannot collide.
-  const { error: dcErr } = await admin.from('clients').delete().eq('slug', B_SLUG)
-  if (dcErr) throw new Error(`preClean delete client B: ${dcErr.message}`)
-  // Defensive extra sweep of any test-named stray row (redundant with the cascade above now that
-  // content_id is unique per client rather than globally, but harmless).
-  const { error: diErr } = await admin.from('content_items').delete().eq('content_id', B_CONTENT_ID)
-  if (diErr) throw new Error(`preClean delete content B: ${diErr.message}`)
-  // Deleting the auth user cascades its client_users link.
+  const { error } = await admin.from('clients').delete().eq('slug', B_SLUG)
+  if (error) throw new Error(`preClean client: ${error.message}`)
   const stray = await findAuthUser(B_EMAIL)
   if (stray) {
-    const { error } = await admin.auth.admin.deleteUser(stray.id)
-    if (error) throw new Error(`preClean delete user B: ${error.message}`)
+    const { error: deleteError } = await admin.auth.admin.deleteUser(stray.id)
+    if (deleteError) throw new Error(`preClean user: ${deleteError.message}`)
   }
+}
+
+type SyncResult = {
+  content_id: string
+  item_id: string
+  outcome: string
+  working_version: number
+  client_visible_version: number | null
+}
+
+function snapshot(
+  clientId: string,
+  contentId: string,
+  version: number,
+  title: string,
+  body: string,
+  blockKey: string,
+) {
+  return {
+    client_id: clientId,
+    content_id: contentId,
+    version,
+    title,
+    format: 'test',
+    pillar: 'test',
+    platforms: ['instagram'],
+    planned_date: null,
+    canva_url: null,
+    drive_url: null,
+    fact_check: 'confirmed',
+    fact_check_ledger: [],
+    client_body: body,
+    copy_blocks: [{ key: blockKey, label: 'Test copy', body }],
+    source_path: `/tmp/${contentId}.md`,
+  }
+}
+
+async function sync(items: Record<string, unknown>[]): Promise<SyncResult[]> {
+  const { data, error } = await admin.rpc('sync_content_item_versions', { p_items: items })
+  if (error) throw new Error(`sync_content_item_versions: ${error.message}`)
+  return data as SyncResult[]
 }
 
 async function main(): Promise<void> {
   let bClientId: string | null = null
   let bUserId: string | null = null
   try {
-    // --- Kanset baseline, read via admin/service role (the "other tenant" the test isolates against) ---
-    const { data: kClient, error: kErr } = await admin
-      .from('clients').select('id').eq('slug', KANSET_SLUG).single()
-    if (kErr || !kClient) throw new Error(`kanset client not found: ${kErr?.message ?? 'missing'}`)
-    const kansetClientId = kClient.id as string
-
-    const { data: kItems, error: kiErr } = await admin
-      .from('content_items').select('id, content_id, version').eq('client_id', kansetClientId)
-    if (kiErr) throw new Error(`kanset content_items: ${kiErr.message}`)
-    if (!kItems || kItems.length === 0) throw new Error('kanset has no content_items to test against')
-    const kansetContentIds = new Set(kItems.map((r) => r.content_id as string))
-    const kansetItemId = kItems[0].id as string
-
     await preClean()
 
-    // --- Setup throwaway tenant B (all via admin/service role) ---
-    const { data: bClientRow, error: bcErr } = await admin
-      .from('clients').insert({ name: 'RLS Test Co', slug: B_SLUG }).select('id').single()
-    if (bcErr || !bClientRow) throw new Error(`insert client B: ${bcErr?.message ?? 'no row'}`)
-    bClientId = bClientRow.id as string
+    const { data: kanset, error: kansetError } = await admin
+      .from('clients').select('id').eq('slug', KANSET_SLUG).single()
+    if (kansetError || !kanset) throw new Error(`kanset client missing: ${kansetError?.message ?? 'missing'}`)
+    const kansetClientId = kanset.id as string
+    const { data: kansetItems, error: kansetItemsError } = await admin
+      .from('content_with_state').select('id, content_id, version').eq('client_id', kansetClientId)
+    if (kansetItemsError || !kansetItems?.length) {
+      throw new Error(`released kanset content missing: ${kansetItemsError?.message ?? 'no rows'}`)
+    }
+    const kansetContentIds = new Set(kansetItems.map((row) => row.content_id as string))
+    const kansetItemId = kansetItems[0].id as string
+    const kansetVersion = kansetItems[0].version as number
 
-    const { data: createdUser, error: cuErr } = await admin.auth.admin.createUser({
-      email: B_EMAIL, email_confirm: true,
+    const { data: clientRow, error: clientError } = await admin
+      .from('clients').insert({ name: 'RLS Test Co', slug: B_SLUG }).select('id').single()
+    if (clientError || !clientRow) throw new Error(`insert client B: ${clientError?.message ?? 'missing'}`)
+    bClientId = clientRow.id as string
+
+    const { data: createdUser, error: userError } = await admin.auth.admin.createUser({
+      email: B_EMAIL,
+      email_confirm: true,
     })
-    if (cuErr || !createdUser.user) throw new Error(`createUser B: ${cuErr?.message ?? 'no user'}`)
+    if (userError || !createdUser.user) throw new Error(`create user B: ${userError?.message ?? 'missing'}`)
     bUserId = createdUser.user.id
 
-    const { error: linkErr } = await admin.from('client_users').insert({
-      client_id: bClientId, auth_user_id: bUserId, email: B_EMAIL, name: 'RLS Test B', role: 'client',
+    const { error: membershipError } = await admin.from('client_users').insert({
+      client_id: bClientId,
+      auth_user_id: bUserId,
+      email: B_EMAIL,
+      name: 'RLS Test B',
+      role: 'client',
     })
-    if (linkErr) throw new Error(`link client_users B: ${linkErr.message}`)
+    if (membershipError) throw new Error(`membership B: ${membershipError.message}`)
 
-    const { data: bItemRow, error: biErr } = await admin.from('content_items').insert({
-      content_id: B_CONTENT_ID, client_id: bClientId, title: 'Test piece B',
-      platforms: [], status: 'draft', version: 1, client_body: 'test',
-      copy_blocks: [{ label: 'Test', body: 'x' }], // phase-2: proven to ride along on B's own read (C8)
-    }).select('id').single()
-    if (biErr || !bItemRow) throw new Error(`insert content_items B: ${biErr?.message ?? 'no row'}`)
-    const bItemId = bItemRow.id as string
+    const initial = await sync([
+      snapshot(bClientId, B_CONTENT_ID, 1, 'Visible main v1', 'Visible main body', 'main'),
+      snapshot(bClientId, B_LEAK_ID, 1, 'Released leak v1', 'Released body v1', 'leak'),
+      snapshot(bClientId, B_HIDDEN_ID, 1, 'Hidden working v1', 'TOP SECRET UNRELEASED', 'hidden'),
+    ])
+    const byId = new Map(initial.map((row) => [row.content_id, row]))
+    const bItemId = byId.get(B_CONTENT_ID)?.item_id
+    const bLeakItemId = byId.get(B_LEAK_ID)?.item_id
+    const bHiddenItemId = byId.get(B_HIDDEN_ID)?.item_id
+    if (!bItemId || !bLeakItemId || !bHiddenItemId) throw new Error('sync did not return all item IDs')
 
-    // A second B item in 'idea' status, to prove the RPC's transition guard rejects decisions on it.
-    const { data: bIdeaRow, error: biErr2 } = await admin.from('content_items').insert({
-      content_id: `${B_CONTENT_ID}-idea`, client_id: bClientId, title: 'Idea piece B',
-      platforms: [], status: 'idea', version: 1, client_body: 'idea',
-    }).select('id').single()
-    if (biErr2 || !bIdeaRow) throw new Error(`insert idea content B: ${biErr2?.message ?? 'no row'}`)
-    const bIdeaId = bIdeaRow.id as string
+    for (const itemId of [bItemId, bLeakItemId]) {
+      const { error } = await admin.rpc('mark_content_ready', { p_content_id: itemId, p_content_version: 1 })
+      if (error) throw new Error(`mark_content_ready: ${error.message}`)
+    }
 
-    // --- Real user JWTs + per-user PostgREST clients ---
+    const { error: beginRevisionError } = await admin.rpc('begin_content_revision', {
+      p_content_id: bLeakItemId,
+      p_content_version: 1,
+    })
+    if (beginRevisionError) throw new Error(`begin_content_revision: ${beginRevisionError.message}`)
+
+    const version2 = snapshot(bClientId, B_LEAK_ID, 2, 'UNRELEASED TITLE V2', 'TOP SECRET UNRELEASED V2', 'leak')
+    await sync([version2])
+
     const kansetToken = await tokenFor(KANSET_EMAIL)
     const bToken = await tokenFor(B_EMAIL)
     const kansetClient = clientForToken(kansetToken)
     const bClient = clientForToken(bToken)
+    const anonClient = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false } })
 
-    console.log('\n--- Assertions ---')
+    console.log('\n--- Slice 1 release/RLS assertions ---')
 
-    // A: kanset user sees kanset content (>= 1) via content_with_state and NOT rls-test-piece.
+    const security = await admin.rpc('assert_portal_slice1_security')
+    check('S1: catalog exact-grant + safe-view assertion passes', !security.error, security.error?.message ?? 'ok')
+
     {
       const { data, error } = await kansetClient.from('content_with_state').select('content_id')
-      if (error) {
-        check('A: kanset user reads content_with_state', false, error.message)
-      } else {
-        const ids = (data ?? []).map((r) => r.content_id as string)
-        const seesOwn = ids.length >= 1 && ids.every((id) => kansetContentIds.has(id))
-        const hidesB = !ids.includes(B_CONTENT_ID)
-        check('A: kanset user sees own content (>=1) and NOT rls-test-piece', seesOwn && hidesB, `rows=${ids.length}`)
-      }
+      const ids = (data ?? []).map((row) => row.content_id as string)
+      check('S2: kanset user sees only kanset released content', !error
+        && ids.length >= 1
+        && ids.every((id) => kansetContentIds.has(id))
+        && !ids.includes(B_CONTENT_ID), error?.message ?? `rows=${ids.length}`)
     }
 
-    // B: test user sees ONLY client B's item and NOT any kanset content_id.
     {
-      const { data, error } = await bClient.from('content_with_state').select('content_id')
-      if (error) {
-        check('B: test user reads content_with_state', false, error.message)
-      } else {
-        const ids = (data ?? []).map((r) => r.content_id as string)
-        const bContentIds = new Set([B_CONTENT_ID, `${B_CONTENT_ID}-idea`])
-        const onlyB = ids.length >= 1 && ids.every((id) => bContentIds.has(id))
-        const noKanset = !ids.some((id) => kansetContentIds.has(id))
-        check('B: test user sees ONLY its own content and no kanset content', onlyB && noKanset, `rows=${ids.length}`)
-      }
+      const { data, error } = await bClient.from('content_with_state')
+        .select('content_id, title, client_body, version, client_state')
+      const rows = data ?? []
+      const ids = new Set(rows.map((row) => row.content_id as string))
+      const leak = rows.find((row) => row.content_id === B_LEAK_ID)
+      check('S3: B sees released rows but not never-released identity', !error
+        && ids.has(B_CONTENT_ID) && ids.has(B_LEAK_ID) && !ids.has(B_HIDDEN_ID),
+      error?.message ?? `rows=${rows.length}`)
+      check('S4: view remains pinned to released v1 while working v2 is hidden', leak?.version === 1
+        && leak?.title === 'Released leak v1'
+        && leak?.client_body === 'Released body v1'
+        && leak?.client_state === 'with_dot', JSON.stringify(leak))
+      check('S5: unreleased title/body never appear in released view', !JSON.stringify(rows).includes('TOP SECRET')
+        && !JSON.stringify(rows).includes('UNRELEASED TITLE'), `rows=${rows.length}`)
     }
 
-    // B: activity_log shows 0 rows (B has no activity yet; kanset activity is invisible to B).
     {
-      const { count, error } = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
-      if (error) check('B: test user reads activity_log (no kanset activity)', false, error.message)
-      else check('B: test user activity_log has 0 rows', (count ?? -1) === 0, `count=${count ?? 'null'}`)
+      const base = await bClient.from('content_items').select('id, content_id')
+      const ids = new Set((base.data ?? []).map((row) => row.content_id as string))
+      check('S6: base-table RLS hides never-released identities', !base.error
+        && ids.has(B_CONTENT_ID) && ids.has(B_LEAK_ID) && !ids.has(B_HIDDEN_ID),
+      base.error?.message ?? `rows=${base.data?.length ?? 0}`)
+      const forbidden = await bClient.from('content_items').select('id, title, client_body, copy_blocks')
+      check('S7: authenticated cannot select legacy authored columns', !!forbidden.error,
+        forbidden.error?.message ?? 'NO ERROR')
     }
 
-    // B: calling the decision RPC on a KANSET content id is rejected (not a member of that tenant).
     {
-      const { error } = await bClient.rpc('record_content_decision', {
-        p_content_id: kansetItemId, p_content_version: 1, p_decision: 'approved', p_note: null,
+      const versions = await bClient.from('content_item_versions')
+        .select('content_item_id, version, title, client_body, copy_blocks')
+      const rows = versions.data ?? []
+      const seesMainV1 = rows.some((row) => row.content_item_id === bItemId && row.version === 1)
+      const seesLeakV1 = rows.some((row) => row.content_item_id === bLeakItemId && row.version === 1)
+      const seesLeakV2 = rows.some((row) => row.content_item_id === bLeakItemId && row.version === 2)
+      const seesHidden = rows.some((row) => row.content_item_id === bHiddenItemId)
+      check('S8: version-table RLS returns only each released pointer', !versions.error
+        && seesMainV1 && seesLeakV1 && !seesLeakV2 && !seesHidden,
+      versions.error?.message ?? `rows=${rows.length}`)
+      check('S9: version rows expose no unreleased content', !JSON.stringify(rows).includes('TOP SECRET'),
+        `rows=${rows.length}`)
+      const internal = await bClient.from('content_item_versions').select('content_checksum, source_path')
+      check('S10: checksum/source_path are not authenticated columns', !!internal.error,
+        internal.error?.message ?? 'NO ERROR')
+    }
+
+    {
+      const retry = await sync([snapshot(bClientId, B_CONTENT_ID, 1, 'Visible main v1', 'Visible main body', 'main')])
+      check('S11: exact snapshot retry is a no-op success', retry[0]?.outcome === 'exact_retry', JSON.stringify(retry))
+      const changed = await admin.rpc('sync_content_item_versions', {
+        p_items: [snapshot(bClientId, B_CONTENT_ID, 1, 'Changed without version bump', 'Visible main body', 'main')],
       })
-      check('B: RPC on kanset content is NOT authorized (returns error)', !!error, error ? error.message : 'NO ERROR returned')
+      check('S12: same version with changed checksum is rejected', !!changed.error, changed.error?.message ?? 'NO ERROR')
     }
 
-    // Idempotency: two identical decisions on B's own item add exactly ONE activity_log row.
+    {
+      const cross = await bClient.rpc('record_content_decision', {
+        p_content_id: kansetItemId,
+        p_content_version: kansetVersion,
+        p_decision: 'approved',
+        p_note: null,
+      })
+      check('S13: cross-tenant decision is rejected', !!cross.error, cross.error?.message ?? 'NO ERROR')
+      const hidden = await bClient.rpc('record_content_decision', {
+        p_content_id: bHiddenItemId,
+        p_content_version: 1,
+        p_decision: 'approved',
+        p_note: null,
+      })
+      check('S14: never-released decision is rejected', !!hidden.error, hidden.error?.message ?? 'NO ERROR')
+      const working = await bClient.rpc('record_content_decision', {
+        p_content_id: bLeakItemId,
+        p_content_version: 2,
+        p_decision: 'approved',
+        p_note: null,
+      })
+      check('S15: unreleased working-version decision is rejected', !!working.error, working.error?.message ?? 'NO ERROR')
+    }
+
     {
       const before = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
-      if (before.error) throw new Error(`idempotency count before: ${before.error.message}`)
-
       const args = { p_content_id: bItemId, p_content_version: 1, p_decision: 'approved' }
-      const r1 = await bClient.rpc('record_content_decision', args)
-      check('Idempotency: first decision on B item succeeds', !r1.error, r1.error ? r1.error.message : 'ok')
-      const r2 = await bClient.rpc('record_content_decision', args)
-      check('Idempotency: second identical decision returns without error', !r2.error, r2.error ? r2.error.message : 'ok')
-
+      const first = await bClient.rpc('record_content_decision', args)
+      const second = await bClient.rpc('record_content_decision', args)
       const after = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
-      if (after.error) throw new Error(`idempotency count after: ${after.error.message}`)
-      const gained = (after.count ?? 0) - (before.count ?? 0)
-      check('Idempotency: two identical calls add exactly ONE activity_log row', gained === 1, `gained=${gained}`)
-    }
-
-    // RPC business invariants: must be enforced in SQL, not only in the Server Action (the RPC is
-    // granted to authenticated, so a direct rpc() call must not bypass these).
-    {
-      const { error } = await bClient.rpc('record_content_decision', {
-        p_content_id: bItemId, p_content_version: 1, p_decision: 'change_requested', p_note: null,
+      check('S16: released current version can be approved', !first.error, first.error?.message ?? 'ok')
+      check('S17: exact decision retry succeeds', !second.error, second.error?.message ?? 'ok')
+      check('S18: exact decision retry creates one activity event', !before.error && !after.error
+        && (after.count ?? 0) - (before.count ?? 0) === 1,
+      `before=${before.count} after=${after.count}`)
+      const directApproval = await bClient.from('approvals').insert({
+        content_id: bItemId,
+        client_id: bClientId,
+        content_version: 1,
+        state: 'approved',
+        decided_by: bUserId,
       })
-      check('RPC rejects change_requested with no note', !!error, error ? error.message : 'NO ERROR returned')
+      check('S19: direct authenticated approval write is rejected', !!directApproval.error,
+        directApproval.error?.message ?? 'NO ERROR')
     }
+
+    console.log('\n--- Version-bound comments ---')
+
     {
-      const { error } = await bClient.rpc('record_content_decision', {
-        p_content_id: bItemId, p_content_version: 1, p_decision: 'change_requested', p_note: 'x'.repeat(2001),
+      const plain = await bClient.rpc('add_comment', { p_content_id: bItemId, p_body: 'plain comment' })
+      check('C1: unquoted comment succeeds through compatibility signature', !plain.error, plain.error?.message ?? 'ok')
+      const quoted = await bClient.rpc('add_comment', {
+        p_content_id: bItemId,
+        p_body: 'quoted comment',
+        p_quoted_text: 'Visible main body',
+        p_copy_block_key: 'main',
       })
-      check('RPC rejects an over-long note (>2000)', !!error, error ? error.message : 'NO ERROR returned')
-    }
-    {
-      const { error } = await bClient.rpc('record_content_decision', {
-        p_content_id: bIdeaId, p_content_version: 1, p_decision: 'change_requested', p_note: 'please fix',
+      check('C2: exact released-block quote succeeds', !quoted.error, quoted.error?.message ?? 'ok')
+      const forged = await bClient.rpc('add_comment', {
+        p_content_id: bItemId,
+        p_body: 'forged quote',
+        p_quoted_text: 'not in released copy',
+        p_copy_block_key: 'main',
       })
-      check('RPC rejects a decision on an idea-status piece', !!error, error ? error.message : 'NO ERROR returned')
+      check('C3: forged quote is rejected', !!forged.error, forged.error?.message ?? 'NO ERROR')
+      const wrongKey = await bClient.rpc('add_comment', {
+        p_content_id: bItemId,
+        p_body: 'wrong key',
+        p_quoted_text: 'Visible main body',
+        p_copy_block_key: 'other',
+      })
+      check('C4: quote against wrong block key is rejected', !!wrongKey.error, wrongKey.error?.message ?? 'NO ERROR')
+
+      const comments = await bClient.from('comments').select('content_id, content_version, copy_block_key, body')
+      check('C5: visible comments remain bound to released version 1', !comments.error
+        && (comments.data ?? []).length === 2
+        && (comments.data ?? []).every((row) => row.content_id === bItemId && row.content_version === 1),
+      comments.error?.message ?? `rows=${comments.data?.length ?? 0}`)
     }
 
-    // === Phase 2 surface: comments + add_comment RPC + copy_blocks ===
-    // Comments B creates need NO explicit cleanup: comments.client_id -> clients(id) ON DELETE CASCADE,
-    // so deleting client B in the finally block removes every comment (and its activity_log row) too.
-
-    // C1: B can add a comment on B's OWN item, then reads back exactly that one comment.
     {
-      const { error } = await bClient.rpc('add_comment', { p_content_id: bItemId, p_body: 'test comment' })
-      check('C1: B adds a comment on its own item (no error)', !error, error ? error.message : 'ok')
-
-      const { data, error: rErr } = await bClient.from('comments').select('id, body')
-      if (rErr) {
-        check('C1: B reads back its comment', false, rErr.message)
-      } else {
-        const rows = data ?? []
-        const one = rows.length === 1 && rows[0].body === 'test comment'
-        check('C1: B reads back exactly one comment with the right body', one, `rows=${rows.length}`)
-      }
+      const cross = await bClient.rpc('add_comment', { p_content_id: kansetItemId, p_body: 'cross tenant' })
+      check('C6: cross-tenant comment is rejected', !!cross.error, cross.error?.message ?? 'NO ERROR')
+      const direct = await bClient.from('comments').insert({
+        content_id: bItemId,
+        client_id: bClientId,
+        content_version: 1,
+        author_type: 'client',
+        author_name: 'x',
+        body: 'y',
+      })
+      check('C7: direct authenticated comment write is rejected', !!direct.error, direct.error?.message ?? 'NO ERROR')
     }
 
-    // C2: a single add_comment logs EXACTLY ONE 'comment_added' activity row (measured as a delta so
-    // it is independent of C1's comment). Runs after C1's read so C1's "exactly one" stays valid.
     {
       const before = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
-      if (before.error) throw new Error(`comment activity count before: ${before.error.message}`)
-
-      const { error } = await bClient.rpc('add_comment', { p_content_id: bItemId, p_body: 'second comment' })
-      check('C2: second add_comment on B item succeeds', !error, error ? error.message : 'ok')
-
+      const reply = await admin.rpc('add_agency_comment', {
+        p_content_id: bItemId,
+        p_body: 'Dot reply to B',
+        p_author_name: 'The Dot',
+      })
       const after = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
-      if (after.error) throw new Error(`comment activity count after: ${after.error.message}`)
-      const gained = (after.count ?? 0) - (before.count ?? 0)
-      check('C2: add_comment adds exactly ONE activity_log row', gained === 1, `gained=${gained}`)
-
-      const { data: evRows, error: evErr } = await bClient
-        .from('activity_log').select('event_type').eq('event_type', 'comment_added')
-      check('C2: a comment_added activity row exists for B', !evErr && (evRows ?? []).length >= 1,
-        evErr ? evErr.message : `rows=${(evRows ?? []).length}`)
+      const thread = await bClient.from('comments').select('author_type, body, content_version')
+      check('C8: agency reply RPC succeeds atomically', !reply.error, reply.error?.message ?? 'ok')
+      check('C9: agency reply adds exactly one activity event', !before.error && !after.error
+        && (after.count ?? 0) - (before.count ?? 0) === 1,
+      `before=${before.count} after=${after.count}`)
+      check('C10: client sees agency reply on released version', !thread.error
+        && (thread.data ?? []).some((row) => row.author_type === 'anastasia'
+          && row.body === 'Dot reply to B' && row.content_version === 1),
+      thread.error?.message ?? `rows=${thread.data?.length ?? 0}`)
     }
 
-    // C3: B canNOT add_comment on a KANSET item (not a member of that tenant).
     {
-      const { error } = await bClient.rpc('add_comment', { p_content_id: kansetItemId, p_body: 'x' })
-      check('C3: add_comment on kanset content is NOT authorized (returns error)', !!error,
-        error ? error.message : 'NO ERROR returned')
+      const anonRead = await anonClient.from('content_with_state').select('id')
+      const anonComment = await anonClient.rpc('add_comment', { p_content_id: bItemId, p_body: 'x' })
+      const anonSync = await anonClient.rpc('sync_content_item_versions', { p_items: [] })
+      check('C11: anon cannot read released portal content', !!anonRead.error || (anonRead.data ?? []).length === 0,
+        anonRead.error?.message ?? `rows=${anonRead.data?.length ?? 0}`)
+      check('C12: anon cannot call client comment RPC', !!anonComment.error, anonComment.error?.message ?? 'NO ERROR')
+      check('C13: anon cannot call service sync RPC', !!anonSync.error, anonSync.error?.message ?? 'NO ERROR')
     }
 
-    // C4: B reads ONLY its own comments; every visible row carries B's client_id, none kanset's.
-    {
-      const { data, error } = await bClient.from('comments').select('client_id')
-      if (error) {
-        check('C4: B reads comments', false, error.message)
-      } else {
-        const rows = data ?? []
-        const allB = rows.length >= 1 && rows.every((r) => r.client_id === bClientId)
-        const noKanset = !rows.some((r) => r.client_id === kansetClientId)
-        check('C4: every comment B sees is B\'s own, none kanset\'s', allB && noKanset, `rows=${rows.length}`)
-      }
-    }
+    console.log('\n--- Existing tenant-isolated surfaces ---')
 
-    // C5: authenticated has SELECT only on comments; a DIRECT insert must be rejected (privilege revoked,
-    // so the add_comment RPC is the only authenticated write path).
     {
-      const { error } = await bClient.from('comments').insert({
-        content_id: bItemId, client_id: bClientId, author_type: 'client', author_name: 'x', body: 'y',
+      const recommendation = await admin.from('recommendations').insert({
+        client_id: bClientId, title: 'B rec', body: 'x', category: 'content',
       })
-      check('C5: direct INSERT into comments by authenticated is rejected', !!error,
-        error ? error.message : 'NO ERROR returned')
-    }
-
-    // C6: a plain anon client (no JWT) is locked out of comments entirely, read AND write.
-    {
-      const anonClient = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false } })
-      const sel = await anonClient.from('comments').select('id')
-      const readBlocked = !!sel.error || (sel.data ?? []).length === 0
-      check('C6: anon selecting comments returns zero rows or an error', readBlocked,
-        sel.error ? sel.error.message : `rows=${(sel.data ?? []).length}`)
-
-      const { error: rpcErr } = await anonClient.rpc('add_comment', { p_content_id: bItemId, p_body: 'x' })
-      check('C6: anon calling add_comment is rejected', !!rpcErr, rpcErr ? rpcErr.message : 'NO ERROR returned')
-    }
-
-    // C7: add_comment validation is enforced in SQL (not only in the Server Action), since the RPC is
-    // granted to authenticated: empty body, body > 4000, and quoted_text > 2000 must each raise.
-    {
-      const empty = await bClient.rpc('add_comment', { p_content_id: bItemId, p_body: '   ' })
-      check('C7: add_comment rejects an empty/whitespace body', !!empty.error,
-        empty.error ? empty.error.message : 'NO ERROR returned')
-
-      const tooLong = await bClient.rpc('add_comment', { p_content_id: bItemId, p_body: 'x'.repeat(4001) })
-      check('C7: add_comment rejects a body over 4000 chars', !!tooLong.error,
-        tooLong.error ? tooLong.error.message : 'NO ERROR returned')
-
-      const badQuote = await bClient.rpc('add_comment', {
-        p_content_id: bItemId, p_body: 'valid body', p_quoted_text: 'x'.repeat(2001),
+      const link = await admin.from('links').insert({
+        client_id: bClientId, category: 'brand', label: 'B link', url: 'https://example.com',
       })
-      check('C7: add_comment rejects quoted_text over 2000 chars', !!badQuote.error,
-        badQuote.error ? badQuote.error.message : 'NO ERROR returned')
+      const report = await admin.from('report_snapshots').insert({
+        client_id: bClientId, period: 'test', platform: 'instagram', metrics: {},
+      })
+      check('D1: service seeds B read-only surfaces', !recommendation.error && !link.error && !report.error,
+        recommendation.error?.message || link.error?.message || report.error?.message || 'ok')
     }
 
-    // C8: copy_blocks (set on B's item in setup) rides along on B's own content_with_state read. B not
-    // surfacing any kanset content is already proven in assertion B; here we just confirm the array.
-    {
-      const { data, error } = await bClient
-        .from('content_with_state').select('content_id, copy_blocks').eq('content_id', B_CONTENT_ID)
-      if (error) {
-        check('C8: B reads copy_blocks via content_with_state', false, error.message)
-      } else {
-        const rows = data ?? []
-        const blocks = (rows[0]?.copy_blocks ?? []) as Array<{ label?: string; body?: string }>
-        const hasBlock = rows.length === 1 && Array.isArray(blocks)
-          && blocks.some((b) => b.label === 'Test' && b.body === 'x')
-        check('C8: B\'s own item exposes its copy_blocks array', hasBlock, `blocks=${JSON.stringify(blocks)}`)
-      }
-    }
-
-    // C9: TWO-WAY. The Dot (service role, the portal-admin `reply` path) posts a reply on B's item;
-    // B then reads a thread containing BOTH its own comment (author_type 'client') and The Dot's
-    // reply (author_type 'anastasia'). Proves comments work in both directions, not just client->Dot.
-    {
-      const ins = await admin.from('comments').insert({
-        content_id: bItemId, client_id: bClientId,
-        author_type: 'anastasia', author_name: 'The Dot', body: 'Dot reply to B',
-      }).select('id').single()
-      check('C9: The Dot posts a reply on B item (service role)', !ins.error, ins.error ? ins.error.message : 'ok')
-
-      const { data, error } = await bClient.from('comments').select('author_type, body')
-      if (error) {
-        check('C9: B reads the two-way thread', false, error.message)
-      } else {
-        const rows = data ?? []
-        const seesDotReply = rows.some((r) => r.author_type === 'anastasia' && r.body === 'Dot reply to B')
-        const seesOwn = rows.some((r) => r.author_type === 'client')
-        check('C9: B sees BOTH its own comment and The Dot reply (two-way)', seesDotReply && seesOwn, `rows=${rows.length}`)
-      }
-    }
-
-    // C10: the Dot reply also logs a client-visible 'comment_added' activity authored by 'anastasia',
-    // so the client's overview shows that The Dot responded (the reverse of the client-comment signal).
-    {
-      const act = await admin.from('activity_log').insert({
-        client_id: bClientId, content_id: bItemId, content_version: 1,
-        event_type: 'comment_added', title: 'Comment: Test piece B', summary: 'Dot reply to B',
-        actor_type: 'anastasia', actor_name: 'The Dot',
-      }).select('id').single()
-      check('C10: The Dot reply logs activity (service role)', !act.error, act.error ? act.error.message : 'ok')
-
-      const { data, error } = await bClient.from('activity_log').select('actor_type, event_type')
-      if (error) {
-        check('C10: B reads Dot-authored activity', false, error.message)
-      } else {
-        const rows = data ?? []
-        const seesDotActivity = rows.some((r) => r.actor_type === 'anastasia' && r.event_type === 'comment_added')
-        check('C10: B sees a Dot-authored comment_added activity', seesDotActivity, `rows=${rows.length}`)
-      }
-    }
-
-    // === Phase 3 surfaces: recommendations / links / report_snapshots (read-only) + content_ideas (client-writable) ===
-    // These cascade on client B deletion (client_id -> clients(id) ON DELETE CASCADE), so no extra cleanup.
-
-    // D-setup: seed one row of each read-only table for B (service role).
-    {
-      const r = await admin.from('recommendations').insert({ client_id: bClientId, title: 'B rec', body: 'x', category: 'content' })
-      const l = await admin.from('links').insert({ client_id: bClientId, category: 'brand', label: 'B link', url: 'https://example.com' })
-      const s = await admin.from('report_snapshots').insert({ client_id: bClientId, period: 'test', platform: 'instagram', metrics: {} })
-      check('D-setup: seed B recommendations/links/report_snapshots', !r.error && !l.error && !s.error,
-        r.error?.message || l.error?.message || s.error?.message || 'ok')
-    }
-
-    // D1: B reads each read-only table and every visible row is B's own (RLS scopes to my_client_ids()).
     for (const table of ['recommendations', 'links', 'report_snapshots']) {
-      const { data, error } = await bClient.from(table).select('client_id')
-      if (error) {
-        check(`D1: B reads ${table}`, false, error.message)
-      } else {
-        const rows = data ?? []
-        const allB = rows.length >= 1 && rows.every((r) => r.client_id === bClientId)
-        const noKanset = !rows.some((r) => r.client_id === kansetClientId)
-        check(`D1: B sees only its own ${table}`, allB && noKanset, `rows=${rows.length}`)
-      }
+      const read = await bClient.from(table).select('client_id')
+      check(`D2: B sees only its own ${table}`, !read.error
+        && (read.data ?? []).length >= 1
+        && (read.data ?? []).every((row) => row.client_id === bClientId)
+        && !(read.data ?? []).some((row) => row.client_id === kansetClientId),
+      read.error?.message ?? `rows=${read.data?.length ?? 0}`)
+      const direct = await bClient.from(table).insert({ client_id: bClientId })
+      check(`D3: direct authenticated ${table} write is rejected`, !!direct.error, direct.error?.message ?? 'NO ERROR')
     }
 
-    // D2: the read-only tables reject a DIRECT authenticated write (only service role writes them).
     {
-      const payloads: Record<string, Record<string, unknown>> = {
-        recommendations: { client_id: bClientId, title: 'x', body: 'x', category: 'content' },
-        links: { client_id: bClientId, category: 'brand', label: 'x', url: 'x' },
-        report_snapshots: { client_id: bClientId, period: 'x', platform: 'instagram', metrics: {} },
-      }
-      for (const [table, payload] of Object.entries(payloads)) {
-        const { error } = await bClient.from(table).insert(payload)
-        check(`D2: direct authenticated INSERT into ${table} is rejected`, !!error, error ? error.message : 'NO ERROR returned')
-      }
-    }
-
-    // D3: content_ideas is client-writable via RPC only. B adds + reads + edits its OWN; cannot add for
-    // kanset; direct table write and anon are rejected.
-    {
-      const add = await bClient.rpc('add_idea', { p_client_id: bClientId, p_title: 'B idea', p_body: 'first' })
-      check('D3: B adds an idea on its own client (RPC)', !add.error, add.error ? add.error.message : 'ok')
-      const ideaId = add.data as string | null
-
-      const { data: readRows, error: readErr } = await bClient.from('content_ideas').select('client_id, title')
-      const seesOwn = !readErr && (readRows ?? []).some((r) => r.client_id === bClientId && r.title === 'B idea')
-      const noKanset = !readErr && !(readRows ?? []).some((r) => r.client_id === kansetClientId)
-      check("D3: B reads its own idea and none of kanset's", seesOwn && noKanset, readErr ? readErr.message : `rows=${(readRows ?? []).length}`)
-
-      const crossAdd = await bClient.rpc('add_idea', { p_client_id: kansetClientId, p_title: 'x' })
-      check('D3: add_idea for kanset client is NOT authorized', !!crossAdd.error, crossAdd.error ? crossAdd.error.message : 'NO ERROR returned')
-
+      const added = await bClient.rpc('add_idea', { p_client_id: bClientId, p_title: 'B idea', p_body: 'first' })
+      check('D4: B adds an idea through RPC', !added.error, added.error?.message ?? 'ok')
+      const ideaId = added.data as string | null
+      const cross = await bClient.rpc('add_idea', { p_client_id: kansetClientId, p_title: 'cross' })
+      check('D5: cross-tenant idea is rejected', !!cross.error, cross.error?.message ?? 'NO ERROR')
       if (ideaId) {
-        const edit = await bClient.rpc('edit_idea', { p_idea_id: ideaId, p_title: 'B idea edited' })
-        check('D3: B edits its own idea (RPC)', !edit.error, edit.error ? edit.error.message : 'ok')
-        const { data: after } = await bClient.from('content_ideas').select('title').eq('id', ideaId).maybeSingle()
-        check('D3: the edit persisted', (after as { title?: string } | null)?.title === 'B idea edited', `title=${(after as { title?: string } | null)?.title}`)
+        const edited = await bClient.rpc('edit_idea', { p_idea_id: ideaId, p_title: 'B idea edited' })
+        check('D6: B edits its own idea through RPC', !edited.error, edited.error?.message ?? 'ok')
       }
-
-      const direct = await bClient.from('content_ideas').insert({ client_id: bClientId, author_type: 'client', author_name: 'x', title: 'y' })
-      check('D3: direct authenticated INSERT into content_ideas is rejected', !!direct.error, direct.error ? direct.error.message : 'NO ERROR returned')
-
-      const anonClient = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false } })
-      const anonAdd = await anonClient.rpc('add_idea', { p_client_id: bClientId, p_title: 'x' })
-      check('D3: anon add_idea is rejected', !!anonAdd.error, anonAdd.error ? anonAdd.error.message : 'NO ERROR returned')
+      const direct = await bClient.from('content_ideas').insert({
+        client_id: bClientId, author_type: 'client', author_name: 'x', title: 'direct',
+      })
+      check('D7: direct authenticated idea write is rejected', !!direct.error, direct.error?.message ?? 'NO ERROR')
     }
   } finally {
-    // Cleanup (service role), always. Delete client B FIRST: it cascades content_items, client_users,
-    // approvals, and activity_log. Only then delete the auth user (approvals.decided_by has no cascade,
-    // so B's approval rows must be gone before the user can be removed).
     console.log('\n--- Cleanup ---')
     if (bClientId) {
       const { error } = await admin.from('clients').delete().eq('id', bClientId)
       if (error) console.log(`CLEANUP WARN: delete client B: ${error.message}`)
-      else console.log('cleanup: deleted client B (cascaded content_items / client_users / approvals / activity_log)')
+      else console.log('cleanup: deleted throwaway tenant and cascading portal rows')
     }
     if (bUserId) {
       const { error } = await admin.auth.admin.deleteUser(bUserId)
-      if (error) console.log(`CLEANUP WARN: deleteUser B: ${error.message}`)
-      else console.log('cleanup: deleted auth user B')
+      if (error) console.log(`CLEANUP WARN: delete user B: ${error.message}`)
+      else console.log('cleanup: deleted throwaway auth user')
     }
   }
 }
@@ -482,7 +437,7 @@ main()
     console.log(`\n=== SUMMARY: ${failures === 0 ? 'ALL ASSERTIONS PASSED' : `${failures} FAILURE(S)`} ===`)
     process.exit(failures === 0 ? 0 : 1)
   })
-  .catch((e) => {
-    console.error('\nFATAL:', e?.message ?? e)
+  .catch((error) => {
+    console.error('\nFATAL:', error?.message ?? error)
     process.exit(1)
   })

@@ -3,6 +3,8 @@ import { PortalDataError } from '@/lib/portal/data'
 
 export type CommentRow = {
   id: string
+  content_version: number
+  copy_block_key: string | null
   author_type: string
   author_name: string
   body: string
@@ -11,7 +13,7 @@ export type CommentRow = {
   created_at: string
 }
 
-const SELECT = 'id, author_type, author_name, body, quoted_text, resolved, created_at'
+const SELECT = 'id, content_version, copy_block_key, author_type, author_name, body, quoted_text, resolved, created_at'
 
 // Reads the comment thread for one piece. `authenticated` has column SELECT and RLS scopes reads to
 // the caller's own client, but we also filter by client_id explicitly (defence in depth). Any query

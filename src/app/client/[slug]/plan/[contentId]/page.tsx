@@ -28,7 +28,7 @@ export default async function PlanPiece({ params }: { params: Promise<{ slug: st
 
   const blocks = item.copy_blocks && item.copy_blocks.length > 0
     ? item.copy_blocks
-    : (item.client_body ? [{ label: 'Draft', body: item.client_body }] : [])
+    : (item.client_body ? [{ key: null, label: 'Draft', body: item.client_body }] : [])
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: '8px 0 88px' }}>
@@ -52,7 +52,7 @@ export default async function PlanPiece({ params }: { params: Promise<{ slug: st
       <div style={{ marginBottom: 28 }}>
         {blocks.length === 0
           ? <Text tone="grey">No draft copy for this piece yet.</Text>
-          : blocks.map((b, i) => <CopyBlock key={`${b.label}-${i}`} label={b.label} body={b.body} />)}
+          : blocks.map((b, i) => <CopyBlock key={b.key ?? `${b.label}-${i}`} blockKey={b.key ?? null} label={b.label} body={b.body} />)}
       </div>
 
       <Text tone="grey">This piece is still in planning. We will send it to you for approval once it is ready.</Text>

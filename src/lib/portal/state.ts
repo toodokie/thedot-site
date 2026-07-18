@@ -1,20 +1,30 @@
 export type ContentStatus = 'idea' | 'draft' | 'approved' | 'scheduled' | 'posted'
 export type CurrentDecision = 'approved' | 'change_requested' | null
-export type ClientState = 'needs_review' | 'with_dot' | 'approved' | 'scheduled' | 'live' | 'idea'
+export type ClientState =
+  | 'needs_review'
+  | 'with_dot'
+  | 'approved'
+  | 'partially_scheduled'
+  | 'schedule_failed'
+  | 'scheduled'
+  | 'reschedule_pending'
+  | 'cancel_pending'
+  | 'partially_live'
+  | 'publish_failed'
+  | 'live'
+  | 'archived'
 
-export function deriveClientState(status: ContentStatus, currentDecision: CurrentDecision): ClientState {
-  // An OPEN change request on the current version always wins. content_with_state only ever
-  // surfaces the current-version decision (a.content_version = ci.version), so currentDecision is
-  // never a stale old-version decision, and a live "change requested" must not be hidden behind a
-  // lifecycle status (idea/approved/scheduled/posted).
-  if (currentDecision === 'change_requested') return 'with_dot'
-  // Otherwise lifecycle/publication status leads.
-  if (status === 'posted') return 'live'
-  if (status === 'scheduled') return 'scheduled'
-  if (status === 'approved') return 'approved'
-  if (status === 'idea') return 'idea'
-  // Otherwise (draft): the client decision on the current version decides.
-  if (status === 'draft') return currentDecision === 'approved' ? 'approved' : 'needs_review'
-  // Fail loud on an unknown status instead of silently dropping it into the review queue.
-  throw new Error(`Unknown content status: ${status}`)
+const CLIENT_STATES = new Set<ClientState>([
+  'needs_review', 'with_dot', 'approved', 'partially_scheduled', 'schedule_failed',
+  'scheduled', 'reschedule_pending', 'cancel_pending', 'partially_live',
+  'publish_failed', 'live', 'archived',
+])
+
+// State precedence is a database invariant. TypeScript validates the view result but never derives
+// a second, potentially divergent state from status/decision fields.
+export function parseClientState(value: unknown): ClientState {
+  if (typeof value !== 'string' || !CLIENT_STATES.has(value as ClientState)) {
+    throw new Error(`Unknown client state: ${String(value)}`)
+  }
+  return value as ClientState
 }
