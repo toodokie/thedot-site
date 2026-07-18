@@ -99,6 +99,15 @@ function unsafeClientVisibleLink(value: string): boolean {
   }
 }
 
+function isInsideUrlLikeToken(text: string, index: number): boolean {
+  for (const match of text.matchAll(CLIENT_VISIBLE_URL)) {
+    const start = match.index
+    const end = start + match[0].length
+    if (index >= start && index < end) return true
+  }
+  return false
+}
+
 export function findContentSafetyFindings(content: ParsedContent): ContentSafetyFinding[] {
   const findings: ContentSafetyFinding[] = []
   for (const [field, text] of textFields(content)) {
@@ -113,10 +122,10 @@ export function findContentSafetyFindings(content: ParsedContent): ContentSafety
     }
     for (const match of text.matchAll(SOCIAL_HANDLE)) {
       // The @ inside an email address belongs to the email check above, not the
-      // public-social-identity allow-list. A handle-shaped segment inside an
-      // allowed platform URL is governed by the URL host policy below.
+      // public-social-identity allow-list. A handle-shaped segment inside a URL
+      // token is governed by the URL host policy below; a bare /@handle is not.
       const previous = match.index === 0 ? '' : text[match.index - 1]
-      if (/[A-Z0-9._%+\/-]/iu.test(previous)) continue
+      if (/[A-Z0-9._%+-]/iu.test(previous) || isInsideUrlLikeToken(text, match.index)) continue
       if (!isAllowedPublicSocialHandle(match[0])) {
         findings.push({ code: 'unknown_social_handle', field })
       }

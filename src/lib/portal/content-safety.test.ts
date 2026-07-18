@@ -79,6 +79,9 @@ describe('client content safety', () => {
     expect(findContentSafetyFindings(content({
       client_body: 'Follow @kansetimmigration. RCIC #508325.',
     }))).toEqual([])
+    expect(findContentSafetyFindings(content({
+      client_body: 'Follow /@anotherfirm.',
+    }))).toEqual([{ code: 'unknown_social_handle', field: 'client_body' }])
   })
 
   it('rejects unreviewed and lookalike client-visible domains', () => {
