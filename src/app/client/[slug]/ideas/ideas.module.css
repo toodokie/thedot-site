@@ -1,0 +1,119 @@
+/* Kanset idea board, on @thedot/design-system tokens.
+   The client-writable surface: an "add an idea" panel on top, then the ideas as hairline-bordered
+   cards. Same visual language as the overview: page-cream fill, hairline borders, sharp corners,
+   one yellow accent. The layout shell already provides the outer padding, so the wrap only centers
+   and caps the reading width. */
+
+.wrap {
+  max-width: 760px;
+  margin: 0 auto;
+  font-family: var(--dot-font-text);
+  color: var(--dot-black);
+}
+
+.head { margin: 0 0 26px; }
+.title { margin: 8px 0 10px; }
+
+/* the shared section box, matching the overview panels */
+.panel {
+  border: 1px solid var(--dot-hairline);
+  background: var(--dot-cream);
+  padding: 20px 22px;
+  margin-bottom: 30px;
+}
+.panelHead { margin: 0 0 14px; }
+
+/* form rows: the design-system Input / Textarea render their own field span, so we only add
+   vertical rhythm between them */
+.field { margin-bottom: 14px; }
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.error {
+  color: #c0392b;
+  margin: 10px 0 0;
+  font-size: 14px;
+}
+
+/* the list of ideas */
+.cards { margin-top: 4px; }
+
+.card {
+  border: 1px solid var(--dot-hairline);
+  background: var(--dot-cream);
+  padding: 18px 20px;
+  margin-bottom: 14px;
+}
+
+.cardHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.cardTitle { flex: 1 1 auto; min-width: 0; }
+.cardTools { flex: none; }
+
+.cardBody {
+  margin-top: 8px;
+  white-space: pre-wrap;
+  line-height: 1.65;
+}
+
+.cardMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+.metaName {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dot-graphite);
+}
+.metaDate {
+  font-size: 12px;
+  color: var(--dot-graphite);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+}
+
+/* a quiet status chip, matching the overview metadata chips */
+.statusChip {
+  display: inline-block;
+  font-family: var(--dot-font-text);
+  font-size: 11px;
+  color: var(--dot-graphite);
+  border: 1px solid var(--dot-hairline);
+  background: transparent;
+  padding: 2px 8px;
+  text-transform: capitalize;
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+}
+/* a new idea (not yet triaged by The Dot) gets the one soft yellow pop */
+.statusNew {
+  color: var(--dot-black);
+  background: var(--dot-yellow-pale);
+  border-color: transparent;
+}
+/* an archived idea reads quieter still */
+.statusArchived {
+  color: var(--dot-grey);
+}
+
+/* graceful empty state */
+.empty {
+  border: 1px solid var(--dot-hairline);
+  background: var(--dot-cream);
+  padding: 26px 22px;
+  text-align: center;
+}

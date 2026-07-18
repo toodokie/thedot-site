@@ -1,0 +1,164 @@
+/* Portal shell + nav.
+   Mobile-first: a top header (logo) + a fixed BOTTOM nav bar.
+   Desktop (>=768px): a LEFT sidebar (logo + nav), header hidden.
+   Uses the @thedot/design-system --dot-* tokens. Pages render plain content;
+   the shell owns the <main>, the logo, and the nav. */
+
+.shell {
+  min-height: 100dvh;
+}
+
+.content {
+  min-width: 0;
+}
+
+/* mobile top header (logo); hidden on desktop where the sidebar carries the logo */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: var(--dot-cream);
+  border-bottom: 1px solid var(--dot-hairline);
+}
+
+.topbarClient {
+  font-size: 15px;
+  font-weight: var(--dot-weight-demi);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dot-black);
+}
+
+.main {
+  padding: 24px 20px 92px; /* bottom padding clears the fixed mobile bar */
+}
+
+/* ---- NAV (mobile bottom bar) ---- */
+.nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+  background: var(--dot-cream);
+  border-top: 1px solid var(--dot-hairline);
+}
+
+.brand {
+  display: none; /* the brand row shows on desktop only */
+}
+
+.list {
+  display: flex;
+  flex-direction: row;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.list li {
+  flex: 1 0 auto;
+}
+
+.item {
+  display: block;
+  min-width: 68px;
+  padding: 13px 10px;
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--dot-graphite);
+  text-decoration: none;
+  white-space: nowrap;
+  border-top: 2px solid transparent;
+}
+
+.item:hover {
+  color: var(--dot-black);
+}
+
+.active {
+  color: var(--dot-black);
+  font-weight: 600;
+  border-top-color: var(--dot-yellow);
+}
+
+/* ---- Desktop: left sidebar ---- */
+@media (min-width: 768px) {
+  .shell {
+    display: flex;
+    flex-direction: row;
+  }
+
+  .topbar {
+    display: none;
+  }
+
+  .content {
+    flex: 1 1 auto;
+  }
+
+  .nav {
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    width: 216px;
+    flex: 0 0 216px;
+    flex-direction: column;
+    align-items: stretch;
+    overflow: visible;
+    border-top: none;
+    border-right: 1px solid var(--dot-hairline);
+    padding: 28px 16px;
+  }
+
+  .brand {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 8px 26px;
+  }
+
+  .client {
+    font-size: 15px;
+    font-weight: var(--dot-weight-demi);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--dot-black);
+  }
+
+  .list {
+    flex-direction: column;
+    width: auto;
+  }
+
+  .list li {
+    flex: none;
+  }
+
+  .item {
+    min-width: 0;
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 15px;
+    letter-spacing: 0;
+    border-top: none;
+    border-left: 2px solid transparent;
+  }
+
+  .active {
+    border-top-color: transparent;
+    border-left-color: var(--dot-yellow);
+    background: #fff;
+  }
+
+  .main {
+    padding: 40px 48px;
+    max-width: 1120px;
+  }
+}

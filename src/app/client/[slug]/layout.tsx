@@ -1,5 +1,9 @@
+import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import { getClientSession } from '@/lib/portal/auth'
+import PortalNav from './PortalNav'
+import styles from './portal-shell.module.css'
+
 export default async function ClientWorkspaceLayout(
   { children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }
 ) {
@@ -10,5 +14,15 @@ export default async function ClientWorkspaceLayout(
   // unreachable. DEFERRED before multi-client: distinguish the two (logged out -> login,
   // authenticated-but-forbidden -> notFound) via a discriminated getClientSession result.
   if (!session) redirect('/client/login')
-  return <>{children}</>
+  return (
+    <div className={styles.shell}>
+      <PortalNav slug={slug} />
+      <div className={styles.content}>
+        <header className={styles.topbar}>
+          <Image src="/images/logo.png" alt="The Dot Creative" width={64} height={36} priority />
+        </header>
+        <main className={styles.main}>{children}</main>
+      </div>
+    </div>
+  )
 }

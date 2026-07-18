@@ -1,0 +1,88 @@
+/* Kanset plan surface, on the @thedot/design-system --dot-* tokens.
+   Cream ground, yellow accent, sharp corners, hairline borders. Matches the overview/calendar
+   header pattern, then a by-week list of planned (idea / draft) pieces. */
+
+.wrap {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 8px 0 88px;
+  font-family: var(--dot-font-text);
+  color: var(--dot-black);
+}
+
+.logo { display: block; margin: 0 0 32px; }
+.eyebrow { margin: 0 0 16px; }
+.head { margin: 0 0 12px; }
+.sub { margin: 0 0 32px; }
+
+.weekBlock { margin: 0 0 26px; }
+.weekLabel {
+  padding: 12px 2px 6px;
+  border-bottom: 1px solid var(--dot-hairline);
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  text-decoration: none;
+  color: var(--dot-black);
+  border-bottom: 1px solid var(--dot-hairline);
+  padding: 14px 2px;
+  transition: padding-left 140ms ease;
+}
+.row:hover { padding-left: 6px; }
+
+.date {
+  flex: none;
+  width: 62px;
+  border-left: 3px solid var(--dot-hairline);
+  padding-left: 10px;
+  line-height: 1.2;
+}
+.wd {
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--dot-grey);
+}
+.day {
+  display: block;
+  font-size: 14px;
+  color: var(--dot-black);
+  font-variant-numeric: tabular-nums;
+}
+
+.main { flex: 1 1 auto; min-width: 0; }
+.chipRow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.chip {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--dot-graphite);
+  border: 1px solid var(--dot-hairline);
+  background: transparent;
+  padding: 2px 8px;
+  text-transform: capitalize;
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+}
+
+/* status accents on the date rule: yellow = planning, graphite = locked, grey = published */
+.accent_yellow { border-left-color: var(--dot-yellow); }
+.accent_graphite { border-left-color: var(--dot-graphite); }
+.accent_grey { border-left-color: var(--dot-grey); }
+
+.emptyRow {
+  border-top: 1px solid var(--dot-hairline);
+  border-bottom: 1px solid var(--dot-hairline);
+  padding: 15px 2px;
+}
+
+@media (max-width: 760px) {
+  .wrap { padding: 4px 0 64px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row { transition: none; }
+}

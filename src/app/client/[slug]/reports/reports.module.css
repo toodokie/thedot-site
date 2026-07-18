@@ -1,0 +1,245 @@
+/* Kanset reports surface, on @thedot/design-system --dot-* tokens.
+   Data-dense, so the design leans on clear information hierarchy: cream panels, hairline
+   borders, sharp corners (--dot-radius:0), aligned tabular numbers, and quiet deltas that
+   pair a colour with an arrow glyph (never colour-only). Matches the overview panel language. */
+
+.wrap {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 40px 32px 88px;
+  font-family: var(--dot-font-text);
+  color: var(--dot-black);
+}
+
+.logo { display: block; margin: 0 0 28px; }
+.back { margin-bottom: 4px; }
+
+.eyebrow { margin: 20px 0 12px; }
+.header { margin: 0 0 8px; }
+.intro { margin: 0 0 32px; max-width: 60ch; }
+
+/* Compact period jump-nav: chips that anchor down to each section (never hides any). */
+.jump {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 0 0 40px;
+  padding: 13px 16px;
+  border: 1px solid var(--dot-hairline);
+  background: var(--dot-white);
+}
+.jumpLabel {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dot-grey);
+}
+.jumpLinks { display: flex; flex-wrap: wrap; gap: 8px; }
+.jumpLink {
+  font-size: 12.5px;
+  color: var(--dot-graphite);
+  text-decoration: none;
+  border: 1px solid var(--dot-hairline);
+  padding: 4px 10px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  transition: border-color 140ms ease, color 140ms ease, background-color 140ms ease;
+}
+.jumpLink:hover {
+  border-color: var(--dot-yellow);
+  color: var(--dot-black);
+  background: var(--dot-yellow-pale);
+}
+
+/* One period = one section, newest first (scrolling down goes back in time). */
+.period { margin: 0 0 44px; scroll-margin-top: 24px; }
+.periodHead {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--dot-hairline);
+  padding-bottom: 12px;
+  margin: 0 0 20px;
+}
+.periodMeta {
+  font-size: 12px;
+  color: var(--dot-grey);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+/* platform cards laid side by side where there's room */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+
+/* the platform card: a white ground that stands off the cream page, hairline
+   border, sharp corners, generous padding, and a quiet lift on hover (house
+   card language, tuned denser for data). */
+.card {
+  border: 1px solid var(--dot-hairline);
+  background: var(--dot-white);
+  border-radius: var(--dot-radius);
+  padding: 26px 28px 28px;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08);
+  border-color: var(--dot-yellow);
+}
+/* the platform header: yellow accent bar + display name, set off by a hairline */
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 20px;
+  padding: 0 0 15px;
+  border-bottom: 1px solid var(--dot-hairline);
+}
+/* the yellow accent that keys each platform */
+.platformBar {
+  flex: none;
+  width: 6px;
+  height: 22px;
+  background: var(--dot-yellow);
+}
+.platform {
+  font-family: var(--dot-font-display);
+  font-size: 19px;
+  font-weight: var(--dot-weight-medium);
+  letter-spacing: 0.01em;
+  color: var(--dot-black);
+  line-height: 1;
+}
+
+/* metric tiles: each an inset cream chip (hairline-bordered) so the numbers read
+   as distinct cells against the white card, not one undivided block */
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+}
+.tile {
+  min-width: 0;
+  background: var(--dot-cream);
+  border: 1px solid var(--dot-hairline);
+  padding: 13px 14px 14px;
+}
+.tileLabel {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dot-grey);
+  margin: 0 0 5px;
+}
+.tileValue {
+  display: block;
+  font-family: var(--dot-font-display);
+  font-size: 26px;
+  font-weight: var(--dot-weight-medium);
+  line-height: 1.05;
+  color: var(--dot-black);
+  font-variant-numeric: tabular-nums;
+}
+
+/* delta: arrow glyph + percent (never colour-only), muted previous value beneath */
+.delta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+.deltaArrow { font-size: 11px; line-height: 1; }
+.up { color: #2e7d32; }
+.down { color: #b3261e; }
+.flat { color: var(--dot-grey); }
+.prev {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--dot-grey);
+  font-variant-numeric: tabular-nums;
+}
+
+/* top posts / pages: hairline-divided rows with the metric right-aligned */
+.list { margin: 20px 0 0; }
+.listHead {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dot-grey);
+  margin: 0 0 4px;
+}
+.listRow {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  border-top: 1px solid var(--dot-hairline);
+  padding: 10px 0;
+}
+.listMain { flex: 1 1 auto; min-width: 0; }
+.listLink {
+  color: var(--dot-black);
+  text-decoration: none;
+  border-bottom: 1px solid var(--dot-yellow);
+  overflow-wrap: anywhere;
+}
+.listLink:hover { color: var(--dot-graphite); }
+.listPlain { color: var(--dot-black); overflow-wrap: anywhere; }
+.listMetric {
+  flex: none;
+  font-size: 13px;
+  color: var(--dot-graphite);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+/* the written summary sits under the numbers, quietly set off */
+.summary {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--dot-hairline);
+}
+.summaryLabel {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dot-grey);
+  margin: 0 0 6px;
+}
+
+.noMetrics { padding: 4px 0; }
+
+/* empty state */
+.empty {
+  border: 1px solid var(--dot-hairline);
+  background: var(--dot-cream);
+  padding: 28px 24px;
+}
+
+@media (max-width: 760px) {
+  .wrap { padding: 32px 20px 64px; }
+  .periodHead { align-items: baseline; }
+}
+
+@media (max-width: 600px) {
+  .cards { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card { transition: none; }
+  .card:hover { transform: none; }
+  .jumpLink { transition: none; }
+}

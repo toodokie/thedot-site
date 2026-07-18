@@ -1,0 +1,196 @@
+/* Kanset content calendar, on the @thedot/design-system --dot-* tokens.
+   Cream ground, yellow accent, sharp corners (radius 0), hairline borders. Mirrors the
+   overview surface: logo + eyebrow + heading header, then a month grid and a by-week list. */
+
+.wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 8px 0 88px;
+  font-family: var(--dot-font-text);
+  color: var(--dot-black);
+}
+
+.logo { display: block; margin: 0 0 32px; }
+.eyebrow { margin: 0 0 16px; }
+.head { margin: 0 0 12px; }
+.sub { margin: 0 0 28px; }
+
+/* ---- legend ---- */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin: 0 0 22px;
+}
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--dot-graphite);
+  letter-spacing: 0.01em;
+}
+.swatch { width: 12px; height: 12px; display: inline-block; }
+
+/* ---- month grids (one block per month, newest first) ---- */
+.monthBlock { margin: 0 0 44px; }
+.monthLabel { margin: 0 0 14px; }
+.gridScroll { overflow-x: auto; }
+
+.gridHead {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(120px, 1fr));
+  border: 1px solid var(--dot-hairline);
+  border-bottom: none;
+}
+.gridHeadCell {
+  padding: 9px 10px;
+  font-family: var(--dot-font-display);
+  font-size: 11px;
+  font-weight: var(--dot-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--dot-graphite);
+  border-left: 1px solid var(--dot-hairline);
+}
+.gridHeadCell:first-child { border-left: none; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(120px, 1fr));
+  border-left: 1px solid var(--dot-hairline);
+  border-top: 1px solid var(--dot-hairline);
+}
+.cell {
+  min-height: 116px;
+  padding: 8px;
+  border-right: 1px solid var(--dot-hairline);
+  border-bottom: 1px solid var(--dot-hairline);
+  background: var(--dot-cream);
+}
+.cellBlank { background: transparent; }
+.today {
+  box-shadow: inset 0 3px 0 0 var(--dot-yellow);
+}
+.dayNum {
+  font-size: 12px;
+  color: var(--dot-graphite);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 6px;
+  letter-spacing: 0.02em;
+}
+.today .dayNum { color: var(--dot-black); font-weight: var(--dot-weight-medium); }
+
+.chips { display: flex; flex-direction: column; gap: 6px; }
+
+/* a piece chip in a day cell: coloured left rule by status, then the detail stack */
+.chip {
+  display: block;
+  text-decoration: none;
+  background: var(--dot-white);
+  border: 1px solid var(--dot-hairline);
+  border-left-width: 3px;
+  padding: 6px 8px;
+  transition: transform 120ms ease;
+}
+.chip:hover { transform: translateX(2px); }
+.chipTitle {
+  display: block;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--dot-black);
+  font-weight: var(--dot-weight-medium);
+}
+.chipMeta {
+  display: block;
+  margin-top: 3px;
+  font-size: 10.5px;
+  color: var(--dot-graphite);
+  text-transform: capitalize;
+}
+.chipPlatforms { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.plat {
+  font-size: 9.5px;
+  line-height: 1.4;
+  color: var(--dot-graphite);
+  border: 1px solid var(--dot-hairline);
+  padding: 0 5px;
+  text-transform: capitalize;
+  letter-spacing: 0.02em;
+}
+/* status accents (shared by chips, legend swatches, and list-date blocks) */
+.accent_yellow { border-left-color: var(--dot-yellow); }
+.accent_graphite { border-left-color: var(--dot-graphite); }
+.accent_grey { border-left-color: var(--dot-grey); }
+.swatch.accent_yellow { background: var(--dot-yellow); border-left: none; }
+.swatch.accent_graphite { background: var(--dot-graphite); border-left: none; }
+.swatch.accent_grey { background: var(--dot-grey); border-left: none; }
+
+/* ---- upcoming list ---- */
+.listHead { margin: 0 0 6px; }
+.weekBlock { margin: 0 0 26px; }
+.weekLabel {
+  padding: 12px 2px 6px;
+  border-bottom: 1px solid var(--dot-hairline);
+}
+
+.listRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  text-decoration: none;
+  color: var(--dot-black);
+  border-bottom: 1px solid var(--dot-hairline);
+  padding: 14px 2px;
+  transition: padding-left 140ms ease;
+}
+.listRow:hover { padding-left: 6px; }
+
+.listDate {
+  flex: none;
+  width: 62px;
+  border-left: 3px solid var(--dot-hairline);
+  padding-left: 10px;
+  line-height: 1.2;
+}
+.listWd {
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--dot-grey);
+}
+.listDay {
+  display: block;
+  font-size: 14px;
+  color: var(--dot-black);
+  font-variant-numeric: tabular-nums;
+}
+.listMain { flex: 1 1 auto; min-width: 0; }
+.listChips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+
+.metaChip {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--dot-graphite);
+  border: 1px solid var(--dot-hairline);
+  background: transparent;
+  padding: 2px 8px;
+  text-transform: capitalize;
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+}
+
+.emptyRow {
+  border-top: 1px solid var(--dot-hairline);
+  border-bottom: 1px solid var(--dot-hairline);
+  padding: 15px 2px;
+}
+
+@media (max-width: 760px) {
+  .wrap { padding: 4px 0 64px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip, .listRow { transition: none; }
+}

@@ -1,0 +1,98 @@
+/* Kanset Library surface, on @thedot/design-system --dot-* tokens.
+   A link-sharing page (no file hosting): two sections (Brand, Video), each a grid of
+   editorial link cards. Cream ground, sharp corners, hairline borders, one yellow accent on hover.
+   Renders inside the portal shell ([slug]/layout.tsx), so no logo/nav here. */
+
+.wrap {
+  font-family: var(--dot-font-text);
+  color: var(--dot-black);
+}
+
+/* page header */
+.kicker { margin: 0 0 18px; }
+.title { margin: 0 0 14px; }
+.intro {
+  margin: 0 0 44px;
+  max-width: 56ch;
+}
+
+/* one section per category */
+.section { margin: 0 0 44px; }
+.section:last-child { margin-bottom: 0; }
+.sectionHead {
+  margin: 0 0 18px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--dot-hairline);
+}
+
+/* the card grid: fills the width, wraps to one column on narrow screens */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+/* editorial link card: white ground, hairline border, sharp corners.
+   Hover lifts the card and lights a yellow accent (left rail + border). */
+.card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid var(--dot-hairline);
+  border-left: 2px solid var(--dot-hairline);
+  background: var(--dot-white);
+  padding: 20px 22px;
+  text-decoration: none;
+  color: var(--dot-black);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  border-color: var(--dot-yellow);
+  border-left-color: var(--dot-yellow);
+}
+.card:focus-visible {
+  outline: 2px solid var(--dot-yellow);
+  outline-offset: 2px;
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cardLabel { font-weight: var(--dot-weight-medium); }
+.cardDesc { margin-top: 6px; }
+
+/* external-link affordance */
+.cardArrow {
+  flex: none;
+  margin-top: 2px;
+  line-height: 0;
+  color: var(--dot-grey);
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+.card:hover .cardArrow {
+  transform: translateX(3px);
+  color: var(--dot-black);
+}
+
+/* per-section empty state */
+.empty {
+  border: 1px dashed var(--dot-hairline);
+  background: var(--dot-cream);
+  padding: 20px 22px;
+}
+
+@media (max-width: 760px) {
+  .grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .cardArrow { transition: none; }
+  .card:hover { transform: none; }
+  .card:hover .cardArrow { transform: none; }
+}

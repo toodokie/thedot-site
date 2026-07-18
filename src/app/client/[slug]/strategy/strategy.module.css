@@ -1,0 +1,74 @@
+/* Kanset workspace, Strategy (recommendations) surface. On @thedot/design-system tokens.
+   Read-only: The Dot's recommendations, newest first, each with a quiet category chip and a
+   copy-to-clipboard button. Same brand as the overview: page-cream fill (not white), hairline
+   borders, sharp corners, one yellow accent used sparingly. */
+
+.wrap {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 40px 32px 88px;
+  font-family: var(--dot-font-text);
+  color: var(--dot-black);
+}
+
+.logo { display: block; margin: 0 0 28px; }
+
+.eyebrow { margin: 20px 0 12px; }
+.heading { margin: 0 0 8px; }
+.intro { margin: 0 0 36px; max-width: 60ch; }
+
+/* the shared card box: page-cream fill, hairline border, sharp corners */
+.card {
+  border: 1px solid var(--dot-hairline);
+  background: var(--dot-cream);
+  padding: 20px 22px;
+  margin-bottom: 16px;
+}
+
+.cardHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+/* the chip row: category chip plus an optional quiet platform chip, side by side */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+
+/* quiet category chip (matches the overview metadata chips; intentionally not loud) */
+.chip {
+  display: inline-block;
+  font-family: var(--dot-font-text);
+  font-size: 11px;
+  color: var(--dot-graphite);
+  border: 1px solid var(--dot-hairline);
+  background: transparent;
+  padding: 2px 8px;
+  text-transform: capitalize;
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.title { margin: 0 0 8px; }
+.body { white-space: pre-wrap; line-height: 1.7; }
+
+/* empty state, same hairline-topped row language as the overview */
+.emptyCard {
+  border: 1px solid var(--dot-hairline);
+  background: var(--dot-cream);
+  padding: 22px;
+}
+
+.back { margin-bottom: 4px; }
+
+@media (max-width: 760px) {
+  .wrap { padding: 32px 20px 64px; }
+  .cardHead { flex-wrap: wrap; }
+}

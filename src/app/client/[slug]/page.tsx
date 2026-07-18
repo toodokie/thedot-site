@@ -1,8 +1,9 @@
 import Link from 'next/link'
-import Image from 'next/image'
 import { getClientSession } from '@/lib/portal/auth'
 import { redirect } from 'next/navigation'
 import { getContent, getActivity, type ContentRow as ContentRowType } from '@/lib/portal/data'
+import { getLastSeen } from '@/lib/portal/seen'
+import MarkSeen from './MarkSeen'
 import { Eyebrow, Heading, Text, Button, Dot } from '@thedot/design-system'
 import styles from './overview.module.css'
 
@@ -40,19 +41,23 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
   const session = await getClientSession(slug)
   if (!session) redirect('/client/login')
 
-  const [items, activity] = await Promise.all([getContent(session.clientId), getActivity(session.clientId)])
+  const [items, activity, lastSeen] = await Promise.all([
+    getContent(session.clientId), getActivity(session.clientId), getLastSeen(session.clientId),
+  ])
+  // "new since your last visit": an event the OTHER party logged after you were last here.
+  const isNew = (a: { created_at: string; actor_name: string }) =>
+    Boolean(lastSeen) && a.created_at > (lastSeen as string) && a.actor_name !== session.name
   const needs = items.filter((i) => i.state === 'needs_review')
   const withDot = items.filter((i) => i.state === 'with_dot')
   const approved = items.filter((i) => i.state === 'approved')
   const scheduled = items.filter((i) => i.state === 'scheduled')
   const live = items.filter((i) => i.state === 'live')
+  const communication = activity.filter((a) => a.event_type === 'meeting_email_note_added')
   const firstName = session.name ? session.name.split(' ')[0] : ''
 
   return (
-    <main style={{ background: 'var(--dot-cream)', minHeight: '100vh' }}>
-      <div className={styles.wrap}>
-        <Image className={styles.logo} src="/images/logo.png" alt="The Dot Creative" width={72} height={45} priority />
-        <div className={styles.eyebrow}><Eyebrow tone="grey">Kanset · Workspace</Eyebrow></div>
+    <div className={styles.wrap}>
+        <div className={styles.eyebrow}><Eyebrow tone="grey">Kanset workspace</Eyebrow></div>
         <div className={styles.greeting}>
           <Heading level={1} variant="display">Good day{firstName ? `, ${firstName}` : ''}.</Heading>
         </div>
@@ -100,7 +105,27 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
                 activity.map((a) => (
                   <div key={a.id} className={styles.row}>
                     <span className={styles.rowMain}>
-                      <Text as="div" size="sm" tone="graphite">{a.actor_name} · {a.title}</Text>
+                      <div className={styles.actMeta}>
+                        {isNew(a) && <span className={styles.newBadge}>New</span>}
+                        <span className={styles.actActor}>{a.actor_name}</span>
+                      </div>
+                      <Text as="div" size="sm" tone="black">{a.title}</Text>
+                      {a.summary && <Text as="div" size="sm" tone="graphite">{a.summary}</Text>}
+                      <time className={styles.activityDate} dateTime={a.created_at}>{a.created_at.slice(0, 10)}</time>
+                    </span>
+                  </div>
+                ))
+              )}
+            </Panel>
+
+            <Panel label="Communication">
+              {communication.length === 0 ? (
+                <div className={styles.emptyRow}><Text size="md" tone="graphite">No emails or call recaps logged yet.</Text></div>
+              ) : (
+                communication.map((a) => (
+                  <div key={a.id} className={styles.row}>
+                    <span className={styles.rowMain}>
+                      <Text as="div" size="sm" tone="black">{isNew(a) && <span className={styles.newBadge}>New</span>}{a.title}</Text>
                       {a.summary && <Text as="div" size="sm" tone="graphite">{a.summary}</Text>}
                       <time className={styles.activityDate} dateTime={a.created_at}>{a.created_at.slice(0, 10)}</time>
                     </span>
@@ -114,7 +139,7 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
         <form className={styles.signout} action="/client/logout" method="post">
           <Button as="button" type="submit" variant="ghost" size="sm">Sign out</Button>
         </form>
+        <MarkSeen slug={slug} />
       </div>
-    </main>
   )
 }

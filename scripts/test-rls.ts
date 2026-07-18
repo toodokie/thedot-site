@@ -391,6 +391,74 @@ async function main(): Promise<void> {
         check('C10: B sees a Dot-authored comment_added activity', seesDotActivity, `rows=${rows.length}`)
       }
     }
+
+    // === Phase 3 surfaces: recommendations / links / report_snapshots (read-only) + content_ideas (client-writable) ===
+    // These cascade on client B deletion (client_id -> clients(id) ON DELETE CASCADE), so no extra cleanup.
+
+    // D-setup: seed one row of each read-only table for B (service role).
+    {
+      const r = await admin.from('recommendations').insert({ client_id: bClientId, title: 'B rec', body: 'x', category: 'content' })
+      const l = await admin.from('links').insert({ client_id: bClientId, category: 'brand', label: 'B link', url: 'https://example.com' })
+      const s = await admin.from('report_snapshots').insert({ client_id: bClientId, period: 'test', platform: 'instagram', metrics: {} })
+      check('D-setup: seed B recommendations/links/report_snapshots', !r.error && !l.error && !s.error,
+        r.error?.message || l.error?.message || s.error?.message || 'ok')
+    }
+
+    // D1: B reads each read-only table and every visible row is B's own (RLS scopes to my_client_ids()).
+    for (const table of ['recommendations', 'links', 'report_snapshots']) {
+      const { data, error } = await bClient.from(table).select('client_id')
+      if (error) {
+        check(`D1: B reads ${table}`, false, error.message)
+      } else {
+        const rows = data ?? []
+        const allB = rows.length >= 1 && rows.every((r) => r.client_id === bClientId)
+        const noKanset = !rows.some((r) => r.client_id === kansetClientId)
+        check(`D1: B sees only its own ${table}`, allB && noKanset, `rows=${rows.length}`)
+      }
+    }
+
+    // D2: the read-only tables reject a DIRECT authenticated write (only service role writes them).
+    {
+      const payloads: Record<string, Record<string, unknown>> = {
+        recommendations: { client_id: bClientId, title: 'x', body: 'x', category: 'content' },
+        links: { client_id: bClientId, category: 'brand', label: 'x', url: 'x' },
+        report_snapshots: { client_id: bClientId, period: 'x', platform: 'instagram', metrics: {} },
+      }
+      for (const [table, payload] of Object.entries(payloads)) {
+        const { error } = await bClient.from(table).insert(payload)
+        check(`D2: direct authenticated INSERT into ${table} is rejected`, !!error, error ? error.message : 'NO ERROR returned')
+      }
+    }
+
+    // D3: content_ideas is client-writable via RPC only. B adds + reads + edits its OWN; cannot add for
+    // kanset; direct table write and anon are rejected.
+    {
+      const add = await bClient.rpc('add_idea', { p_client_id: bClientId, p_title: 'B idea', p_body: 'first' })
+      check('D3: B adds an idea on its own client (RPC)', !add.error, add.error ? add.error.message : 'ok')
+      const ideaId = add.data as string | null
+
+      const { data: readRows, error: readErr } = await bClient.from('content_ideas').select('client_id, title')
+      const seesOwn = !readErr && (readRows ?? []).some((r) => r.client_id === bClientId && r.title === 'B idea')
+      const noKanset = !readErr && !(readRows ?? []).some((r) => r.client_id === kansetClientId)
+      check("D3: B reads its own idea and none of kanset's", seesOwn && noKanset, readErr ? readErr.message : `rows=${(readRows ?? []).length}`)
+
+      const crossAdd = await bClient.rpc('add_idea', { p_client_id: kansetClientId, p_title: 'x' })
+      check('D3: add_idea for kanset client is NOT authorized', !!crossAdd.error, crossAdd.error ? crossAdd.error.message : 'NO ERROR returned')
+
+      if (ideaId) {
+        const edit = await bClient.rpc('edit_idea', { p_idea_id: ideaId, p_title: 'B idea edited' })
+        check('D3: B edits its own idea (RPC)', !edit.error, edit.error ? edit.error.message : 'ok')
+        const { data: after } = await bClient.from('content_ideas').select('title').eq('id', ideaId).maybeSingle()
+        check('D3: the edit persisted', (after as { title?: string } | null)?.title === 'B idea edited', `title=${(after as { title?: string } | null)?.title}`)
+      }
+
+      const direct = await bClient.from('content_ideas').insert({ client_id: bClientId, author_type: 'client', author_name: 'x', title: 'y' })
+      check('D3: direct authenticated INSERT into content_ideas is rejected', !!direct.error, direct.error ? direct.error.message : 'NO ERROR returned')
+
+      const anonClient = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false } })
+      const anonAdd = await anonClient.rpc('add_idea', { p_client_id: bClientId, p_title: 'x' })
+      check('D3: anon add_idea is rejected', !!anonAdd.error, anonAdd.error ? anonAdd.error.message : 'NO ERROR returned')
+    }
   } finally {
     // Cleanup (service role), always. Delete client B FIRST: it cascades content_items, client_users,
     // approvals, and activity_log. Only then delete the auth user (approvals.decided_by has no cascade,
