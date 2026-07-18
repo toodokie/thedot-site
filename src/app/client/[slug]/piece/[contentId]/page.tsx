@@ -7,6 +7,7 @@ import { Heading, Text, Button } from '@thedot/design-system'
 import DecideForm from './DecideForm'
 import CopyBlock from './CopyBlock'
 import CommentThread from './CommentThread'
+import FactCheckEvidence from '../../FactCheckEvidence'
 
 const chip: CSSProperties = {
   fontFamily: 'var(--dot-font-text)', fontSize: 11, color: 'var(--dot-graphite)',
@@ -56,6 +57,8 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
           ? <Text tone="grey">No copy for this piece yet.</Text>
           : blocks.map((b, i) => <CopyBlock key={b.key ?? `${b.label}-${i}`} blockKey={b.key} label={b.label} body={b.body} />)}
       </div>
+
+      <FactCheckEvidence item={item} />
 
       {item.state === 'needs_review'
         ? <DecideForm slug={slug} contentId={item.content_id} />

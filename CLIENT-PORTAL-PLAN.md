@@ -223,7 +223,7 @@ How the portal plugs into the existing Kanset system. Distilled from the flow-st
 - [ ] Pick one "Content Ideas" object (there is both a DB and a page).
 - [ ] Confirm the portal ingests `content/*.md` for the detail view.
 - [ ] Add structured approval metadata in Supabase (approved-by / date / revision-round), which Notion lacks.
-- [ ] Set expectation: Reports are monthly and manual (no real-time reach) until API integrations (future).
+- [ ] Set expectation: Reports are **twice a month, one per platform** (H1/H2 periods) and manual (no real-time reach) until API integrations (future). (Corrected 2026-07-18 to match the built portal + the 2026-07-17 spec. If you'd rather under-promise "monthly" to Maria, that's a comms call, flag it.)
 
 ---
 
@@ -308,7 +308,7 @@ The client-facing assistant is a **Client Work Assistant** (a navigator), NOT an
 | Immigration assistant | (public) | Answer immigration questions | High, regulated, NOT being built |
 
 ### Reporting (v1, simple)
-Monthly, client-useful, answers "what changed, what worked, what next." Social: reach, engagement, saves, profile visits, follower growth, top posts, vs baseline + vs previous month. Website: monthly traffic vs baseline + previous month, top pages, contact clicks / form submissions. Not a complex analytics dashboard.
+Twice a month (per platform, H1/H2 periods), client-useful, answers "what changed, what worked, what next." Social: reach, engagement, saves, profile visits, follower growth, top posts, vs baseline + vs previous period. Website: traffic vs baseline + previous period, top pages, contact clicks / form submissions. Not a complex analytics dashboard.
 
 ### Email-to-portal rule
 Email still happens, but the **portal is the official decision channel.** Email reminders point Maria back to the portal; approvals and change requests are only final inside the portal. If Maria replies by email anyway, the agent summarizes the decision/note into the portal as a clean activity event or comment, never dumps raw email in.

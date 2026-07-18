@@ -32,20 +32,13 @@ async function main() {
     user = data.user
   }
 
-  const { data: membership, error: membershipReadError } = await admin
-    .from('client_users').select('id')
-    .eq('client_id', client.id).eq('auth_user_id', user.id).maybeSingle()
-  if (membershipReadError) throw new Error(`membership read: ${membershipReadError.message}`)
-  if (!membership) {
-    const { error } = await admin.from('client_users').insert({
-      client_id: client.id,
-      auth_user_id: user.id,
-      email: EMAIL,
-      name: 'RLS Kanset Baseline',
-      role: 'client',
-    })
-    if (error) throw new Error(`membership insert: ${error.message}`)
-  }
+  const { error: membershipError } = await admin.rpc('upsert_client_membership', {
+    p_client_id: client.id,
+    p_auth_user_id: user.id,
+    p_email: EMAIL,
+    p_name: 'RLS Kanset Baseline',
+  })
+  if (membershipError) throw new Error(`membership provision: ${membershipError.message}`)
 
   const { data: released, error: releasedError } = await admin
     .from('content_with_state').select('id').eq('client_id', client.id).limit(1)
@@ -63,6 +56,8 @@ async function main() {
       canva_url: null,
       drive_url: null,
       fact_check: 'confirmed',
+      fact_check_scope: 'not_applicable',
+      fact_check_exemption: 'Local RLS fixture with no factual client claim.',
       fact_check_ledger: [],
       client_body: 'Released Kanset baseline body',
       copy_blocks: [{ key: 'caption', label: 'Caption', body: 'Released Kanset baseline body' }],

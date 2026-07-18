@@ -1,4 +1,5 @@
 import { createSupabaseServer } from '@/lib/supabase/server'
+import type { FactCheckLedgerEntry, FactCheckScope } from './frontmatter'
 import { parseClientState, type ClientState, type ContentStatus } from './state'
 
 export class PortalDataError extends Error {}
@@ -7,6 +8,8 @@ export type ContentRow = {
   id: string; content_id: string; title: string; format: string | null; pillar: string | null
   platforms: string[]; status: ContentStatus; scheduled_date: string | null; canva_url: string | null
   client_body: string | null; fact_check: string | null; version: number; current_decision: string | null
+  fact_check_scope: FactCheckScope; fact_check_exemption: string | null
+  fact_check_ledger: FactCheckLedgerEntry[]
   copy_blocks: { key: string; label: string; body: string }[]
   state: ClientState
 }
@@ -15,7 +18,7 @@ export type ActivityRow = {
   actor_type: string; actor_name: string; created_at: string
 }
 
-const SELECT = 'id, content_id, title, format, pillar, platforms, status, scheduled_date, canva_url, client_body, copy_blocks, fact_check, version, current_decision, client_state'
+const SELECT = 'id, content_id, title, format, pillar, platforms, status, scheduled_date, canva_url, client_body, copy_blocks, fact_check, fact_check_scope, fact_check_exemption, fact_check_ledger, version, current_decision, client_state'
 
 function mapContentRow(value: unknown): ContentRow {
   if (!value || typeof value !== 'object') throw new PortalDataError('Invalid content row')

@@ -128,9 +128,10 @@ These power the `/client` portal. **Names only — never paste key values into t
 16. **NEXT_PUBLIC_SUPABASE_URL** — Supabase project URL (public). Add to **all** environments (Production, Preview, Development).
 17. **NEXT_PUBLIC_SUPABASE_ANON_KEY** — Supabase anon/publishable key (public, RLS-guarded). Add to **all** environments.
 18. **SUPABASE_SERVICE_ROLE_KEY** — service-role key (SECRET). Used **only** by the local/CI `sync-content` script, never by runtime app code. Add **only** to the environment(s) that run the sync (local `.env.local` + CI), **not** to the app's Vercel runtime env.
-19. **PORTAL_CONTENT_DIR** — path the `sync-content` script reads Markdown from. Same scope as the service-role key: local/CI only, not app runtime.
+19. **PORTAL_CONTENT_DIR** — exact path to the dedicated private canonical-content Git checkout. The broad Kanset workspace and `thedot-site/content/portal` fixtures are forbidden production roots. Local/CI only, not app runtime.
+20. **PORTAL_CONTENT_EXPECTED_REMOTE** — expected private Git remote identity for the canonical checkout (for example, an HTTPS or SSH GitHub owner/repository URL; no embedded credentials). Required for production apply, local/CI only.
 
-> The portal's browser + server runtime needs only the two `NEXT_PUBLIC_*` values. The service-role key and content dir belong to the content-sync tooling, so keeping them out of the app runtime env limits blast radius.
+> The portal's browser + server runtime needs only the two `NEXT_PUBLIC_*` values. The service-role key, canonical checkout path, and expected remote belong to content-sync tooling, so keeping them out of the app runtime env limits blast radius.
 
 ## Setup Steps in Vercel
 

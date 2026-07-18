@@ -1,4 +1,5 @@
 ---
+portal_kind: content
 content_id: kanset-2026-07-oinp-employer
 client: kanset
 title: "OINP employer job offer carousel"
@@ -9,6 +10,15 @@ scheduled_date: "2026-07-16"
 status: draft
 version: 3
 fact_check: confirmed
+fact_check_scope: required
+fact_check_ledger:
+  - claim_key: oinp-employer-job-offer
+    claim: "Ontario's Employer Job Offer streams require an eligible Ontario job offer."
+    status: confirmed
+    source_url: https://www.ontario.ca/page/oinp-employer-job-offer-streams
+    source_title: "OINP Employer Job Offer streams"
+    checked_at: "2026-07-18"
+    checked_by_role: agency_fact_checker
 ---
 <!-- portal-block:instagram-facebook-caption -->
 ## Instagram + Facebook caption

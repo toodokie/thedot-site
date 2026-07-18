@@ -1,8 +1,12 @@
 // PostgREST integration proof for portal tenant isolation and the immutable released-version model.
-// This script mutates the configured database only with a throwaway tenant/user and always cleans up.
+// This script mutates the configured disposable database with a unique throwaway tenant/user.
+// The complete tenant/Auth/data set remains until the required local/staging database reset: the
+// approval audit FK intentionally prevents deleting a decision-maker independently.
 // Run only after applying 0001..0006 to a disposable/staging database first.
 import { loadEnvConfig } from '@next/env'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { randomUUID } from 'node:crypto'
+import { PRIMARY_SOURCE_HOSTS } from '../src/lib/portal/primary-source-policy'
 
 loadEnvConfig(process.cwd())
 
@@ -16,8 +20,9 @@ const SUPABASE_URL = rawUrl
 const ANON_KEY = rawAnon
 const SERVICE_KEY = rawService
 
-const B_SLUG = 'rls-test-tenant'
-const B_EMAIL = 'rls-test-userb@example.com'
+const RUN_ID = randomUUID().slice(0, 8)
+const B_SLUG = `rls-test-${RUN_ID}`
+const B_EMAIL = `rls-test-${RUN_ID}@example.com`
 const B_CONTENT_ID = 'rls-test-piece'
 const B_LEAK_ID = 'rls-test-leak'
 const B_HIDDEN_ID = 'rls-test-hidden'
@@ -55,22 +60,6 @@ function clientForToken(token: string): SupabaseClient {
   })
 }
 
-async function findAuthUser(email: string) {
-  const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
-  if (error) throw error
-  return data.users.find((user) => user.email?.toLowerCase() === email.toLowerCase()) ?? null
-}
-
-async function preClean(): Promise<void> {
-  const { error } = await admin.from('clients').delete().eq('slug', B_SLUG)
-  if (error) throw new Error(`preClean client: ${error.message}`)
-  const stray = await findAuthUser(B_EMAIL)
-  if (stray) {
-    const { error: deleteError } = await admin.auth.admin.deleteUser(stray.id)
-    if (deleteError) throw new Error(`preClean user: ${deleteError.message}`)
-  }
-}
-
 type SyncResult = {
   content_id: string
   item_id: string
@@ -99,7 +88,17 @@ function snapshot(
     canva_url: null,
     drive_url: null,
     fact_check: 'confirmed',
-    fact_check_ledger: [],
+    fact_check_scope: 'required',
+    fact_check_exemption: null,
+    fact_check_ledger: [{
+      claim_key: 'test-source',
+      claim: 'Canada publishes public immigration information.',
+      status: 'confirmed',
+      source_url: 'https://www.canada.ca/immigration',
+      source_title: 'Canada immigration',
+      checked_at: '2026-07-18',
+      checked_by_role: 'agency_fact_checker',
+    }],
     client_body: body,
     copy_blocks: [{ key: blockKey, label: 'Test copy', body }],
     source_path: `/tmp/${contentId}.md`,
@@ -116,8 +115,6 @@ async function main(): Promise<void> {
   let bClientId: string | null = null
   let bUserId: string | null = null
   try {
-    await preClean()
-
     const { data: kanset, error: kansetError } = await admin
       .from('clients').select('id').eq('slug', KANSET_SLUG).single()
     if (kansetError || !kanset) throw new Error(`kanset client missing: ${kansetError?.message ?? 'missing'}`)
@@ -131,10 +128,12 @@ async function main(): Promise<void> {
     const kansetItemId = kansetItems[0].id as string
     const kansetVersion = kansetItems[0].version as number
 
-    const { data: clientRow, error: clientError } = await admin
-      .from('clients').insert({ name: 'RLS Test Co', slug: B_SLUG }).select('id').single()
-    if (clientError || !clientRow) throw new Error(`insert client B: ${clientError?.message ?? 'missing'}`)
-    bClientId = clientRow.id as string
+    const { data: clientId, error: clientError } = await admin.rpc('create_portal_client', {
+      p_name: 'RLS Test Co',
+      p_slug: B_SLUG,
+    })
+    if (clientError || !clientId) throw new Error(`create client B: ${clientError?.message ?? 'missing'}`)
+    bClientId = clientId as string
 
     const { data: createdUser, error: userError } = await admin.auth.admin.createUser({
       email: B_EMAIL,
@@ -143,14 +142,21 @@ async function main(): Promise<void> {
     if (userError || !createdUser.user) throw new Error(`create user B: ${userError?.message ?? 'missing'}`)
     bUserId = createdUser.user.id
 
-    const { error: membershipError } = await admin.from('client_users').insert({
-      client_id: bClientId,
-      auth_user_id: bUserId,
-      email: B_EMAIL,
-      name: 'RLS Test B',
-      role: 'client',
+    const { error: membershipError } = await admin.rpc('upsert_client_membership', {
+      p_client_id: bClientId,
+      p_auth_user_id: bUserId,
+      p_email: B_EMAIL,
+      p_name: 'RLS Test B',
     })
     if (membershipError) throw new Error(`membership B: ${membershipError.message}`)
+    const forgedMembership = await admin.rpc('upsert_client_membership', {
+      p_client_id: bClientId,
+      p_auth_user_id: bUserId,
+      p_email: 'different@example.com',
+      p_name: 'Wrong identity',
+    })
+    check('S-1: membership RPC rejects an email/auth-user mismatch', !!forgedMembership.error,
+      forgedMembership.error?.message ?? 'NO ERROR')
 
     const initial = await sync([
       snapshot(bClientId, B_CONTENT_ID, 1, 'Visible main v1', 'Visible main body', 'main'),
@@ -162,6 +168,18 @@ async function main(): Promise<void> {
     const bLeakItemId = byId.get(B_LEAK_ID)?.item_id
     const bHiddenItemId = byId.get(B_HIDDEN_ID)?.item_id
     if (!bItemId || !bLeakItemId || !bHiddenItemId) throw new Error('sync did not return all item IDs')
+
+    const hostParityPayloads = PRIMARY_SOURCE_HOSTS.map((host, index) => {
+      const payload = snapshot(
+        bClientId!, `source-policy-${index}`, 1, `Source policy ${index}`, 'Policy body', 'caption',
+      )
+      payload.fact_check_ledger[0].source_url = `https://${host}/policy-source`
+      payload.fact_check_ledger[0].source_title = `Source policy ${index}`
+      return payload
+    })
+    const hostParity = await admin.rpc('preview_content_item_versions', { p_items: hostParityPayloads })
+    check('S0: TypeScript primary-source hosts all pass the database validator', !hostParity.error,
+      hostParity.error?.message ?? `hosts=${PRIMARY_SOURCE_HOSTS.length}`)
 
     for (const itemId of [bItemId, bLeakItemId]) {
       const { error } = await admin.rpc('mark_content_ready', { p_content_id: itemId, p_content_version: 1 })
@@ -227,7 +245,7 @@ async function main(): Promise<void> {
 
     {
       const versions = await bClient.from('content_item_versions')
-        .select('content_item_id, version, title, client_body, copy_blocks')
+        .select('content_item_id, version, title, client_body, copy_blocks, fact_check_scope, fact_check_exemption, fact_check_ledger')
       const rows = versions.data ?? []
       const seesMainV1 = rows.some((row) => row.content_item_id === bItemId && row.version === 1)
       const seesLeakV1 = rows.some((row) => row.content_item_id === bLeakItemId && row.version === 1)
@@ -238,18 +256,29 @@ async function main(): Promise<void> {
       versions.error?.message ?? `rows=${rows.length}`)
       check('S9: version rows expose no unreleased content', !JSON.stringify(rows).includes('TOP SECRET'),
         `rows=${rows.length}`)
-      const internal = await bClient.from('content_item_versions').select('content_checksum, source_path')
-      check('S10: checksum/source_path are not authenticated columns', !!internal.error,
+      check('S10: released evidence is present only on the tenant-scoped released versions', !versions.error
+        && rows.length >= 2
+        && rows.every((row) => row.fact_check_scope === 'required'
+          && Array.isArray(row.fact_check_ledger)
+          && row.fact_check_ledger.length === 1), versions.error?.message ?? `rows=${rows.length}`)
+      const internal = await bClient.from('content_item_versions')
+        .select('content_checksum, source_path, source_commit_sha')
+      check('S11: checksum/source provenance are not authenticated columns', !!internal.error,
         internal.error?.message ?? 'NO ERROR')
+      const directEvidenceWrite = await bClient.from('content_item_versions')
+        .update({ fact_check_scope: 'not_applicable', fact_check_exemption: 'Forged exemption.' })
+        .eq('content_item_id', bItemId)
+      check('S12: authenticated cannot mutate evidence fields directly', !!directEvidenceWrite.error,
+        directEvidenceWrite.error?.message ?? 'NO ERROR')
     }
 
     {
       const retry = await sync([snapshot(bClientId, B_CONTENT_ID, 1, 'Visible main v1', 'Visible main body', 'main')])
-      check('S11: exact snapshot retry is a no-op success', retry[0]?.outcome === 'exact_retry', JSON.stringify(retry))
+      check('S13: exact snapshot retry is a no-op success', retry[0]?.outcome === 'exact_retry', JSON.stringify(retry))
       const changed = await admin.rpc('sync_content_item_versions', {
         p_items: [snapshot(bClientId, B_CONTENT_ID, 1, 'Changed without version bump', 'Visible main body', 'main')],
       })
-      check('S12: same version with changed checksum is rejected', !!changed.error, changed.error?.message ?? 'NO ERROR')
+      check('S14: same version with changed checksum is rejected', !!changed.error, changed.error?.message ?? 'NO ERROR')
     }
 
     {
@@ -259,21 +288,21 @@ async function main(): Promise<void> {
         p_decision: 'approved',
         p_note: null,
       })
-      check('S13: cross-tenant decision is rejected', !!cross.error, cross.error?.message ?? 'NO ERROR')
+      check('S15: cross-tenant decision is rejected', !!cross.error, cross.error?.message ?? 'NO ERROR')
       const hidden = await bClient.rpc('record_content_decision', {
         p_content_id: bHiddenItemId,
         p_content_version: 1,
         p_decision: 'approved',
         p_note: null,
       })
-      check('S14: never-released decision is rejected', !!hidden.error, hidden.error?.message ?? 'NO ERROR')
+      check('S16: never-released decision is rejected', !!hidden.error, hidden.error?.message ?? 'NO ERROR')
       const working = await bClient.rpc('record_content_decision', {
         p_content_id: bLeakItemId,
         p_content_version: 2,
         p_decision: 'approved',
         p_note: null,
       })
-      check('S15: unreleased working-version decision is rejected', !!working.error, working.error?.message ?? 'NO ERROR')
+      check('S17: unreleased working-version decision is rejected', !!working.error, working.error?.message ?? 'NO ERROR')
     }
 
     {
@@ -282,9 +311,9 @@ async function main(): Promise<void> {
       const first = await bClient.rpc('record_content_decision', args)
       const second = await bClient.rpc('record_content_decision', args)
       const after = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
-      check('S16: released current version can be approved', !first.error, first.error?.message ?? 'ok')
-      check('S17: exact decision retry succeeds', !second.error, second.error?.message ?? 'ok')
-      check('S18: exact decision retry creates one activity event', !before.error && !after.error
+      check('S18: released current version can be approved', !first.error, first.error?.message ?? 'ok')
+      check('S19: exact decision retry succeeds', !second.error, second.error?.message ?? 'ok')
+      check('S20: exact decision retry creates one activity event', !before.error && !after.error
         && (after.count ?? 0) - (before.count ?? 0) === 1,
       `before=${before.count} after=${after.count}`)
       const directApproval = await bClient.from('approvals').insert({
@@ -294,7 +323,7 @@ async function main(): Promise<void> {
         state: 'approved',
         decided_by: bUserId,
       })
-      check('S19: direct authenticated approval write is rejected', !!directApproval.error,
+      check('S21: direct authenticated approval write is rejected', !!directApproval.error,
         directApproval.error?.message ?? 'NO ERROR')
     }
 
@@ -420,15 +449,9 @@ async function main(): Promise<void> {
   } finally {
     console.log('\n--- Cleanup ---')
     if (bClientId) {
-      const { error } = await admin.from('clients').delete().eq('id', bClientId)
-      if (error) console.log(`CLEANUP WARN: delete client B: ${error.message}`)
-      else console.log('cleanup: deleted throwaway tenant and cascading portal rows')
+      console.log(`cleanup: disposable tenant ${B_SLUG} remains until the local/staging database reset`)
     }
-    if (bUserId) {
-      const { error } = await admin.auth.admin.deleteUser(bUserId)
-      if (error) console.log(`CLEANUP WARN: delete user B: ${error.message}`)
-      else console.log('cleanup: deleted throwaway auth user')
-    }
+    if (bUserId) console.log(`cleanup: disposable Auth user ${B_EMAIL} remains until database reset`)
   }
 }
 

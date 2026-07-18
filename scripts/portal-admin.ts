@@ -42,9 +42,7 @@ async function status() {
   if (ciErr) console.log('content_items check FAILED:', ciErr.message)
   else console.log('content_items rows:', ciCount ?? 0)
 
-  const { data: members, error: mErr } = await admin
-    .from('client_users')
-    .select('email, name, role, client_id')
+  const { data: members, error: mErr } = await admin.rpc('list_portal_memberships')
   if (mErr) console.log('client_users read FAILED:', mErr.message)
   else console.log('client_users:', members)
 }
@@ -59,23 +57,14 @@ async function link(email: string, name: string) {
   if (!user) throw new Error(`auth user ${email} not found; add it in Supabase Auth first`)
   console.log('auth user:', { id: user.id, email: user.email })
 
-  const { data: existing, error: eErr } = await admin
-    .from('client_users')
-    .select('id, email, name, role')
-    .eq('client_id', kanset.id)
-    .eq('auth_user_id', user.id)
-  if (eErr) throw new Error(`select client_users: ${eErr.message}`)
-  if (existing && existing.length) {
-    console.log('link already exists (no-op):', existing[0])
-    return
-  }
-
-  const { data: inserted, error: iErr } = await admin
-    .from('client_users')
-    .insert({ client_id: kanset.id, auth_user_id: user.id, email: user.email, name, role: 'client' })
-    .select('id, email, name, role')
-  if (iErr) throw new Error(`insert client_users: ${iErr.message}`)
-  console.log('link created:', inserted?.[0])
+  const { data: membershipId, error } = await admin.rpc('upsert_client_membership', {
+    p_client_id: kanset.id,
+    p_auth_user_id: user.id,
+    p_email: user.email,
+    p_name: name,
+  })
+  if (error) throw new Error(`upsert_client_membership: ${error.message}`)
+  console.log('link ensured:', { id: membershipId, email: user.email, name, role: 'client' })
 }
 
 // Mint a one-time sign-in URL WITHOUT sending email (bypasses the built-in email rate limit and any
@@ -120,6 +109,39 @@ async function ready(slug: string, contentId: string, expectedVersion?: string) 
   if (version !== item.working_version) {
     throw new Error(`reviewed version ${version} is stale; current working version is ${item.working_version}`)
   }
+
+  const { data: snapshot, error: snapshotError } = await admin
+    .from('content_item_versions')
+    .select('fact_check, fact_check_scope, fact_check_exemption, fact_check_ledger')
+    .eq('content_item_id', item.id)
+    .eq('version', version)
+    .single()
+  if (snapshotError || !snapshot) {
+    throw new Error(`release metadata unavailable: ${snapshotError?.message ?? 'missing'}`)
+  }
+  const ledger = Array.isArray(snapshot.fact_check_ledger)
+    ? snapshot.fact_check_ledger as Array<{ status?: unknown }>
+    : []
+  const statusCounts = ledger.reduce<Record<string, number>>((counts, entry) => {
+    const status = typeof entry.status === 'string' ? entry.status : 'invalid'
+    counts[status] = (counts[status] ?? 0) + 1
+    return counts
+  }, {})
+  const gateCodes: string[] = []
+  if (snapshot.fact_check !== 'confirmed') gateCodes.push('fact_check_unconfirmed')
+  if (snapshot.fact_check_scope === 'required' && ledger.length === 0) gateCodes.push('ledger_invalid')
+  if (snapshot.fact_check_scope === 'not_applicable'
+      && (ledger.length > 0 || !snapshot.fact_check_exemption)) gateCodes.push('ledger_invalid')
+  if (ledger.some((entry) => entry.status !== 'confirmed')) gateCodes.push('ledger_entry_unconfirmed')
+  console.log('release gate:', {
+    client: slug,
+    content_id: contentId,
+    version,
+    fact_check_scope: snapshot.fact_check_scope,
+    ledger_entries: ledger.length,
+    ledger_status_counts: statusCounts,
+    deterministic_gate_codes: [...new Set(gateCodes)],
+  })
 
   const { error } = await admin.rpc('mark_content_ready', {
     p_content_id: item.id,

@@ -4,6 +4,7 @@ import { getClientSession } from '@/lib/portal/auth'
 import { getContentItem } from '@/lib/portal/data'
 import { Eyebrow, Heading, Text, Button } from '@thedot/design-system'
 import CopyBlock from '@/app/client/[slug]/piece/[contentId]/CopyBlock'
+import FactCheckEvidence from '../../FactCheckEvidence'
 
 // Quiet metadata chips, matching the piece page.
 const chip: CSSProperties = {
@@ -54,6 +55,8 @@ export default async function PlanPiece({ params }: { params: Promise<{ slug: st
           ? <Text tone="grey">No draft copy for this piece yet.</Text>
           : blocks.map((b, i) => <CopyBlock key={b.key ?? `${b.label}-${i}`} blockKey={b.key ?? null} label={b.label} body={b.body} />)}
       </div>
+
+      <FactCheckEvidence item={item} />
 
       <Text tone="grey">This piece is still in planning. We will send it to you for approval once it is ready.</Text>
     </div>

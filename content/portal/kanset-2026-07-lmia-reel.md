@@ -1,4 +1,5 @@
 ---
+portal_kind: content
 content_id: kanset-2026-07-lmia-reel
 client: kanset
 title: "LMIA work permit explainer reel"
@@ -9,6 +10,15 @@ scheduled_date: "2026-07-20"
 status: draft
 version: 1
 fact_check: needs-confirm
+fact_check_scope: required
+fact_check_ledger:
+  - claim_key: lmia-purpose
+    claim: "An LMIA assesses the labour-market effect of hiring a temporary foreign worker."
+    status: needs-confirm
+    source_url: null
+    source_title: null
+    checked_at: "2026-07-18"
+    checked_by_role: agency_fact_checker
 ---
 <!-- portal-block:instagram-facebook-caption -->
 ## Instagram + Facebook caption
