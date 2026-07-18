@@ -32,7 +32,8 @@ export function isAllowedPublicEmail(value: string): boolean {
 
 export function isAllowedPublicPhone(value: string): boolean {
   const normalized = normalizePhone(value)
-  return PUBLIC_CONTACT_PHONES.some((allowed) => normalized === allowed)
+  const canonical = normalized.length === 10 ? `1${normalized}` : normalized
+  return PUBLIC_CONTACT_PHONES.some((allowed) => canonical === allowed)
 }
 
 export function isAllowedPublicSocialHandle(value: string): boolean {

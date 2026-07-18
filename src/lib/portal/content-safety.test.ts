@@ -46,6 +46,9 @@ describe('client content safety', () => {
         'LinkedIn: linkedin.com/company/kanset-services.',
       ].join('\n'),
     }))).toEqual([])
+    expect(findContentSafetyFindings(content({
+      client_body: 'Call (647) 748-4022.',
+    }))).toEqual([])
   })
 
   it('rejects unknown emails and phones without including their values in the error', () => {
@@ -88,6 +91,21 @@ describe('client content safety', () => {
     expect(findContentSafetyFindings(content({
       client_body: 'Private contact: maria@kanset.com.',
     }))).toEqual([{ code: 'unknown_email', field: 'client_body' }])
+    expect(findContentSafetyFindings(content({
+      client_body: 'Watch youtube.com/@CitImmCanada.',
+    }))).toEqual([])
+  })
+
+  it('uses the primary-source policy, not the copy-link policy, for ledger evidence', () => {
+    const safe = content()
+    safe.fact_check_ledger[0].source_title = 'Ontario.ca program update'
+    expect(findContentSafetyFindings(safe)).toEqual([])
+  })
+
+  it('does not misclassify dotted prose and filenames as bare-domain links', () => {
+    expect(findContentSafetyFindings(content({
+      client_body: 'The implementation uses Node.js; see the internal name guide.md.',
+    }))).toEqual([])
   })
 
   it('permits public fee copy but rejects invoice-adjacent amounts', () => {

@@ -28,6 +28,7 @@ const PHONE = /(?:\+?\d[\s().-]*){10,15}/g
 const SOCIAL_HANDLE = /@[A-Z0-9](?:[A-Z0-9_.-]{0,61}[A-Z0-9])?/giu
 const RCIC_NUMBER = /\bRCIC\s*(?:#|no\.?|number)?\s*([0-9]{6})\b/giu
 const CLIENT_VISIBLE_URL = /(?:https?:\/\/|www\.)[^\s<>"']+|\b(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}(?:\/[^\s<>"']*)?/giu
+const DOTTED_PROSE_SUFFIX = /\.(?:css|html|js|json|jsx|md|sql|ts|tsx|yaml|yml)(?:[/?#]|$)/iu
 // These expressions are used with RegExp.test(). They must not be global: a
 // global expression retains lastIndex and can otherwise miss alternating fields.
 const CASE_IDENTIFIER = /\b(?:UCI|application\s+(?:number|no\.?)|file\s+(?:number|no\.?)|client\s+id|account\s+number|invoice\s+(?:number|no\.?))\s*[:#-]?\s*[A-Z0-9][A-Z0-9 -]{3,}\b/iu
@@ -52,6 +53,21 @@ function textFields(content: ParsedContent): Array<[string, string]> {
   return fields
 }
 
+// Fact-check source URLs have their own stricter primary-source policy. Do not
+// apply the copy/CTA host list to ledger display text such as "Ontario.ca".
+function clientLinkTextFields(content: ParsedContent): Array<[string, string]> {
+  const fields: Array<[string, string]> = [
+    ['title', content.title],
+    ['client_body', content.client_body],
+  ]
+  for (const block of content.copy_blocks) {
+    fields.push([`copy_blocks.${block.key}.label`, block.label])
+    fields.push([`copy_blocks.${block.key}.body`, block.body])
+  }
+  if (content.fact_check_exemption) fields.push(['fact_check_exemption', content.fact_check_exemption])
+  return fields
+}
+
 function unsafeLink(value: string | null, expectedHosts: readonly string[]): boolean {
   if (!value) return false
   if (/\p{C}/u.test(value) || value.length > 2048) return true
@@ -68,6 +84,11 @@ function unsafeLink(value: string | null, expectedHosts: readonly string[]): boo
 function unsafeClientVisibleLink(value: string): boolean {
   const trimmed = value.replace(/[),.!?;:]+$/u, '')
   if (/\p{C}/u.test(trimmed) || trimmed.length > 2048) return true
+  // File/runtime names such as Node.js and guide.md are prose, not URLs. An
+  // explicit scheme or www prefix remains subject to the URL policy.
+  if (!/^(?:[a-z][a-z0-9+.-]*:|www\.)/iu.test(trimmed) && DOTTED_PROSE_SUFFIX.test(trimmed)) {
+    return false
+  }
   try {
     const hasScheme = /^[a-z][a-z0-9+.-]*:/iu.test(trimmed)
     const parsed = new URL(hasScheme ? trimmed : `https://${trimmed}`)
@@ -92,9 +113,10 @@ export function findContentSafetyFindings(content: ParsedContent): ContentSafety
     }
     for (const match of text.matchAll(SOCIAL_HANDLE)) {
       // The @ inside an email address belongs to the email check above, not the
-      // public-social-identity allow-list.
+      // public-social-identity allow-list. A handle-shaped segment inside an
+      // allowed platform URL is governed by the URL host policy below.
       const previous = match.index === 0 ? '' : text[match.index - 1]
-      if (/[A-Z0-9._%+-]/iu.test(previous)) continue
+      if (/[A-Z0-9._%+\/-]/iu.test(previous)) continue
       if (!isAllowedPublicSocialHandle(match[0])) {
         findings.push({ code: 'unknown_social_handle', field })
       }
@@ -104,16 +126,19 @@ export function findContentSafetyFindings(content: ParsedContent): ContentSafety
         findings.push({ code: 'unknown_regulatory_identifier', field })
       }
     }
+    if (CASE_IDENTIFIER.test(text)) findings.push({ code: 'case_identifier', field })
+    if (RAW_EMAIL_HEADER.test(text)) findings.push({ code: 'raw_email_header', field })
+    if (PRIVATE_FINANCIAL.test(text)) findings.push({ code: 'private_financial_context', field })
+    if (CONTROL_MARKER.test(text)) findings.push({ code: 'control_marker', field })
+  }
+
+  for (const [field, text] of clientLinkTextFields(content)) {
     for (const match of text.matchAll(CLIENT_VISIBLE_URL)) {
       // Avoid double-classifying the domain portion of an email as a link.
       const previous = match.index === 0 ? '' : text[match.index - 1]
       if (previous === '@') continue
       if (unsafeClientVisibleLink(match[0])) findings.push({ code: 'unsafe_link', field })
     }
-    if (CASE_IDENTIFIER.test(text)) findings.push({ code: 'case_identifier', field })
-    if (RAW_EMAIL_HEADER.test(text)) findings.push({ code: 'raw_email_header', field })
-    if (PRIVATE_FINANCIAL.test(text)) findings.push({ code: 'private_financial_context', field })
-    if (CONTROL_MARKER.test(text)) findings.push({ code: 'control_marker', field })
   }
 
   if (unsafeLink(content.canva_url, ['canva.com'])) findings.push({ code: 'unsafe_link', field: 'canva_url' })
