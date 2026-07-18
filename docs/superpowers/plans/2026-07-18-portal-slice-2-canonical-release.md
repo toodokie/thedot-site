@@ -205,12 +205,12 @@ export type FactCheckLedgerEntry = {
 **Files**
 
 - Modify: `scripts/portal-admin.ts`
-- Modify: `content/portal/kanset-2026-07-lmia-reel.md`
-- Modify: `content/portal/kanset-2026-07-oinp-employer.md`
+- Create: `content/portal/fixture-synthetic-brand-card.md`
+- Create: `content/portal/fixture-synthetic-source-card.md`
 - Modify: `scripts/seed-rls-local.ts`
 - Modify: relevant tests
 
-- [ ] Update fixtures with `portal_kind`, explicit fact-check scope, and valid ledger/exemption data.
+- [ ] Keep public-repository fixtures unmistakably synthetic and test-only. They use dedicated `fixture-synthetic-*` identities, contain no real client campaign copy or operational notes, and cover both required and N/A fact-check scopes.
 - [ ] Update local RLS baseline payload with the new fields.
 - [ ] Before `ready`, show only safe release-gate metadata: slug/content ID/version, scope, ledger entry/status counts, and deterministic pass/fail codes. Do not print claims or private source paths by default.
 - [ ] `ready` still invokes the database RPC; CLI prechecks are explanatory, never authorization.
