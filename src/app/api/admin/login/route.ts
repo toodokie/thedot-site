@@ -1,22 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateAdmin, createSession } from '@/lib/auth';
-import { rateLimit, getClientIP } from '@/lib/rate-limit';
+import { createHash } from 'node:crypto';
+import { assertSameOriginRequest } from '@/lib/admin-security';
+import { createSupabaseAdmin } from '@/lib/supabase/admin';
 
 export async function POST(request: NextRequest) {
   try {
-    // Rate limiting - 5 attempts per 15 minutes
-    const clientIP = getClientIP(request);
-    const rateLimitResult = rateLimit(clientIP, {
-      limit: 5,
-      window: 15 * 60 * 1000,
-      key: 'admin-login'
+    assertSameOriginRequest(request);
+    const clientIP = (request.headers.get('x-forwarded-for')?.split(',')[0]
+      ?? request.headers.get('x-real-ip') ?? 'unknown').trim();
+    const keyHash = createHash('sha256').update(`admin-login:${clientIP}`).digest('hex');
+    const admin = createSupabaseAdmin();
+    const { data: limit, error: limitError } = await admin.rpc('check_admin_login_rate_limit', {
+      p_key_hash: keyHash,
+      p_limit: 5,
+      p_window_seconds: 15 * 60,
     });
+    if (limitError) throw new Error(`Admin rate limit unavailable: ${limitError.message}`);
+    const rateLimitResult = limit as { allowed?: boolean; reset_at?: string } | null;
 
-    if (!rateLimitResult.success) {
+    if (!rateLimitResult?.allowed) {
       return NextResponse.json(
         {
           error: 'Too many login attempts. Please try again later.',
-          resetTime: rateLimitResult.resetTime
+          resetTime: rateLimitResult?.reset_at
         },
         { status: 429 }
       );
@@ -49,6 +56,9 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
+    if (error instanceof Error && error.message === 'INVALID_ORIGIN') {
+      return NextResponse.json({ error: 'Invalid request origin' }, { status: 403 });
+    }
     console.error('Login error:', error);
     return NextResponse.json(
       { error: 'Authentication failed' },

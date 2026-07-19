@@ -98,6 +98,7 @@ function snapshot(
       source_title: 'Canada immigration',
       checked_at: '2026-07-18',
       checked_by_role: 'agency_fact_checker',
+      source_type: 'primary_source',
     }],
     client_body: body,
     copy_blocks: [{ key: blockKey, label: 'Test copy', body }],
@@ -521,6 +522,89 @@ async function main(): Promise<void> {
         && unsafeItem.data?.current_decision === null
         && !unsafeTargets.error && unsafeTargets.data?.length === 0,
       unsafeApproval.error?.message ?? 'NO ERROR')
+    }
+
+    console.log('\n--- Slice 4 publication evidence ---')
+
+    {
+      const ownTargets = await bClient.from('content_publication_targets_client')
+        .select('id,client_id,content_id,destination,status,verification_label')
+        .eq('content_id', bItemId)
+      const crossTargets = await kansetClient.from('content_publication_targets_client')
+        .select('id').eq('content_id', bItemId)
+      check('P1: client sees only its own safe publication targets', !ownTargets.error
+        && ownTargets.data?.length === 1 && ownTargets.data[0].client_id === bClientId
+        && !crossTargets.error && crossTargets.data?.length === 0,
+      ownTargets.error?.message || crossTargets.error?.message || JSON.stringify(ownTargets.data))
+
+      const evidenceRead = await bClient.from('publication_evidence').select('id,object_key')
+      const directTargetWrite = await bClient.from('content_publication_targets').update({ status: 'live' })
+        .eq('content_id', bItemId)
+      const directObservationWrite = await bClient.from('content_publication_observations').insert({
+        client_id: bClientId, publication_target_id: ownTargets.data?.[0]?.id,
+        provider_state: 'live', observation_key: 'forged-observation',
+      })
+      const directRpc = await bClient.rpc('record_publication_observation', {
+        p_publication_target_id: ownTargets.data?.[0]?.id,
+        p_provider_state: 'live', p_observation_key: 'forged-rpc',
+      })
+      check('P2: authenticated cannot read evidence or write publication state directly',
+        !!evidenceRead.error && !!directTargetWrite.error && !!directObservationWrite.error && !!directRpc.error,
+      `${evidenceRead.error?.message ?? 'evidence read'} / ${directTargetWrite.error?.message ?? 'target wrote'} / ${directObservationWrite.error?.message ?? 'observation wrote'} / ${directRpc.error?.message ?? 'rpc ran'}`)
+
+      const evidenceKey = `rls-evidence-${RUN_ID}`
+      const { data: evidenceId, error: evidenceError } = await admin.rpc('register_publication_evidence', {
+        p_client_id: bClientId, p_actor_key: 'thedot-admin', p_evidence_kind: 'reviewed_link',
+        p_object_key: null, p_evidence_url: 'https://www.instagram.com/p/rls-proof',
+        p_attestation_note: null, p_captured_at: new Date().toISOString(), p_sha256: null,
+        p_mime_type: null, p_byte_length: null, p_idempotency_key: evidenceKey,
+      })
+      if (evidenceError || !evidenceId) throw new Error(`publication evidence: ${evidenceError?.message ?? 'missing'}`)
+      const { data: scheduleTarget, error: scheduleTargetError } = await admin
+        .from('content_schedule_targets').select('id').eq('content_id', bItemId).single()
+      if (scheduleTargetError || !scheduleTarget) throw new Error(`schedule target: ${scheduleTargetError?.message ?? 'missing'}`)
+      const scheduled = await admin.rpc('confirm_schedule_target', {
+        p_schedule_target_id: scheduleTarget.id,
+        p_scheduled_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+        p_external_url: 'https://business.facebook.com/rls-schedule',
+        p_external_id: 'rls-schedule', p_evidence_id: evidenceId,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-schedule-${RUN_ID}`,
+      })
+      check('P3: evidence-backed schedule confirmation resolves provider truth', !scheduled.error,
+        scheduled.error?.message ?? JSON.stringify(scheduled.data))
+
+      const { data: publicationTarget, error: publicationTargetError } = await admin
+        .from('content_publication_targets').select('id').eq('content_id', bItemId).single()
+      if (publicationTargetError || !publicationTarget) throw new Error(`publication target: ${publicationTargetError?.message ?? 'missing'}`)
+      const observationArgs = {
+        p_publication_target_id: publicationTarget.id, p_provider_state: 'live',
+        p_live_url: 'https://www.instagram.com/p/rls-live',
+        p_published_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+        p_visibility: 'public', p_evidence_id: evidenceId, p_actor_key: 'thedot-admin',
+        p_source_type: 'manual', p_reconciliation_status: 'verified',
+        p_provider_object_id: 'rls-live', p_observed_title: 'RLS publication proof',
+        p_observed_text: 'Visible main body', p_observation_key: `rls-publication-${RUN_ID}`,
+        p_supersedes_observation_id: null, p_verification_note: 'Opened and visibly checked.',
+      }
+      const before = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
+      const first = await admin.rpc('record_publication_observation', observationArgs)
+      const second = await admin.rpc('record_publication_observation', observationArgs)
+      const after = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
+      const view = await bClient.from('content_with_state')
+        .select('publication_state,client_state,status').eq('id', bItemId).single()
+      const safe = await bClient.from('content_publication_targets_client')
+        .select('status,live_url,verification_label').eq('content_id', bItemId).single()
+      check('P4: manual live confirmation is idempotent and locks aggregate live state',
+        !first.error && !second.error && first.data === second.data
+        && !view.error && view.data?.publication_state === 'live'
+        && view.data?.client_state === 'live' && view.data?.status === 'posted'
+        && !safe.error && safe.data?.verification_label === 'manually verified by The Dot'
+        && !before.error && !after.error && (after.count ?? 0) - (before.count ?? 0) === 2,
+      first.error?.message || second.error?.message || view.error?.message || safe.error?.message
+        || `activity delta=${(after.count ?? 0) - (before.count ?? 0)}`)
+      const locked = await admin.rpc('begin_content_revision', { p_content_id: bItemId, p_content_version: 1 })
+      check('P5: first verified live destination blocks in-place revision', !!locked.error,
+        locked.error?.message ?? 'NO ERROR')
     }
 
     console.log('\n--- Version-bound comments ---')

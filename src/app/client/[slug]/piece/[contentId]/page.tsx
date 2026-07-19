@@ -10,6 +10,8 @@ import CommentThread from './CommentThread'
 import FactCheckEvidence from '../../FactCheckEvidence'
 import { getScheduleDetails } from '@/lib/portal/schedule'
 import SchedulePanel from './SchedulePanel'
+import { getPublicationDetails } from '@/lib/portal/publication'
+import PublicationPanel from './PublicationPanel'
 
 const chip: CSSProperties = {
   fontFamily: 'var(--dot-font-text)', fontSize: 11, color: 'var(--dot-graphite)',
@@ -26,9 +28,10 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
   if (!session) redirect('/client/login')
   const item = await getContentItem(session.clientId, contentId)
   if (!item) redirect(`/client/${slug}`)
-  const [comments, schedule] = await Promise.all([
+  const [comments, schedule, publication] = await Promise.all([
     getComments(session.clientId, item.id),
     getScheduleDetails(session.clientId, item.id, item.version),
+    getPublicationDetails(session.clientId, item.id, item.version),
   ])
 
   const blocks = item.copy_blocks && item.copy_blocks.length > 0
@@ -73,6 +76,8 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
         requests={schedule.requests}
         canRequest={['approved', 'partially_scheduled', 'schedule_failed', 'scheduled'].includes(item.state)}
       />
+
+      <PublicationPanel targets={publication} />
 
       {item.state === 'needs_review'
         ? <DecideForm slug={slug} contentId={item.content_id} />

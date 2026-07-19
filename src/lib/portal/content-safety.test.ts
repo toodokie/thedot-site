@@ -27,6 +27,7 @@ function content(overrides: Partial<ParsedContent> = {}): ParsedContent {
       source_title: 'Government source',
       checked_at: '2026-07-18',
       checked_by_role: 'agency_fact_checker',
+      source_type: 'primary_source',
     }],
     client_body: 'Book a consultation at kanset.com/contact or call +1 (647) 748-4022.',
     copy_blocks: [{ key: 'caption', label: 'Caption', body: 'Safe caption.' }],
@@ -42,6 +43,7 @@ describe('client content safety', () => {
       client_body: [
         'Book at kanset.com/contact or call +1 (647) 748-4022.',
         'Follow @kansetimmigration. RCIC #508325.',
+        'Video by @loftcreativespace.',
         'Facebook: facebook.com/kansetimmigration.',
         'LinkedIn: linkedin.com/company/kanset-services.',
       ].join('\n'),

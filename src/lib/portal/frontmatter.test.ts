@@ -52,6 +52,7 @@ describe('parseContentFile', () => {
         source_title: 'OINP Employer Job Offer streams',
         checked_at: '2026-07-18',
         checked_by_role: 'agency_fact_checker',
+        source_type: 'primary_source',
       },
     ])
   })
@@ -88,6 +89,25 @@ fact_check_ledger: []`)
     expect(parseContentFile(unresolved, 'p.md').fact_check_ledger[0].status).toBe('needs-confirm')
     const noSource = document().replace('    source_url: https://www.ontario.ca/page/oinp-employer-job-offer-streams\n    source_title: "OINP Employer Job Offer streams"\n', '')
     expect(() => parseContentFile(noSource, 'p.md')).toThrow(/confirmed ledger entries require/)
+  })
+
+  it('accepts owner attestations without weakening primary-source citations', () => {
+    const attested = document()
+      .replace('status: confirmed\n    source_url: https://www.ontario.ca/page/oinp-employer-job-offer-streams\n    source_title: "OINP Employer Job Offer streams"', 'status: confirmed\n    source_type: agency_attested\n    source_url: null\n    source_title: "Agency owner verified the client-approved success story"')
+      .replace('checked_by_role: agency_fact_checker', 'checked_by_role: agency_owner')
+    expect(parseContentFile(attested, 'p.md').fact_check_ledger[0]).toMatchObject({
+      source_type: 'agency_attested',
+      source_url: null,
+      checked_by_role: 'agency_owner',
+    })
+    expect(() => parseContentFile(
+      attested.replace('checked_by_role: agency_owner', 'checked_by_role: agency_fact_checker'),
+      'p.md',
+    )).toThrow(/agency_owner/)
+    expect(() => parseContentFile(
+      attested.replace('source_url: null', 'source_url: https://www.ontario.ca/page/x'),
+      'p.md',
+    )).toThrow(/must not include source_url/)
   })
 
   it('rejects duplicate, invalid, unknown, and wrongly typed ledger fields', () => {

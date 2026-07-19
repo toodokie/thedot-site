@@ -34,6 +34,9 @@ export default function FactCheckEvidence({ item }: { item: ContentRow }) {
                   {entry.source_title} · checked {entry.checked_at}
                 </a>
               )}
+              {entry.source_type === 'agency_attested' && entry.source_title && (
+                <Text tone="grey">{entry.source_title} · agency-verified {entry.checked_at}</Text>
+              )}
             </li>
           ))}
         </ul>

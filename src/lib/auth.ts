@@ -2,11 +2,17 @@ import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import bcrypt from 'bcryptjs';
 
-const SECRET_KEY = new TextEncoder().encode(
-  process.env.ADMIN_JWT_SECRET || 'your-secret-key-change-in-production'
-);
-
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || '';
+const ADMIN_ISSUER = 'thedot-site';
+const ADMIN_AUDIENCE = 'thedot-admin';
+
+function secretKey(): Uint8Array {
+  const value = process.env.ADMIN_JWT_SECRET;
+  if (!value || value.length < 32) {
+    throw new Error('ADMIN_JWT_SECRET must be configured with at least 32 characters');
+  }
+  return new TextEncoder().encode(value);
+}
 
 export interface SessionPayload {
   userId: string;
@@ -23,19 +29,22 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 }
 
 export async function createSession(userId: string = 'admin') {
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+  const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000);
 
-  const session = await new SignJWT({ userId, role: 'admin' })
+  const session = await new SignJWT({ role: 'admin' })
     .setProtectedHeader({ alg: 'HS256' })
+    .setSubject(userId)
+    .setIssuer(ADMIN_ISSUER)
+    .setAudience(ADMIN_AUDIENCE)
     .setIssuedAt()
-    .setExpirationTime('7d')
-    .sign(SECRET_KEY);
+    .setExpirationTime('12h')
+    .sign(secretKey());
 
   const cookieStore = await cookies();
   cookieStore.set('session', session, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: 'strict',
     expires: expiresAt,
     path: '/',
   });
@@ -52,15 +61,23 @@ export async function verifySession(): Promise<SessionPayload | null> {
   }
 
   try {
-    const { payload } = await jwtVerify(cookie, SECRET_KEY);
+    const { payload } = await jwtVerify(cookie, secretKey(), {
+      algorithms: ['HS256'],
+      issuer: ADMIN_ISSUER,
+      audience: ADMIN_AUDIENCE,
+      subject: 'admin',
+    });
+
+    if (payload.role !== 'admin' || payload.sub !== 'admin' || typeof payload.exp !== 'number') {
+      return null;
+    }
 
     return {
-      userId: payload.userId as string,
-      role: payload.role as 'admin',
-      expiresAt: new Date((payload.exp as number) * 1000),
+      userId: payload.sub,
+      role: 'admin',
+      expiresAt: new Date(payload.exp * 1000),
     };
-  } catch (error) {
-    console.error('Session verification failed:', error);
+  } catch {
     return null;
   }
 }

@@ -7,6 +7,7 @@ export class PortalDataError extends Error {}
 export type ContentRow = {
   id: string; content_id: string; title: string; format: string | null; pillar: string | null
   platforms: string[]; status: ContentStatus; planned_date: string | null; schedule_state: ScheduleState
+  publication_state: PublicationState
   canva_url: string | null
   client_body: string | null; fact_check: string | null; version: number; current_decision: string | null
   fact_check_scope: FactCheckScope; fact_check_exemption: string | null
@@ -21,12 +22,16 @@ const SCHEDULE_STATES = new Set<ScheduleState>([
   'unverified', 'partially_scheduled', 'scheduled',
   'reschedule_pending', 'cancel_pending', 'failed',
 ])
+export type PublicationState = 'unverified' | 'partially_live' | 'failed' | 'unavailable' | 'live'
+const PUBLICATION_STATES = new Set<PublicationState>([
+  'unverified', 'partially_live', 'failed', 'unavailable', 'live',
+])
 export type ActivityRow = {
   id: string; event_type: string; title: string; summary: string | null
   actor_type: string; actor_name: string; created_at: string
 }
 
-const SELECT = 'id, content_id, title, format, pillar, platforms, status, planned_date, schedule_state, canva_url, client_body, copy_blocks, fact_check, fact_check_scope, fact_check_exemption, fact_check_ledger, version, current_decision, client_state'
+const SELECT = 'id, content_id, title, format, pillar, platforms, status, planned_date, schedule_state, publication_state, canva_url, client_body, copy_blocks, fact_check, fact_check_scope, fact_check_exemption, fact_check_ledger, version, current_decision, client_state'
 
 function mapContentRow(value: unknown): ContentRow {
   if (!value || typeof value !== 'object') throw new PortalDataError('Invalid content row')
@@ -34,6 +39,10 @@ function mapContentRow(value: unknown): ContentRow {
   if (typeof row.schedule_state !== 'string'
       || !SCHEDULE_STATES.has(row.schedule_state as ScheduleState)) {
     throw new PortalDataError(`Invalid schedule state: ${String(row.schedule_state)}`)
+  }
+  if (typeof row.publication_state !== 'string'
+      || !PUBLICATION_STATES.has(row.publication_state as PublicationState)) {
+    throw new PortalDataError(`Invalid publication state: ${String(row.publication_state)}`)
   }
   return { ...row, state: parseClientState(row.client_state) } as unknown as ContentRow
 }

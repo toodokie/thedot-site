@@ -2,7 +2,7 @@
 // Claude's workflow-source inventory owns additions; never add a private/client-case contact here.
 export const PUBLIC_CONTACT_EMAILS = [] as const
 export const PUBLIC_CONTACT_PHONES = ['16477484022'] as const
-export const PUBLIC_SOCIAL_HANDLES = ['kansetimmigration'] as const
+export const PUBLIC_SOCIAL_HANDLES = ['kansetimmigration', 'loftcreativespace'] as const
 export const PUBLIC_RCIC_NUMBERS = ['508325'] as const
 
 // Links rendered in client-facing portal content must stay on a reviewed host.

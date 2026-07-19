@@ -6,6 +6,7 @@ const STATUS = ['idea', 'draft', 'approved', 'scheduled', 'posted']
 const FACT = ['confirmed', 'needs-confirm', 'flagged']
 const FACT_SCOPE = ['required', 'not_applicable']
 const CHECKED_BY_ROLE = ['agency_fact_checker', 'agency_owner']
+const FACT_SOURCE_TYPE = ['primary_source', 'agency_attested']
 
 export type FactCheckStatus = 'confirmed' | 'needs-confirm' | 'flagged'
 export type FactCheckScope = 'required' | 'not_applicable'
@@ -17,6 +18,7 @@ export type FactCheckLedgerEntry = {
   source_title: string | null
   checked_at: string
   checked_by_role: 'agency_fact_checker' | 'agency_owner'
+  source_type: 'primary_source' | 'agency_attested'
 }
 
 export type ParsedContent = {
@@ -174,6 +176,7 @@ function parseFactCheckLedger(
 
   const allowedKeys = new Set([
     'claim_key', 'claim', 'status', 'source_url', 'source_title', 'checked_at', 'checked_by_role',
+    'source_type',
   ])
   const seen = new Set<string>()
   const today = new Date().toISOString().slice(0, 10)
@@ -205,24 +208,44 @@ function parseFactCheckLedger(
       null,
     ) as FactCheckLedgerEntry['checked_by_role'] | null
     if (!checked_by_role) throw new Error(`checked_by_role is required in ${itemSource}`)
+    const source_type = parseEnum(
+      item.source_type,
+      FACT_SOURCE_TYPE,
+      'source_type',
+      itemSource,
+      'primary_source',
+    ) as FactCheckLedgerEntry['source_type']
     const checked_at = ymd(item.checked_at, itemSource, 'checked_at')
     if (!checked_at) throw new Error(`checked_at is required in ${itemSource}`)
     if (checked_at > today) throw new Error(`checked_at must not be in the future in ${itemSource}`)
 
     const rawSourceUrl = optionalString(item.source_url, 'source_url', itemSource)
-    const source_url = rawSourceUrl ? parsePrimarySourceUrl(rawSourceUrl, itemSource) : null
+    const source_url = rawSourceUrl && source_type === 'primary_source'
+      ? parsePrimarySourceUrl(rawSourceUrl, itemSource)
+      : rawSourceUrl
     const source_title = optionalString(item.source_title, 'source_title', itemSource)
-    if ((source_url === null) !== (source_title === null)) {
+    if (source_type === 'primary_source' && (source_url === null) !== (source_title === null)) {
       throw new Error(`source_url and source_title must be provided together in ${itemSource}`)
     }
     if (source_title && source_title.length > 300) {
       throw new Error(`source_title must be 1-300 characters in ${itemSource}`)
     }
-    if (status === 'confirmed' && (!source_url || !source_title)) {
+    if (source_type === 'primary_source' && status === 'confirmed' && (!source_url || !source_title)) {
       throw new Error(`confirmed ledger entries require source_url and source_title in ${itemSource}`)
     }
+    if (source_type === 'agency_attested' && source_url) {
+      throw new Error(`agency_attested ledger entries must not include source_url in ${itemSource}`)
+    }
+    if (source_type === 'agency_attested' && !source_title) {
+      throw new Error(`agency_attested ledger entries require an attestation label in source_title in ${itemSource}`)
+    }
+    if (source_type === 'agency_attested' && checked_by_role !== 'agency_owner') {
+      throw new Error(`agency_attested ledger entries require checked_by_role agency_owner in ${itemSource}`)
+    }
 
-    return { claim_key, claim, status, source_url, source_title, checked_at, checked_by_role }
+    return {
+      claim_key, claim, status, source_url, source_title, checked_at, checked_by_role, source_type,
+    }
   })
 
   if (scope === 'required') {
