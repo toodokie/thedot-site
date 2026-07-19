@@ -120,6 +120,7 @@ export default async function Calendar({ params }: { params: Promise<{ slug: str
       {r.status === 'approved' && (
         <span className={styles.chipMeta}>{r.schedule_state.replaceAll('_', ' ')}</span>
       )}
+      {r.calendar_sync_label && <span className={styles.chipMeta}>{r.calendar_sync_label}</span>}
     </Link>
   )
 
@@ -132,6 +133,7 @@ export default async function Calendar({ params }: { params: Promise<{ slug: str
       <div className={styles.sub}>
         <Text size="lg" tone="graphite">Everything planned, produced, and posted.</Text>
       </div>
+      <p className={styles.calendarNote}>This portal is the workflow record. The shared Google Calendar is an agency coordination surface, not proof of scheduling or publication.</p>
 
       {/* colour legend */}
       <div className={styles.legend}>

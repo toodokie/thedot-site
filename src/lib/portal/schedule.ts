@@ -18,6 +18,9 @@ export type ScheduleRow = {
   status: ContentStatus
   planned_date: string | null
   schedule_state: ScheduleState
+  calendar_sync_status: string | null
+  calendar_sync_label: string | null
+  calendar_event_link: string | null
 }
 
 export type ScheduleTargetRow = {
@@ -51,16 +54,24 @@ const SELECT = 'id, content_id, title, format, pillar, platforms, status, planne
 
 export async function getSchedule(clientId: string): Promise<ScheduleRow[]> {
   const supabase = await createSupabaseServer()
-  const { data, error } = await supabase
-    .from('content_with_state').select(SELECT)
-    .eq('client_id', clientId)
-    .order('planned_date', { ascending: true, nullsFirst: false })
-    .order('content_id', { ascending: true })
-  if (error) throw new PortalDataError(error.message)
+  const [contentResult, calendarResult] = await Promise.all([
+    supabase.from('content_with_state').select(SELECT).eq('client_id', clientId)
+      .order('planned_date', { ascending: true, nullsFirst: false }).order('content_id', { ascending: true }),
+    supabase.from('calendar_events_client')
+      .select('content_id,content_version,event_html_link,sync_status,sync_label,event_role')
+      .eq('client_id', clientId).eq('event_role','editorial_plan'),
+  ])
+  if (contentResult.error) throw new PortalDataError(contentResult.error.message)
+  if (calendarResult.error) throw new PortalDataError(calendarResult.error.message)
+  const calendarMap = new Map((calendarResult.data ?? []).map((row) => [`${row.content_id}:${row.content_version}`,row]))
   // Normalise platforms to a real array so callers never guard against null.
-  return (data ?? []).map((value) => {
+  return (contentResult.data ?? []).map((value) => {
     const row = value as unknown as Record<string, unknown>
-    return { ...row, platforms: Array.isArray(row.platforms) ? row.platforms : [] }
+    const calendar = calendarMap.get(`${row.id}:${row.version}`)
+    return { ...row, platforms: Array.isArray(row.platforms) ? row.platforms : [],
+      calendar_sync_status: calendar?.sync_status ?? null,
+      calendar_sync_label: calendar?.sync_label ?? null,
+      calendar_event_link: calendar?.event_html_link ?? null }
   }) as unknown as ScheduleRow[]
 }
 

@@ -694,6 +694,67 @@ async function main(): Promise<void> {
         anonSchedule.error?.message ?? 'NO ERROR')
     }
 
+    console.log('\n--- Slice 5 Google Calendar coordination ---')
+
+    {
+      const credentialId = randomUUID(), integrationId = randomUUID()
+      const credential = await admin.from('calendar_credentials').insert({
+        id: credentialId, client_id: bClientId, ciphertext: 'x'.repeat(40),
+        iv: 'a'.repeat(16), auth_tag: 'b'.repeat(16),
+      })
+      const integration = await admin.from('calendar_integrations').insert({
+        id: integrationId, client_id: bClientId, credential_id: credentialId,
+        calendar_id: `rls-${RUN_ID}@example.com`, display_name: 'RLS shared calendar',
+        owner_email: 'durable-owner@example.com', access_role: 'owner',
+      })
+      const state = await admin.from('calendar_sync_state').insert({
+        integration_id: integrationId, client_id: bClientId,
+      })
+      const item = await admin.from('content_items').select('projection_revision')
+        .eq('id', bItemId).single()
+      const mapping = await admin.rpc('confirm_calendar_projection', {
+        p_integration_id: integrationId, p_content_id: bItemId, p_content_version: 1,
+        p_schedule_target_id: null, p_event_role: 'editorial_plan',
+        p_stable_key: `portal:${integrationId}:${bItemId}:editorial`,
+        p_event_id: `rls-event-${RUN_ID}`, p_event_etag: '"rls-etag-1"',
+        p_event_updated_at: new Date().toISOString(),
+        p_event_html_link: 'https://www.google.com/calendar/event?eid=synthetic',
+        p_event_start_date: '2027-07-20', p_event_start_at: null, p_event_end_at: null,
+        p_portal_revision: item.data?.projection_revision,
+      })
+      check('G1: service creates a tenant-bound safe calendar mapping', !credential.error
+        && !integration.error && !state.error && !item.error && !mapping.error,
+      credential.error?.message || integration.error?.message || state.error?.message
+        || item.error?.message || mapping.error?.message || 'ok')
+
+      const own = await bClient.from('calendar_events_client')
+        .select('client_id,content_id,event_role,event_html_link,sync_status,sync_label')
+      const foreign = await kansetClient.from('calendar_events_client').select('id,client_id')
+      check('G2: client sees only its own safe calendar projection', !own.error
+        && own.data?.length === 1 && own.data[0].client_id === bClientId
+        && own.data[0].content_id === bItemId && own.data[0].event_role === 'editorial_plan'
+        && own.data[0].sync_status === 'confirmed', own.error?.message ?? `rows=${own.data?.length ?? 0}`)
+      check('G3: another tenant cannot read B calendar mappings', !foreign.error
+        && !(foreign.data ?? []).some((row) => row.client_id === bClientId)
+        && (foreign.data ?? []).every((row) => row.client_id === kansetClientId),
+      foreign.error?.message ?? `rows=${foreign.data?.length ?? 0}`)
+
+      const internalColumns = await bClient.from('calendar_event_mappings')
+        .select('event_id,event_etag,stable_key,portal_projection_revision')
+      const directWrite = await bClient.from('calendar_event_mappings').insert({
+        client_id: bClientId, integration_id: integrationId, content_id: bItemId,
+      })
+      const directWebhook = await bClient.rpc('accept_calendar_webhook', {
+        p_channel_id: 'forged', p_resource_id: 'forged', p_channel_token: 'forged',
+        p_message_number: 1, p_resource_state: 'exists',
+      })
+      check('G4: provider IDs, etags, stable keys, and revisions are not client columns',
+        !!internalColumns.error, internalColumns.error?.message ?? 'NO ERROR')
+      check('G5: authenticated cannot write mappings or invoke webhook ingestion',
+        !!directWrite.error && !!directWebhook.error,
+        `${directWrite.error?.message ?? 'NO WRITE ERROR'} / ${directWebhook.error?.message ?? 'NO RPC ERROR'}`)
+    }
+
     console.log('\n--- Existing tenant-isolated surfaces ---')
 
     {

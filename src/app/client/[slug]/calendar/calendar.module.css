@@ -194,3 +194,10 @@
 @media (prefers-reduced-motion: reduce) {
   .chip, .listRow { transition: none; }
 }
+.calendarNote {
+  max-width: 760px;
+  color: var(--color-grey, #666);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin: 12px 0 24px;
+}
