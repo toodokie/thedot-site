@@ -91,11 +91,18 @@ async function main() {
       throw new Error('amount must be a positive number below 100000000')
     const number = requiredText(payload.number, 'number', 64)
     if (!/^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$/.test(number)) throw new Error('invalid invoice number format')
-    const isDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && Number.isFinite(Date.parse(`${v}T00:00:00Z`))
+    const isDate = (v: string) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false
+      const [year, month, day] = v.split('-').map(Number)
+      if (year < 1 || month < 1 || month > 12 || day < 1) return false
+      const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
+      const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+      return day <= days[month - 1]
+    }
     const issuedAt = requiredText(payload.issuedAt, 'issuedAt', 10)
     if (!isDate(issuedAt)) throw new Error('issuedAt must be a YYYY-MM-DD date')
     const maxIssued = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
-    if (issuedAt > maxIssued) throw new Error('issuedAt cannot be in the future')
+    if (issuedAt > maxIssued) throw new Error('issuedAt cannot be more than one day in the future')
     const periodStart = optionalText(payload.periodStart, 'periodStart', 10)
     const periodEnd = optionalText(payload.periodEnd, 'periodEnd', 10)
     if ((periodStart === null) !== (periodEnd === null)) throw new Error('period start and end must be provided together')
@@ -106,7 +113,8 @@ async function main() {
     const currency = (optionalText(payload.currency, 'currency', 3) ?? 'CAD').toUpperCase()
     if (currency !== 'CAD') throw new Error('currency must be CAD')
     const documentUrl = optionalText(payload.documentUrl, 'documentUrl', 2048)
-    if (documentUrl !== null && !/^https:\/\/(docs|drive)\.google\.com\/\S+$/.test(documentUrl))
+    if (documentUrl !== null
+      && !/^https:\/\/(docs|drive)\.google\.com\/[^\s\u0000-\u001F\u007F-\u009F]+$/u.test(documentUrl))
       throw new Error('documentUrl must be an agency Google Doc/Drive https link')
     rpc = 'upsert_invoice'; args = { p_client_id: null,
       p_number: number, p_issued_at: issuedAt, p_period_start: periodStart, p_period_end: periodEnd,
