@@ -1,0 +1,101 @@
+.wrap {
+  max-width: 860px;
+}
+.kicker {
+  margin-bottom: 8px;
+}
+.title {
+  margin-bottom: 10px;
+}
+.intro {
+  margin-bottom: 28px;
+  max-width: 56ch;
+}
+.empty {
+  padding: 24px 20px;
+  border: 1px solid var(--dot-hairline, #e4e2dc);
+  background: var(--dot-off-white, #f7f6f2);
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--dot-hairline, #e4e2dc);
+  background: var(--dot-off-white, #f7f6f2);
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 520px;
+  font-family: var(--dot-font-text, inherit);
+}
+.table thead th {
+  text-align: left;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dot-graphite, #4a4a44);
+  font-weight: 500;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--dot-hairline, #e4e2dc);
+}
+.table tbody td {
+  padding: 16px;
+  border-bottom: 1px solid var(--dot-hairline, #e4e2dc);
+  vertical-align: middle;
+}
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+.sub {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--dot-graphite, #6a6a62);
+}
+.amount {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+}
+.paid {
+  color: #1f6b3a;
+  background: #e7f3ec;
+  border-color: #bfe0cc;
+}
+.unpaid {
+  color: #8a4b1a;
+  background: #f6ebe0;
+  border-color: #e6c9a8;
+}
+.void {
+  color: var(--dot-graphite, #6a6a62);
+  background: #ecebe6;
+  border-color: var(--dot-hairline, #e4e2dc);
+}
+
+.docLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dot-teal, #1f5a5a);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+}
+.docLink:hover {
+  text-decoration: underline;
+}
+
+@media (prefers-color-scheme: dark) {
+  .empty, .tableWrap { background: rgba(255, 255, 255, 0.03); border-color: rgba(255, 255, 255, 0.12); }
+  .table thead th, .table tbody td { border-color: rgba(255, 255, 255, 0.1); }
+}

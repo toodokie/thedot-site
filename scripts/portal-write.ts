@@ -30,7 +30,7 @@ const timestamp = (value: unknown, field: string) => {
 
 async function main() {
   const [command, inputPath, flag] = process.argv.slice(2)
-  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision> <payload.json> [--dry-run]')
+  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|invoice> <payload.json> [--dry-run]')
   const payload = JSON.parse(await readFile(inputPath, 'utf8')) as Payload
   const slug = requiredText(payload.clientSlug, 'clientSlug', 100)
   const actor = requiredText(payload.actorKey ?? 'thedot-admin', 'actorKey', 64)
@@ -83,6 +83,21 @@ async function main() {
       p_decision:stringArray(payload.decision,'decision',['approved','change_requested']),p_note:note,
       p_decision_source:stringArray(payload.decisionSource,'decisionSource',['email','call']),
       p_source_occurred_at:timestamp(payload.sourceOccurredAt,'sourceOccurredAt'),p_actor_key:actor,p_idempotency_key:idempotency}
+  } else if (command === 'invoice') {
+    const amount = payload.amount
+    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) throw new Error('amount must be a positive number')
+    // Financial fields are immutable after issuance; the RPC enforces that plus all field
+    // validation (number/currency/document host/date). notes is agency-only, never client-facing.
+    rpc = 'upsert_invoice'; args = { p_client_id: null,
+      p_number: requiredText(payload.number, 'number', 64),
+      p_issued_at: requiredText(payload.issuedAt, 'issuedAt', 10),
+      p_period_start: optionalText(payload.periodStart, 'periodStart', 10),
+      p_period_end: optionalText(payload.periodEnd, 'periodEnd', 10),
+      p_amount: amount,
+      p_currency: optionalText(payload.currency, 'currency', 3) ?? 'CAD',
+      p_document_url: optionalText(payload.documentUrl, 'documentUrl', 2048),
+      p_notes: optionalText(payload.notes, 'notes', 4000),
+      p_actor_key: actor, p_idempotency_key: idempotency }
   } else throw new Error(`unknown portal-write command: ${command}`)
   if (flag === '--dry-run') { console.log(`VALID ${command} for ${slug} (${idempotency})`); return }
   const { data: client, error: clientError } = await admin.from('clients').select('id').eq('slug', slug).single()

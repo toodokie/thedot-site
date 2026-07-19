@@ -15,6 +15,7 @@ const ITEMS = [
   { label: 'Strategy', seg: 'strategy' },
   { label: 'Reports', seg: 'reports' },
   { label: 'Library', seg: 'library' },
+  { label: 'Billing', seg: 'billing' },
 ]
 
 export default function PortalNav({ slug }: { slug: string }) {
