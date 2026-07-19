@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { randomUUID } from 'node:crypto'
 import type { CSSProperties } from 'react'
 import { getClientSession } from '@/lib/portal/auth'
 import { getContentItem } from '@/lib/portal/data'
@@ -12,6 +13,9 @@ import { getScheduleDetails } from '@/lib/portal/schedule'
 import SchedulePanel from './SchedulePanel'
 import { getPublicationDetails } from '@/lib/portal/publication'
 import PublicationPanel from './PublicationPanel'
+import { getContentRequests } from '@/lib/portal/requests'
+import RequestHistory from '../../requests/RequestHistory'
+import RemovalRequestForm from './RemovalRequestForm'
 
 const chip: CSSProperties = {
   fontFamily: 'var(--dot-font-text)', fontSize: 11, color: 'var(--dot-graphite)',
@@ -28,10 +32,11 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
   if (!session) redirect('/client/login')
   const item = await getContentItem(session.clientId, contentId)
   if (!item) redirect(`/client/${slug}`)
-  const [comments, schedule, publication] = await Promise.all([
+  const [comments, schedule, publication, requests] = await Promise.all([
     getComments(session.clientId, item.id),
     getScheduleDetails(session.clientId, item.id, item.version),
     getPublicationDetails(session.clientId, item.id, item.version),
+    getContentRequests(session.clientId, item.id),
   ])
 
   const blocks = item.copy_blocks && item.copy_blocks.length > 0
@@ -63,8 +68,15 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
       <div id="piece-copy" style={{ marginBottom: 28 }}>
         {blocks.length === 0
           ? <Text tone="grey">No copy for this piece yet.</Text>
-          : blocks.map((b, i) => <CopyBlock key={b.key ?? `${b.label}-${i}`} blockKey={b.key} label={b.label} body={b.body} />)}
+          : blocks.map((b, i) => <CopyBlock key={b.key ?? `${b.label}-${i}`} blockKey={b.key}
+              label={b.label} body={b.body} slug={slug} contentId={item.content_id}
+              canRequest={session.canSubmitRequests} idempotencyKey={randomUUID()} />)}
       </div>
+
+      {requests.length > 0 && <section style={{ marginBottom: 28 }}>
+        <Heading level={3}>Requests for this piece</Heading>
+        <RequestHistory slug={slug} requests={requests} content={[item]} />
+      </section>}
 
       <FactCheckEvidence item={item} />
 
@@ -88,6 +100,15 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
 
       <CommentThread slug={slug} contentId={item.content_id} comments={comments}
         canComment={session.canComment} />
+
+      {session.canSubmitRequests
+        && !requests.some((request) => request.request_type === 'archive'
+          && ['pending', 'applying'].includes(request.status))
+        && <section style={{ marginTop: 36 }}>
+          <Heading level={3}>Request removal</Heading>
+          <Text tone="grey">The piece stays in the portal until The Dot reviews and applies the request.</Text>
+          <RemovalRequestForm slug={slug} contentId={item.content_id} idempotencyKey={randomUUID()} />
+        </section>}
     </div>
   )
 }

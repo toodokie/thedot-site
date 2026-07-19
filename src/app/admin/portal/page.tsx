@@ -6,6 +6,7 @@ import PublicationAdmin, { type AdminTarget } from './PublicationAdmin'
 import CalendarAdmin, { type CalendarConflictAdmin, type CalendarIntegrationAdmin,
   type UnmappedCalendarEventAdmin } from './CalendarAdmin'
 import BillingAdmin, { type AdminInvoice } from './BillingAdmin'
+import RequestAdmin, { type AdminContentRequest } from './RequestAdmin'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,7 +15,7 @@ export default async function PortalAdminPage() {
   if (!session || session.role !== 'admin') redirect('/admin/login')
   const admin = createSupabaseAdmin()
   const [clients, content, schedules, publications, observations, actors, integrations,
-    syncStates, conflicts, unmapped, jobs, invoices] = await Promise.all([
+    syncStates, conflicts, unmapped, jobs, invoices, contentRequests] = await Promise.all([
     admin.from('clients').select('id,name,slug').order('name'),
     admin.from('content_with_state').select('id,client_id,content_id,title,version').order('planned_date'),
     admin.from('content_schedule_targets').select('id,client_id,content_id,content_version,destination,status,scheduled_at,evidence_id,verifier_actor_id'),
@@ -27,9 +28,11 @@ export default async function PortalAdminPage() {
     admin.from('calendar_unmapped_events').select('id,integration_id,client_id,event_summary,event_start_date,event_start_at,reason').eq('status','open').order('first_seen_at'),
     admin.from('calendar_sync_jobs').select('integration_id').in('status',['failed','abandoned']),
     admin.from('invoices').select('id,client_id,number,issued_at,amount,currency,status,document_url').order('issued_at', { ascending: false }),
+    admin.rpc('list_content_change_requests', { p_client_id: null }),
   ])
   const failure = clients.error ?? content.error ?? schedules.error ?? publications.error ?? observations.error
     ?? actors.error ?? integrations.error ?? syncStates.error ?? conflicts.error ?? unmapped.error ?? jobs.error ?? invoices.error
+    ?? contentRequests.error
   if (failure) throw new Error(`Portal admin data unavailable: ${failure.message}`)
   const clientMap = new Map((clients.data ?? []).map((client) => [client.id, client]))
   const contentMap = new Map((content.data ?? []).map((item) => [`${item.client_id}:${item.id}:${item.version}`, item]))
@@ -92,6 +95,21 @@ export default async function PortalAdminPage() {
     number: inv.number, issuedAt: inv.issued_at, amount: String(inv.amount),
     currency: inv.currency, status: inv.status, documentUrl: inv.document_url,
   }))
+  const requestRows = (contentRequests.data ?? []) as Array<{
+    id: string; client_id: string; content_id: string | null; request_type: string; status: string
+    requester_name: string; created_at: string; base_version: number | null
+    payload: Record<string, unknown>; resolution_note: string | null
+  }>
+  const adminRequests: AdminContentRequest[] = requestRows.map((request) => {
+    const item = request.content_id
+      ? [...contentMap.entries()].find(([key]) => key.startsWith(`${request.client_id}:${request.content_id}:`))?.[1]
+      : null
+    return { id: request.id, clientName: clientMap.get(request.client_id)?.name ?? 'Unknown client',
+      requestType: request.request_type, status: request.status, requesterName: request.requester_name,
+      createdAt: request.created_at, baseVersion: request.base_version,
+      title: item?.title ?? (typeof request.payload.title === 'string' ? request.payload.title : 'Content request'),
+      resolutionNote: request.resolution_note }
+  })
   return (
     <main style={{ maxWidth: 980, margin: '0 auto', padding: '40px 24px' }}>
       <p><Link href="/admin/dashboard">Back to dashboard</Link></p>
@@ -106,6 +124,7 @@ export default async function PortalAdminPage() {
         contentOptions={(content.data ?? []).map((item) => ({ id: item.id, clientId: item.client_id,
           version: item.version, title: item.title }))} />
       <BillingAdmin invoices={adminInvoices} />
+      <RequestAdmin requests={adminRequests} />
     </main>
   )
 }

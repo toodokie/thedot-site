@@ -1,9 +1,13 @@
 'use client'
 import { useState } from 'react'
 import { Text, Button } from '@thedot/design-system'
+import SuggestEditForm from './SuggestEditForm'
 
 // A labeled, copy-to-clipboard block of per-surface copy (IG/FB caption, YT title, etc.).
-export default function CopyBlock({ blockKey, label, body }: { blockKey: string | null; label: string; body: string }) {
+export default function CopyBlock({ blockKey, label, body, slug, contentId, canRequest, idempotencyKey }: {
+  blockKey: string | null; label: string; body: string; slug?: string; contentId?: string
+  canRequest?: boolean; idempotencyKey?: string
+}) {
   const [copied, setCopied] = useState(false)
   async function copy() {
     try {
@@ -21,6 +25,9 @@ export default function CopyBlock({ blockKey, label, body }: { blockKey: string 
         <Button as="button" variant="ghost" size="sm" onClick={copy}>{copied ? 'Copied' : 'Copy'}</Button>
       </div>
       <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}><Text size="md" tone="black">{body}</Text></div>
+      {canRequest && blockKey && slug && contentId && idempotencyKey && <div style={{ marginTop: 10 }}>
+        <SuggestEditForm slug={slug} contentId={contentId} blockKey={blockKey} initialKey={idempotencyKey} />
+      </div>}
     </div>
   )
 }

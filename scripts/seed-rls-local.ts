@@ -53,6 +53,10 @@ async function main() {
     [client.id, 'client_portal_launch'],
     [null, 'client_mutations'],
     [client.id, 'client_mutations'],
+    [null, 'agency_mutations'],
+    [client.id, 'agency_mutations'],
+    [null, 'repository_worker'],
+    [client.id, 'repository_worker'],
   ] as const) {
     const { error } = await admin.rpc('set_portal_feature_switch', {
       p_client_id: scope,

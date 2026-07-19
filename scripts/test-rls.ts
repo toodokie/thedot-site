@@ -27,6 +27,7 @@ const B_VIEWER_EMAIL = `rls-viewer-${RUN_ID}@example.com`
 const B_CONTENT_ID = 'rls-test-piece'
 const B_LEAK_ID = 'rls-test-leak'
 const B_HIDDEN_ID = 'rls-test-hidden'
+const B_REQUEST_ID = 'rls-test-request'
 const KANSET_SLUG = 'kanset'
 const KANSET_EMAIL = 'info@thedotcreative.co'
 
@@ -103,7 +104,8 @@ function snapshot(
     }],
     client_body: body,
     copy_blocks: [{ key: blockKey, label: 'Test copy', body }],
-    source_path: `/tmp/${contentId}.md`,
+    source_path: `${contentId}.md`,
+    source_commit_sha: '1'.repeat(40),
   }
 }
 
@@ -213,6 +215,10 @@ async function main(): Promise<void> {
       [bClientId, 'client_portal_launch', `rls-tenant-launch-${RUN_ID}`],
       [null, 'client_mutations', `rls-global-mutations-${RUN_ID}`],
       [bClientId, 'client_mutations', `rls-tenant-mutations-${RUN_ID}`],
+      [null, 'agency_mutations', `rls-global-agency-${RUN_ID}`],
+      [bClientId, 'agency_mutations', `rls-tenant-agency-${RUN_ID}`],
+      [null, 'repository_worker', `rls-global-repository-${RUN_ID}`],
+      [bClientId, 'repository_worker', `rls-tenant-repository-${RUN_ID}`],
     ] as const) {
       const enabled = await admin.rpc('set_portal_feature_switch', {
         p_client_id: scope,
@@ -229,12 +235,14 @@ async function main(): Promise<void> {
       snapshot(bClientId, B_CONTENT_ID, 1, 'Visible main v1', 'Visible main body', 'main'),
       snapshot(bClientId, B_LEAK_ID, 1, 'Released leak v1', 'Released body v1', 'leak'),
       snapshot(bClientId, B_HIDDEN_ID, 1, 'Hidden working v1', 'TOP SECRET UNRELEASED', 'hidden'),
+      snapshot(bClientId, B_REQUEST_ID, 1, 'Request workflow v1', 'Original request body', 'caption'),
     ])
     const byId = new Map(initial.map((row) => [row.content_id, row]))
     const bItemId = byId.get(B_CONTENT_ID)?.item_id
     const bLeakItemId = byId.get(B_LEAK_ID)?.item_id
     const bHiddenItemId = byId.get(B_HIDDEN_ID)?.item_id
-    if (!bItemId || !bLeakItemId || !bHiddenItemId) throw new Error('sync did not return all item IDs')
+    const bRequestItemId = byId.get(B_REQUEST_ID)?.item_id
+    if (!bItemId || !bLeakItemId || !bHiddenItemId || !bRequestItemId) throw new Error('sync did not return all item IDs')
 
     const hostParityPayloads = PRIMARY_SOURCE_HOSTS.map((host, index) => {
       const payload = snapshot(
@@ -248,7 +256,7 @@ async function main(): Promise<void> {
     check('S0: TypeScript primary-source hosts all pass the database validator', !hostParity.error,
       hostParity.error?.message ?? `hosts=${PRIMARY_SOURCE_HOSTS.length}`)
 
-    for (const itemId of [bItemId, bLeakItemId]) {
+    for (const itemId of [bItemId, bLeakItemId, bRequestItemId]) {
       const { error } = await admin.rpc('mark_content_ready', { p_content_id: itemId, p_content_version: 1 })
       if (error) throw new Error(`mark_content_ready: ${error.message}`)
     }
@@ -298,7 +306,7 @@ async function main(): Promise<void> {
       p_idempotency_key: `viewer-reschedule-${RUN_ID}`,
     })
     check('A2: same-tenant viewer can read but cannot idea/comment/decide/schedule',
-      !viewerRead.error && viewerRead.data?.length === 2
+      !viewerRead.error && viewerRead.data?.length === 3
         && viewerRead.data.every((row) => row.client_id === bClientId)
         && !!viewerIdea.error && !!viewerComment.error && !!viewerDecision.error
         && !!viewerPlan.error && !!viewerReschedule.error,
@@ -430,6 +438,185 @@ async function main(): Promise<void> {
       })
       check('S21: direct authenticated approval write is rejected', !!directApproval.error,
         directApproval.error?.message ?? 'NO ERROR')
+    }
+
+    console.log('\n--- Slice 9 content requests/local reconciliation boundary ---')
+
+    {
+      const viewerRequest = await bViewerClient.rpc('request_content_edit', {
+        p_content_id: bRequestItemId, p_content_version: 1, p_block_key: 'caption',
+        p_proposed_text: 'Viewer must not write this.', p_idempotency_key: randomUUID(),
+      })
+      const crossRequest = await bClient.rpc('request_content_edit', {
+        p_content_id: kansetItemId, p_content_version: kansetVersion, p_block_key: 'caption',
+        p_proposed_text: 'Cross-tenant attempt.', p_idempotency_key: randomUUID(),
+      })
+      check('R1: no-capability and cross-tenant edit requests are rejected',
+        !!viewerRequest.error && !!crossRequest.error,
+        `${viewerRequest.error?.message ?? 'VIEWER WROTE'} / ${crossRequest.error?.message ?? 'CROSS WROTE'}`)
+
+      const nullEdit = await bClient.rpc('request_content_edit', {
+        p_content_id: bRequestItemId, p_content_version: 1, p_block_key: 'caption',
+        p_proposed_text: null, p_idempotency_key: randomUUID(),
+      })
+      const nullCreate = await bClient.rpc('request_content_create', {
+        p_client_id: bClientId, p_title: null, p_brief: 'missing title',
+        p_platforms: ['instagram'], p_desired_date: '2026-07-30', p_notes: null,
+        p_idempotency_key: randomUUID(),
+      })
+      check('R1b: NULL required request inputs are rejected', !!nullEdit.error && !!nullCreate.error,
+        `${nullEdit.error?.message ?? 'NULL EDIT ACCEPTED'} / ${nullCreate.error?.message ?? 'NULL CREATE ACCEPTED'}`)
+
+      const editKey = randomUUID()
+      const before = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
+      const editArgs = { p_content_id: bRequestItemId, p_content_version: 1,
+        p_block_key: 'caption', p_proposed_text: 'Prepared request body v2',
+        p_idempotency_key: editKey }
+      const first = await bClient.rpc('request_content_edit', editArgs)
+      const second = await bClient.rpc('request_content_edit', editArgs)
+      const after = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
+      const editId = (first.data as { id?: string } | null)?.id
+      check('R2: exact edit retry returns one durable request and one activity event',
+        !first.error && !second.error && !!editId && editId === (second.data as { id?: string } | null)?.id
+          && (after.count ?? 0) - (before.count ?? 0) === 1,
+        first.error?.message ?? second.error?.message ?? `id=${editId} delta=${(after.count ?? 0)-(before.count ?? 0)}`)
+      if (!editId) throw new Error('edit request id missing')
+
+      const ownRows = await bClient.from('content_change_requests_client')
+        .select('id,client_id,request_type,status,payload').eq('id', editId)
+      const otherRows = await kansetClient.from('content_change_requests_client').select('id').eq('id', editId)
+      const directWrite = await bClient.from('content_change_requests').insert({
+        client_id: bClientId, request_type: 'create', payload: {}, requester_name: 'forged',
+      })
+      const privateJobRead = await bClient.from('canonical_change_jobs').select('id')
+      const forgedServiceRpc = await bClient.rpc('start_content_request_reconciliation', {
+        p_request_id: editId, p_requested_content_id: null, p_canonical_object_key: null,
+        p_expected_base_commit: null, p_actor_key: 'thedot-admin', p_idempotency_key: editId,
+      })
+      check('R3: request RLS is tenant-only and browser cannot write/read jobs/call service RPCs',
+        !ownRows.error && ownRows.data?.length === 1 && ownRows.data[0].client_id === bClientId
+          && !otherRows.error && otherRows.data?.length === 0 && !!directWrite.error
+          && !!privateJobRead.error && !!forgedServiceRpc.error,
+        ownRows.error?.message ?? otherRows.error?.message ?? directWrite.error?.message
+          ?? privateJobRead.error?.message ?? forgedServiceRpc.error?.message ?? 'unexpected access')
+      check('R4: edit original checksum is server-derived and proposed copy is tenant-visible',
+        typeof ownRows.data?.[0]?.payload?.original_checksum === 'string'
+          && ownRows.data?.[0]?.payload?.proposed_text === 'Prepared request body v2',
+        JSON.stringify(ownRows.data?.[0]?.payload))
+
+      const started = await admin.rpc('start_content_request_reconciliation', {
+        p_request_id: editId, p_requested_content_id: null, p_canonical_object_key: null,
+        p_expected_base_commit: null, p_actor_key: 'thedot-admin', p_idempotency_key: editId,
+      })
+      if (started.error) throw new Error(`start edit reconciliation: ${started.error.message}`)
+      const begin = await admin.rpc('begin_content_revision', {
+        p_content_id: bRequestItemId, p_content_version: 1,
+      })
+      if (begin.error) throw new Error(`begin request revision: ${begin.error.message}`)
+      const editV2 = snapshot(bClientId, B_REQUEST_ID, 2, 'Request workflow v2',
+        'Prepared request body v2', 'caption')
+      editV2.source_commit_sha = '2'.repeat(40)
+      await sync([editV2])
+      const prepared = await admin.rpc('mark_content_request_prepared', {
+        p_request_id: editId, p_commit_sha: '2'.repeat(40), p_actor_key: 'thedot-admin',
+        p_idempotency_key: randomUUID(),
+      })
+      const stillV1 = await bClient.from('content_with_state')
+        .select('version,client_body').eq('id', bRequestItemId).single()
+      const preparedRow = await bClient.from('content_change_requests_client')
+        .select('status,canonical_content_key').eq('id', editId).single()
+      check('R5: prepared edit keeps released v1 body visible while the request stays in progress',
+        !prepared.error && !stillV1.error && stillV1.data?.version === 1
+          && stillV1.data?.client_body === 'Original request body'
+          && preparedRow.data?.status === 'prepared' && preparedRow.data?.canonical_content_key === B_REQUEST_ID,
+        prepared.error?.message ?? stillV1.error?.message ?? JSON.stringify(preparedRow.data))
+      const release = await admin.rpc('mark_content_ready', {
+        p_content_id: bRequestItemId, p_content_version: 2,
+      })
+      const appliedRow = await bClient.from('content_change_requests_client')
+        .select('status,canonical_content_key,canonical_version').eq('id', editId).single()
+      const nowV2 = await bClient.from('content_with_state').select('version,client_body')
+        .eq('id', bRequestItemId).single()
+      check('R6: release gate atomically makes prepared edit applied and links exact v2',
+        !release.error && appliedRow.data?.status === 'applied'
+          && appliedRow.data?.canonical_content_key === B_REQUEST_ID
+          && appliedRow.data?.canonical_version === 2 && nowV2.data?.version === 2
+          && nowV2.data?.client_body === 'Prepared request body v2',
+        release.error?.message ?? appliedRow.error?.message ?? JSON.stringify(nowV2.data))
+    }
+
+    {
+      const createKey = randomUUID()
+      const created = await bClient.rpc('request_content_create', {
+        p_client_id: bClientId, p_title: 'Requested from the portal',
+        p_brief: 'A safe client brief for a new piece.', p_platforms: ['instagram','facebook'],
+        p_desired_date: '2026-07-30', p_notes: null, p_idempotency_key: createKey,
+      })
+      const createId = (created.data as { id?: string } | null)?.id
+      const crossCreate = await bClient.rpc('request_content_create', {
+        p_client_id: kansetClientId, p_title: 'Cross tenant', p_brief: 'Must fail.',
+        p_platforms: ['instagram'], p_desired_date: '2026-07-30', p_notes: null,
+        p_idempotency_key: randomUUID(),
+      })
+      check('R7: create request is tenant-scoped and creates no premature content row',
+        !created.error && !!createId && !!crossCreate.error,
+        created.error?.message ?? crossCreate.error?.message ?? `id=${createId}`)
+      if (!createId) throw new Error('create request id missing')
+      const requestedContentId = `requested-${RUN_ID}`
+      const sourcePath = `${requestedContentId}.md`
+      const started = await admin.rpc('start_content_request_reconciliation', {
+        p_request_id: createId, p_requested_content_id: requestedContentId,
+        p_canonical_object_key: sourcePath, p_expected_base_commit: '3'.repeat(40),
+        p_actor_key: 'thedot-admin', p_idempotency_key: createId,
+      })
+      if (started.error) throw new Error(`start create reconciliation: ${started.error.message}`)
+      const createSnapshot = snapshot(bClientId, requestedContentId, 1,
+        'Requested from the portal', 'Authored and checked body.', 'caption')
+      createSnapshot.source_path = sourcePath
+      createSnapshot.source_commit_sha = '3'.repeat(40)
+      const [createdSync] = await sync([createSnapshot])
+      const prepared = await admin.rpc('mark_content_request_prepared', {
+        p_request_id: createId, p_commit_sha: '3'.repeat(40), p_actor_key: 'thedot-admin',
+        p_idempotency_key: randomUUID(),
+      })
+      const beforeRelease = await bClient.from('content_change_requests_client')
+        .select('status,canonical_content_key').eq('id', createId).single()
+      const hiddenContent = await bClient.from('content_with_state').select('id').eq('id', createdSync.item_id)
+      check('R8: prepared create remains request-visible but new content stays unreleased',
+        !prepared.error && beforeRelease.data?.status === 'prepared'
+          && beforeRelease.data?.canonical_content_key === null && hiddenContent.data?.length === 0,
+        prepared.error?.message ?? JSON.stringify({ request: beforeRelease.data, content: hiddenContent.data }))
+      const release = await admin.rpc('mark_content_ready', {
+        p_content_id: createdSync.item_id, p_content_version: 1,
+      })
+      const applied = await bClient.from('content_change_requests_client')
+        .select('status,canonical_content_key').eq('id', createId).single()
+      check('R9: create request links to canonical content only after explicit release',
+        !release.error && applied.data?.status === 'applied'
+          && applied.data?.canonical_content_key === requestedContentId,
+        release.error?.message ?? JSON.stringify(applied.data))
+
+      const archive = await bClient.rpc('request_content_archive', {
+        p_content_id: createdSync.item_id, p_content_version: 1,
+        p_reason: 'No longer needed.', p_idempotency_key: randomUUID(),
+      })
+      const archiveId = (archive.data as { id?: string } | null)?.id
+      if (!archiveId) throw new Error(`archive request missing: ${archive.error?.message ?? 'no id'}`)
+      const archiveStart = await admin.rpc('start_content_request_reconciliation', {
+        p_request_id: archiveId, p_requested_content_id: null, p_canonical_object_key: null,
+        p_expected_base_commit: null, p_actor_key: 'thedot-admin', p_idempotency_key: archiveId,
+      })
+      const archiveApply = await admin.rpc('apply_content_archive_request', {
+        p_request_id: archiveId, p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const archived = await bClient.from('content_with_state').select('client_state')
+        .eq('id', createdSync.item_id).single()
+      const archivedRequest = await bClient.from('content_change_requests_client')
+        .select('status,resolution_note').eq('id', archiveId).single()
+      check('R10: archive applies only through service reconciliation and retains client history',
+        !archiveStart.error && !archiveApply.error && archived.data?.client_state === 'archived'
+          && archivedRequest.data?.status === 'applied',
+        archiveStart.error?.message ?? archiveApply.error?.message ?? JSON.stringify({ archived: archived.data, request: archivedRequest.data }))
     }
 
     console.log('\n--- Slice 3 scheduling/rescheduling ---')

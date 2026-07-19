@@ -12,6 +12,7 @@ const ITEMS = [
   { label: 'Calendar', seg: 'calendar' },
   { label: 'Plan', seg: 'plan' },
   { label: 'Ideas', seg: 'ideas' },
+  { label: 'Requests', seg: 'requests' },
   { label: 'Strategy', seg: 'strategy' },
   { label: 'Reports', seg: 'reports' },
   { label: 'Library', seg: 'library' },
