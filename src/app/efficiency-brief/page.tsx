@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Get Your Free Business & Website Efficiency Brief",
     description: "Stop guessing. This 10-minute brief is the first step to pinpointing the exact issues on your website and in your workflow that are costing you time and money.",
-    url: "https://thedotcreative.co/efficiency-brief",
+    url: "https://www.thedotcreative.co/efficiency-brief",
     siteName: "The Dot Creative Agency",
     locale: "en_CA",
     type: "website",
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   },
   
   alternates: {
-    canonical: "https://thedotcreative.co/efficiency-brief"
+    canonical: "/efficiency-brief"
   }
 };
 

@@ -6,6 +6,42 @@ const notion = new Client({
   auth: process.env.NOTION_TOKEN,
 });
 
+/**
+ * Published blog posts (slug + last-modified) for the sitemap.
+ * Queries the Notion "Website Blog" database directly so the sitemap always
+ * reflects live content. (The /api/blog/posts endpoint is a stub that returns
+ * fake sample posts, which is what filled the sitemap with dead URLs.)
+ * Uses the blog-specific token/DB. Returns [] if unconfigured or on error.
+ */
+export async function getPublishedBlogSlugs(): Promise<{ slug: string; lastModified: Date }[]> {
+  const token = process.env.NOTION_BLOG_TOKEN;
+  const databaseId = process.env.NOTION_BLOG_DATABASE_ID;
+  if (!token || !databaseId) return [];
+
+  try {
+    const blogClient = new Client({ auth: token });
+    const response = await blogClient.databases.query({
+      database_id: databaseId,
+      filter: { property: 'Status', select: { equals: 'Published' } },
+    });
+
+    return response.results
+      .map((page: any) => {
+        const props = page.properties ?? {};
+        const slug = props.Slug?.rich_text?.[0]?.plain_text?.trim();
+        if (!slug) return null;
+        const dateStr = props.Date?.date?.start;
+        const lastModified = dateStr
+          ? new Date(dateStr)
+          : new Date(page.last_edited_time ?? Date.now());
+        return { slug, lastModified };
+      })
+      .filter((entry): entry is { slug: string; lastModified: Date } => entry !== null);
+  } catch {
+    return [];
+  }
+}
+
 // TypeScript interfaces for Notion API responses
 export interface NotionRichText {
   plain_text: string;

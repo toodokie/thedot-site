@@ -5,6 +5,9 @@ export default function EstimatePage() {
 }
 
 export const metadata = {
-  title: 'Get a Free A La Carte Estimate for Custom Web and Graphic Design | The Dot Creative Agency',
-  description: 'Estimate Your Website Development Project Cost with The Dot Creative Agency.',
+  title: 'Free Web & Graphic Design Estimate | The Dot Creative Agency',
+  description: 'Estimate your custom web and graphic design project cost, à la carte, with The Dot Creative Agency — Ontario web design & branding.',
+  alternates: {
+    canonical: '/estimate',
+  },
 };

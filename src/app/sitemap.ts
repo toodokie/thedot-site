@@ -1,102 +1,48 @@
 import type { MetadataRoute } from 'next';
+import { getPublishedBlogSlugs } from '@/lib/notion';
+import { getProjectSlugs } from '@/lib/projects';
+
+// Re-generate hourly so newly published blog posts appear without a redeploy.
+export const revalidate = 3600;
+
+const baseUrl = 'https://www.thedotcreative.co';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = 'https://www.thedotcreative.co';
-  
-  // Static pages with priority and change frequency
-  const staticPages = [
-    {
-      url: baseUrl,
-      lastModified: new Date(),
-      changeFrequency: 'monthly' as const,
-      priority: 1.0,
-    },
-    {
-      url: `${baseUrl}/contacts`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly' as const,
-      priority: 0.9,
-    },
-    {
-      url: `${baseUrl}/services`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly' as const,
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/brief`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly' as const,
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/estimate`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly' as const,
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/blog`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly' as const,
-      priority: 0.6,
-    }
+  const now = new Date();
+
+  const staticPages: MetadataRoute.Sitemap = [
+    { url: baseUrl, lastModified: now, changeFrequency: 'monthly', priority: 1.0 },
+    { url: `${baseUrl}/services`, lastModified: now, changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${baseUrl}/contacts`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${baseUrl}/brief`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${baseUrl}/estimate`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${baseUrl}/blog`, lastModified: now, changeFrequency: 'weekly', priority: 0.6 },
+    { url: `${baseUrl}/tools/ai-visibility`, lastModified: now, changeFrequency: 'monthly', priority: 0.6 },
   ];
 
-  // Dynamic project pages - get from your projects lib
-  let projectPages: any[] = [];
+  // Project pages — real slugs from the portfolio data (no placeholder fallback).
+  let projectPages: MetadataRoute.Sitemap = [];
   try {
-    // Import your projects function if available
-    const { getProjectSlugs } = await import('@/lib/projects');
-    const projectSlugs = await getProjectSlugs();
-    
-    projectPages = projectSlugs.map((slug: string) => ({
+    const slugs = await getProjectSlugs();
+    projectPages = slugs.map((slug) => ({
       url: `${baseUrl}/projects/${slug}`,
-      lastModified: new Date(),
+      lastModified: now,
       changeFrequency: 'monthly' as const,
       priority: 0.7,
     }));
-  } catch (error) {
-    // Fallback: add known project slugs manually if projects lib not ready
-    const knownProjects = ['capital-3', 'giardino-flower-shop', 'lido', 'creative-design', 'test-project'];
-    projectPages = knownProjects.map((slug: string) => ({
-      url: `${baseUrl}/projects/${slug}`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly' as const,
-      priority: 0.7,
-    }));
+  } catch {
+    projectPages = [];
   }
 
-  // Dynamic blog pages
-  let blogPages: any[] = [];
-  try {
-    // Try to get blog posts from API or static data
-    const response = await fetch(`${baseUrl}/api/blog/posts`);
-    if (response.ok) {
-      const data = await response.json();
-      blogPages = data.posts.map((post: any) => ({
-        url: `${baseUrl}/blog/${post.slug}`,
-        lastModified: new Date(post.date || new Date()),
-        changeFrequency: 'monthly' as const,
-        priority: 0.6,
-      }));
-    }
-  } catch (error) {
-    // Fallback: add sample blog posts if API not ready
-    const sampleBlogSlugs = [
-      'gta-small-business-website-mistakes',
-      'the-power-of-visual-storytelling', 
-      'responsive-design-best-practices',
-      'color-psychology-in-branding',
-      'future-of-web-design'
-    ];
-    blogPages = sampleBlogSlugs.map((slug: string) => ({
-      url: `${baseUrl}/blog/${slug}`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly' as const,
-      priority: 0.6,
-    }));
-  }
+  // Blog posts — real published posts straight from Notion.
+  // (Never emit hardcoded placeholder slugs; a broken source yields [] instead of 404s.)
+  const posts = await getPublishedBlogSlugs();
+  const blogPages: MetadataRoute.Sitemap = posts.map(({ slug, lastModified }) => ({
+    url: `${baseUrl}/blog/${slug}`,
+    lastModified,
+    changeFrequency: 'monthly' as const,
+    priority: 0.6,
+  }));
 
   return [...staticPages, ...projectPages, ...blogPages];
 }
