@@ -1139,6 +1139,46 @@ async function main(): Promise<void> {
     }
 
     {
+      // 0015 notifications: create a client in_app row and an agency email row for B via the
+      // service-role enqueue RPC (activity_log is write-only through definer RPCs, even for the
+      // service role), then prove RLS visibility + authz.
+      const encClient = await admin.rpc('portal_enqueue_notification', {
+        p_client_id: bClientId, p_recipient_kind: 'client', p_channel: 'in_app',
+        p_source_kind: 'activity', p_source_id: randomUUID(), p_subject: 'N client alert',
+        p_body: 'x', p_related_url: null,
+      })
+      const encAgency = await admin.rpc('portal_enqueue_notification', {
+        p_client_id: bClientId, p_recipient_kind: 'agency', p_channel: 'email',
+        p_source_kind: 'activity', p_source_id: randomUUID(), p_subject: 'N agency alert',
+        p_body: 'x', p_related_url: null,
+      })
+      const bSees = await bClient.from('notification_outbox').select('id,channel,recipient_kind,client_id,subject')
+      const bRows = (bSees.data ?? []) as Array<{ id: string; channel: string; recipient_kind: string; client_id: string; subject: string }>
+      const firstId = bRows[0]?.id ?? '00000000-0000-0000-0000-000000000000'
+      check('N1: client sees only its own in_app client-recipient notifications (never email/agency)',
+        !encClient.error && !encAgency.error && !bSees.error
+          && bRows.some((r) => r.subject === 'N client alert')
+          && bRows.every((r) => r.channel === 'in_app' && r.recipient_kind === 'client' && r.client_id === bClientId)
+          && !bRows.some((r) => r.subject === 'N agency alert'),
+        encClient.error?.message ?? encAgency.error?.message ?? bSees.error?.message
+          ?? JSON.stringify(bRows.map((r) => `${r.recipient_kind}/${r.channel}`)))
+      const kSees = await kansetClient.from('notification_outbox').select('id').eq('client_id', bClientId)
+      check('N2: cross-tenant cannot see B notifications',
+        !kSees.error && (kSees.data ?? []).length === 0,
+        kSees.error?.message ?? `rows=${(kSees.data ?? []).length}`)
+      const claim = await bClient.rpc('claim_notification_batch', { p_worker: 'x', p_limit: 1, p_claim_seconds: 60 })
+      const mark = await bClient.rpc('mark_notification_failed',
+        { p_id: firstId, p_claim_token: 1, p_error: 'x', p_max_attempts: 3 })
+      check('N3: client denied the service-role consumer RPCs', !!claim.error && !!mark.error,
+        `${claim.error?.message ?? 'NO CLAIM ERROR'} / ${mark.error?.message ?? 'NO MARK ERROR'}`)
+      const seen = await bClient.rpc('mark_notification_seen', { p_id: firstId })
+      const afterSeen = await bClient.from('notification_outbox').select('seen_at').eq('id', firstId).maybeSingle()
+      const seenAt = (afterSeen.data as { seen_at?: string } | null)?.seen_at ?? null
+      check('N4: client marks its own notification seen', !seen.error && !!seenAt,
+        seen.error?.message ?? (seenAt ? `seen_at=${seenAt}` : 'seen_at NOT set'))
+    }
+
+    {
       const stop = await admin.rpc('set_portal_feature_switch', {
         p_client_id: bClientId, p_feature: 'client_mutations', p_enabled: false,
         p_reason: 'Exercise emergency tenant stop', p_actor_key: 'thedot-admin',

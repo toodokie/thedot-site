@@ -1,11 +1,9 @@
 'use server'
-import { after } from 'next/server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { getClientSession } from '@/lib/portal/auth'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { getContentItem } from '@/lib/portal/data'
-import { notifyDecision } from '@/lib/portal/notify'
 
 // Strict: a missing field or a File is null, not the strings "null" / "[object File]".
 function textField(data: FormData, key: string): string | null {
@@ -40,15 +38,8 @@ export async function decide(formData: FormData): Promise<{ error?: string }> {
   })
   if (error) return { error: 'Could not save your decision. Please try again.' }
 
-  // Notify The Dot AFTER the response is sent, so a slow SMTP server never stalls the decision.
-  after(() => notifyDecision({
-    actorName: session.name ?? session.email,
-    decision,
-    title: item.title,
-    note: note || null,
-    slug,
-    contentId,
-  }))
+  // Alerts (email to The Dot + in-app) are enqueued transactionally by the 0015 notification trigger
+  // on the activity_log row this RPC writes, then delivered by the notification consumer. No inline send.
 
   revalidatePath(`/client/${slug}`)
   redirect(`/client/${slug}`)

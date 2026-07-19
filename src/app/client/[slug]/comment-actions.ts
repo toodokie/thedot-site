@@ -1,11 +1,9 @@
 'use server'
-import { after } from 'next/server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { getClientSession } from '@/lib/portal/auth'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { getContentItem } from '@/lib/portal/data'
-import { notifyComment } from '@/lib/portal/notify'
 
 // Strict: a missing field or a File is null, not the strings "null" / "[object File]".
 function textField(data: FormData, key: string): string | null {
@@ -44,15 +42,8 @@ export async function addComment(formData: FormData): Promise<{ error?: string }
   })
   if (error) return { error: 'Could not post your comment. Please try again.' }
 
-  // Notify The Dot AFTER the response is sent, so a slow SMTP server never stalls the comment.
-  after(() => notifyComment({
-    actorName: session.name ?? session.email,
-    title: item.title,
-    body,
-    quotedText: quotedText || null,
-    slug,
-    contentId,
-  }))
+  // Alerts are enqueued transactionally by the 0015 comment trigger on the comment row this RPC
+  // writes, then delivered by the notification consumer. No inline send (avoids duplicate alerts).
 
   // Re-render the piece page in place (no redirect; the thread reappears with the new comment).
   revalidatePath(`/client/${slug}/piece/${contentId}`)
