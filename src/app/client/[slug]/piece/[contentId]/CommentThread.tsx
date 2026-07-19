@@ -15,7 +15,14 @@ const quoteBox = {
   color: 'var(--dot-graphite)', whiteSpace: 'pre-wrap' as const,
 }
 
-export default function CommentThread({ slug, contentId, comments }: { slug: string; contentId: string; comments: CommentRow[] }) {
+export default function CommentThread({
+  slug, contentId, comments, canComment,
+}: {
+  slug: string
+  contentId: string
+  comments: CommentRow[]
+  canComment: boolean
+}) {
   const [state, action] = useActionState(async (_p: { error?: string }, fd: FormData) => addComment(fd), {})
   const [quote, setQuote] = useState<{ text: string; blockKey: string } | null>(null)
   const [selection, setSelection] = useState<{ text: string; blockKey: string } | null>(null)
@@ -33,6 +40,7 @@ export default function CommentThread({ slug, contentId, comments }: { slug: str
 
   // Offer "comment on the selected text" only when the selection is inside the copy area (#piece-copy).
   useEffect(() => {
+    if (!canComment) return
     function onSel() {
       const sel = window.getSelection()
       const text = sel?.toString().trim() ?? ''
@@ -44,7 +52,7 @@ export default function CommentThread({ slug, contentId, comments }: { slug: str
     }
     document.addEventListener('selectionchange', onSel)
     return () => document.removeEventListener('selectionchange', onSel)
-  }, [])
+  }, [canComment])
 
   return (
     <div style={{ marginTop: 44 }}>
@@ -77,13 +85,13 @@ export default function CommentThread({ slug, contentId, comments }: { slug: str
         })}
       </div>
 
-      {selection && (quote?.text !== selection.text || quote.blockKey !== selection.blockKey) && (
+      {canComment && selection && (quote?.text !== selection.text || quote.blockKey !== selection.blockKey) && (
         <div style={{ marginTop: 16 }}>
           <Button as="button" variant="yellow" size="sm" onClick={() => setQuote(selection)}>Comment on the selected text</Button>
         </div>
       )}
 
-      <form ref={formRef} action={action} style={{ marginTop: 16, borderTop: '1px solid var(--dot-hairline)', paddingTop: 16 }}>
+      {canComment ? <form ref={formRef} action={action} style={{ marginTop: 16, borderTop: '1px solid var(--dot-hairline)', paddingTop: 16 }}>
         <input type="hidden" name="slug" value={slug} />
         <input type="hidden" name="contentId" value={contentId} />
         <input type="hidden" name="quotedText" value={quote?.text ?? ''} />
@@ -99,7 +107,11 @@ export default function CommentThread({ slug, contentId, comments }: { slug: str
           aria-describedby={state?.error ? 'comment-error' : undefined} />
         {state?.error && <p id="comment-error" role="alert" style={{ color: '#c0392b', margin: '8px 0 0' }}>{state.error}</p>}
         <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}><SubmitBtn /></div>
-      </form>
+      </form> : (
+        <div style={{ marginTop: 16, borderTop: '1px solid var(--dot-hairline)', paddingTop: 16 }}>
+          <Text size="sm" tone="grey">Comments are read-only for your account.</Text>
+        </div>
+      )}
     </div>
   )
 }

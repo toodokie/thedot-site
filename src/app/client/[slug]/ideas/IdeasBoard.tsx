@@ -27,7 +27,7 @@ function statusClass(status: string): string {
 // server revalidates and hands this card a fresh `idea` prop, so a changed updated_at is our signal
 // the save landed (mirrors how the comment thread watches the server-provided data change). We then
 // close the editor.
-function IdeaCard({ slug, idea }: { slug: string; idea: IdeaRow }) {
+function IdeaCard({ slug, idea, canSubmit }: { slug: string; idea: IdeaRow; canSubmit: boolean }) {
   const [state, action] = useActionState(async (_p: { error?: string }, fd: FormData) => editIdea(fd), {})
   const [editing, setEditing] = useState(false)
   const prevUpdated = useRef(idea.updated_at)
@@ -69,9 +69,9 @@ function IdeaCard({ slug, idea }: { slug: string; idea: IdeaRow }) {
         <div className={styles.cardTitle}>
           <Text as="div" size="md" tone="black"><strong>{idea.title}</strong></Text>
         </div>
-        <div className={styles.cardTools}>
+        {canSubmit && <div className={styles.cardTools}>
           <Button as="button" type="button" variant="ghost" size="sm" onClick={() => setEditing(true)}>Edit</Button>
-        </div>
+        </div>}
       </div>
 
       {idea.body && (
@@ -87,7 +87,7 @@ function IdeaCard({ slug, idea }: { slug: string; idea: IdeaRow }) {
   )
 }
 
-export default function IdeasBoard({ slug, ideas }: { slug: string; ideas: IdeaRow[] }) {
+export default function IdeasBoard({ slug, ideas, canSubmit }: { slug: string; ideas: IdeaRow[]; canSubmit: boolean }) {
   const [state, action] = useActionState(async (_p: { error?: string }, fd: FormData) => addIdea(fd), {})
   const formRef = useRef<HTMLFormElement>(null)
   const prevCount = useRef(ideas.length)
@@ -100,7 +100,7 @@ export default function IdeasBoard({ slug, ideas }: { slug: string; ideas: IdeaR
 
   return (
     <div>
-      <section className={styles.panel}>
+      {canSubmit ? <section className={styles.panel}>
         <div className={styles.panelHead}><Eyebrow tone="grey">Add an idea</Eyebrow></div>
         <form ref={formRef} action={action}>
           <input type="hidden" name="slug" value={slug} />
@@ -119,7 +119,11 @@ export default function IdeasBoard({ slug, ideas }: { slug: string; ideas: IdeaR
             <SubmitBtn label="Add idea" pendingLabel="Adding…" />
           </div>
         </form>
-      </section>
+      </section> : (
+        <section className={styles.panel}>
+          <Text size="sm" tone="grey">The idea board is read-only for your account.</Text>
+        </section>
+      )}
 
       <div className={styles.cards}>
         {ideas.length === 0 ? (
@@ -127,7 +131,7 @@ export default function IdeasBoard({ slug, ideas }: { slug: string; ideas: IdeaR
             <Text size="md" tone="graphite">No ideas yet. Add the first one.</Text>
           </div>
         ) : (
-          ideas.map((idea) => <IdeaCard key={idea.id} slug={slug} idea={idea} />)
+          ideas.map((idea) => <IdeaCard key={idea.id} slug={slug} idea={idea} canSubmit={canSubmit} />)
         )}
       </div>
     </div>

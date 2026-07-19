@@ -12,6 +12,19 @@ begin
   insert into public.client_users(client_id,auth_user_id,email,name)
     values(v_client,v_contact,'slice6-contact@example.com','Maria Test');
 
+  if pg_catalog.to_regprocedure('public.set_portal_feature_switch(uuid,text,boolean,text,text,text)') is not null then
+    execute 'update public.client_users set can_decide=true where client_id=$1 and auth_user_id=$2'
+      using v_client,v_contact;
+    execute 'select public.set_portal_feature_switch(null,$1,true,$2,$3,$4)'
+      using 'client_portal_launch','Synthetic agency assertion','thedot-admin','test-0011-global-launch';
+    execute 'select public.set_portal_feature_switch($1,$2,true,$3,$4,$5)'
+      using v_client,'client_portal_launch','Synthetic agency assertion','thedot-admin','test-0011-tenant-launch';
+    execute 'select public.set_portal_feature_switch(null,$1,true,$2,$3,$4)'
+      using 'client_mutations','Synthetic agency assertion','thedot-admin','test-0011-global-mutations';
+    execute 'select public.set_portal_feature_switch($1,$2,true,$3,$4,$5)'
+      using v_client,'client_mutations','Synthetic agency assertion','thedot-admin','test-0011-tenant-mutations';
+  end if;
+
   set local role service_role;
   v_rec:=public.upsert_portal_recommendation(v_client,'test:rec','Safe title','Safe body',
     'content','instagram','strategy_review','private:test',

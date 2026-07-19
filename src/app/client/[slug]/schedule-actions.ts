@@ -23,6 +23,9 @@ export async function requestScheduleChange(formData: FormData): Promise<{ error
 
   const session = await getClientSession(slug)
   if (!session) redirect('/client/login')
+  if (!session.canManageSchedule) {
+    return { error: 'You do not have permission to change the schedule.' }
+  }
   const item = await getContentItem(session.clientId, contentId)
   if (!item) return { error: 'That piece is no longer available.' }
   if (!['approved', 'partially_scheduled', 'schedule_failed', 'scheduled'].includes(item.state)) {

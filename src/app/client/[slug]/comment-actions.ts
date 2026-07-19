@@ -24,6 +24,7 @@ export async function addComment(formData: FormData): Promise<{ error?: string }
 
   const session = await getClientSession(slug)
   if (!session) redirect('/client/login')
+  if (!session.canComment) return { error: 'You do not have permission to add comments.' }
 
   if (!body) return { error: 'Please write a comment before sending.' }
   if (body.length > 4000) return { error: 'That comment is too long (4000 characters max).' }

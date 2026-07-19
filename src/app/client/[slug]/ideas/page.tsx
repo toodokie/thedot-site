@@ -23,7 +23,7 @@ export default async function IdeasPage({ params }: { params: Promise<{ slug: st
         </Text>
       </div>
 
-      <IdeasBoard slug={slug} ideas={ideas} />
+      <IdeasBoard slug={slug} ideas={ideas} canSubmit={session.canSubmitRequests} />
     </div>
   )
 }

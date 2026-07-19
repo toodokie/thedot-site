@@ -19,6 +19,7 @@ export async function addIdea(formData: FormData): Promise<{ error?: string }> {
 
   const session = await getClientSession(slug)
   if (!session) redirect('/client/login')
+  if (!session.canSubmitRequests) return { error: 'You do not have permission to submit ideas.' }
 
   if (!title) return { error: 'Please add a short title for your idea.' }
   if (title.length > 300) return { error: 'That title is too long (300 characters max).' }
@@ -47,6 +48,7 @@ export async function editIdea(formData: FormData): Promise<{ error?: string }> 
 
   const session = await getClientSession(slug)
   if (!session) redirect('/client/login')
+  if (!session.canSubmitRequests) return { error: 'You do not have permission to edit ideas.' }
 
   if (!title) return { error: 'Please add a short title for your idea.' }
   if (title.length > 300) return { error: 'That title is too long (300 characters max).' }

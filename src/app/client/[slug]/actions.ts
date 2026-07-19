@@ -23,6 +23,7 @@ export async function decide(formData: FormData): Promise<{ error?: string }> {
 
   const session = await getClientSession(slug)
   if (!session) redirect('/client/login')
+  if (!session.canDecide) return { error: 'You do not have permission to approve this piece.' }
   if (decision !== 'approved' && decision !== 'change_requested') return { error: 'Invalid action.' }
   if (decision === 'change_requested' && !note) return { error: 'Please add a note describing the change.' }
   if (note.length > 2000) return { error: 'That note is too long (2000 characters max).' }

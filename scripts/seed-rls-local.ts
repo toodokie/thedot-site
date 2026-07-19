@@ -1,6 +1,7 @@
 // Local-only baseline for scripts/test-rls.ts. Refuses non-loopback Supabase URLs so this helper
 // cannot seed production accidentally. The disposable database must already have migrations 0001–0008.
 import { createClient } from '@supabase/supabase-js'
+import { randomUUID } from 'node:crypto'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -32,13 +33,37 @@ async function main() {
     user = data.user
   }
 
-  const { error: membershipError } = await admin.rpc('upsert_client_membership', {
+  const { error: membershipError } = await admin.rpc('upsert_portal_membership', {
     p_client_id: client.id,
     p_auth_user_id: user.id,
     p_email: EMAIL,
     p_name: 'RLS Kanset Baseline',
+    p_can_decide: true,
+    p_can_comment: true,
+    p_can_submit_requests: true,
+    p_can_manage_schedule: true,
+    p_can_use_assistant: false,
+    p_actor_key: 'thedot-admin',
+    p_idempotency_key: `local-membership-${randomUUID()}`,
   })
   if (membershipError) throw new Error(`membership provision: ${membershipError.message}`)
+
+  for (const [scope, feature] of [
+    [null, 'client_portal_launch'],
+    [client.id, 'client_portal_launch'],
+    [null, 'client_mutations'],
+    [client.id, 'client_mutations'],
+  ] as const) {
+    const { error } = await admin.rpc('set_portal_feature_switch', {
+      p_client_id: scope,
+      p_feature: feature,
+      p_enabled: true,
+      p_reason: 'Loopback-only RLS test baseline',
+      p_actor_key: 'thedot-admin',
+      p_idempotency_key: `local-switch-${randomUUID()}`,
+    })
+    if (error) throw new Error(`enable ${feature}: ${error.message}`)
+  }
 
   const { data: released, error: releasedError } = await admin
     .from('content_with_state').select('id').eq('client_id', client.id).limit(1)

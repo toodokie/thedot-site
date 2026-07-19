@@ -33,6 +33,21 @@ select id,'00000000-0000-0000-0000-000000000901',
   'publication-probe@example.com','Publication Probe'
 from public.clients where slug='kanset';
 
+do $$ declare v_client uuid:=(select id from public.clients where slug='kanset'); begin
+  if pg_catalog.to_regprocedure('public.set_portal_feature_switch(uuid,text,boolean,text,text,text)') is not null then
+    execute 'update public.client_users set can_decide=true where client_id=$1 and auth_user_id=$2'
+      using v_client,'00000000-0000-0000-0000-000000000901'::uuid;
+    execute 'select public.set_portal_feature_switch(null,$1,true,$2,$3,$4)'
+      using 'client_portal_launch','Synthetic publication assertion','thedot-admin','test-0009-global-launch';
+    execute 'select public.set_portal_feature_switch($1,$2,true,$3,$4,$5)'
+      using v_client,'client_portal_launch','Synthetic publication assertion','thedot-admin','test-0009-tenant-launch';
+    execute 'select public.set_portal_feature_switch(null,$1,true,$2,$3,$4)'
+      using 'client_mutations','Synthetic publication assertion','thedot-admin','test-0009-global-mutations';
+    execute 'select public.set_portal_feature_switch($1,$2,true,$3,$4,$5)'
+      using v_client,'client_mutations','Synthetic publication assertion','thedot-admin','test-0009-tenant-mutations';
+  end if;
+end $$;
+
 set role service_role;
 select public.sync_content_item_versions(pg_catalog.jsonb_build_array(
   pg_catalog.jsonb_build_object(

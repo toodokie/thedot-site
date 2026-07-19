@@ -91,6 +91,23 @@ select id, '00000000-0000-0000-0000-000000000801',
   'schedule-probe@example.com', 'Schedule Probe'
 from public.clients where slug = 'kanset';
 
+-- When replayed against the later access-control slice, explicitly enable this synthetic actor.
+-- Dynamic SQL keeps the historical 0008-only replay valid before those objects exist.
+do $$ declare v_client uuid:=(select id from public.clients where slug='kanset'); begin
+  if pg_catalog.to_regprocedure('public.set_portal_feature_switch(uuid,text,boolean,text,text,text)') is not null then
+    execute 'update public.client_users set can_decide=true,can_manage_schedule=true where client_id=$1 and auth_user_id=$2'
+      using v_client,'00000000-0000-0000-0000-000000000801'::uuid;
+    execute 'select public.set_portal_feature_switch(null,$1,true,$2,$3,$4)'
+      using 'client_portal_launch','Synthetic scheduling assertion','thedot-admin','test-0008-global-launch';
+    execute 'select public.set_portal_feature_switch($1,$2,true,$3,$4,$5)'
+      using v_client,'client_portal_launch','Synthetic scheduling assertion','thedot-admin','test-0008-tenant-launch';
+    execute 'select public.set_portal_feature_switch(null,$1,true,$2,$3,$4)'
+      using 'client_mutations','Synthetic scheduling assertion','thedot-admin','test-0008-global-mutations';
+    execute 'select public.set_portal_feature_switch($1,$2,true,$3,$4,$5)'
+      using v_client,'client_mutations','Synthetic scheduling assertion','thedot-admin','test-0008-tenant-mutations';
+  end if;
+end $$;
+
 set role service_role;
 
 select public.sync_content_item_versions(pg_catalog.jsonb_build_array(

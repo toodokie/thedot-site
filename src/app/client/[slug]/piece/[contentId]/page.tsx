@@ -74,16 +74,20 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
         plannedDate={item.planned_date}
         targets={schedule.targets}
         requests={schedule.requests}
-        canRequest={['approved', 'partially_scheduled', 'schedule_failed', 'scheduled'].includes(item.state)}
+        canRequest={session.canManageSchedule
+          && ['approved', 'partially_scheduled', 'schedule_failed', 'scheduled'].includes(item.state)}
       />
 
       <PublicationPanel targets={publication} />
 
-      {item.state === 'needs_review'
+      {item.state === 'needs_review' && session.canDecide
         ? <DecideForm slug={slug} contentId={item.content_id} />
-        : <Text tone="grey">This piece is {item.state === 'with_dot' ? 'back with The Dot' : item.state}.</Text>}
+        : item.state !== 'needs_review'
+          ? <Text tone="grey">This piece is {item.state === 'with_dot' ? 'back with The Dot' : item.state}.</Text>
+          : <Text tone="grey">This piece is waiting for the primary decision-maker.</Text>}
 
-      <CommentThread slug={slug} contentId={item.content_id} comments={comments} />
+      <CommentThread slug={slug} contentId={item.content_id} comments={comments}
+        canComment={session.canComment} />
     </div>
   )
 }

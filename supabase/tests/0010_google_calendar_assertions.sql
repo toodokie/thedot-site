@@ -15,6 +15,14 @@ end;
 $$;
 
 set role service_role;
+do $$ declare v_client uuid:=(select id from public.clients where slug='kanset'); begin
+  if pg_catalog.to_regprocedure('public.set_portal_feature_switch(uuid,text,boolean,text,text,text)') is not null then
+    perform public.set_portal_feature_switch(null,'cron_drain',true,
+      'Synthetic calendar assertion','thedot-admin','test-0010-global-cron');
+    perform public.set_portal_feature_switch(v_client,'cron_drain',true,
+      'Synthetic calendar assertion','thedot-admin','test-0010-tenant-cron');
+  end if;
+end $$;
 insert into public.calendar_credentials(id,client_id,ciphertext,iv,auth_tag)
 select '10000000-0000-4000-8000-000000000010',id,repeat('x',40),repeat('a',16),repeat('b',16)
 from public.clients where slug='kanset';

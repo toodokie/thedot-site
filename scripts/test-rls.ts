@@ -23,6 +23,7 @@ const SERVICE_KEY = rawService
 const RUN_ID = randomUUID().slice(0, 8)
 const B_SLUG = `rls-test-${RUN_ID}`
 const B_EMAIL = `rls-test-${RUN_ID}@example.com`
+const B_VIEWER_EMAIL = `rls-viewer-${RUN_ID}@example.com`
 const B_CONTENT_ID = 'rls-test-piece'
 const B_LEAK_ID = 'rls-test-leak'
 const B_HIDDEN_ID = 'rls-test-hidden'
@@ -115,6 +116,7 @@ async function sync(items: Record<string, unknown>[]): Promise<SyncResult[]> {
 async function main(): Promise<void> {
   let bClientId: string | null = null
   let bUserId: string | null = null
+  let bViewerUserId: string | null = null
   try {
     const { data: kanset, error: kansetError } = await admin
       .from('clients').select('id').eq('slug', KANSET_SLUG).single()
@@ -143,21 +145,85 @@ async function main(): Promise<void> {
     if (userError || !createdUser.user) throw new Error(`create user B: ${userError?.message ?? 'missing'}`)
     bUserId = createdUser.user.id
 
-    const { error: membershipError } = await admin.rpc('upsert_client_membership', {
+    const { error: membershipError } = await admin.rpc('upsert_portal_membership', {
       p_client_id: bClientId,
       p_auth_user_id: bUserId,
       p_email: B_EMAIL,
       p_name: 'RLS Test B',
+      p_can_decide: true,
+      p_can_comment: true,
+      p_can_submit_requests: true,
+      p_can_manage_schedule: true,
+      p_can_use_assistant: false,
+      p_actor_key: 'thedot-admin',
+      p_idempotency_key: `rls-primary-${RUN_ID}`,
     })
     if (membershipError) throw new Error(`membership B: ${membershipError.message}`)
-    const forgedMembership = await admin.rpc('upsert_client_membership', {
+    const forgedMembership = await admin.rpc('upsert_portal_membership', {
       p_client_id: bClientId,
       p_auth_user_id: bUserId,
       p_email: 'different@example.com',
       p_name: 'Wrong identity',
+      p_can_decide: true,
+      p_can_comment: true,
+      p_can_submit_requests: true,
+      p_can_manage_schedule: true,
+      p_can_use_assistant: false,
+      p_actor_key: 'thedot-admin',
+      p_idempotency_key: `rls-forged-${RUN_ID}`,
     })
     check('S-1: membership RPC rejects an email/auth-user mismatch', !!forgedMembership.error,
       forgedMembership.error?.message ?? 'NO ERROR')
+
+    const { data: viewerUser, error: viewerError } = await admin.auth.admin.createUser({
+      email: B_VIEWER_EMAIL,
+      email_confirm: true,
+    })
+    if (viewerError || !viewerUser.user) {
+      throw new Error(`create viewer B: ${viewerError?.message ?? 'missing'}`)
+    }
+    bViewerUserId = viewerUser.user.id
+    const viewerMembership = await admin.rpc('upsert_portal_membership', {
+      p_client_id: bClientId,
+      p_auth_user_id: bViewerUserId,
+      p_email: B_VIEWER_EMAIL,
+      p_name: 'RLS Test Viewer',
+      p_can_decide: false,
+      p_can_comment: false,
+      p_can_submit_requests: false,
+      p_can_manage_schedule: false,
+      p_can_use_assistant: false,
+      p_actor_key: 'thedot-admin',
+      p_idempotency_key: `rls-viewer-${RUN_ID}`,
+    })
+    if (viewerMembership.error) throw new Error(`viewer membership: ${viewerMembership.error.message}`)
+
+    const preLaunchClient = clientForToken(await tokenFor(B_EMAIL))
+    const disabledSession = await preLaunchClient.rpc('portal_client_session', { p_slug: B_SLUG })
+    const disabledWrite = await preLaunchClient.rpc('add_idea', {
+      p_client_id: bClientId, p_title: 'must not be written', p_body: null,
+    })
+    check('A0: default-off launch returns no session and rejects direct mutation RPC',
+      !disabledSession.error && (disabledSession.data as unknown[] | null)?.length === 0
+        && !!disabledWrite.error,
+      disabledSession.error?.message ?? disabledWrite.error?.message ?? 'unexpected access')
+
+    for (const [scope, feature, key] of [
+      [null, 'client_portal_launch', `rls-global-launch-${RUN_ID}`],
+      [bClientId, 'client_portal_launch', `rls-tenant-launch-${RUN_ID}`],
+      [null, 'client_mutations', `rls-global-mutations-${RUN_ID}`],
+      [bClientId, 'client_mutations', `rls-tenant-mutations-${RUN_ID}`],
+    ] as const) {
+      const enabled = await admin.rpc('set_portal_feature_switch', {
+        p_client_id: scope,
+        p_feature: feature,
+        p_enabled: true,
+        p_reason: 'Disposable RLS integration test',
+        p_actor_key: 'thedot-admin',
+        p_idempotency_key: key,
+      })
+      if (enabled.error) throw new Error(`enable ${feature}: ${enabled.error.message}`)
+    }
 
     const initial = await sync([
       snapshot(bClientId, B_CONTENT_ID, 1, 'Visible main v1', 'Visible main body', 'main'),
@@ -198,9 +264,47 @@ async function main(): Promise<void> {
 
     const kansetToken = await tokenFor(KANSET_EMAIL)
     const bToken = await tokenFor(B_EMAIL)
+    const bViewerToken = await tokenFor(B_VIEWER_EMAIL)
     const kansetClient = clientForToken(kansetToken)
     const bClient = clientForToken(bToken)
+    const bViewerClient = clientForToken(bViewerToken)
     const anonClient = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false } })
+
+    const activeSession = await bClient.rpc('portal_client_session', { p_slug: B_SLUG })
+    check('A1: enabled launch resolves only the caller membership and capabilities',
+      !activeSession.error && activeSession.data?.length === 1
+        && activeSession.data[0].client_id === bClientId
+        && activeSession.data[0].can_decide === true,
+      activeSession.error?.message ?? JSON.stringify(activeSession.data))
+
+    const viewerRead = await bViewerClient.from('content_with_state').select('client_id')
+    const viewerIdea = await bViewerClient.rpc('add_idea', {
+      p_client_id: bClientId, p_title: 'forbidden viewer idea', p_body: null,
+    })
+    const viewerComment = await bViewerClient.rpc('add_comment', {
+      p_content_id: bItemId, p_body: 'forbidden viewer comment', p_quoted_text: null,
+      p_copy_block_key: null,
+    })
+    const viewerDecision = await bViewerClient.rpc('record_content_decision', {
+      p_content_id: bItemId, p_content_version: 1, p_decision: 'approved', p_note: null,
+    })
+    const viewerPlan = await bViewerClient.rpc('set_content_plan', {
+      p_content_id: bItemId, p_content_version: 1, p_planned_date: '2027-07-21',
+      p_idempotency_key: `viewer-plan-${RUN_ID}`,
+    })
+    const viewerReschedule = await bViewerClient.rpc('request_content_reschedule', {
+      p_content_id: bItemId, p_content_version: 1, p_requested_local: '2027-07-21 10:00:00',
+      p_timezone: 'America/Toronto', p_utc_offset_minutes: -240,
+      p_idempotency_key: `viewer-reschedule-${RUN_ID}`,
+    })
+    check('A2: same-tenant viewer can read but cannot idea/comment/decide/schedule',
+      !viewerRead.error && viewerRead.data?.length === 2
+        && viewerRead.data.every((row) => row.client_id === bClientId)
+        && !!viewerIdea.error && !!viewerComment.error && !!viewerDecision.error
+        && !!viewerPlan.error && !!viewerReschedule.error,
+      viewerRead.error?.message ?? viewerIdea.error?.message ?? viewerComment.error?.message
+        ?? viewerDecision.error?.message ?? viewerPlan.error?.message
+        ?? viewerReschedule.error?.message ?? 'unexpected capability')
 
     console.log('\n--- Slice 1 release/RLS assertions ---')
 
@@ -846,12 +950,56 @@ async function main(): Promise<void> {
       })
       check('D10: direct authenticated idea write is rejected', !!direct.error, direct.error?.message ?? 'NO ERROR')
     }
+
+    {
+      const stop = await admin.rpc('set_portal_feature_switch', {
+        p_client_id: bClientId, p_feature: 'client_mutations', p_enabled: false,
+        p_reason: 'Exercise emergency tenant stop', p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-stop-${RUN_ID}`,
+      })
+      const before = await admin.from('content_ideas').select('id', { count: 'exact', head: true })
+        .eq('client_id', bClientId)
+      const blocked = await bClient.rpc('add_idea', {
+        p_client_id: bClientId, p_title: 'blocked after stop', p_body: null,
+      })
+      const after = await admin.from('content_ideas').select('id', { count: 'exact', head: true })
+        .eq('client_id', bClientId)
+      check('A3: tenant mutation kill switch rejects before any write', !stop.error
+        && !!blocked.error && before.count === after.count,
+      stop.error?.message ?? blocked.error?.message ?? `before=${before.count} after=${after.count}`)
+
+      const secondDecider = await admin.rpc('upsert_portal_membership', {
+        p_client_id: bClientId, p_auth_user_id: bViewerUserId, p_email: B_VIEWER_EMAIL,
+        p_name: 'RLS Test Viewer', p_can_decide: true, p_can_comment: false,
+        p_can_submit_requests: false, p_can_manage_schedule: false, p_can_use_assistant: false,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-second-decider-${RUN_ID}`,
+      })
+      check('A4: database rejects a second primary decision-maker', !!secondDecider.error,
+        secondDecider.error?.message ?? 'NO ERROR')
+      const transfer = await admin.rpc('transfer_portal_primary_decider', {
+        p_client_id: bClientId, p_from_auth_user_id: bUserId, p_to_auth_user_id: bViewerUserId,
+        p_reason: 'Exercise atomic test transfer', p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-transfer-${RUN_ID}`,
+      })
+      const deciders = await admin.rpc('list_portal_access')
+      const activeDeciders = ((deciders.data ?? []) as Array<{
+        client_id: string
+        auth_user_id: string
+        can_decide: boolean
+      }>).filter((row) =>
+        row.client_id === bClientId && row.can_decide === true)
+      check('A5: explicit transfer atomically preserves one primary decision-maker',
+        !transfer.error && !deciders.error && activeDeciders.length === 1
+          && activeDeciders[0].auth_user_id === bViewerUserId,
+        transfer.error?.message ?? deciders.error?.message ?? JSON.stringify(activeDeciders))
+    }
   } finally {
     console.log('\n--- Cleanup ---')
     if (bClientId) {
       console.log(`cleanup: disposable tenant ${B_SLUG} remains until the local/staging database reset`)
     }
     if (bUserId) console.log(`cleanup: disposable Auth user ${B_EMAIL} remains until database reset`)
+    if (bViewerUserId) console.log(`cleanup: disposable Auth user ${B_VIEWER_EMAIL} remains until database reset`)
   }
 }
 

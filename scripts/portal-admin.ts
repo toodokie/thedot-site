@@ -3,6 +3,10 @@
 // never hardcoded) to verify the schema, seed, and memberships, link a test/client user, and post
 // a reply into a piece's comment thread on The Dot's behalf (the agency side of a two-way thread).
 // Run: npx tsx scripts/portal-admin.ts [status | link <email> "<name>"
+//   | provision <slug> <email> "<name>" [decide,comment,requests,schedule,assistant]
+//   | offboard <slug> <email> "<reason>"
+//   | transfer-decider <slug> <from-email> <to-email> "<reason>"
+//   | switch <global|slug> <feature> <on|off> "<reason>" | access-log [slug]
 //   | signin-link <email> [origin] | ready <slug> <content_id> [version]
 //   | begin-revision <slug> <content_id> [released-version]
 //   | schedule-status <slug> <content_id>
@@ -10,6 +14,7 @@
 // Default action is `status`. `link` is idempotent.
 import { loadEnvConfig } from '@next/env'
 import { createClient } from '@supabase/supabase-js'
+import { randomUUID } from 'node:crypto'
 
 loadEnvConfig(process.cwd())
 
@@ -43,29 +48,119 @@ async function status() {
   if (ciErr) console.log('content_items check FAILED:', ciErr.message)
   else console.log('content_items rows:', ciCount ?? 0)
 
-  const { data: members, error: mErr } = await admin.rpc('list_portal_memberships')
+  const { data: members, error: mErr } = await admin.rpc('list_portal_access')
   if (mErr) console.log('client_users read FAILED:', mErr.message)
   else console.log('client_users:', members)
+
+  const { data: switches, error: sErr } = await admin.rpc('list_portal_feature_switches')
+  if (sErr) console.log('feature switches read FAILED:', sErr.message)
+  else console.log('feature switches:', switches)
 }
 
-async function link(email: string, name: string) {
-  const { data: clients, error: cErr } = await admin.from('clients').select('id, slug').eq('slug', 'kanset')
+async function clientBySlug(slug: string) {
+  const { data: clients, error: cErr } = await admin.from('clients').select('id, slug').eq('slug', slug)
   if (cErr) throw new Error(`select clients: ${cErr.message}`)
-  const kanset = clients?.[0]
-  if (!kanset) throw new Error("kanset client not found (seed missing)")
+  const client = clients?.[0]
+  if (!client) throw new Error(`client ${slug} not found`)
+  return client
+}
 
-  const user = await findAuthUser(email)
-  if (!user) throw new Error(`auth user ${email} not found; add it in Supabase Auth first`)
+const CAPABILITIES = new Set([
+  'decide', 'comment', 'requests', 'schedule', 'assistant',
+])
+
+function parseCapabilities(value = ''): Set<string> {
+  const caps = new Set(value.split(',').map((part) => part.trim()).filter(Boolean))
+  for (const cap of caps) {
+    if (!CAPABILITIES.has(cap)) throw new Error(`unknown capability: ${cap}`)
+  }
+  return caps
+}
+
+async function provision(slug: string, email: string, name: string, capabilityList = '') {
+  const client = await clientBySlug(slug)
+
+  let user = await findAuthUser(email)
+  if (!user) {
+    const { data, error } = await admin.auth.admin.createUser({ email, email_confirm: true })
+    if (error || !data.user) throw new Error(`create auth user: ${error?.message ?? 'missing user'}`)
+    user = data.user
+  }
   console.log('auth user:', { id: user.id, email: user.email })
+  const caps = parseCapabilities(capabilityList)
 
-  const { data: membershipId, error } = await admin.rpc('upsert_client_membership', {
-    p_client_id: kanset.id,
+  const { data: membershipId, error } = await admin.rpc('upsert_portal_membership', {
+    p_client_id: client.id,
     p_auth_user_id: user.id,
     p_email: user.email,
     p_name: name,
+    p_can_decide: caps.has('decide'),
+    p_can_comment: caps.has('comment'),
+    p_can_submit_requests: caps.has('requests'),
+    p_can_manage_schedule: caps.has('schedule'),
+    p_can_use_assistant: caps.has('assistant'),
+    p_actor_key: 'thedot-admin',
+    p_idempotency_key: `membership-${randomUUID()}`,
   })
-  if (error) throw new Error(`upsert_client_membership: ${error.message}`)
-  console.log('link ensured:', { id: membershipId, email: user.email, name, role: 'client' })
+  if (error) throw new Error(`upsert_portal_membership: ${error.message}`)
+  console.log('membership ensured:', {
+    id: membershipId, client: slug, email: user.email, name, capabilities: [...caps],
+  })
+}
+
+async function offboard(slug: string, email: string, reason: string) {
+  const client = await clientBySlug(slug)
+  const user = await findAuthUser(email)
+  if (!user) throw new Error(`auth user ${email} not found`)
+  const { data, error } = await admin.rpc('offboard_portal_membership', {
+    p_client_id: client.id,
+    p_auth_user_id: user.id,
+    p_reason: reason,
+    p_actor_key: 'thedot-admin',
+    p_idempotency_key: `offboard-${randomUUID()}`,
+  })
+  if (error) throw new Error(`offboard_portal_membership: ${error.message}`)
+  console.log('tenant membership removed; global auth user and other memberships preserved:', data)
+}
+
+async function transferDecider(slug: string, fromEmail: string, toEmail: string, reason: string) {
+  const client = await clientBySlug(slug)
+  const [fromUser, toUser] = await Promise.all([findAuthUser(fromEmail), findAuthUser(toEmail)])
+  if (!fromUser || !toUser) throw new Error('both auth users must already exist')
+  const { data, error } = await admin.rpc('transfer_portal_primary_decider', {
+    p_client_id: client.id,
+    p_from_auth_user_id: fromUser.id,
+    p_to_auth_user_id: toUser.id,
+    p_reason: reason,
+    p_actor_key: 'thedot-admin',
+    p_idempotency_key: `transfer-decider-${randomUUID()}`,
+  })
+  if (error) throw new Error(`transfer_portal_primary_decider: ${error.message}`)
+  console.log('primary decision-maker transferred:', data)
+}
+
+async function setSwitch(scope: string, feature: string, enabledText: string, reason: string) {
+  if (!['on', 'off'].includes(enabledText)) throw new Error('switch value must be on or off')
+  const clientId = scope === 'global' ? null : (await clientBySlug(scope)).id
+  const { data, error } = await admin.rpc('set_portal_feature_switch', {
+    p_client_id: clientId,
+    p_feature: feature,
+    p_enabled: enabledText === 'on',
+    p_reason: reason,
+    p_actor_key: 'thedot-admin',
+    p_idempotency_key: `switch-${randomUUID()}`,
+  })
+  if (error) throw new Error(`set_portal_feature_switch: ${error.message}`)
+  console.log('feature switch updated:', data)
+}
+
+async function accessLog(slug?: string) {
+  const clientId = slug ? (await clientBySlug(slug)).id : null
+  const { data, error } = await admin.rpc('list_portal_access_commands', {
+    p_client_id: clientId,
+  })
+  if (error) throw new Error(`list_portal_access_commands: ${error.message}`)
+  console.dir(data, { depth: null })
 }
 
 // Mint a one-time sign-in URL WITHOUT sending email (bypasses the built-in email rate limit and any
@@ -248,6 +343,43 @@ async function reply(slug: string, contentId: string, body: string, authorName: 
 
 async function main() {
   const [action, email, name] = process.argv.slice(2)
+  if (action === 'provision') {
+    const [, slug, memberEmail, memberName, capabilities] = process.argv.slice(2)
+    if (!slug || !memberEmail || !memberName) {
+      throw new Error('usage: portal-admin.ts provision <slug> <email> "<name>" [decide,comment,requests,schedule,assistant]')
+    }
+    await provision(slug, memberEmail, memberName, capabilities)
+    return
+  }
+  if (action === 'offboard') {
+    const [, slug, memberEmail, reason] = process.argv.slice(2)
+    if (!slug || !memberEmail || !reason) {
+      throw new Error('usage: portal-admin.ts offboard <slug> <email> "<reason>"')
+    }
+    await offboard(slug, memberEmail, reason)
+    return
+  }
+  if (action === 'transfer-decider') {
+    const [, slug, fromEmail, toEmail, reason] = process.argv.slice(2)
+    if (!slug || !fromEmail || !toEmail || !reason) {
+      throw new Error('usage: portal-admin.ts transfer-decider <slug> <from-email> <to-email> "<reason>"')
+    }
+    await transferDecider(slug, fromEmail, toEmail, reason)
+    return
+  }
+  if (action === 'switch') {
+    const [, scope, feature, enabled, reason] = process.argv.slice(2)
+    if (!scope || !feature || !enabled || !reason) {
+      throw new Error('usage: portal-admin.ts switch <global|client-slug> <feature> <on|off> "<reason>"')
+    }
+    await setSwitch(scope, feature, enabled, reason)
+    return
+  }
+  if (action === 'access-log') {
+    const [, slug] = process.argv.slice(2)
+    await accessLog(slug)
+    return
+  }
   if (action === 'ready') {
     const [, slug, contentId, version] = process.argv.slice(2)
     if (!slug || !contentId) {
@@ -287,7 +419,7 @@ async function main() {
   }
   if (action === 'link') {
     if (!email) throw new Error('usage: portal-admin.ts link <email> "<name>"')
-    await link(email, name ?? email)
+    await provision('kanset', email, name ?? email)
     console.log('--- status after link ---')
   }
   await status()

@@ -10,6 +10,12 @@ export type ClientSession = {
   name: string | null
   clientId: string
   clientSlug: string
+  role: string
+  canDecide: boolean
+  canComment: boolean
+  canSubmitRequests: boolean
+  canManageSchedule: boolean
+  canUseAssistant: boolean
 }
 
 // Resolves the signed-in user's membership for a SPECIFIC client (by slug).
@@ -28,21 +34,35 @@ export const getClientSession = cache(async (clientSlug: string): Promise<Client
     throw new PortalAuthError(authError.message)           // network/server/auth-service failure
   }
   if (!user) return null
-  const { data, error } = await supabase
-    .from('client_users')
-    .select('name, email, client_id, clients!inner ( slug )')
-    .eq('auth_user_id', user.id)
-    .eq('clients.slug', clientSlug)
-    .maybeSingle()
+  const { data, error } = await supabase.rpc('portal_client_session', { p_slug: clientSlug })
   if (error) throw new PortalAuthError(error.message)
-  if (!data) return null
-  const client = data.clients as unknown as { slug: string } | null
-  if (!client) throw new PortalAuthError('Client membership relation is missing')
+  const rows = data as unknown as Array<{
+    user_id: string
+    email: string
+    name: string | null
+    role: string
+    client_id: string
+    client_slug: string
+    can_decide: boolean
+    can_comment: boolean
+    can_submit_requests: boolean
+    can_manage_schedule: boolean
+    can_use_assistant: boolean
+  }> | null
+  const membership = rows?.[0]
+  if (!membership) return null
+  if (membership.user_id !== user.id) throw new PortalAuthError('Client session identity mismatch')
   return {
     userId: user.id,
-    email: data.email,
-    name: data.name,
-    clientId: data.client_id,
-    clientSlug: client.slug,
+    email: membership.email,
+    name: membership.name,
+    clientId: membership.client_id,
+    clientSlug: membership.client_slug,
+    role: membership.role,
+    canDecide: membership.can_decide,
+    canComment: membership.can_comment,
+    canSubmitRequests: membership.can_submit_requests,
+    canManageSchedule: membership.can_manage_schedule,
+    canUseAssistant: membership.can_use_assistant,
   }
 })
