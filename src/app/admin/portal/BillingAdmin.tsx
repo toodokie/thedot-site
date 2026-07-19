@@ -43,9 +43,16 @@ export default function BillingAdmin({ invoices }: { invoices: AdminInvoice[] })
     }
   }
 
-  async function setStatus(inv: AdminInvoice, status: AdminInvoice['status']) {
+  // Only paid <-> unpaid are casual toggles. Void is terminal, so it is a separate confirmed action.
+  async function setPaidState(inv: AdminInvoice, status: 'paid' | 'unpaid') {
     const ok = await op({ operation: 'set_status', clientId: inv.clientId, invoiceId: inv.id, status }, inv.id)
     if (ok) setRows((r) => r.map((x) => (x.id === inv.id ? { ...x, status } : x)))
+  }
+
+  async function voidInvoice(inv: AdminInvoice) {
+    if (!window.confirm(`Void invoice #${inv.number} for ${inv.clientName}? This is permanent and cannot be undone.`)) return
+    const ok = await op({ operation: 'set_status', clientId: inv.clientId, invoiceId: inv.id, status: 'void' }, inv.id)
+    if (ok) setRows((r) => r.map((x) => (x.id === inv.id ? { ...x, status: 'void' } : x)))
   }
 
   async function attach(inv: AdminInvoice, documentUrl: string) {
@@ -67,31 +74,49 @@ export default function BillingAdmin({ invoices }: { invoices: AdminInvoice[] })
             </tr>
           </thead>
           <tbody>
-            {rows.map((inv) => (
-              <tr key={inv.id} style={{ borderTop: '1px solid #ddd' }}>
-                <td>{inv.clientName}</td>
-                <td>#{inv.number}<br /><small>{inv.issuedAt}</small></td>
-                <td style={{ whiteSpace: 'nowrap' }}>{inv.currency} {inv.amount}</td>
-                <td>
-                  <select
-                    value={inv.status}
-                    disabled={busy === inv.id}
-                    onChange={(e) => setStatus(inv, e.target.value as AdminInvoice['status'])}
-                    aria-label={`Status for invoice ${inv.number}`}
-                  >
-                    <option value="unpaid">Unpaid</option>
-                    <option value="paid">Paid</option>
-                    <option value="void">Void</option>
-                  </select>
-                </td>
-                <td>
-                  {inv.documentUrl
-                    ? <a href={inv.documentUrl} target="_blank" rel="noreferrer">View</a>
-                    : <span>None</span>}
-                  <AttachForm disabled={busy === inv.id} onAttach={(url) => attach(inv, url)} />
-                </td>
-              </tr>
-            ))}
+            {rows.map((inv) => {
+              const isVoid = inv.status === 'void'
+              return (
+                <tr key={inv.id} style={{ borderTop: '1px solid #ddd', opacity: isVoid ? 0.6 : 1 }}>
+                  <td>{inv.clientName}</td>
+                  <td>#{inv.number}<br /><small>{inv.issuedAt}</small></td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{inv.currency} {inv.amount}</td>
+                  <td>
+                    {isVoid ? (
+                      <strong>Void (final)</strong>
+                    ) : (
+                      <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+                        <select
+                          value={inv.status}
+                          disabled={busy === inv.id}
+                          onChange={(e) => setPaidState(inv, e.target.value as 'paid' | 'unpaid')}
+                          aria-label={`Payment status for invoice ${inv.number}`}
+                        >
+                          <option value="unpaid">Unpaid</option>
+                          <option value="paid">Paid</option>
+                        </select>
+                        <button
+                          type="button"
+                          disabled={busy === inv.id}
+                          onClick={() => voidInvoice(inv)}
+                          title="Void this invoice (permanent)"
+                        >
+                          Void…
+                        </button>
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    {inv.documentUrl
+                      ? <a href={inv.documentUrl} target="_blank" rel="noreferrer">View</a>
+                      : <span>None</span>}
+                    {!isVoid && (
+                      <AttachForm disabled={busy === inv.id} onAttach={(url) => attach(inv, url)} />
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       )}

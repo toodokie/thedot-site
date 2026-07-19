@@ -84,18 +84,33 @@ async function main() {
       p_decision_source:stringArray(payload.decisionSource,'decisionSource',['email','call']),
       p_source_occurred_at:timestamp(payload.sourceOccurredAt,'sourceOccurredAt'),p_actor_key:actor,p_idempotency_key:idempotency}
   } else if (command === 'invoice') {
+    // Mirror upsert_invoice's server validation locally so --dry-run cannot approve a payload the
+    // RPC would reject. Financial fields are immutable after issuance; notes is agency-only.
     const amount = payload.amount
-    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) throw new Error('amount must be a positive number')
-    // Financial fields are immutable after issuance; the RPC enforces that plus all field
-    // validation (number/currency/document host/date). notes is agency-only, never client-facing.
+    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0 || amount >= 100000000)
+      throw new Error('amount must be a positive number below 100000000')
+    const number = requiredText(payload.number, 'number', 64)
+    if (!/^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$/.test(number)) throw new Error('invalid invoice number format')
+    const isDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && Number.isFinite(Date.parse(`${v}T00:00:00Z`))
+    const issuedAt = requiredText(payload.issuedAt, 'issuedAt', 10)
+    if (!isDate(issuedAt)) throw new Error('issuedAt must be a YYYY-MM-DD date')
+    const maxIssued = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
+    if (issuedAt > maxIssued) throw new Error('issuedAt cannot be in the future')
+    const periodStart = optionalText(payload.periodStart, 'periodStart', 10)
+    const periodEnd = optionalText(payload.periodEnd, 'periodEnd', 10)
+    if ((periodStart === null) !== (periodEnd === null)) throw new Error('period start and end must be provided together')
+    if (periodStart && periodEnd) {
+      if (!isDate(periodStart) || !isDate(periodEnd)) throw new Error('period dates must be YYYY-MM-DD')
+      if (periodEnd < periodStart) throw new Error('period end precedes start')
+    }
+    const currency = (optionalText(payload.currency, 'currency', 3) ?? 'CAD').toUpperCase()
+    if (currency !== 'CAD') throw new Error('currency must be CAD')
+    const documentUrl = optionalText(payload.documentUrl, 'documentUrl', 2048)
+    if (documentUrl !== null && !/^https:\/\/(docs|drive)\.google\.com\/\S+$/.test(documentUrl))
+      throw new Error('documentUrl must be an agency Google Doc/Drive https link')
     rpc = 'upsert_invoice'; args = { p_client_id: null,
-      p_number: requiredText(payload.number, 'number', 64),
-      p_issued_at: requiredText(payload.issuedAt, 'issuedAt', 10),
-      p_period_start: optionalText(payload.periodStart, 'periodStart', 10),
-      p_period_end: optionalText(payload.periodEnd, 'periodEnd', 10),
-      p_amount: amount,
-      p_currency: optionalText(payload.currency, 'currency', 3) ?? 'CAD',
-      p_document_url: optionalText(payload.documentUrl, 'documentUrl', 2048),
+      p_number: number, p_issued_at: issuedAt, p_period_start: periodStart, p_period_end: periodEnd,
+      p_amount: amount, p_currency: currency, p_document_url: documentUrl,
       p_notes: optionalText(payload.notes, 'notes', 4000),
       p_actor_key: actor, p_idempotency_key: idempotency }
   } else throw new Error(`unknown portal-write command: ${command}`)
