@@ -797,19 +797,54 @@ async function main(): Promise<void> {
     }
 
     {
+      const bInvoice = await admin.rpc('upsert_invoice', {
+        p_client_id: bClientId, p_number: `RLS-${RUN_ID}`, p_issued_at: '2026-07-19',
+        p_period_start: '2026-07-01', p_period_end: '2026-07-31', p_amount: 800,
+        p_currency: 'CAD', p_document_url: 'https://docs.google.com/document/d/rls-invoice',
+        p_notes: 'private test note', p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-invoice-${RUN_ID}`,
+      })
+      const kansetInvoice = await admin.rpc('upsert_invoice', {
+        p_client_id: kansetClientId, p_number: `RLS-K-${RUN_ID}`, p_issued_at: '2026-07-19',
+        p_period_start: null, p_period_end: null, p_amount: 1, p_currency: 'CAD',
+        p_document_url: null, p_notes: 'private Kanset note', p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-k-invoice-${RUN_ID}`,
+      })
+      const read = await bClient.from('invoices_client')
+        .select('id,client_id,number,issued_at,amount,currency,status,document_url')
+      const privateRead = await bClient.from('invoices').select('notes,document_object_key')
+      const direct = await bClient.from('invoices').insert({
+        client_id: bClientId, number: 'FORGED', issued_at: '2026-07-19', amount: 1,
+      })
+      const directRpc = await bClient.rpc('set_invoice_status', {
+        p_client_id: bClientId, p_invoice_id: bInvoice.data, p_status: 'paid',
+        p_actor_key: 'thedot-admin', p_idempotency_key: 'forged-browser-status',
+      })
+      check('D4: service invoice writers succeed through the atomic boundary',
+        !bInvoice.error && !kansetInvoice.error,
+        bInvoice.error?.message ?? kansetInvoice.error?.message ?? 'ok')
+      check('D5: B sees only B safe invoice rows', !read.error && (read.data ?? []).length === 1
+        && read.data?.[0]?.client_id === bClientId,
+      read.error?.message ?? `rows=${read.data?.length ?? 0}`)
+      check('D6: private invoice fields and all browser writes/RPCs are denied',
+        !!privateRead.error && !!direct.error && !!directRpc.error,
+        `${privateRead.error?.message ?? 'NO PRIVATE ERROR'} / ${direct.error?.message ?? 'NO WRITE ERROR'} / ${directRpc.error?.message ?? 'NO RPC ERROR'}`)
+    }
+
+    {
       const added = await bClient.rpc('add_idea', { p_client_id: bClientId, p_title: 'B idea', p_body: 'first' })
-      check('D4: B adds an idea through RPC', !added.error, added.error?.message ?? 'ok')
+      check('D7: B adds an idea through RPC', !added.error, added.error?.message ?? 'ok')
       const ideaId = added.data as string | null
       const cross = await bClient.rpc('add_idea', { p_client_id: kansetClientId, p_title: 'cross' })
-      check('D5: cross-tenant idea is rejected', !!cross.error, cross.error?.message ?? 'NO ERROR')
+      check('D8: cross-tenant idea is rejected', !!cross.error, cross.error?.message ?? 'NO ERROR')
       if (ideaId) {
         const edited = await bClient.rpc('edit_idea', { p_idea_id: ideaId, p_title: 'B idea edited' })
-        check('D6: B edits its own idea through RPC', !edited.error, edited.error?.message ?? 'ok')
+        check('D9: B edits its own idea through RPC', !edited.error, edited.error?.message ?? 'ok')
       }
       const direct = await bClient.from('content_ideas').insert({
         client_id: bClientId, author_type: 'client', author_name: 'x', title: 'direct',
       })
-      check('D7: direct authenticated idea write is rejected', !!direct.error, direct.error?.message ?? 'NO ERROR')
+      check('D10: direct authenticated idea write is rejected', !!direct.error, direct.error?.message ?? 'NO ERROR')
     }
   } finally {
     console.log('\n--- Cleanup ---')
