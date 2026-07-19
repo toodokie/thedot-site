@@ -1179,6 +1179,15 @@ async function main(): Promise<void> {
     }
 
     {
+      // 0016 projection consumer RPCs are service-role only; a client JWT must be denied every one.
+      const pClaim = await bClient.rpc('claim_projection_batch', { p_worker: 'x', p_limit: 1, p_claim_seconds: 60 })
+      const pSucc = await bClient.rpc('mark_projection_succeeded', { p_id: '00000000-0000-0000-0000-000000000000', p_claim_token: 1 })
+      const pRec = await bClient.rpc('enqueue_projection_reconcile', { p_client_id: bClientId, p_object_type: 'content', p_object_key: 'x' })
+      check('PC1: client denied all projection consumer RPCs', !!pClaim.error && !!pSucc.error && !!pRec.error,
+        `${pClaim.error?.message ?? 'NO CLAIM ERR'} / ${pSucc.error?.message ?? 'NO SUCC ERR'} / ${pRec.error?.message ?? 'NO REC ERR'}`)
+    }
+
+    {
       const stop = await admin.rpc('set_portal_feature_switch', {
         p_client_id: bClientId, p_feature: 'client_mutations', p_enabled: false,
         p_reason: 'Exercise emergency tenant stop', p_actor_key: 'thedot-admin',
