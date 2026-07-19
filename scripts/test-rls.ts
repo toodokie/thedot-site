@@ -2,7 +2,7 @@
 // This script mutates the configured disposable database with a unique throwaway tenant/user.
 // The complete tenant/Auth/data set remains until the required local/staging database reset: the
 // approval audit FK intentionally prevents deleting a decision-maker independently.
-// Run only after applying 0001..0006 to a disposable/staging database first.
+// Run only after applying 0001..0008 to a disposable/staging database first.
 import { loadEnvConfig } from '@next/env'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { randomUUID } from 'node:crypto'
@@ -327,6 +327,202 @@ async function main(): Promise<void> {
         directApproval.error?.message ?? 'NO ERROR')
     }
 
+    console.log('\n--- Slice 3 scheduling/rescheduling ---')
+
+    {
+      const targets = await bClient.from('content_schedule_targets_client')
+        .select('client_id, content_id, content_version, destination, scheduled_at, status, verification_label')
+        .eq('content_id', bItemId).eq('content_version', 1)
+      check('T1: approval creates one independent Instagram target', !targets.error
+        && targets.data?.length === 1
+        && targets.data[0].client_id === bClientId
+        && targets.data[0].destination === 'instagram'
+        && targets.data[0].scheduled_at === null
+        && targets.data[0].status === 'pending',
+      targets.error?.message ?? JSON.stringify(targets.data))
+
+      const crossRead = await kansetClient.from('content_schedule_targets_client')
+        .select('content_id').eq('content_id', bItemId)
+      check('T2: another tenant cannot read B schedule targets', !crossRead.error
+        && (crossRead.data ?? []).length === 0,
+      crossRead.error?.message ?? `rows=${crossRead.data?.length ?? 0}`)
+
+      const directTarget = await bClient.from('content_schedule_targets').insert({
+        client_id: bClientId,
+        content_id: bItemId,
+        content_version: 1,
+        destination: 'facebook',
+      })
+      const directRequest = await bClient.from('content_schedule_requests').insert({
+        client_id: bClientId,
+        content_id: bItemId,
+        content_version: 1,
+        request_kind: 'reschedule',
+      })
+      check('T3: authenticated cannot write targets or requests directly',
+        !!directTarget.error && !!directRequest.error,
+      `${directTarget.error?.message ?? 'target wrote'} / ${directRequest.error?.message ?? 'request wrote'}`)
+
+      const before = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
+      const requestArgs = {
+        p_content_id: bItemId,
+        p_content_version: 1,
+        p_requested_local: '2027-07-20 10:00:00',
+        p_timezone: 'America/Toronto',
+        p_utc_offset_minutes: -240,
+        p_idempotency_key: `resched-${RUN_ID}`,
+      }
+      const first = await bClient.rpc('request_content_reschedule', requestArgs)
+      const second = await bClient.rpc('request_content_reschedule', requestArgs)
+      const after = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
+      check('T4: eligible tenant member creates a durable multi-target request', !first.error,
+        first.error?.message ?? String(first.data))
+      check('T5: exact reschedule retry returns the same request', !second.error
+        && first.data === second.data, second.error?.message ?? `${first.data} / ${second.data}`)
+      check('T6: exact reschedule retry creates one activity event', !before.error && !after.error
+        && (after.count ?? 0) - (before.count ?? 0) === 1,
+      `before=${before.count} after=${after.count}`)
+
+      const changedRetry = await bClient.rpc('request_content_reschedule', {
+        ...requestArgs,
+        p_requested_local: '2027-07-20 11:00:00',
+      })
+      const secondPending = await bClient.rpc('request_content_reschedule', {
+        ...requestArgs,
+        p_idempotency_key: `resched2-${RUN_ID}`,
+      })
+      check('T7: changed payload cannot reuse an idempotency key', !!changedRetry.error,
+        changedRetry.error?.message ?? 'NO ERROR')
+      check('T8: a second active request cannot race the first', !!secondPending.error,
+        secondPending.error?.message ?? 'NO ERROR')
+
+      const scheduleView = await bClient.from('content_with_state')
+        .select('schedule_state, client_state, planned_date').eq('id', bItemId).single()
+      const requests = await bClient.from('content_schedule_requests_client')
+        .select('id, content_id, requested_for, requested_local, status').eq('content_id', bItemId)
+      const attempts = await bClient.from('content_schedule_attempts_client')
+        .select('request_id, destination, requested_for, previous_scheduled_at, status')
+        .eq('request_id', requests.data?.[0]?.id ?? '00000000-0000-0000-0000-000000000000')
+      const retainedTarget = await bClient.from('content_schedule_targets_client')
+        .select('scheduled_at, status').eq('content_id', bItemId).single()
+      check('T9: request is visible as pending without fabricating a committed time',
+        !scheduleView.error && scheduleView.data?.schedule_state === 'reschedule_pending'
+        && scheduleView.data?.client_state === 'reschedule_pending'
+        && !requests.error && requests.data?.length === 1 && requests.data[0].status === 'pending'
+        && !attempts.error && attempts.data?.length === 1 && attempts.data[0].status === 'pending'
+        && !retainedTarget.error && retainedTarget.data?.scheduled_at === null,
+      scheduleView.error?.message || requests.error?.message || attempts.error?.message
+        || retainedTarget.error?.message || JSON.stringify({
+          state: scheduleView.data,
+          requests: requests.data,
+          attempts: attempts.data,
+          target: retainedTarget.data,
+        }))
+
+      const crossRequest = await bClient.rpc('request_content_reschedule', {
+        ...requestArgs,
+        p_content_id: kansetItemId,
+        p_content_version: kansetVersion,
+        p_idempotency_key: `cross-${RUN_ID}`,
+      })
+      check('T10: cross-tenant reschedule is rejected', !!crossRequest.error,
+        crossRequest.error?.message ?? 'NO ERROR')
+
+      const gap = await bClient.rpc('request_content_reschedule', {
+        ...requestArgs,
+        p_requested_local: '2027-03-14 02:30:00',
+        p_idempotency_key: `dstgap-${RUN_ID}`,
+      })
+      check('T11: nonexistent Toronto spring-forward time is rejected', !!gap.error,
+        gap.error?.message ?? 'NO ERROR')
+    }
+
+    {
+      const planPayload = snapshot(
+        bClientId, 'rls-plan-only', 1, 'Plan-only fixture', 'Plan-only body', 'caption',
+      )
+      planPayload.platforms = []
+      const [planSync] = await sync([planPayload])
+      const planItemId = planSync.item_id
+      const ready = await admin.rpc('mark_content_ready', {
+        p_content_id: planItemId, p_content_version: 1,
+      })
+      if (ready.error) throw new Error(`plan-only ready: ${ready.error.message}`)
+      const approved = await bClient.rpc('record_content_decision', {
+        p_content_id: planItemId, p_content_version: 1, p_decision: 'approved', p_note: null,
+      })
+      if (approved.error) throw new Error(`plan-only approve: ${approved.error.message}`)
+
+      const before = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
+      const planArgs = {
+        p_content_id: planItemId,
+        p_content_version: 1,
+        p_planned_date: '2027-07-21',
+        p_idempotency_key: `planonly-${RUN_ID}`,
+      }
+      const first = await bClient.rpc('set_content_plan', planArgs)
+      const second = await bClient.rpc('set_content_plan', planArgs)
+      const after = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
+      const row = await bClient.from('content_with_state')
+        .select('planned_date, schedule_state, client_state').eq('id', planItemId).single()
+      check('T12: no-target approved piece updates editorial plan only', !first.error
+        && !row.error && row.data?.planned_date === '2027-07-21'
+        && row.data?.schedule_state === 'unverified' && row.data?.client_state === 'approved',
+      first.error?.message || row.error?.message || JSON.stringify(row.data))
+      check('T13: exact plan retry is a no-op with one activity event', !second.error
+        && !before.error && !after.error && (after.count ?? 0) - (before.count ?? 0) === 1,
+      second.error?.message ?? `before=${before.count} after=${after.count}`)
+      const staleKey = await bClient.rpc('set_content_plan', {
+        ...planArgs, p_planned_date: '2027-07-22',
+      })
+      check('T14: plan idempotency key rejects a changed date', !!staleKey.error,
+        staleKey.error?.message ?? 'NO ERROR')
+    }
+
+    {
+      const multiPayload = snapshot(
+        bClientId, 'rls-multi-target', 1, 'Multi-target fixture', 'Multi-target body', 'caption',
+      )
+      multiPayload.platforms = ['instagram', 'facebook']
+      const [multiSync] = await sync([multiPayload])
+      const ready = await admin.rpc('mark_content_ready', {
+        p_content_id: multiSync.item_id, p_content_version: 1,
+      })
+      if (ready.error) throw new Error(`multi-target ready: ${ready.error.message}`)
+      const approved = await bClient.rpc('record_content_decision', {
+        p_content_id: multiSync.item_id, p_content_version: 1, p_decision: 'approved', p_note: null,
+      })
+      const targets = await bClient.from('content_schedule_targets_client')
+        .select('destination').eq('content_id', multiSync.item_id).order('destination')
+      check('T15: Instagram and Facebook become independent required targets', !approved.error
+        && !targets.error && JSON.stringify(targets.data) === JSON.stringify([
+          { destination: 'facebook' }, { destination: 'instagram' },
+        ]), approved.error?.message || targets.error?.message || JSON.stringify(targets.data))
+
+      const unsafePayload = snapshot(
+        bClientId, 'rls-unsupported-target', 1, 'Unsupported target fixture',
+        'Unsupported target body', 'caption',
+      )
+      unsafePayload.platforms = ['instagram', 'unconfigured-network']
+      const [unsafeSync] = await sync([unsafePayload])
+      const unsafeReady = await admin.rpc('mark_content_ready', {
+        p_content_id: unsafeSync.item_id, p_content_version: 1,
+      })
+      if (unsafeReady.error) throw new Error(`unsupported-target ready: ${unsafeReady.error.message}`)
+      const unsafeApproval = await bClient.rpc('record_content_decision', {
+        p_content_id: unsafeSync.item_id, p_content_version: 1, p_decision: 'approved', p_note: null,
+      })
+      const unsafeItem = await bClient.from('content_with_state')
+        .select('status, current_decision').eq('id', unsafeSync.item_id).single()
+      const unsafeTargets = await bClient.from('content_schedule_targets_client')
+        .select('id').eq('content_id', unsafeSync.item_id)
+      check('T16: an unconfigured destination fails the approval transaction closed',
+        !!unsafeApproval.error && !unsafeItem.error && unsafeItem.data?.status === 'draft'
+        && unsafeItem.data?.current_decision === null
+        && !unsafeTargets.error && unsafeTargets.data?.length === 0,
+      unsafeApproval.error?.message ?? 'NO ERROR')
+    }
+
     console.log('\n--- Version-bound comments ---')
 
     {
@@ -398,10 +594,20 @@ async function main(): Promise<void> {
       const anonRead = await anonClient.from('content_with_state').select('id')
       const anonComment = await anonClient.rpc('add_comment', { p_content_id: bItemId, p_body: 'x' })
       const anonSync = await anonClient.rpc('sync_content_item_versions', { p_items: [] })
+      const anonSchedule = await anonClient.rpc('request_content_reschedule', {
+        p_content_id: bItemId,
+        p_content_version: 1,
+        p_requested_local: '2027-07-20 10:00:00',
+        p_timezone: 'America/Toronto',
+        p_utc_offset_minutes: -240,
+        p_idempotency_key: `anon-${RUN_ID}`,
+      })
       check('C11: anon cannot read released portal content', !!anonRead.error || (anonRead.data ?? []).length === 0,
         anonRead.error?.message ?? `rows=${anonRead.data?.length ?? 0}`)
       check('C12: anon cannot call client comment RPC', !!anonComment.error, anonComment.error?.message ?? 'NO ERROR')
       check('C13: anon cannot call service sync RPC', !!anonSync.error, anonSync.error?.message ?? 'NO ERROR')
+      check('C14: anon cannot call scheduling writers', !!anonSchedule.error,
+        anonSchedule.error?.message ?? 'NO ERROR')
     }
 
     console.log('\n--- Existing tenant-isolated surfaces ---')

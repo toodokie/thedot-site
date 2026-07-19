@@ -46,7 +46,7 @@ export default async function PlanPiece({ params }: { params: Promise<{ slug: st
         {item.format && <span style={chip}>{item.format}</span>}
         {item.pillar && <span style={chip}>{item.pillar}</span>}
         {(item.platforms || []).map((p) => <span key={p} style={chip}>{p}</span>)}
-        {item.scheduled_date && <span style={chipDate}>{item.scheduled_date.slice(0, 10)}</span>}
+        {item.planned_date && <span style={chipDate}>{item.planned_date.slice(0, 10)}</span>}
         {item.fact_check && <span style={chipFact}>{item.fact_check}</span>}
       </div>
 

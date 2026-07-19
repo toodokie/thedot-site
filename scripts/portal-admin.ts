@@ -5,6 +5,7 @@
 // Run: npx tsx scripts/portal-admin.ts [status | link <email> "<name>"
 //   | signin-link <email> [origin] | ready <slug> <content_id> [version]
 //   | begin-revision <slug> <content_id> [released-version]
+//   | schedule-status <slug> <content_id>
 //   | reply <slug> <content_id> "<body>" ["<author name>"]]
 // Default action is `status`. `link` is idempotent.
 import { loadEnvConfig } from '@next/env'
@@ -185,6 +186,36 @@ async function beginRevision(slug: string, contentId: string, expectedVersion?: 
   console.log(`revision opened for ${slug}/${contentId} from released v${version}`)
 }
 
+// Read-only until Slice 4 adds the evidence-backed agency confirmation RPC. This command must not
+// provide a shortcut that can turn a requested time into a provider commitment.
+async function scheduleStatus(slug: string, contentId: string) {
+  const { data: client, error: clientError } = await admin
+    .from('clients').select('id').eq('slug', slug).single()
+  if (clientError || !client) {
+    throw new Error(`client with slug "${slug}" not found: ${clientError?.message ?? 'missing'}`)
+  }
+  const { data: item, error: itemError } = await admin
+    .from('content_with_state')
+    .select('id, content_id, title, version, planned_date, schedule_state, client_state')
+    .eq('client_id', client.id).eq('content_id', contentId).single()
+  if (itemError || !item) {
+    throw new Error(`released content "${contentId}" not found: ${itemError?.message ?? 'missing'}`)
+  }
+  const [targets, requests] = await Promise.all([
+    admin.from('content_schedule_targets_client')
+      .select('destination, required, scheduled_at, status, verified_at, verification_label')
+      .eq('client_id', client.id).eq('content_id', item.id).eq('content_version', item.version)
+      .order('destination'),
+    admin.from('content_schedule_requests_client')
+      .select('id, request_kind, requested_for, requested_local, requested_timezone, requested_utc_offset_minutes, status, client_message, created_at, resolved_at')
+      .eq('client_id', client.id).eq('content_id', item.id).eq('content_version', item.version)
+      .order('created_at', { ascending: false }),
+  ])
+  if (targets.error) throw new Error(`select schedule targets: ${targets.error.message}`)
+  if (requests.error) throw new Error(`select schedule requests: ${requests.error.message}`)
+  console.dir({ item, targets: targets.data, requests: requests.data }, { depth: null })
+}
+
 // Post a reply into a piece's comment thread AS THE DOT. The service-only RPC locks the released
 // version and inserts the comment + activity atomically, so a version change or partial write cannot
 // detach the reply from the snapshot the client sees.
@@ -231,6 +262,14 @@ async function main() {
       throw new Error('usage: portal-admin.ts begin-revision <slug> <content_id> [released-version]')
     }
     await beginRevision(slug, contentId, version)
+    return
+  }
+  if (action === 'schedule-status') {
+    const [, slug, contentId] = process.argv.slice(2)
+    if (!slug || !contentId) {
+      throw new Error('usage: portal-admin.ts schedule-status <slug> <content_id>')
+    }
+    await scheduleStatus(slug, contentId)
     return
   }
   if (action === 'reply') {

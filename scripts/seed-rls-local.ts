@@ -1,5 +1,5 @@
 // Local-only baseline for scripts/test-rls.ts. Refuses non-loopback Supabase URLs so this helper
-// cannot seed production accidentally. The disposable database must already have migrations 0001–0006.
+// cannot seed production accidentally. The disposable database must already have migrations 0001–0008.
 import { createClient } from '@supabase/supabase-js'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL

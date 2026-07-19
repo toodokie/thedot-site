@@ -75,8 +75,8 @@ export default async function Calendar({ params }: { params: Promise<{ slug: str
   const unscheduled: ScheduleRow[] = []
   let startKey = currentKey // never later than this: the current month always renders
   for (const r of rows) {
-    if (!r.scheduled_date) { unscheduled.push(r); continue }
-    const key = r.scheduled_date.slice(0, 10)
+    if (!r.planned_date) { unscheduled.push(r); continue }
+    const key = r.planned_date.slice(0, 10)
     const list = byDay.get(key)
     if (list) list.push(r)
     else byDay.set(key, [r])
@@ -92,10 +92,10 @@ export default async function Calendar({ params }: { params: Promise<{ slug: str
   for (let k = endKey; k >= startKey; k--) monthsToRender.push(k)
 
   // Upcoming list, grouped by week (today onward, any month).
-  const upcoming = rows.filter((r) => r.scheduled_date && r.scheduled_date.slice(0, 10) >= todayIso)
+  const upcoming = rows.filter((r) => r.planned_date && r.planned_date.slice(0, 10) >= todayIso)
   const weeks: { start: string; rows: ScheduleRow[] }[] = []
   for (const r of upcoming) {
-    const ws = weekStartIso(r.scheduled_date!)
+    const ws = weekStartIso(r.planned_date!)
     let g = weeks.find((w) => w.start === ws)
     if (!g) { g = { start: ws, rows: [] }; weeks.push(g) }
     g.rows.push(r)
@@ -116,6 +116,9 @@ export default async function Calendar({ params }: { params: Promise<{ slug: str
         <span className={styles.chipPlatforms}>
           {r.platforms.map((p) => <span key={p} className={styles.plat}>{p}</span>)}
         </span>
+      )}
+      {r.status === 'approved' && (
+        <span className={styles.chipMeta}>{r.schedule_state.replaceAll('_', ' ')}</span>
       )}
     </Link>
   )
@@ -179,14 +182,17 @@ export default async function Calendar({ params }: { params: Promise<{ slug: str
             {w.rows.map((r) => (
               <Link key={r.id} href={hrefFor(r)} className={styles.listRow}>
                 <span className={`${styles.listDate} ${styles[`accent_${statusAccent(r.status)}`]}`}>
-                  <span className={styles.listWd}>{weekdayShort(r.scheduled_date!)}</span>
-                  <span className={styles.listDay}>{fmtDay(r.scheduled_date!)}</span>
+                  <span className={styles.listWd}>{weekdayShort(r.planned_date!)}</span>
+                  <span className={styles.listDay}>{fmtDay(r.planned_date!)}</span>
                 </span>
                 <span className={styles.listMain}>
                   <Text as="span" size="md" tone="black">{r.title}</Text>
                   <span className={styles.listChips}>
                     {(r.format || r.pillar) && <span className={styles.metaChip}>{[r.format, r.pillar].filter(Boolean).join(' · ')}</span>}
                     {r.platforms.map((p) => <span key={p} className={styles.metaChip}>{p}</span>)}
+                    {r.status === 'approved' && (
+                      <span className={styles.metaChip}>{r.schedule_state.replaceAll('_', ' ')}</span>
+                    )}
                   </span>
                 </span>
               </Link>

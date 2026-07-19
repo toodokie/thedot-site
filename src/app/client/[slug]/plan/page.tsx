@@ -36,13 +36,13 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
 
   // The plan surface is the not-yet-produced pipeline: ideas and drafts only.
   const planned = rows.filter((r) => r.status === 'idea' || r.status === 'draft')
-  const dated = planned.filter((r) => r.scheduled_date)
-  const undated = planned.filter((r) => !r.scheduled_date)
+  const dated = planned.filter((r) => r.planned_date)
+  const undated = planned.filter((r) => !r.planned_date)
 
   // Group the dated pieces by week (Monday-start), preserving getSchedule's date order.
   const weeks: { start: string; rows: ScheduleRow[] }[] = []
   for (const r of dated) {
-    const ws = weekStartIso(r.scheduled_date!)
+    const ws = weekStartIso(r.planned_date!)
     let g = weeks.find((w) => w.start === ws)
     if (!g) { g = { start: ws, rows: [] }; weeks.push(g) }
     g.rows.push(r)
@@ -54,10 +54,10 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
   const renderRow = (r: ScheduleRow) => (
     <Link key={r.id} href={planHref(r)} className={styles.row}>
       <span className={`${styles.date} ${styles[`accent_${statusAccent(r.status)}`]}`}>
-        {r.scheduled_date ? (
+        {r.planned_date ? (
           <>
-            <span className={styles.wd}>{weekdayShort(r.scheduled_date)}</span>
-            <span className={styles.day}>{fmtDay(r.scheduled_date)}</span>
+            <span className={styles.wd}>{weekdayShort(r.planned_date)}</span>
+            <span className={styles.day}>{fmtDay(r.planned_date)}</span>
           </>
         ) : (
           <>

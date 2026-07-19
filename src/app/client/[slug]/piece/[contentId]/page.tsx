@@ -8,6 +8,8 @@ import DecideForm from './DecideForm'
 import CopyBlock from './CopyBlock'
 import CommentThread from './CommentThread'
 import FactCheckEvidence from '../../FactCheckEvidence'
+import { getScheduleDetails } from '@/lib/portal/schedule'
+import SchedulePanel from './SchedulePanel'
 
 const chip: CSSProperties = {
   fontFamily: 'var(--dot-font-text)', fontSize: 11, color: 'var(--dot-graphite)',
@@ -24,7 +26,10 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
   if (!session) redirect('/client/login')
   const item = await getContentItem(session.clientId, contentId)
   if (!item) redirect(`/client/${slug}`)
-  const comments = await getComments(session.clientId, item.id)
+  const [comments, schedule] = await Promise.all([
+    getComments(session.clientId, item.id),
+    getScheduleDetails(session.clientId, item.id, item.version),
+  ])
 
   const blocks = item.copy_blocks && item.copy_blocks.length > 0
     ? item.copy_blocks
@@ -59,6 +64,15 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
       </div>
 
       <FactCheckEvidence item={item} />
+
+      <SchedulePanel
+        slug={slug}
+        contentId={item.content_id}
+        plannedDate={item.planned_date}
+        targets={schedule.targets}
+        requests={schedule.requests}
+        canRequest={['approved', 'partially_scheduled', 'schedule_failed', 'scheduled'].includes(item.state)}
+      />
 
       {item.state === 'needs_review'
         ? <DecideForm slug={slug} contentId={item.content_id} />
