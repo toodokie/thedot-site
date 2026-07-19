@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>The Dot Creative — Ontario/GTA First-Customer Shortlist</title>
+  <style>
+    :root{--bg:#090b0f;--panel:#12161d;--panel2:#191f28;--ink:#f5f2ea;--muted:#9ca6b5;--line:#2b3340;--acid:#d9ff63;--blue:#69b7ff;--orange:#ff8f5a;--cyan:#5ee8d0;--radius:18px;--shadow:0 24px 80px rgba(0,0,0,.38)}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.55}body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.3;background:repeating-linear-gradient(135deg,rgba(255,255,255,.018) 0 1px,transparent 1px 12px);mask-image:linear-gradient(#000,transparent 82%)}a{color:inherit}.skip{position:absolute;left:-9999px}.skip:focus{left:16px;top:16px;z-index:9;background:var(--acid);color:#111;padding:10px}
+    .shell{width:min(1180px,calc(100% - 40px));margin:auto;position:relative}.top{display:flex;justify-content:space-between;align-items:center;padding:22px 0;border-bottom:1px solid var(--line)}.brand{font-weight:850;display:flex;align-items:center;gap:10px}.brand i{width:12px;height:12px;border-radius:50%;background:var(--acid);box-shadow:0 0 22px var(--acid)}.meta{display:flex;gap:8px;align-items:center}.chip,.stage{border:1px solid var(--line);border-radius:999px;padding:7px 10px;color:var(--muted);font:750 11px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.07em}button{background:var(--ink);color:#111;border:0;border-radius:999px;padding:9px 14px;font:800 13px inherit;cursor:pointer}button:focus-visible,summary:focus-visible,a:focus-visible{outline:3px solid var(--blue);outline-offset:3px}
+    .hero{display:grid;grid-template-columns:1.45fr .55fr;gap:36px;align-items:end;padding:72px 0 42px}.eyebrow{color:var(--acid);font:750 11px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.11em}h1{font-size:clamp(48px,7vw,92px);line-height:.92;letter-spacing:-.065em;margin:13px 0 24px}.verdict{font-size:clamp(18px,2.1vw,25px);color:#dce1e9;max-width:820px;margin:0}.hero-card{background:var(--acid);color:#10120d;padding:26px;border-radius:var(--radius);box-shadow:var(--shadow);transform:rotate(1deg)}.hero-card span{font:800 11px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.08em}.hero-card strong{display:block;font-size:64px;line-height:1;letter-spacing:-.08em;margin:15px 0 6px}.hero-card p{margin:0;font-weight:700;font-size:13px}
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-bottom:28px}.stats>div{padding:18px;background:var(--panel)}.stats>div+div{border-left:1px solid var(--line)}.stats span,.prospect-grid span,.signal span,.evidence span,blockquote span{display:block;color:var(--muted);font:700 10px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}.stats strong{font-size:17px}
+    .best{display:grid;grid-template-columns:180px 1fr auto;gap:24px;align-items:center;padding:25px;background:var(--orange);color:#1b0f09;border-radius:var(--radius);box-shadow:var(--shadow);margin:0 0 72px}.best-label{font:800 11px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.1em}.best h2{font-size:clamp(28px,4vw,46px);letter-spacing:-.045em;line-height:1;margin:0 0 8px}.best p{margin:0}.best strong{font-size:44px}
+    .section-head{display:flex;justify-content:space-between;align-items:end;gap:24px;padding-bottom:18px;border-bottom:1px solid var(--line);margin-bottom:18px}.section-head h2{font-size:clamp(34px,5vw,62px);line-height:.98;letter-spacing:-.055em;margin:0}.section-head p{color:var(--muted);max-width:470px;margin:0}
+    .prospects{display:grid;gap:16px;margin-bottom:76px}.prospect{background:linear-gradient(135deg,var(--panel),#0f1319);border:1px solid var(--line);border-radius:var(--radius);padding:25px;box-shadow:0 12px 38px rgba(0,0,0,.18)}.prospect-head{display:grid;grid-template-columns:54px 1fr 92px;gap:17px;align-items:start}.rank{font:850 24px ui-monospace,monospace;color:var(--acid);padding-top:8px}.identity h3{font-size:29px;letter-spacing:-.04em;margin:6px 0 10px}.stage{display:inline-block}.stage.hot{color:var(--orange);border-color:rgba(255,143,90,.5)}.stage.warm{color:var(--cyan);border-color:rgba(94,232,208,.45)}.score{--score:0;width:88px;height:88px;border-radius:50%;display:grid;place-content:center;text-align:center;background:radial-gradient(circle,var(--panel) 58%,transparent 60%),conic-gradient(var(--acid) calc(var(--score)*1%),var(--line) 0)}.score strong{font-size:26px;line-height:1}.score small{color:var(--muted)}
+    .signal{margin:21px 0 12px;padding:16px;background:var(--panel2);border-left:4px solid var(--acid)}.signal p{font-size:17px;margin:0}.prospect-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.prospect-grid>div,.evidence>div{border:1px solid var(--line);border-radius:12px;padding:15px;background:rgba(255,255,255,.018)}.prospect-grid p,.evidence p{margin:0}blockquote{margin:12px 0 0;padding:16px;border:1px dashed rgba(217,255,99,.55);border-radius:12px;color:#eaf6c6}details{margin-top:10px}summary{cursor:pointer;color:var(--acid);font-weight:800;padding:10px 0}.evidence{display:grid;grid-template-columns:1fr 1fr;gap:9px}.evidence a{display:inline-block;color:var(--blue);margin-top:8px;word-break:break-word}.metrics{display:grid;gap:8px;margin-top:14px}.metric{display:grid;grid-template-columns:145px 1fr 40px;gap:12px;align-items:center;font-size:13px}.track{height:8px;background:var(--line);border-radius:8px;overflow:hidden}.track i{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--acid))}
+    .patterns{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:76px}.pattern{display:grid;grid-template-columns:42px 1fr auto;gap:15px;align-items:start;padding:20px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}.pattern-num{color:var(--acid);font:800 13px ui-monospace,monospace}.pattern h3{margin:0 0 5px}.pattern p{margin:0;color:var(--muted)}.pattern>strong{font-size:30px;color:var(--acid)}
+    .plan{display:grid;grid-template-columns:.8fr 1.2fr;gap:28px;background:var(--acid);color:#111;padding:29px;border-radius:var(--radius);margin-bottom:30px}.plan h2{font-size:38px;line-height:1;letter-spacing:-.045em;margin:10px 0}.plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.plan-grid>div{border:1px solid rgba(0,0,0,.24);border-radius:11px;padding:13px}.plan-grid span{display:block;font:750 10px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px}.plan-grid p{margin:0}.limits{border:1px solid var(--line);border-radius:var(--radius);padding:24px;color:var(--muted);margin-bottom:60px}.limits h2{color:var(--ink);margin-top:0}footer{display:flex;justify-content:space-between;gap:20px;border-top:1px solid var(--line);padding:22px 0 40px;color:var(--muted);font-size:12px}.reveal{animation:rise .4s ease both}@keyframes rise{from{opacity:0;transform:translateY(12px)}}
+    @media(max-width:820px){.shell{width:min(100% - 24px,1180px)}.hero,.plan{grid-template-columns:1fr}.hero{padding-top:44px}.hero-card{transform:none}.stats{grid-template-columns:1fr 1fr}.stats>div+div{border-left:0;border-top:1px solid var(--line)}.best{grid-template-columns:1fr}.prospect-head{grid-template-columns:38px 1fr}.score{grid-column:1/-1}.prospect-grid,.evidence,.patterns,.plan-grid{grid-template-columns:1fr}.meta .chip{display:none}}
+    @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}@media print{body{background:#fff;color:#111}body:before,.top button{display:none}.shell{width:100%}.prospect,.pattern,.limits{background:#fff;color:#111;break-inside:avoid}.prospect-grid span,.signal span,.evidence span,blockquote span{color:#444}}
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to report</a>
+  <div class="shell">
+    <header class="top"><div class="brand"><i></i> First Customer Finder</div><div class="meta"><span class="chip">Public signals only</span><button type="button" onclick="window.print()">Print / Save PDF</button></div></header>
+    <main id="main">
+      <section class="hero"><div><span class="eyebrow">Early-customer report · 2026-07-19</span><h1>The Dot Creative — Ontario/GTA First-Customer Shortlist</h1><p class="verdict">Yes — The Dot has a reachable early-customer wedge. The strongest demand is among appointment-based clinics and wellness businesses where growth is forcing a systems decision, not merely a visual redesign. Seven prospects have dated or relative signals inside 90 days; three additional sources were active/current at review but did not show an exact publication date. These are potential customers based on public signals, not confirmed buyers.</p></div><aside class="hero-card"><span>Qualified prospects</span><strong>10</strong><p>Potential customers based on public signals.</p></aside></section>
+      <section class="stats"><div><span>Product</span><strong><a href="https://www.thedotcreative.co" target="_blank" rel="noreferrer">The Dot Creative connected websites and business-systems integration</a></strong></div><div><span>Target customer</span><strong>Primary ICP — owner/operator of a 5–50-person GTA appointment-based clinic, medical-aesthetics, rehab, or wellness business whose website must connect booking, intake, CRM, payments, and follow-up. Adjacent ICP — owner/GM of a growing Ontario trade or local service firm with multi-brand or lead-to-quote complexity. Trigger: active hiring, launch, expansion, or explicit systems modernization. Disqualify enterprises, agencies, no public trigger, and organizations unlikely to support a $5,500+ project.</strong></div><div><span>High intent</span><strong>1</strong></div><div><span>Average fit score</span><strong>88/100</strong></div></section>
+      <section class="best"><div class="best-label">Highest-confidence prospect</div><div><h2>Argus Medical Centre Inc.</h2><p>The clinic is actively hiring for the transformation and has already framed efficiency and software integration as an operational priority.</p></div><strong>97</strong></section>
+      <section><header class="section-head"><h2>People with a reason<br>to care now.</h2><p>Every primary prospect is tied to a public pain, demand, or timing signal. Open the evidence before considering outreach.</p></header><div class="prospects">
+    <article class="prospect reveal">
+      <header class="prospect-head">
+        <div class="rank">01</div>
+        <div class="identity">
+          <span class="eyebrow">Primary ICP · Medical clinic · Oakville</span>
+          <h3>Argus Medical Centre Inc.</h3>
+          <span class="stage hot">High intent</span>
+        </div>
+        <div class="score" style="--score:97" aria-label="Fit score 97 out of 100"><strong>97</strong><small>/100</small></div>
+      </header>
+      <div class="signal"><span>Public signal</span><p>The clinic says it is modernizing internal systems and wants a systems optimizer to eliminate manual redundancies through apps, software, and automation.</p></div>
+      <div class="prospect-grid">
+        <div><span>Why it fits</span><p>This is the closest public match to The Dot&#x27;s connected-business-system offer: workflow mapping, digital integrations, automation, documentation, and an accessible customer-facing website can be scoped around the tools the clinic already uses.</p></div>
+        <div><span>Why now</span><p>The clinic is actively hiring for the transformation and has already framed efficiency and software integration as an operational priority.</p></div>
+        <div><span>Suggested channel</span><p>Clinic&#x27;s public business contact page, addressed to the practice owner or operations lead; do not use the job application flow</p></div>
+        <div><span>Caution</span><p>Confirm who owns systems decisions and which workflows can be changed. Any patient-data work must be scoped for PHIPA, vendor permissions, and clinical-system constraints before proposing implementation.</p></div>
+      </div>
+      <blockquote><span>Suggested opener</span>I saw Argus&#x27;s Operations Manager posting and the line about eliminating manual redundancies with apps, software, and automation. That is the exact systems problem The Dot solves for Ontario service businesses: connecting customer-facing intake with the tools already in place. Would it be useful if I mapped one workflow — from intake through invoicing — so you can see what to simplify before hiring around it?</blockquote>
+      <details>
+        <summary>Evidence and score breakdown</summary>
+        <div class="evidence"><div><span>Evidence</span><p>Observed: the active employer job description names administrative, financial, payroll, invoicing, WSIB, and digital workflow ownership for a 12-professional clinic, and explicitly calls for eliminating manual redundancies. Inference: the website and intake layer may be part of the modernization scope; the current stack was not disclosed.</p></div><div><span>Source</span><p>Employer job posting on Indeed · 2026-07 (active posting; exact publication date unavailable)</p><a href="https://ca.indeed.com/viewjob?jk=8e12b244d71ae957" target="_blank" rel="noreferrer">Clinic Operations Manager — Argus Medical Centre ↗</a></div></div>
+        <div class="metrics"><div class="metric"><span>Pain strength</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div><div class="metric"><span>Product fit</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div><div class="metric"><span>Timing</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div><div class="metric"><span>Reachability</span><div class="track"><i style="width:80%"></i></div><b>4/5</b></div><div class="metric"><span>Evidence quality</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div></div>
+      </details>
+    </article>
+    <article class="prospect reveal">
+      <header class="prospect-head">
+        <div class="rank">02</div>
+        <div class="identity">
+          <span class="eyebrow">Primary ICP · Medical aesthetics · Mississauga</span>
+          <h3>Faces Medical Spa</h3>
+          <span class="stage warm">Problem aware</span>
+        </div>
+        <div class="score" style="--score:94" aria-label="Fit score 94 out of 100"><strong>94</strong><small>/100</small></div>
+      </header>
+      <div class="signal"><span>Public signal</span><p>A current hybrid admin/marketing role owns bookings, scheduling, client communication, lead follow-up, CRM records, reviews, email, SMS, ads, and social content.</p></div>
+      <div class="prospect-grid">
+        <div><span>Why it fits</span><p>The Dot can connect the website&#x27;s lead capture to booking, CRM, email/SMS follow-up, and reporting while improving AODA readiness and reducing repetitive admin work.</p></div>
+        <div><span>Why now</span><p>The clinic is hiring now to absorb both operational and marketing workload, which creates an opening to simplify the workflow before the new role becomes the permanent integration layer.</p></div>
+        <div><span>Suggested channel</span><p>Faces Medical Spa&#x27;s public Instagram or website contact, addressed to the owner/clinic manager</p></div>
+        <div><span>Caution</span><p>The role may already be filled, and a combined role does not prove the tools are disconnected. Verify the live stack, handoff pain, budget, and decision owner first.</p></div>
+      </div>
+      <blockquote><span>Suggested opener</span>I saw your posting combining bookings, client communication, lead follow-up, CRM upkeep, email/SMS, reviews, and content. When one role spans that many handoffs, the website and booking flow often become the best place to remove repeat work. Would a short map of the website-to-booking-to-CRM journey be useful before the new hire settles into the process?</blockquote>
+      <details>
+        <summary>Evidence and score breakdown</summary>
+        <div class="evidence"><div><span>Evidence</span><p>Observed: the employer-provided posting describes a growing clinic and places booking, CRM upkeep, lead follow-up, email/SMS, reviews, and marketing execution in one role. Inference: those handoffs may be fragmented or labour-heavy; the posting does not identify the current software stack.</p></div><div><span>Source</span><p>Employer-provided job posting on Glassdoor · 2026-07 (active posting; exact publication date unavailable)</p><a href="https://www.glassdoor.ca/job-listing/sm-content-creator-and-administrator-faces-medical-spa-JV_IC2280741_KO0%2C36_KE37%2C54.htm?jl=1010157104810" target="_blank" rel="noreferrer">SM Content Creator &amp; Administrator — Faces Medical Spa ↗</a></div></div>
+        <div class="metrics"><div class="metric"><span>Pain strength</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div><div class="metric"><span>Product fit</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div><div class="metric"><span>Timing</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div><div class="metric"><span>Reachability</span><div class="track"><i style="width:80%"></i></div><b>4/5</b></div><div class="metric"><span>Evidence quality</span><div class="track"><i style="width:80%"></i></div><b>4/5</b></div></div>
+      </details>
+    </article>
+    <article class="prospect reveal">
+      <header class="prospect-head">
+        <div class="rank">03</div>
+        <div class="identity">
+          <span class="eyebrow">Primary ICP · Wellness studio · Toronto</span>
+          <h3>The Practice</h3>
+          <span class="stage warm">Trigger present</span>
+        </div>
+        <div class="score" style="--score:90" aria-label="Fit score 90 out of 100"><strong>90</strong><small>/100</small></div>
+      </header>
+      <div class="signal"><span>Public signal</span><p>The growing 11–50-person wellness business is hiring leadership across retail/café, clinical services, yoga/breathwork, and administration/operations support.</p></div>
+      <div class="prospect-grid">
+        <div><span>Why it fits</span><p>A connected website can unify service discovery, events, appointments, payments, lead capture, and follow-up without forcing the business to replace every existing tool; AODA-conscious UX is also relevant to a public wellness destination.</p></div>
+        <div><span>Why now</span><p>The business is staffing its operating model during an active growth phase, when workflow decisions are still easier to change.</p></div>
+        <div><span>Suggested channel</span><p>Founder Sara Jackson&#x27;s public LinkedIn profile, referenced directly in the hiring post</p></div>
+        <div><span>Caution</span><p>The current website is already polished, so lead with operational connection rather than a redesign. Confirm ownership of the booking, POS, event, and finance stack before proposing scope.</p></div>
+      </div>
+      <blockquote><span>Suggested opener</span>I saw The Practice is growing across clinical services, yoga and breathwork, retail, café, events, and administration. That breadth is exciting, but it can also create avoidable handoffs between scheduling, payments, events, and customer follow-up. The Dot connects websites to the systems Ontario service businesses already use. Would a one-page systems map be helpful as you shape the Head of Administration &amp; Operations role?</blockquote>
+      <details>
+        <summary>Evidence and score breakdown</summary>
+        <div class="evidence"><div><span>Evidence</span><p>Observed: the founder-linked hiring post says The Practice is growing and combines therapy, coaching, energy work, meditation, yoga, retail, café, events, and community under one roof. It sought a Head of Administration &amp; Operations Support. Inference: coordinating schedules, payments, retail, events, and customer data across those lines can create system handoffs.</p></div><div><span>Source</span><p>Company job post on LinkedIn · 2026-05 (posted two months before review)</p><a href="https://ca.linkedin.com/jobs/view/we-re-hiring-at-the-practice-4413134582" target="_blank" rel="noreferrer">We&#x27;re Hiring — The Practice ↗</a></div></div>
+        <div class="metrics"><div class="metric"><span>Pain strength</span><div class="track"><i style="width:60%"></i></div><b>3/5</b></div><div class="metric"><span>Product fit</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div><div class="metric"><span>Timing</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div><div class="metric"><span>Reachability</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div><div class="metric"><span>Evidence quality</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div></div>
+      </details>
+    </article>
+    <article class="prospect reveal">
+      <header class="prospect-head">
+        <div class="rank">04</div>
+        <div class="identity">
+          <span class="eyebrow">Primary ICP · Dermatology launch · Midtown Toronto</span>
+          <h3>Avenue Dermatology Group</h3>
+          <span class="stage warm">Trigger present</span>
+        </div>
+        <div class="score" style="--score:90" aria-label="Fit score 90 out of 100"><strong>90</strong><small>/100</small></div>
+      </header>
+      <div class="signal"><span>Public signal</span><p>The founders publicly announced a Fall 2026 launch and are hiring the founding administrative, medical-aesthetic, and research team.</p></div>
+      <div class="prospect-grid">
+        <div><span>Why it fits</span><p>The Dot can help design an accessible, conversion-focused web journey and connect appropriate public-facing forms, booking, CRM, and operational handoffs during setup rather than after launch friction appears.</p></div>
+        <div><span>Why now</span><p>A pre-opening window and founding-team build create unusually good timing for system architecture and website decisions.</p></div>
+        <div><span>Suggested channel</span><p>Reply privately to the founder/company LinkedIn launch post</p></div>
+        <div><span>Caution</span><p>They may already have a design or implementation partner. Ask what remains undecided; do not imply access to clinical or research systems without a privacy and vendor review.</p></div>
+      </div>
+      <blockquote><span>Suggested opener</span>Congratulations on the Avenue Dermatology Group launch and founding-team build for Fall 2026. This is the rare point when the website, intake, booking, and follow-up flow can be designed as one system instead of stitched together later. The Dot builds connected, AODA-conscious websites for Ontario service businesses. Would a short pre-launch workflow review be useful before the tooling is locked in?</blockquote>
+      <details>
+        <summary>Evidence and score breakdown</summary>
+        <div class="evidence"><div><span>Evidence</span><p>Observed: the founder post announces a new medical dermatology, aesthetics, and clinical-research destination opening in Fall 2026 and recruiting its founding team. Inference: intake, referral, booking, research, marketing, and follow-up systems are being selected or finalized now.</p></div><div><span>Source</span><p>Founder launch post on LinkedIn · 2026-06 (posted three weeks before review)</p><a href="https://www.linkedin.com/posts/hilary-crangle-5275543a_avenue-dermatology-group-opening-fall-2026-activity-7464665236197896193-zYKf" target="_blank" rel="noreferrer">Avenue Dermatology Group | Opening Fall 2026 in Toronto ↗</a></div></div>
+        <div class="metrics"><div class="metric"><span>Pain strength</span><div class="track"><i style="width:60%"></i></div><b>3/5</b></div><div class="metric"><span>Product fit</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div><div class="metric"><span>Timing</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div><div class="metric"><span>Reachability</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div><div class="metric"><span>Evidence quality</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div></div>
+      </details>
+    </article>
+    <article class="prospect reveal">
+      <header class="prospect-head">
+        <div class="rank">05</div>
+        <div class="identity">
+          <span class="eyebrow">Adjacent ICP · Trades / construction group · Vaughan</span>
+          <h3>GTA General Contractors / Abeco Group</h3>
+          <span class="stage warm">Trigger present</span>
+        </div>
+        <div class="score" style="--score:89" aria-label="Fit score 89 out of 100"><strong>89</strong><small>/100</small></div>
+      </header>
+      <div class="signal"><span>Public signal</span><p>A growing three-company group is hiring one coordinator to manage marketing across the group, including websites, email marketing, digital platforms, and CRM familiarity.</p></div>
+      <div class="prospect-grid">
+        <div><span>Why it fits</span><p>The Dot&#x27;s website-plus-integration model can standardize lead capture, CRM routing, project showcases, email handoffs, and reporting across multiple brands while leaving existing tools in place.</p></div>
+        <div><span>Why now</span><p>The group is adding marketing capacity immediately and explicitly needs someone to bridge three companies and several digital systems.</p></div>
+        <div><span>Suggested channel</span><p>GTA General Contractors&#x27; company LinkedIn page or public business-development contact; do not use the job application channel</p></div>
+        <div><span>Caution</span><p>This is an adjacent rather than core vertical, and the group may already have substantial internal or vendor capacity. Confirm the decision owner and whether cross-brand systems are actually separate.</p></div>
+      </div>
+      <blockquote><span>Suggested opener</span>Your July 11 posting says one marketer will support three growing Abeco companies across websites, email, digital platforms, and CRM. Before that workload scales, The Dot could map a shared lead-capture and routing system so the new hire is not manually reconciling three brands. Would a brief cross-company workflow sketch be useful?</blockquote>
+      <details>
+        <summary>Evidence and score breakdown</summary>
+        <div class="evidence"><div><span>Evidence</span><p>Observed: the July 11 posting says Abeco Group is growing across manufacturing, distribution, and construction and needs one role to execute marketing for all three companies. WordPress, email platforms, and CRM are named. Inference: shared lead routing, project enquiries, content, and reporting may be fragmented across brands.</p></div><div><span>Source</span><p>Employer job posting indexed by Job Bank · 2026-07-11</p><a href="https://ab.jobbank.gc.ca/jobsearch/jobposting/49885357?source=searchresults" target="_blank" rel="noreferrer">Marketing Coordinator — GTA General Contractors / Abeco Group ↗</a></div></div>
+        <div class="metrics"><div class="metric"><span>Pain strength</span><div class="track"><i style="width:80%"></i></div><b>4/5</b></div><div class="metric"><span>Product fit</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div><div class="metric"><span>Timing</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div><div class="metric"><span>Reachability</span><div class="track"><i style="width:80%"></i></div><b>4/5</b></div><div class="metric"><span>Evidence quality</span><div class="track"><i style="width:80%"></i></div><b>4/5</b></div></div>
+      </details>
+    </article>
+    <article class="prospect reveal">
+      <header class="prospect-head">
+        <div class="rank">06</div>
+        <div class="identity">
+          <span class="eyebrow">Primary ICP · Gastroenterology launch · Toronto</span>
+          <h3>The GUT Centre</h3>
+          <span class="stage warm">Trigger present</span>
+        </div>
+        <div class="score" style="--score:89" aria-label="Fit score 89 out of 100"><strong>89</strong><small>/100</small></div>
+      </header>
+      <div class="signal"><span>Public signal</span><p>The new multi-service clinic is opening in Summer 2026, is accepting referrals now, and currently publishes a fax-led four-step referral and triage flow.</p></div>
+      <div class="prospect-grid">
+        <div><span>Why it fits</span><p>The Dot can assess the non-clinical website, referral guidance, accessible content, and permissible workflow integrations around the clinic&#x27;s existing systems; the launch creates a chance to document handoffs before volume increases.</p></div>
+        <div><span>Why now</span><p>The clinic is pre-opening but already processing referrals, so operational load is beginning before the public launch is complete.</p></div>
+        <div><span>Suggested channel</span><p>Clinic&#x27;s public general channel or a professional LinkedIn note to a publicly listed co-founder</p></div>
+        <div><span>Caution</span><p>Do not propose replacing clinical triage or fax without confirming PHIPA, EMR, hospital-affiliate, vendor, and regulatory requirements. Scope initial outreach to the public referral journey and administrative handoffs.</p></div>
+      </div>
+      <blockquote><span>Suggested opener</span>I saw The GUT Centre is accepting referrals ahead of its Summer 2026 opening and has already documented the fax-to-triage-to-care-path flow. The Dot helps Ontario service businesses connect accessible websites with the systems already in place. Would a short pre-launch review of the public referral journey and non-clinical handoffs be useful?</blockquote>
+      <details>
+        <summary>Evidence and score breakdown</summary>
+        <div class="evidence"><div><span>Evidence</span><p>Observed on the clinic&#x27;s own launch page: Summer 2026 opening, multiple GI services, referrals accepted now, fax intake, clinical triage, care-path assignment, and physician updates. Inference: some referral-status and communication steps may be candidates for compliant digital support, but the clinical stack and legal constraints are unknown.</p></div><div><span>Source</span><p>Official clinic launch page · 2026-07 (current launch page; exact publication date unavailable)</p><a href="https://thegutcentre.ca/" target="_blank" rel="noreferrer">The GUT Centre — Opening Summer 2026 ↗</a></div></div>
+        <div class="metrics"><div class="metric"><span>Pain strength</span><div class="track"><i style="width:80%"></i></div><b>4/5</b></div><div class="metric"><span>Product fit</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div><div class="metric"><span>Timing</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div><div class="metric"><span>Reachability</span><div class="track"><i style="width:60%"></i></div><b>3/5</b></div><div class="metric"><span>Evidence quality</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div></div>
+      </details>
+    </article>
+    <article class="prospect reveal">
+      <header class="prospect-head">
+        <div class="rank">07</div>
+        <div class="identity">
+          <span class="eyebrow">Primary ICP · Multidisciplinary rehab · Toronto/Oakville</span>
+          <h3>PhysioDNA</h3>
+          <span class="stage warm">Trigger present</span>
+        </div>
+        <div class="score" style="--score:89" aria-label="Fit score 89 out of 100"><strong>89</strong><small>/100</small></div>
+      </header>
+      <div class="signal"><span>Public signal</span><p>The three-location multidisciplinary clinic is hiring a Clinic Operations Manager to oversee all locations and the administrative team.</p></div>
+      <div class="prospect-grid">
+        <div><span>Why it fits</span><p>The Dot can connect the website and booking journey to appropriate CRM, follow-up, analytics, and finance workflows while improving consistency and accessibility across locations.</p></div>
+        <div><span>Why now</span><p>The business is centralizing operational ownership now, which is a good moment to define systems before process differences harden across three clinics.</p></div>
+        <div><span>Suggested channel</span><p>PhysioDNA&#x27;s public business contact or company LinkedIn, addressed to clinic leadership</p></div>
+        <div><span>Caution</span><p>The detailed current stack is not public, and the role may close quickly. Verify which location/process differences are real and whether leadership, not the incoming hire, owns implementation budget.</p></div>
+      </div>
+      <blockquote><span>Suggested opener</span>I saw PhysioDNA is hiring an Operations Manager to oversee all three clinics and the admin team. That is often the moment to standardize the website, booking, follow-up, and reporting handoffs across locations. The Dot builds connected, AODA-conscious systems for Ontario service businesses. Would a quick cross-location workflow map help the new operations lead start with a cleaner baseline?</blockquote>
+      <details>
+        <summary>Evidence and score breakdown</summary>
+        <div class="evidence"><div><span>Evidence</span><p>Observed: the July 14 current-job results identify three established GTA locations and a new operations leadership role covering all three clinics and the admin team. The official site confirms three locations, many service lines, phone/email contact, and online booking. Inference: cross-location scheduling, lead, billing, and reporting handoffs may need standardization.</p></div><div><span>Source</span><p>Current employer job listing on Indeed · 2026-07-14</p><a href="https://emplois.ca.indeed.com/q-clinic-admin-assistant-l-toronto%2C-on-jobs.html" target="_blank" rel="noreferrer">Clinic Operations Manager — PhysioDNA ↗</a></div></div>
+        <div class="metrics"><div class="metric"><span>Pain strength</span><div class="track"><i style="width:80%"></i></div><b>4/5</b></div><div class="metric"><span>Product fit</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div><div class="metric"><span>Timing</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div><div class="metric"><span>Reachability</span><div class="track"><i style="width:80%"></i></div><b>4/5</b></div><div class="metric"><span>Evidence quality</span><div class="track"><i style="width:80%"></i></div><b>4/5</b></div></div>
+      </details>
+    </article>
+    <article class="prospect reveal">
+      <header class="prospect-head">
+        <div class="rank">08</div>
+        <div class="identity">
+          <span class="eyebrow">Primary ICP · Multidisciplinary clinic · Vaughan</span>
+          <h3>Axis Health Centre</h3>
+          <span class="stage warm">Trigger present</span>
+        </div>
+        <div class="score" style="--score:85" aria-label="Fit score 85 out of 100"><strong>85</strong><small>/100</small></div>
+      </header>
+      <div class="signal"><span>Public signal</span><p>Axis recently opened a clinic spanning rehab, medical aesthetics/regenerative therapy, and genetic/preventive testing; the public launch post routes bookings through phone or email.</p></div>
+      <div class="prospect-grid">
+        <div><span>Why it fits</span><p>A connected, accessible website could route prospects by service, collect appropriate non-sensitive intake, support booking and CRM follow-up, and reduce manual sorting across three business lines.</p></div>
+        <div><span>Why now</span><p>The centre opened roughly two months ago, so real booking and intake patterns are becoming visible while processes are still new.</p></div>
+        <div><span>Suggested channel</span><p>A respectful LinkedIn note to post author Paul Sharma or Axis Health Centre&#x27;s company page</p></div>
+        <div><span>Caution</span><p>Phone/email booking is not proof of an inefficient backend. Confirm actual appointment volume, tools, and whether a compliant online pathway is desired before pitching a build.</p></div>
+      </div>
+      <blockquote><span>Suggested opener</span>Your Axis launch post describes a connected, intelligent clinic across rehab, aesthetics, and preventive testing, while public appointment requests currently go through phone or email. The Dot helps Ontario service businesses connect an accessible website to booking and follow-up workflows. Would a brief review of the service-routing and intake journey be useful now that the centre is live?</blockquote>
+      <details>
+        <summary>Evidence and score breakdown</summary>
+        <div class="evidence"><div><span>Evidence</span><p>Observed: the public grand-opening post describes three service verticals, calls the model connected and intelligent, and asks prospective patients to call or email for appointments. Inference: the public booking and intake layer may not yet match the operational ambition; backend efficiency is not proven.</p></div><div><span>Source</span><p>Leadership launch post on LinkedIn · 2026-05 (posted two months before review)</p><a href="https://www.linkedin.com/posts/paul-sharma-mba-00168773_axishealthcentre-grandopening-integratedhealthcare-activity-7456420510164398080-HQdX" target="_blank" rel="noreferrer">Axis Health Centre Grand Opening in Vaughan ↗</a></div></div>
+        <div class="metrics"><div class="metric"><span>Pain strength</span><div class="track"><i style="width:40%"></i></div><b>2/5</b></div><div class="metric"><span>Product fit</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div><div class="metric"><span>Timing</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div><div class="metric"><span>Reachability</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div><div class="metric"><span>Evidence quality</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div></div>
+      </details>
+    </article>
+    <article class="prospect reveal">
+      <header class="prospect-head">
+        <div class="rank">09</div>
+        <div class="identity">
+          <span class="eyebrow">Adjacent ICP · Event services / local rental · Scarborough</span>
+          <h3>Vincent Tent &amp; Event Rentals</h3>
+          <span class="stage warm">Trigger present</span>
+        </div>
+        <div class="score" style="--score:82" aria-label="Fit score 82 out of 100"><strong>82</strong><small>/100</small></div>
+      </header>
+      <div class="signal"><span>Public signal</span><p>The company directly posted a July 13 permanent marketing role covering website promotions, e-commerce, Mailchimp, digital media, events, brand management, and strategy.</p></div>
+      <div class="prospect-grid">
+        <div><span>Why it fits</span><p>The Dot can connect quote requests, inventory/service selections, email follow-up, CRM, and accounting handoffs behind a more conversion-focused and AODA-conscious website.</p></div>
+        <div><span>Why now</span><p>The company is making a permanent marketing investment immediately and appears ready to expand digital acquisition beyond a brochure site.</p></div>
+        <div><span>Suggested channel</span><p>Company&#x27;s public website contact or business LinkedIn; do not use the job application path</p></div>
+        <div><span>Caution</span><p>The post signals digital investment, not a confirmed systems problem. Validate quote volume, CRM/accounting tools, seasonality, and appetite for a $5,500+ project before discovery.</p></div>
+      </div>
+      <blockquote><span>Suggested opener</span>Your July 13 posting brings website promotion, e-commerce, Mailchimp, events, and brand strategy into one permanent role. Since your site already generates quote enquiries across the GTA, this could be a good time to connect lead capture, follow-up, and reporting before campaign volume grows. Would a short lead-to-quote workflow review be useful?</blockquote>
+      <details>
+        <summary>Evidence and score breakdown</summary>
+        <div class="evidence"><div><span>Evidence</span><p>Observed: the direct Job Bank posting is current and employer-linked; it names website/e-commerce promotion and Mailchimp, while the public site invites customers to request quotes across a broad GTA service area. Inference: lead-to-quote follow-up and campaign attribution may involve manual handoffs.</p></div><div><span>Source</span><p>Direct employer posting on Government of Canada Job Bank · 2026-07-13</p><a href="https://www.jobbank.gc.ca/jobsearch/jobposting/49894121%3Bjsessionid%3D599A26E07706023D8160E8FCCD02DEC0.jobsearch77?source=searchresults" target="_blank" rel="noreferrer">Marketing Coordinator — Vincent Tent and Event Rental ↗</a></div></div>
+        <div class="metrics"><div class="metric"><span>Pain strength</span><div class="track"><i style="width:60%"></i></div><b>3/5</b></div><div class="metric"><span>Product fit</span><div class="track"><i style="width:80%"></i></div><b>4/5</b></div><div class="metric"><span>Timing</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div><div class="metric"><span>Reachability</span><div class="track"><i style="width:80%"></i></div><b>4/5</b></div><div class="metric"><span>Evidence quality</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div></div>
+      </details>
+    </article>
+    <article class="prospect reveal">
+      <header class="prospect-head">
+        <div class="rank">10</div>
+        <div class="identity">
+          <span class="eyebrow">Primary ICP · Medical aesthetics · North York/Markham</span>
+          <h3>Serene Cosmetic Clinic</h3>
+          <span class="stage warm">Trigger present</span>
+        </div>
+        <div class="score" style="--score:79" aria-label="Fit score 79 out of 100"><strong>79</strong><small>/100</small></div>
+      </header>
+      <div class="signal"><span>Public signal</span><p>The two-location clinic is actively hiring for brand management across five social platforms, media-supplier coordination, performance targets, SEO/SEM, and website updates.</p></div>
+      <div class="prospect-grid">
+        <div><span>Why it fits</span><p>The Dot can centralize website conversion, lead routing, CRM follow-up, analytics, and AODA improvements so the marketing hire can spend less time maintaining disconnected touchpoints.</p></div>
+        <div><span>Why now</span><p>The clinic is adding marketing capacity now and its public footprint spans two locations plus several channel-specific ecosystems.</p></div>
+        <div><span>Suggested channel</span><p>Clinic&#x27;s public website or Instagram contact, addressed to the owner/clinic manager</p></div>
+        <div><span>Caution</span><p>The hiring need may be primarily content production, not systems integration. Confirm the booking/CRM/analytics stack and whether bilingual/WeChat workflows require specialist support.</p></div>
+      </div>
+      <blockquote><span>Suggested opener</span>I saw Serene is hiring someone to manage five social platforms, media suppliers, performance targets, SEO/SEM, and website updates across a two-location clinic. The Dot helps Ontario businesses turn that activity into one connected lead and follow-up system. Would a short channel-to-booking workflow map be useful before the new coordinator inherits the full setup?</blockquote>
+      <details>
+        <summary>Evidence and score breakdown</summary>
+        <div class="evidence"><div><span>Evidence</span><p>Observed: the active employer job description covers multi-platform brand work, monthly performance targets, supplier management, SEO/SEM, and website updates; the official site confirms North York and Markham locations. Inference: marketing data, website leads, and follow-up may be spread across channels and vendors.</p></div><div><span>Source</span><p>Employer job posting on Indeed · 2026-06 (active within the last month)</p><a href="https://ca.indeed.com/q-serene-cosmetic-clinic-l-markham%2C-on-jobs.html" target="_blank" rel="noreferrer">Marketing Coordinator — Serene Cosmetic Clinic ↗</a></div></div>
+        <div class="metrics"><div class="metric"><span>Pain strength</span><div class="track"><i style="width:60%"></i></div><b>3/5</b></div><div class="metric"><span>Product fit</span><div class="track"><i style="width:80%"></i></div><b>4/5</b></div><div class="metric"><span>Timing</span><div class="track"><i style="width:100%"></i></div><b>5/5</b></div><div class="metric"><span>Reachability</span><div class="track"><i style="width:80%"></i></div><b>4/5</b></div><div class="metric"><span>Evidence quality</span><div class="track"><i style="width:80%"></i></div><b>4/5</b></div></div>
+      </details>
+    </article></div></section>
+      <section><header class="section-head"><h2>Signals that repeat.</h2><p>Patterns across prospects reveal the strongest positioning, workflow, and outreach angles.</p></header><div class="patterns">
+    <article class="pattern reveal"><span class="pattern-num">01</span><div><h3>Growth is being staffed before workflows are simplified</h3><p>Eight prospects are hiring while expanding, launching, or centralizing operations. The best outreach frame is not &#x27;replace the hire&#x27;; it is &#x27;give the new hire a cleaner system to run.&#x27;</p></div><strong>8×</strong></article>
+    <article class="pattern reveal"><span class="pattern-num">02</span><div><h3>Multi-service or multi-location complexity</h3><p>Seven businesses span multiple locations, brands, or service lines. This strengthens The Dot&#x27;s connected-system positioning because routing, reporting, and consistent customer experience matter more than a standalone brochure site.</p></div><strong>7×</strong></article>
+    <article class="pattern reveal"><span class="pattern-num">03</span><div><h3>Visible website-to-operations handoffs</h3><p>Public signals repeatedly expose handoffs among forms, phone/email, fax, booking, CRM, email/SMS, quotes, and staff follow-up. Lead with one mapped workflow, not a broad digital-transformation pitch.</p></div><strong>7×</strong></article>
+    <article class="pattern reveal"><span class="pattern-num">04</span><div><h3>Marketing roles are carrying systems work</h3><p>Faces, GTA General Contractors, Vincent, and Serene bundle website, CRM, email, data, and operational follow-up into marketing roles — a sign that integration work may otherwise become recurring manual labour.</p></div><strong>4×</strong></article>
+    <article class="pattern reveal"><span class="pattern-num">05</span><div><h3>Launch windows create implementation leverage</h3><p>Avenue Dermatology Group, The GUT Centre, and Axis Health Centre are in pre-launch or early post-launch windows, when workflow and accessibility changes are cheaper than after volume and habits settle.</p></div><strong>3×</strong></article></div></section>
+      <section class="plan"><div><span class="eyebrow" style="color:#111">Seven-day manual plan</span><h2>Lead with one source-backed workflow observation and offer a small diagnostic, not a redesign pitch.</h2></div><div class="plan-grid"><div><span>First step</span><p>Days 1–2: manually contact Argus, Faces, and The Practice with the drafted openers. Before each note, re-open the source and spend 10 minutes mapping one public journey: intake-to-invoice, lead-to-booking, or schedule-to-follow-up. Do not send attachments or audit claims.</p></div><div><span>Follow-up</span><p>Days 3–7: contact Avenue, GTA General Contractors, and The GUT Centre only after tailoring the same one-workflow approach. Follow up once, 3–4 business days later, with a two-sentence hypothesis or a one-page sketch only if they engage. Stop after one follow-up.</p></div><div><span>Success signal</span><p>A good seven-day result is 3 replies, 2 workflow conversations, and 1 request for a scoped paid audit or connected-system estimate. Record objections by pattern: timing, budget, existing vendor, privacy, or no real handoff pain.</p></div><div><span>Research scope</span><p>Public English-language sources in Ontario/GTA, reviewed 2026-07-19; last 90 days prioritized. Original company pages/posts and current employer-authored job listings were used. Enterprises and agencies were excluded.</p></div></div></section>
+      <section class="limits"><h2>Use this shortlist responsibly</h2><ul><li>These are potential customers inferred from public signals, not confirmed buyers, leads, or expressions of interest.</li><li>Job posts and launch pages show timing and responsibility, but they do not prove the current technology stack, available budget, procurement process, or decision authority.</li><li>Three active/current sources did not expose an exact publication date. Re-open every source immediately before outreach; remove any prospect whose trigger is no longer live or relevant.</li><li>No private groups, personal email discovery, phone enrichment, data brokers, or sensitive personal information were used. Outreach should remain manual and business-focused.</li><li>For clinics, The Dot must confirm PHIPA, EMR/EHR, vendor, consent, security, and data-residency requirements before proposing integrations involving patient information. The public site does not establish healthcare-compliance implementation credentials.</li><li>AODA relevance is a strong differentiator for Ontario customer-facing sites, but this report did not perform a technical accessibility audit of each prospect&#x27;s website and does not claim non-compliance.</li><li>Expansion and hiring are buying triggers, not proof of pain. Validate the exact workflow, time cost, business impact, and willingness to fund a $5,500+ project in a real conversation.</li></ul></section>
+    </main>
+    <footer><span>Generated by $first-customer-finder</span><span>Outreach is never sent automatically.</span></footer>
+  </div>
+</body>
+</html>
