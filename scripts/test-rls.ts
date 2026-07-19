@@ -758,16 +758,30 @@ async function main(): Promise<void> {
     console.log('\n--- Existing tenant-isolated surfaces ---')
 
     {
-      const recommendation = await admin.from('recommendations').insert({
-        client_id: bClientId, title: 'B rec', body: 'x', category: 'content',
+      const recommendation = await admin.rpc('upsert_portal_recommendation', {
+        p_client_id: bClientId, p_source_key: 'rls:recommendation', p_title: 'B rec', p_body: 'Safe body',
+        p_category: 'content', p_platform: 'instagram', p_source_type: 'strategy_review',
+        p_source_ref: 'rls:test', p_provenance: { test: true }, p_status: 'active',
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-rec-${RUN_ID}`,
       })
-      const link = await admin.from('links').insert({
-        client_id: bClientId, category: 'brand', label: 'B link', url: 'https://example.com',
+      const link = await admin.rpc('upsert_portal_link', {
+        p_client_id: bClientId, p_link_key: 'rls:link', p_category: 'brand', p_label: 'B link',
+        p_url: 'https://drive.google.com/open?id=rls', p_description: null, p_sort: 1,
+        p_source_type: 'agency_curated', p_source_ref: 'rls:test', p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-link-${RUN_ID}`,
       })
-      const report = await admin.from('report_snapshots').insert({
-        client_id: bClientId, period: 'test', platform: 'instagram', metrics: {},
+      const report = await admin.rpc('upsert_portal_report_snapshot', {
+        p_client_id: bClientId, p_period_start: '2026-07-01', p_period_end: '2026-07-15',
+        p_platform: 'instagram', p_schema_version: 1, p_metrics: { reach: 12 }, p_summary: 'Safe report',
+        p_collected_at: '2026-07-16T12:00:00Z', p_source_type: 'platform_ui', p_source_ref: 'rls:test',
+        p_source_checksum: 'a'.repeat(64), p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-report-${RUN_ID}`,
       })
-      check('D1: service seeds B read-only surfaces', !recommendation.error && !link.error && !report.error,
+      const directService = await admin.from('recommendations').insert({
+        client_id: bClientId, title: 'bypass', body: 'bypass', category: 'content',
+      })
+      check('D1: service RPCs atomically seed B read-only surfaces and direct service write is denied',
+        !recommendation.error && !link.error && !report.error && !!directService.error,
         recommendation.error?.message || link.error?.message || report.error?.message || 'ok')
     }
 

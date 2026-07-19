@@ -17,16 +17,21 @@ export type TopPage = { page?: string; views?: number | string }
 export type ReportRow = {
   id: string
   period: string // e.g. '2026-07-H1' (first half of July)
+  period_start: string
+  period_end: string
   platform: ReportPlatform
+  schema_version: number
   metrics: Record<string, unknown> // free-form, agent-fed; render defensively
   summary: string | null
+  collected_at: string
   created_at: string
+  updated_at: string
 }
 
 // A period groups its per-platform snapshots (newest period first; platforms alphabetical).
 export type ReportPeriod = { period: string; rows: ReportRow[] }
 
-const SELECT = 'id, period, platform, metrics, summary, created_at'
+const SELECT = 'id, period, period_start, period_end, platform, schema_version, metrics, summary, collected_at, created_at, updated_at'
 
 export async function getReports(clientId: string): Promise<ReportRow[]> {
   const supabase = await createSupabaseServer()
@@ -34,7 +39,7 @@ export async function getReports(clientId: string): Promise<ReportRow[]> {
     .from('report_snapshots')
     .select(SELECT)
     .eq('client_id', clientId)
-    .order('period', { ascending: false })
+    .order('period_start', { ascending: false })
     .order('platform', { ascending: true })
   if (error) throw new PortalDataError(error.message)
   return (data ?? []) as ReportRow[]

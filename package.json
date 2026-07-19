@@ -20,6 +20,8 @@
     "test:rls": "tsx scripts/test-rls.ts",
     "test:rls:seed-local": "tsx scripts/seed-rls-local.ts",
     "portal-admin": "tsx scripts/portal-admin.ts",
+    "portal-write": "tsx scripts/portal-write.ts",
+    "portal-inbox": "tsx scripts/portal-inbox.ts",
     "portal-history": "tsx scripts/import-portal-history.ts",
     "sync-content": "tsx scripts/sync-content-to-supabase.ts",
     "sync-content:fixtures": "PORTAL_CONTENT_DIR=content/portal tsx scripts/sync-content-to-supabase.ts"

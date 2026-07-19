@@ -11,9 +11,10 @@ export type LinkRow = {
   description: string | null
   sort: number
   created_at: string
+  updated_at: string
 }
 
-const SELECT = 'id, client_id, category, label, url, description, sort, created_at'
+const SELECT = 'id, client_id, category, label, url, description, sort, created_at, updated_at'
 
 // All of a client's Library links, grouped by category and then by explicit sort order
 // (matches the links_by_client index: client_id, category, sort). Throws PortalDataError on failure.

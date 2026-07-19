@@ -27,7 +27,7 @@ select id, 'Existing recommendation', 'Keep this recommendation', 'content', 'in
 from public.clients where slug = 'kanset';
 
 insert into public.links (client_id, category, label, url, description, sort)
-select id, 'posting', 'Posting folder', 'https://example.com/posting', 'Existing link', 1
+select id, 'posting', 'Posting folder', 'https://drive.google.com/open?id=upgrade-fixture', 'Existing link', 1
 from public.clients where slug = 'kanset';
 
 insert into public.report_snapshots (client_id, period, platform, metrics, summary)

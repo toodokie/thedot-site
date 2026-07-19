@@ -9,10 +9,12 @@ export type RecommendationRow = {
   body: string
   category: RecommendationCategory
   platform: string | null
+  status: 'active' | 'archived'
   created_at: string
+  updated_at: string
 }
 
-const SELECT = 'id, title, body, category, platform, created_at'
+const SELECT = 'id, title, body, category, platform, status, created_at, updated_at'
 
 // Reads the recommendations The Dot has authored for this client, newest first. Read-only to the
 // client (RLS scopes reads to the caller's own client); we also filter by client_id explicitly
@@ -24,7 +26,8 @@ export async function getRecommendations(clientId: string): Promise<Recommendati
     .from('recommendations')
     .select(SELECT)
     .eq('client_id', clientId)
-    .order('created_at', { ascending: false })
+    .eq('status', 'active')
+    .order('updated_at', { ascending: false })
     .order('id', { ascending: false })
   if (error) throw new PortalDataError(error.message)
   return (data ?? []) as RecommendationRow[]
