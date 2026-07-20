@@ -19,6 +19,7 @@
     "test:e2e": "playwright test",
     "test:rls": "tsx scripts/test-rls.ts",
     "test:rls:seed-local": "tsx scripts/seed-rls-local.ts",
+    "assistant-eval": "tsx scripts/assistant-eval.ts",
     "portal-admin": "tsx scripts/portal-admin.ts",
     "portal-write": "tsx scripts/portal-write.ts",
     "portal-inbox": "tsx scripts/portal-inbox.ts",
