@@ -36,6 +36,7 @@
 .monthBlock { margin: 0 0 44px; }
 
 .monthNav {
+  justify-content: flex-end;
   display: flex;
   align-items: center;
   gap: 10px;

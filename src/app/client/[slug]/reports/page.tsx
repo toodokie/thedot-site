@@ -287,7 +287,9 @@ export default async function Reports({ params }: { params: Promise<{ slug: stri
   const session = await getClientSession(slug)
   if (!session) redirect('/client/login')
 
-  const rows = await getReports(session.clientId)
+  // Fabricated-data ban (Anastasia, 2026-07-20, after a demo snapshot showed fake saves on a real
+  // post's title): schema v0 rows are demo-only and NEVER render, in any section. 0019 deletes them.
+  const rows = (await getReports(session.clientId)).filter((row) => row.schema_version >= 1)
 
   // Primary view: the newest snapshot per platform (v1 preferred over the retiring v0
   // demo rows). History: everything else, still grouped by period, minus v0 rows for

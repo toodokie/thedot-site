@@ -47,7 +47,7 @@
    full width evenly. */
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
   align-items: start;
 }
@@ -227,4 +227,9 @@
 @media (prefers-reduced-motion: reduce) {
   .card { transition: none; }
   .card:hover { transform: none; }
+}
+
+/* Two cards per row is the desktop rule (her ask: FB + IG side by side); single column on phones. */
+@media (max-width: 700px) {
+  .cards { grid-template-columns: 1fr; }
 }
