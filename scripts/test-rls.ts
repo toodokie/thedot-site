@@ -77,6 +77,7 @@ function snapshot(
   title: string,
   body: string,
   blockKey: string,
+  extra?: Record<string, unknown>,
 ) {
   return {
     client_id: clientId,
@@ -89,6 +90,7 @@ function snapshot(
     planned_date: null,
     canva_url: null,
     drive_url: null,
+    ...extra,
     fact_check: 'confirmed',
     fact_check_scope: 'required',
     fact_check_exemption: null,
@@ -1679,6 +1681,70 @@ async function main(): Promise<void> {
         !clearLinks.error && !clearedView.error
           && clearedView.data?.canva_url === null && clearedView.data?.drive_url === null,
         clearLinks.error?.message ?? clearedView.error?.message ?? JSON.stringify(clearedView.data))
+
+      // DL5 (Codex round-4 test ask): a sealed version that already CARRIES a link.
+      // The coalesce is per column: an item-level drive override wins while the
+      // untouched canva column keeps serving the sealed version value, and clearing
+      // restores the sealed value in full.
+      const DL5_ID = 'rls-design-piece'
+      const SEALED_CANVA = 'https://www.canva.com/design/SEALEDV1/view'
+      const sealedSync = await sync([snapshot(bClientId, DL5_ID, 1,
+        'Design piece v1', 'Design piece body', 'main', { canva_url: SEALED_CANVA })])
+      const dl5ItemId = sealedSync[0]?.item_id
+      const dl5Release = await admin.rpc('mark_content_ready', {
+        p_content_id: dl5ItemId, p_content_version: 1 })
+      const sealedView = await bClient.from('content_with_state')
+        .select('canva_url, drive_url').eq('content_id', DL5_ID).single()
+      const partial = await admin.rpc('set_content_design_links', {
+        p_client_id: bClientId, p_content_id: DL5_ID,
+        p_canva_url: null, p_drive_url: 'https://drive.google.com/open?id=OVERRIDE',
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-design-partial-${RUN_ID}`,
+      })
+      const partialView = await bClient.from('content_with_state')
+        .select('canva_url, drive_url').eq('content_id', DL5_ID).single()
+      const dl5Clear = await admin.rpc('set_content_design_links', {
+        p_client_id: bClientId, p_content_id: DL5_ID,
+        p_canva_url: null, p_drive_url: null,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-design-clear2-${RUN_ID}`,
+      })
+      const restoredView = await bClient.from('content_with_state')
+        .select('canva_url, drive_url').eq('content_id', DL5_ID).single()
+      check('DL5: sealed-version link + partial override + clear behave per column',
+        !!dl5ItemId && !dl5Release.error && !partial.error && !dl5Clear.error
+          && sealedView.data?.canva_url === SEALED_CANVA && sealedView.data?.drive_url === null
+          && partialView.data?.canva_url === SEALED_CANVA
+          && partialView.data?.drive_url === 'https://drive.google.com/open?id=OVERRIDE'
+          && restoredView.data?.canva_url === SEALED_CANVA && restoredView.data?.drive_url === null,
+        dl5Release.error?.message ?? partial.error?.message ?? dl5Clear.error?.message
+          ?? `sealed=${JSON.stringify(sealedView.data)} partial=${JSON.stringify(partialView.data)} restored=${JSON.stringify(restoredView.data)}`)
+
+      // DL6 (0021): design links are an INDEXED assistant source: the commit-time touch
+      // trigger projects a navigation_only chunk carrying the URL, and retracting the
+      // link retracts the chunk. Uses a fresh set on the main piece, then clears it.
+      const dl6Set = await admin.rpc('set_content_design_links', {
+        p_client_id: bClientId, p_content_id: B_CONTENT_ID,
+        p_canva_url: 'https://www.canva.com/design/INDEXME/view', p_drive_url: null,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-design-index-${RUN_ID}`,
+      })
+      const projected = await admin.from('assistant_document_chunks')
+        .select('body').eq('client_id', bClientId).like('body', '%INDEXME%')
+      const projectedDoc = await admin.from('assistant_documents')
+        .select('answer_eligibility').eq('client_id', bClientId)
+        .eq('source_type', 'design_link').eq('source_id', B_CONTENT_ID).single()
+      const dl6Clear = await admin.rpc('set_content_design_links', {
+        p_client_id: bClientId, p_content_id: B_CONTENT_ID,
+        p_canva_url: null, p_drive_url: null,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-design-index-clear-${RUN_ID}`,
+      })
+      const retracted = await admin.from('assistant_document_chunks')
+        .select('id').eq('client_id', bClientId).like('body', '%INDEXME%')
+      check('DL6: the assistant index projects and retracts the design link as navigation_only',
+        !dl6Set.error && !dl6Clear.error
+          && (projected.data?.length ?? 0) === 1
+          && projectedDoc.data?.answer_eligibility === 'navigation_only'
+          && (retracted.data?.length ?? 0) === 0,
+        dl6Set.error?.message ?? dl6Clear.error?.message
+          ?? `projected=${projected.data?.length} eligibility=${projectedDoc.data?.answer_eligibility} retracted=${retracted.data?.length}`)
     }
 
     {

@@ -319,26 +319,33 @@ begin
     return;
   end if;
 
-  -- Provenance gate (Codex blocker): a content_id alone could in principle be reused by
-  -- a real piece. The two retired fixtures are the ONLY items whose versions were synced
-  -- from the retired 'content/portal/' directory prefix (verified against the live
-  -- catalog 2026-07-20: all real rows carry bare canonical filenames), and their
-  -- synthetic titles are known. A candidate with ANY other provenance ABORTS the
-  -- migration instead of being deleted.
+  -- Provenance gate (Codex blocker, tightened round 4 to the EXACT known version set):
+  -- a content_id alone could in principle be reused by a real piece. The known set is
+  -- recovered from the retired fixture files' FULL git history (titles and source paths
+  -- constant in every committed state; frontmatter version 1 for the reel and 3 for the
+  -- carousel from creation to deletion) plus the 0006 backfill invariant (a pre-0006
+  -- item receives exactly ONE snapshot, at its legacy version). A candidate is deletable
+  -- ONLY if its version set is exactly that single known snapshot: one row, the mapped
+  -- version number, the mapped synthetic title, and the exact retired source path.
+  -- ANY other provenance ABORTS the migration (delete nothing, investigate with a prod
+  -- read-back). Checksums are deliberately not pinned: prod computed them at 0006-apply
+  -- time from the then-live legacy row and no local oracle can reproduce them.
   select pg_catalog.count(*) into v_count
     from public.content_items ci
     where ci.client_id = v_kanset
       and ci.content_id in ('kanset-2026-07-lmia-reel','kanset-2026-07-oinp-employer')
-      and (
-        exists (
+      and not (
+        (select pg_catalog.count(*) from public.content_item_versions v
+           where v.content_item_id = ci.id and v.client_id = ci.client_id) = 1
+        and exists (
           select 1 from public.content_item_versions v
           where v.content_item_id = ci.id and v.client_id = ci.client_id
-            and v.source_path not like 'content/portal/%'
-        )
-        or not exists (
-          select 1 from public.content_item_versions v
-          where v.content_item_id = ci.id and v.client_id = ci.client_id
-            and v.title in ('LMIA work permit explainer reel','OINP employer job offer carousel')
+            and v.version = case ci.content_id
+                when 'kanset-2026-07-lmia-reel' then 1 else 3 end
+            and v.title = case ci.content_id
+                when 'kanset-2026-07-lmia-reel' then 'LMIA work permit explainer reel'
+                else 'OINP employer job offer carousel' end
+            and v.source_path = 'content/portal/' || ci.content_id || '.md'
         )
       );
   if v_count > 0 then
