@@ -129,3 +129,103 @@
   color: var(--dot-grey);
   max-width: 62ch;
 }
+
+/* Answer sections (portal vs public web research) and visible clickable citations. */
+
+.section { margin: 0 0 10px; }
+.section:last-of-type { margin-bottom: 0; }
+
+.sectionLabel {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: var(--dot-weight-demi);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--dot-grey);
+}
+
+.block { display: block; margin: 0 0 8px; }
+.block:last-child { margin-bottom: 0; }
+
+.citationRow {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: 8px;
+  vertical-align: baseline;
+}
+
+.citationChip {
+  display: inline-block;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 1px 8px;
+  margin-right: 6px;
+  border: 1px solid var(--dot-hairline);
+  background: var(--dot-white);
+  color: var(--dot-graphite);
+  text-decoration: none;
+}
+.citationChip:hover {
+  border-color: var(--dot-yellow);
+  color: var(--dot-black);
+}
+
+.webLink {
+  color: var(--dot-black);
+  text-decoration: underline;
+  text-decoration-color: var(--dot-yellow);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+}
+.webLink:hover { background: var(--dot-yellow); }
+
+.sources {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--dot-grey);
+}
+
+.notice {
+  margin: 8px 0 0;
+  font-size: 15px;
+  color: var(--dot-graphite);
+}
+
+.reportRow { margin: 10px 0 0; }
+
+.reportButton {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--dot-font-text);
+  font-size: 13px;
+  color: var(--dot-grey);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.reportButton:hover { color: var(--dot-black); }
+.reportButton:disabled { opacity: 0.5; cursor: default; }
+
+.reportForm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.reportSelect,
+.reportComment {
+  font-family: var(--dot-font-text);
+  font-size: 14px;
+  padding: 6px 8px;
+  border: 1px solid var(--dot-hairline);
+  background: var(--dot-white);
+  color: var(--dot-black);
+}
+
+.reportDone {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--dot-grey);
+}

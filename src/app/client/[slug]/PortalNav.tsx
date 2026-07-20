@@ -6,8 +6,9 @@ import styles from './portal-shell.module.css'
 
 // Left sidebar on desktop, bottom bar on mobile (portal-shell.module.css handles the responsive swap).
 // "Library" is one route (/library) holding both brand + video sections; Plan is reached from here
-// and via calendar deep-links. The Assistant entry appears only for members holding the
-// can_use_assistant capability (the layout passes the session flag; the API re-checks in the DB).
+// and via calendar deep-links. The Assistant entry appears only when the member holds the
+// can_use_assistant capability AND the 'assistant' feature switch is on (the layout runs the
+// database gate RPC and passes the result; the API re-runs the same gate on every question).
 const ITEMS = [
   { label: 'Overview', seg: '' },
   { label: 'Calendar', seg: 'calendar' },

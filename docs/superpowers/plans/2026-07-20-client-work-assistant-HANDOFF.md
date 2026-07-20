@@ -15,7 +15,7 @@ An in-portal assistant that answers ONE client's questions about **their own Kan
 - **Compliance core (built + 5 vitest green):** `src/lib/portal/assistant-guardrails.ts`, `ASSISTANT_SYSTEM_PROMPT` (the spine), `classifyInboundRisk`, `validateAssistantOutput`, `REDIRECT_MESSAGE`. Tests in `assistant-guardrails.test.ts`. Reuse these; do not weaken them.
 - **The client-safe surface map (already verified against the live grant table, do NOT guess columns; the prod break was `content_with_state.planned_date does not exist`):**
   - **Direct SELECT as the tenant** (RLS-scoped): `content_with_state`, `content_schedule_targets_client`, `content_schedule_requests_client`, `content_schedule_attempts_client`, `content_publication_targets_client`, `calendar_events_client`, `invoices_client`.
-  - **RPC-only** (NO authenticated SELECT grant): `reports`, `recommendations`, `links`, `ideas`. Read these through the existing security-definer read RPCs, not a view. Find the exact RPC names by reading `src/lib/portal/{reports,recommendations,links,ideas}.ts`, mirror how the existing surfaces read them.
+  - **Also direct SELECT as the tenant** (CORRECTED 2026-07-20; an earlier revision wrongly called these "RPC-only"): `report_snapshots`, `recommendations`, `links`, `content_ideas`. Migration 0011 grants column-scoped authenticated SELECT on them, and `src/lib/portal/{reports,recommendations,links,ideas}.ts` read them with plain `.from()` selects under RLS. There are no read RPCs for these surfaces; do not build any.
 
 ## Build queue (in order; each a verifiable increment, then freeze + hand Codex the hash)
 
