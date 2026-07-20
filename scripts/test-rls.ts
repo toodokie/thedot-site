@@ -1396,6 +1396,139 @@ async function main(): Promise<void> {
         disableAssistant.error?.message ?? disabledReserve.error?.message
           ?? disabledGate.error?.message ?? disabledSearch.error?.message
           ?? JSON.stringify(disabledReserve.data))
+
+      console.log('\n--- 0019 assistant ops (triggers/agency idea/settle/reaper/purge) ---')
+
+      // Re-enable the tenant switch (AS11 turned it off) so search works again.
+      const reEnable = await admin.rpc('set_portal_feature_switch', {
+        p_client_id: bClientId, p_feature: 'assistant', p_enabled: true,
+        p_reason: 'Disposable RLS integration test (0019 block)', p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-assistant-on2-${RUN_ID}`,
+      })
+      if (reEnable.error) throw new Error(`re-enable assistant: ${reEnable.error.message}`)
+
+      // In-transaction index freshness: a client-added idea is searchable WITHOUT any
+      // manual reindex call (the deferred constraint trigger rebuilt at commit), and it
+      // is indexed navigation_only (metadata, no body chunk).
+      const freshIdea = await bClient.rpc('add_idea', {
+        p_client_id: bClientId, p_title: 'Zanzibar freshness probe', p_body: 'body must not index',
+      })
+      const freshSearch = await bClient.rpc('portal_assistant_search', {
+        p_client_id: bClientId, p_query: 'Zanzibar freshness probe',
+      })
+      const freshRows = (freshSearch.data ?? []) as Array<{
+        answer_eligibility: string
+        excerpt: string
+      }>
+      check('AS12: a new idea is searchable with no manual reindex, as navigation_only metadata',
+        !freshIdea.error && !freshSearch.error && freshRows.length >= 1
+          && freshRows.every((row) => row.answer_eligibility === 'navigation_only')
+          && freshRows.every((row) => !row.excerpt.includes('body must not index')),
+        freshIdea.error?.message ?? freshSearch.error?.message
+          ?? `rows=${freshRows.length} ${JSON.stringify(freshRows[0] ?? null)}`)
+
+      // Audited agency idea write path: insert, idempotent retry, changed-fingerprint
+      // rejection, client denial, invalid status, and the client-safety shape gate.
+      const ideaArgs = {
+        p_client_id: bClientId, p_title: 'Quokka agency idea', p_body: 'From the weekly call.',
+        p_status: 'considering', p_author_type: 'client', p_author_name: 'RLS Test B',
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-agency-idea-${RUN_ID}`,
+      }
+      const agencyIdea = await admin.rpc('agency_add_idea', ideaArgs)
+      const agencyIdeaRetry = await admin.rpc('agency_add_idea', ideaArgs)
+      const agencyIdeaConflict = await admin.rpc('agency_add_idea', {
+        ...ideaArgs, p_title: 'Different title, same key',
+      })
+      const agencyIdeaClient = await bClient.rpc('agency_add_idea', {
+        ...ideaArgs, p_idempotency_key: `rls-agency-idea-client-${RUN_ID}`,
+      })
+      const agencyIdeaBadStatus = await admin.rpc('agency_add_idea', {
+        ...ideaArgs, p_status: 'not-a-status',
+        p_idempotency_key: `rls-agency-idea-status-${RUN_ID}`,
+      })
+      const agencyIdeaUnsafe = await admin.rpc('agency_add_idea', {
+        ...ideaArgs, p_body: 'Reach maria at maria@kanset.com about the case',
+        p_idempotency_key: `rls-agency-idea-unsafe-${RUN_ID}`,
+      })
+      const agencyIdeaSearch = await bClient.rpc('portal_assistant_search', {
+        p_client_id: bClientId, p_query: 'Quokka agency idea',
+      })
+      check('AS13: agency idea path inserts once, is idempotent, audited, gated, and indexed',
+        !agencyIdea.error && !!agencyIdea.data
+          && !agencyIdeaRetry.error && agencyIdeaRetry.data === agencyIdea.data
+          && !!agencyIdeaConflict.error && !!agencyIdeaClient.error
+          && !!agencyIdeaBadStatus.error && !!agencyIdeaUnsafe.error
+          && !agencyIdeaSearch.error && (agencyIdeaSearch.data ?? []).length >= 1,
+        agencyIdea.error?.message ?? agencyIdeaSearch.error?.message
+          ?? `retry=${String(agencyIdeaRetry.data)} conflict=${agencyIdeaConflict.error?.message ?? 'WROTE'} `
+          + `client=${agencyIdeaClient.error?.message ?? 'WROTE'} status=${agencyIdeaBadStatus.error?.message ?? 'WROTE'} `
+          + `unsafe=${agencyIdeaUnsafe.error?.message ?? 'WROTE'} rows=${(agencyIdeaSearch.data ?? []).length}`)
+
+      // Error settlement preserves the conservative reservation cost (Codex blocker):
+      // the viewer's AS10 reservation is settled as 'error' with zeroed usage, and the
+      // recorded cost must stay at the reserved worst case, not drop to 0.
+      const viewerRunId = viewerRun.data?.run_id as string
+      const errorSettle = await admin.rpc('portal_assistant_settle_run', {
+        p_run_id: viewerRunId, p_safety_outcome: 'error',
+        p_retrieved_chunk_ids: [], p_citation_chunk_ids: [], p_citation_urls: [],
+        p_input_tokens: 0, p_output_tokens: 0, p_cost_cents: 0, p_latency_ms: 0,
+      })
+      const settledRow = await admin.from('assistant_runs')
+        .select('cost_cents, safety_outcome, settled_at').eq('id', viewerRunId).single()
+      check('AS14: settling as error preserves the reserved worst-case cost',
+        !errorSettle.error && !settledRow.error
+          && Number(settledRow.data?.cost_cents) >= 8
+          && settledRow.data?.safety_outcome === 'error'
+          && !!settledRow.data?.settled_at,
+        errorSettle.error?.message ?? settledRow.error?.message
+          ?? JSON.stringify(settledRow.data))
+
+      // Maintenance RPCs: service runs succeed and validate; the client is denied all.
+      const reap = await admin.rpc('portal_assistant_reap_reservations', { p_older_than_minutes: 30 })
+      const reapTooYoung = await admin.rpc('portal_assistant_reap_reservations', { p_older_than_minutes: 2 })
+      const purge = await admin.rpc('portal_assistant_purge_feedback')
+      const reconcile = await admin.rpc('portal_assistant_reconcile_index')
+      const clientOps = await Promise.all([
+        bClient.rpc('portal_assistant_reap_reservations', { p_older_than_minutes: 30 }),
+        bClient.rpc('portal_assistant_purge_feedback'),
+        bClient.rpc('portal_assistant_reconcile_index'),
+      ])
+      check('AS15: maintenance RPCs run for service, validate age, and are denied to clients',
+        !reap.error && typeof reap.data === 'number'
+          && !!reapTooYoung.error
+          && !purge.error && typeof purge.data === 'number'
+          && !reconcile.error && (reconcile.data?.clients ?? 0) >= 2
+          && clientOps.every((result) => !!result.error),
+        reap.error?.message ?? purge.error?.message ?? reconcile.error?.message
+          ?? `tooYoung=${reapTooYoung.error?.message ?? 'RAN'} client=${clientOps.map((r) => r.error?.message ?? 'RAN').join('/')}`)
+
+      // Demo-purge overreach guard: the REAL rows survive the 0019 purge criteria
+      // (which ran at migration time): kanset keeps released content, B keeps its
+      // report/link/idea surfaces, and no fixture-content ids exist for kanset.
+      const kansetContent = await admin.from('content_with_state')
+        .select('id', { count: 'exact', head: true }).eq('client_id', kansetClientId)
+      const kansetFixture = await admin.from('content_items')
+        .select('id', { count: 'exact', head: true }).eq('client_id', kansetClientId)
+        .in('content_id', ['kanset-2026-07-lmia-reel', 'kanset-2026-07-oinp-employer'])
+      const bReports = await admin.from('report_snapshots')
+        .select('id', { count: 'exact', head: true }).eq('client_id', bClientId)
+      const bLinks = await admin.from('links')
+        .select('id', { count: 'exact', head: true }).eq('client_id', bClientId)
+      const bIdeas = await admin.from('content_ideas')
+        .select('id', { count: 'exact', head: true }).eq('client_id', bClientId)
+      check('AS16: demo purge criteria spare real content, reports, links, and ideas',
+        (kansetContent.count ?? 0) >= 1 && (kansetFixture.count ?? 0) === 0
+          && (bReports.count ?? 0) >= 1 && (bLinks.count ?? 0) >= 1 && (bIdeas.count ?? 0) >= 1,
+        `kanset=${kansetContent.count} fixture=${kansetFixture.count} `
+          + `bReports=${bReports.count} bLinks=${bLinks.count} bIdeas=${bIdeas.count}`)
+
+      // Leave the disposable tenant's assistant switch off, as AS11 intended.
+      const reDisable = await admin.rpc('set_portal_feature_switch', {
+        p_client_id: bClientId, p_feature: 'assistant', p_enabled: false,
+        p_reason: 'Disposable RLS integration test teardown (0019 block)', p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-assistant-off2-${RUN_ID}`,
+      })
+      if (reDisable.error) throw new Error(`re-disable assistant: ${reDisable.error.message}`)
     }
 
     {
