@@ -4,7 +4,7 @@
    pair a colour with an arrow glyph (never colour-only). Matches the overview panel language. */
 
 .wrap {
-  max-width: 1000px;
+  max-width: 1120px;
   margin: 0 auto;
   padding: 40px 32px 88px;
   font-family: var(--dot-font-text);
@@ -18,42 +18,13 @@
 .header { margin: 0 0 8px; }
 .intro { margin: 0 0 32px; max-width: 60ch; }
 
-/* Compact period jump-nav: chips that anchor down to each section (never hides any). */
-.jump {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-  margin: 0 0 40px;
-  padding: 13px 16px;
-  border: 1px solid var(--dot-hairline);
-  background: var(--dot-white);
-}
-.jumpLabel {
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--dot-grey);
-}
-.jumpLinks { display: flex; flex-wrap: wrap; gap: 8px; }
-.jumpLink {
-  font-size: 13.5px;
-  color: var(--dot-graphite);
-  text-decoration: none;
-  border: 1px solid var(--dot-hairline);
-  padding: 4px 10px;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.01em;
-  transition: border-color 140ms ease, color 140ms ease, background-color 140ms ease;
-}
-.jumpLink:hover {
-  border-color: var(--dot-yellow);
-  color: var(--dot-black);
-  background: var(--dot-yellow-pale);
-}
-
-/* One period = one section, newest first (scrolling down goes back in time). */
+/* One section per view: the latest-by-platform row first, then earlier periods. */
 .period { margin: 0 0 44px; scroll-margin-top: 24px; }
+.historyHead {
+  margin: 8px 0 20px;
+  padding-top: 26px;
+  border-top: 1px solid var(--dot-hairline);
+}
 .periodHead {
   display: flex;
   align-items: baseline;
@@ -71,10 +42,12 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* platform cards laid side by side where there's room */
+/* Platform cards share ONE row on desktop (IG + FB + YT side by side) and wrap on
+   narrow screens: auto-fit collapses unused tracks so two platforms still split the
+   full width evenly. */
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 20px;
   align-items: start;
 }
@@ -110,6 +83,12 @@
   height: 22px;
   background: var(--dot-yellow);
 }
+.platformCol {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
 .platform {
   font-family: var(--dot-font-display);
   font-size: 19px;
@@ -117,6 +96,13 @@
   letter-spacing: 0.01em;
   color: var(--dot-black);
   line-height: 1;
+}
+/* each card's own reporting window, e.g. "Data window: Jul 3 - 17, 2026" */
+.dataWindow {
+  font-size: 12.5px;
+  color: var(--dot-grey);
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
 }
 
 /* metric tiles: each an inset cream chip (hairline-bordered) so the numbers read
@@ -241,5 +227,4 @@
 @media (prefers-reduced-motion: reduce) {
   .card { transition: none; }
   .card:hover { transform: none; }
-  .jumpLink { transition: none; }
 }

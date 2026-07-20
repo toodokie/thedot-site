@@ -66,20 +66,47 @@ function formatPeriod(period: string) {
   return `${name} ${year}, ${half === '1' ? 'first half' : 'second half'}`
 }
 
-// '2026-07-H1' -> 'Jul 2026 · 1st half', for the compact jump-nav. Falls back to raw.
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-function formatPeriodShort(period: string) {
-  const m = /^(\d{4})-(\d{2})-H([12])$/.exec(period)
-  if (!m) return period
-  const [, year, month, half] = m
-  const name = MONTHS_SHORT[Number(month) - 1]
-  if (!name) return period
-  return `${name} ${year} · ${half === '1' ? '1st half' : '2nd half'}`
+
+// Each card is labelled with its OWN clearly formatted data window (platforms can cover
+// different windows in the same cycle, so a single global period label misleads).
+// '2026-07-03'..'2026-07-17' -> 'Jul 3 - 17, 2026'.
+function formatWindow(startIso: string, endIso: string): string | null {
+  const s = /^(\d{4})-(\d{2})-(\d{2})/.exec(startIso ?? '')
+  const e = /^(\d{4})-(\d{2})-(\d{2})/.exec(endIso ?? '')
+  if (!s || !e) return null
+  const [, sy, sm, sd] = s.map(Number) as unknown as [number, number, number, number]
+  const [, ey, em, ed] = e.map(Number) as unknown as [number, number, number, number]
+  const sName = MONTHS_SHORT[sm - 1]
+  const eName = MONTHS_SHORT[em - 1]
+  if (!sName || !eName) return null
+  if (sy === ey && sm === em) return `${sName} ${sd} - ${ed}, ${sy}`
+  if (sy === ey) return `${sName} ${sd} - ${eName} ${ed}, ${sy}`
+  return `${sName} ${sd}, ${sy} - ${eName} ${ed}, ${ey}`
 }
 
-// Stable, URL-safe anchor id for a period section.
-const periodAnchor = (period: string) => `period-${period.replace(/[^a-zA-Z0-9-]/g, '-')}`
+// The primary view is ONE card per platform: the platform's newest snapshot, preferring
+// real v1 snapshots over the retiring v0 demo rows whenever both exist.
+const PLATFORM_ORDER = ['instagram', 'facebook', 'youtube', 'website']
+function latestByPlatform(rows: ReportRow[]): ReportRow[] {
+  const best = new Map<string, ReportRow>()
+  for (const row of rows) {
+    const current = best.get(row.platform)
+    if (!current) { best.set(row.platform, row); continue }
+    const rowV1 = row.schema_version >= 1
+    const currentV1 = current.schema_version >= 1
+    const better = rowV1 !== currentV1 ? rowV1 : row.period_start > current.period_start
+    if (better) best.set(row.platform, row)
+  }
+  const rank = (p: string) => {
+    const i = PLATFORM_ORDER.indexOf(p)
+    return i === -1 ? PLATFORM_ORDER.length : i
+  }
+  return [...best.values()].sort(
+    (a, b) => rank(a.platform) - rank(b.platform) || a.platform.localeCompare(b.platform),
+  )
+}
 
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 
@@ -216,12 +243,16 @@ function PlatformCard({ row }: { row: ReportRow }) {
     metric: fmtMaybe(p.views),
   }))
   const hasBody = tiles.length > 0 || posts.length > 0 || pages.length > 0 || !!row.summary
+  const window = formatWindow(row.period_start, row.period_end)
 
   return (
     <article className={styles.card}>
       <div className={styles.cardHead}>
         <span className={styles.platformBar} aria-hidden="true" />
-        <span className={styles.platform}>{platformLabel(row.platform)}</span>
+        <span className={styles.platformCol}>
+          <span className={styles.platform}>{platformLabel(row.platform)}</span>
+          {window && <span className={styles.dataWindow}>Data window: {window}</span>}
+        </span>
       </div>
 
       {tiles.length > 0 && (
@@ -257,7 +288,21 @@ export default async function Reports({ params }: { params: Promise<{ slug: stri
   if (!session) redirect('/client/login')
 
   const rows = await getReports(session.clientId)
-  const periods = groupByPeriod(rows)
+
+  // Primary view: the newest snapshot per platform (v1 preferred over the retiring v0
+  // demo rows). History: everything else, still grouped by period, minus v0 rows for
+  // platforms that already have real v1 data (pure noise while the purge is pending).
+  const latest = latestByPlatform(rows)
+  const latestIds = new Set(latest.map((row) => row.id))
+  const platformsWithV1 = new Set(
+    rows.filter((row) => row.schema_version >= 1).map((row) => row.platform),
+  )
+  const historyRows = rows.filter(
+    (row) =>
+      !latestIds.has(row.id) &&
+      !(row.schema_version < 1 && platformsWithV1.has(row.platform)),
+  )
+  const historyPeriods = groupByPeriod(historyRows)
 
   return (
     <div className={styles.wrap}>
@@ -274,7 +319,7 @@ export default async function Reports({ params }: { params: Promise<{ slug: stri
         </Text>
       </div>
 
-      {periods.length === 0 ? (
+      {rows.length === 0 ? (
         <div className={styles.empty}>
           <Text tone="graphite">
             No reports yet. Your first performance snapshot lands here after the first full posting cycle.
@@ -282,33 +327,41 @@ export default async function Reports({ params }: { params: Promise<{ slug: stri
         </div>
       ) : (
         <>
-          {/* Jump-nav: only earns its keep once there's more than one period to browse. */}
-          {periods.length > 1 && (
-            <nav className={styles.jump} aria-label="Jump to a reporting period">
-              <span className={styles.jumpLabel}>Periods</span>
-              <div className={styles.jumpLinks}>
-                {periods.map(({ period }) => (
-                  <a className={styles.jumpLink} href={`#${periodAnchor(period)}`} key={period}>
-                    {formatPeriodShort(period)}
-                  </a>
-                ))}
-              </div>
-            </nav>
-          )}
+          {/* Primary view: one card per platform, side by side, each labelled with its
+              own data window (platform windows can differ within the same cycle). */}
+          <section className={styles.period}>
+            <div className={styles.periodHead}>
+              <Heading level={3}>Latest by platform</Heading>
+              <span className={styles.periodMeta}>
+                {latest.length} {latest.length === 1 ? 'platform' : 'platforms'}
+              </span>
+            </div>
+            <div className={styles.cards}>
+              {latest.map((row) => <PlatformCard key={row.id} row={row} />)}
+            </div>
+          </section>
 
-          {periods.map(({ period, rows: platformRows }) => (
-            <section className={styles.period} id={periodAnchor(period)} key={period}>
-              <div className={styles.periodHead}>
-                <Heading level={3}>{formatPeriod(period)}</Heading>
-                <span className={styles.periodMeta}>
-                  {platformRows.length} {platformRows.length === 1 ? 'platform' : 'platforms'}
-                </span>
+          {/* History: earlier snapshots, still grouped by reporting period. */}
+          {historyPeriods.length > 0 && (
+            <>
+              <div className={styles.historyHead}>
+                <Heading level={3}>Earlier snapshots</Heading>
               </div>
-              <div className={styles.cards}>
-                {platformRows.map((row) => <PlatformCard key={row.id} row={row} />)}
-              </div>
-            </section>
-          ))}
+              {historyPeriods.map(({ period, rows: platformRows }) => (
+                <section className={styles.period} key={period}>
+                  <div className={styles.periodHead}>
+                    <Heading level={4}>{formatPeriod(period)}</Heading>
+                    <span className={styles.periodMeta}>
+                      {platformRows.length} {platformRows.length === 1 ? 'platform' : 'platforms'}
+                    </span>
+                  </div>
+                  <div className={styles.cards}>
+                    {platformRows.map((row) => <PlatformCard key={row.id} row={row} />)}
+                  </div>
+                </section>
+              ))}
+            </>
+          )}
         </>
       )}
     </div>
