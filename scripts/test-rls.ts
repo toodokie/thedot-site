@@ -1187,7 +1187,7 @@ async function main(): Promise<void> {
         `${pClaim.error?.message ?? 'NO CLAIM ERR'} / ${pSucc.error?.message ?? 'NO SUCC ERR'} / ${pRec.error?.message ?? 'NO REC ERR'}`)
     }
 
-    console.log('\n--- 0017 assistant usage/gate boundary ---')
+    console.log('\n--- 0018 assistant plane (gate/index/search/reserve/settle/feedback) ---')
 
     {
       // Grant the assistant capability to B's primary member (identical flags otherwise), then prove
@@ -1223,85 +1223,179 @@ async function main(): Promise<void> {
         !gateOn.error && !!gateViewer.error && !!gateCross.error && !!gateAnon.error,
         gateOn.error?.message ?? `viewer=${gateViewer.error?.message ?? 'OPEN'} cross=${gateCross.error?.message ?? 'OPEN'} anon=${gateAnon.error?.message ?? 'OPEN'}`)
 
-      const budget = await admin.rpc('portal_assistant_check_budget', { p_client_id: bClientId })
-      const unknownBudget = await admin.rpc('portal_assistant_check_budget', {
-        p_client_id: '00000000-0000-0000-0000-000000000000',
-      })
-      check('AS3: budget check allows an under-limit tenant and fails closed on an unknown one',
-        !budget.error && budget.data?.allowed === true
-          && !unknownBudget.error && unknownBudget.data?.allowed === false
-          && unknownBudget.data?.reason === 'unknown_client',
-        budget.error?.message ?? JSON.stringify({ budget: budget.data, unknown: unknownBudget.data }))
+      // Safe index: service rebuild works and is denied to the client.
+      const reindex = await admin.rpc('portal_assistant_reindex', { p_client_id: bClientId })
+      const clientReindex = await bClient.rpc('portal_assistant_reindex', { p_client_id: bClientId })
+      check('AS3: service reindex builds the tenant index; client is denied the reindex RPC',
+        !reindex.error && (reindex.data?.documents ?? 0) >= 1 && (reindex.data?.chunks ?? 0) >= 1
+          && !!clientReindex.error,
+        reindex.error?.message ?? clientReindex.error?.message
+          ?? JSON.stringify(reindex.data))
 
-      const logged = await admin.rpc('portal_assistant_log_usage', {
-        p_client_id: bClientId, p_question_hash: 'a'.repeat(64), p_decision: 'answered',
-        p_prompt_tokens: 1200, p_completion_tokens: 300, p_cost_cents: 4.25,
-        p_model: 'claude-opus-4-8',
+      // Search boundary: own-tenant hits only; a foreign client_id fails before any read; a
+      // term that exists only in the OTHER tenant's indexed corpus returns nothing.
+      const reindexKanset = await admin.rpc('portal_assistant_reindex', { p_client_id: kansetClientId })
+      if (reindexKanset.error) throw new Error(`kanset reindex: ${reindexKanset.error.message}`)
+      const searchOwn = await bClient.rpc('portal_assistant_search', {
+        p_client_id: bClientId, p_query: 'Visible main',
       })
-      const badDecision = await admin.rpc('portal_assistant_log_usage', {
-        p_client_id: bClientId, p_question_hash: 'a'.repeat(64), p_decision: 'not-a-decision',
-        p_prompt_tokens: 0, p_completion_tokens: 0, p_cost_cents: 0, p_model: 'claude-opus-4-8',
+      const searchForged = await bClient.rpc('portal_assistant_search', {
+        p_client_id: kansetClientId, p_query: 'Visible main',
       })
-      const badHash = await admin.rpc('portal_assistant_log_usage', {
-        p_client_id: bClientId, p_question_hash: 'nope', p_decision: 'answered',
-        p_prompt_tokens: 0, p_completion_tokens: 0, p_cost_cents: 0, p_model: 'claude-opus-4-8',
+      const searchCrossTerm = await bClient.rpc('portal_assistant_search', {
+        p_client_id: bClientId, p_query: 'Kanset baseline',
       })
-      check('AS4: service logger writes a row and rejects invalid decision/hash',
-        !logged.error && !!logged.data && !!badDecision.error && !!badHash.error,
-        logged.error?.message ?? `bad=${badDecision.error?.message ?? 'WROTE'} hash=${badHash.error?.message ?? 'WROTE'}`)
+      check('AS4: search returns own-tenant chunks; forged tenant id fails; cross-tenant corpus is invisible',
+        !searchOwn.error && (searchOwn.data ?? []).length >= 1
+          && !!searchForged.error
+          && !searchCrossTerm.error && (searchCrossTerm.data ?? []).length === 0,
+        searchOwn.error?.message ?? searchCrossTerm.error?.message
+          ?? `forged=${searchForged.error?.message ?? 'RETURNED'} own=${(searchOwn.data ?? []).length} cross=${(searchCrossTerm.data ?? []).length}`)
 
-      const own = await bClient.from('assistant_usage').select('id,client_id,occurred_at,decision')
-      const crossUsage = await kansetClient.from('assistant_usage').select('id').eq('client_id', bClientId)
-      const privateCols = await bClient.from('assistant_usage')
-        .select('cost_cents,model,question_hash,prompt_tokens')
-      const directInsert = await bClient.from('assistant_usage').insert({
-        client_id: bClientId, question_hash: 'b'.repeat(64), decision: 'answered',
-        model: 'forged',
-      })
-      check('AS5: RLS scopes usage to the tenant with outcome columns only and no direct writes',
-        !own.error && (own.data ?? []).length >= 1
-          && (own.data ?? []).every((row) => row.client_id === bClientId)
-          && !crossUsage.error && (crossUsage.data ?? []).length === 0
-          && !!privateCols.error && !!directInsert.error,
-        own.error?.message ?? crossUsage.error?.message
-          ?? `private=${privateCols.error?.message ?? 'READ'} insert=${directInsert.error?.message ?? 'WROTE'}`)
+      // The RPCs are the ONLY client boundary: every direct table read/write is denied.
+      const directChecks = await Promise.all([
+        bClient.from('assistant_documents').select('id').limit(1),
+        bClient.from('assistant_document_chunks').select('id').limit(1),
+        bClient.from('assistant_runs').select('id').limit(1),
+        bClient.from('assistant_feedback').select('id').limit(1),
+        bClient.from('assistant_runs').insert({
+          client_id: bClientId, auth_user_id: bUserId, mode: 'portal_workspace',
+          query_hmac: 'a'.repeat(64), safety_outcome: 'answered',
+          model: 'forged', prompt_version: 'v0',
+        }),
+      ])
+      check('AS5: direct client access to documents/chunks/runs/feedback is denied',
+        directChecks.every((result) => !!result.error),
+        directChecks.map((result, index) => `${index}=${result.error?.message ?? 'ALLOWED'}`)
+          .filter((message) => message.includes('ALLOWED')).join(' '))
 
-      const clientBudget = await bClient.rpc('portal_assistant_check_budget', { p_client_id: bClientId })
-      const clientLog = await bClient.rpc('portal_assistant_log_usage', {
-        p_client_id: bClientId, p_question_hash: 'c'.repeat(64), p_decision: 'answered',
-        p_prompt_tokens: 0, p_completion_tokens: 0, p_cost_cents: 0, p_model: 'claude-opus-4-8',
+      // Atomic reservation: service reserves a generation, settles it once, never twice;
+      // the client is denied all three service RPCs.
+      const reserve = await admin.rpc('portal_assistant_reserve_run', {
+        p_client_id: bClientId, p_auth_user_id: bUserId, p_mode: 'portal_workspace',
+        p_query_hmac: 'a'.repeat(64), p_model: 'gpt-5.6-terra', p_prompt_version: 'rls-test',
       })
-      check('AS6: client denied the service-role assistant RPCs',
-        !!clientBudget.error && !!clientLog.error,
-        `${clientBudget.error?.message ?? 'NO BUDGET ERROR'} / ${clientLog.error?.message ?? 'NO LOG ERROR'}`)
+      const runId = reserve.data?.run_id as string | undefined
+      const settle = runId ? await admin.rpc('portal_assistant_settle_run', {
+        p_run_id: runId, p_safety_outcome: 'answered',
+        p_retrieved_chunk_ids: [], p_citation_chunk_ids: [], p_citation_urls: [],
+        p_input_tokens: 1200, p_output_tokens: 300, p_cost_cents: 0.75, p_latency_ms: 900,
+      }) : { error: new Error('no run id') }
+      const doubleSettle = runId ? await admin.rpc('portal_assistant_settle_run', {
+        p_run_id: runId, p_safety_outcome: 'answered',
+        p_retrieved_chunk_ids: [], p_citation_chunk_ids: [], p_citation_urls: [],
+        p_input_tokens: 0, p_output_tokens: 0, p_cost_cents: 0, p_latency_ms: 0,
+      }) : { error: null }
+      check('AS6: reserve creates a generation row, settles exactly once',
+        !reserve.error && reserve.data?.allowed === true && !!runId
+          && !settle.error && !!doubleSettle.error,
+        reserve.error?.message ?? (settle.error as Error | null)?.message
+          ?? `double=${(doubleSettle.error as Error | null)?.message ?? 'SETTLED TWICE'}`)
 
-      for (let i = 0; i < 20; i++) {
-        const fill = await admin.rpc('portal_assistant_log_usage', {
-          p_client_id: bClientId, p_question_hash: 'd'.repeat(64), p_decision: 'answered',
-          p_prompt_tokens: 10, p_completion_tokens: 10, p_cost_cents: 0.1,
-          p_model: 'claude-opus-4-8',
+      const clientReserve = await bClient.rpc('portal_assistant_reserve_run', {
+        p_client_id: bClientId, p_auth_user_id: bUserId, p_mode: 'portal_workspace',
+        p_query_hmac: 'b'.repeat(64), p_model: 'gpt-5.6-terra', p_prompt_version: 'rls-test',
+      })
+      const clientSettle = await bClient.rpc('portal_assistant_settle_run', {
+        p_run_id: runId ?? '00000000-0000-0000-0000-000000000000', p_safety_outcome: 'answered',
+        p_retrieved_chunk_ids: [], p_citation_chunk_ids: [], p_citation_urls: [],
+        p_input_tokens: 0, p_output_tokens: 0, p_cost_cents: 0, p_latency_ms: 0,
+      })
+      const clientLog = await bClient.rpc('portal_assistant_log_run', {
+        p_client_id: bClientId, p_auth_user_id: bUserId, p_mode: 'refused_case_specific',
+        p_query_hmac: 'c'.repeat(64), p_retrieved_chunk_ids: [], p_citation_chunk_ids: [],
+        p_citation_urls: [], p_safety_outcome: 'case_specific_refusal',
+        p_model: 'gpt-5.6-terra', p_prompt_version: 'rls-test',
+        p_input_tokens: 0, p_output_tokens: 0, p_cost_cents: 0, p_latency_ms: 0,
+      })
+      check('AS7: client denied the reserve/settle/log service RPCs',
+        !!clientReserve.error && !!clientSettle.error && !!clientLog.error,
+        `${clientReserve.error?.message ?? 'RESERVED'} / ${clientSettle.error?.message ?? 'SETTLED'} / ${clientLog.error?.message ?? 'LOGGED'}`)
+
+      const badLog = await admin.rpc('portal_assistant_log_run', {
+        p_client_id: bClientId, p_auth_user_id: bUserId, p_mode: 'not-a-mode',
+        p_query_hmac: 'c'.repeat(64), p_retrieved_chunk_ids: [], p_citation_chunk_ids: [],
+        p_citation_urls: [], p_safety_outcome: 'case_specific_refusal',
+        p_model: 'gpt-5.6-terra', p_prompt_version: 'rls-test',
+        p_input_tokens: 0, p_output_tokens: 0, p_cost_cents: 0, p_latency_ms: 0,
+      })
+      const badUrl = await admin.rpc('portal_assistant_log_run', {
+        p_client_id: bClientId, p_auth_user_id: bUserId, p_mode: 'public_immigration_research',
+        p_query_hmac: 'c'.repeat(64), p_retrieved_chunk_ids: [], p_citation_chunk_ids: [],
+        p_citation_urls: ['http://insecure.example'], p_safety_outcome: 'source_validation_failed',
+        p_model: 'gpt-5.6-terra', p_prompt_version: 'rls-test',
+        p_input_tokens: 0, p_output_tokens: 0, p_cost_cents: 0, p_latency_ms: 0,
+      })
+      check('AS8: service logger rejects an invalid mode and a non-https citation url',
+        !!badLog.error && !!badUrl.error,
+        `mode=${badLog.error?.message ?? 'WROTE'} url=${badUrl.error?.message ?? 'WROTE'}`)
+
+      // Per-user daily generation cap: fill to 30 reserved generations, then refuse the 31st.
+      let fillFailure: string | null = null
+      let filled = 1 // AS6 reserved one for this user already
+      while (filled < 30) {
+        const fill = await admin.rpc('portal_assistant_reserve_run', {
+          p_client_id: bClientId, p_auth_user_id: bUserId, p_mode: 'portal_workspace',
+          p_query_hmac: 'd'.repeat(64), p_model: 'gpt-5.6-terra', p_prompt_version: 'rls-test',
         })
-        if (fill.error) throw new Error(`fill assistant usage: ${fill.error.message}`)
+        if (fill.error || fill.data?.allowed !== true) {
+          fillFailure = fill.error?.message ?? JSON.stringify(fill.data)
+          break
+        }
+        filled += 1
       }
-      const overLimit = await admin.rpc('portal_assistant_check_budget', { p_client_id: bClientId })
-      check('AS7: hourly request ceiling rejects once filled',
-        !overLimit.error && overLimit.data?.allowed === false
-          && overLimit.data?.reason === 'hourly_request_limit',
-        overLimit.error?.message ?? JSON.stringify(overLimit.data))
+      const overLimit = await admin.rpc('portal_assistant_reserve_run', {
+        p_client_id: bClientId, p_auth_user_id: bUserId, p_mode: 'portal_workspace',
+        p_query_hmac: 'd'.repeat(64), p_model: 'gpt-5.6-terra', p_prompt_version: 'rls-test',
+      })
+      check('AS9: the 31st reservation for a user inside 24h is refused (user_daily_limit)',
+        fillFailure === null && !overLimit.error && overLimit.data?.allowed === false
+          && overLimit.data?.reason === 'user_daily_limit',
+        fillFailure ?? overLimit.error?.message ?? JSON.stringify(overLimit.data))
+
+      // Feedback binds to the caller's own run; a foreign run and a bad category fail.
+      const viewerRun = await admin.rpc('portal_assistant_reserve_run', {
+        p_client_id: bClientId, p_auth_user_id: bViewerUserId, p_mode: 'portal_workspace',
+        p_query_hmac: 'e'.repeat(64), p_model: 'gpt-5.6-terra', p_prompt_version: 'rls-test',
+      })
+      const feedbackOwn = await bClient.rpc('portal_assistant_report_answer', {
+        p_client_id: bClientId, p_run_id: runId, p_category: 'inaccurate',
+        p_comment: 'RLS test feedback',
+      })
+      const feedbackForeign = await bClient.rpc('portal_assistant_report_answer', {
+        p_client_id: bClientId, p_run_id: viewerRun.data?.run_id, p_category: 'inaccurate',
+        p_comment: null,
+      })
+      const feedbackBadCategory = await bClient.rpc('portal_assistant_report_answer', {
+        p_client_id: bClientId, p_run_id: runId, p_category: 'not-a-category', p_comment: null,
+      })
+      check('AS10: feedback works for the run owner only, with a validated category',
+        !feedbackOwn.error && !!feedbackOwn.data
+          && !!feedbackForeign.error && !!feedbackBadCategory.error,
+        feedbackOwn.error?.message
+          ?? `foreign=${feedbackForeign.error?.message ?? 'WROTE'} category=${feedbackBadCategory.error?.message ?? 'WROTE'}`)
 
       const disableAssistant = await admin.rpc('set_portal_feature_switch', {
         p_client_id: bClientId, p_feature: 'assistant', p_enabled: false,
         p_reason: 'Disposable RLS integration test teardown', p_actor_key: 'thedot-admin',
         p_idempotency_key: `rls-assistant-off-${RUN_ID}`,
       })
-      const disabledBudget = await admin.rpc('portal_assistant_check_budget', { p_client_id: bClientId })
+      const disabledReserve = await admin.rpc('portal_assistant_reserve_run', {
+        p_client_id: bClientId, p_auth_user_id: bUserId, p_mode: 'portal_workspace',
+        p_query_hmac: 'f'.repeat(64), p_model: 'gpt-5.6-terra', p_prompt_version: 'rls-test',
+      })
       const disabledGate = await bClient.rpc('portal_assistant_gate', { p_client_id: bClientId })
-      check('AS8: tenant switch off fails both the budget check and the gate closed',
-        !disableAssistant.error && !disabledBudget.error
-          && disabledBudget.data?.allowed === false
-          && disabledBudget.data?.reason === 'assistant_disabled' && !!disabledGate.error,
-        disableAssistant.error?.message ?? disabledBudget.error?.message
-          ?? disabledGate.error?.message ?? JSON.stringify(disabledBudget.data))
+      const disabledSearch = await bClient.rpc('portal_assistant_search', {
+        p_client_id: bClientId, p_query: 'Visible main',
+      })
+      check('AS11: tenant switch off fails reserve, gate, and search closed',
+        !disableAssistant.error && !disabledReserve.error
+          && disabledReserve.data?.allowed === false
+          && disabledReserve.data?.reason === 'assistant_disabled'
+          && !!disabledGate.error && !!disabledSearch.error,
+        disableAssistant.error?.message ?? disabledReserve.error?.message
+          ?? disabledGate.error?.message ?? disabledSearch.error?.message
+          ?? JSON.stringify(disabledReserve.data))
     }
 
     {
