@@ -30,7 +30,13 @@ function ContentRow({ it, slug, priority }: { it: ContentRowType; slug: string; 
         {(platforms.length > 0 || it.fact_check) && (
           <span className={styles.chipRow}>
             {platforms.map((p) => <span key={p} className={styles.chip}>{p}</span>)}
-            {it.fact_check && <span className={`${styles.chip} ${styles.chipFact}`}>{it.fact_check}</span>}
+            {/* 'confirmed' is OUR fact-check gate, not the client's approval; say so on the chip
+                (Anastasia, 2026-07-20: a bare 'Confirmed' read as "approved by whom, of what?") */}
+            {it.fact_check && (
+              <span className={`${styles.chip} ${styles.chipFact}`}>
+                {it.fact_check === 'confirmed' ? 'fact-checked' : it.fact_check}
+              </span>
+            )}
           </span>
         )}
       </span>
