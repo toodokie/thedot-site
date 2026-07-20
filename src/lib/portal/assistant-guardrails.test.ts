@@ -5,6 +5,7 @@ import {
   isAllowedCitationUrl,
   validateAssistantOutput,
   validatePortalAnswer,
+  validateWebClaimCitations,
   PORTAL_MODE_INSTRUCTIONS,
   PUBLIC_MODE_INSTRUCTIONS,
 } from './assistant-guardrails'
@@ -170,7 +171,23 @@ describe('official citation allow-list', () => {
 })
 
 describe('portal answer validation', () => {
-  const retrieved = new Set(['chunk-1', 'chunk-2'])
+  const retrieved = [
+    {
+      chunk_id: 'chunk-1',
+      answer_eligibility: 'grounded_answer' as const,
+      excerpt: 'Piece: LMIA decoder reel. Status: scheduled. Planned date: July 20, 2026.',
+    },
+    {
+      chunk_id: 'chunk-2',
+      answer_eligibility: 'grounded_answer' as const,
+      excerpt: 'Invoice 0137: 800.00 CAD, status paid.',
+    },
+    {
+      chunk_id: 'chunk-nav',
+      answer_eligibility: 'navigation_only' as const,
+      excerpt: 'Idea: 500 reviews milestone. Status: new. Added: July 14, 2026.',
+    },
+  ]
   const routes = new Set(['piece/lmia-decoder-reel', 'billing'])
 
   it('accepts a grounded answer citing retrieved chunks and known routes', () => {
@@ -218,6 +235,94 @@ describe('portal answer validation', () => {
       retrieved, routes,
     )
     expect(result.ok).toBe(true)
+  })
+
+  it('allows navigation-only citations for location/status answers within their excerpt', () => {
+    const result = validatePortalAnswer({
+      outcome: 'answered',
+      blocks: [{
+        text: 'Yes, you have an idea "500 reviews milestone" (status: new, added July 14) on your Ideas board.',
+        citation_chunk_ids: ['chunk-nav'],
+      }],
+      suggested_routes: [],
+    }, retrieved, routes)
+    expect(result.ok).toBe(true)
+  })
+
+  it('rejects factual claims supported only by navigation_only chunks (Codex blocker)', () => {
+    const novelFact = validatePortalAnswer({
+      outcome: 'answered',
+      blocks: [{
+        // "2400" appears nowhere in the cited navigation excerpt: a fabricated figure
+        text: 'Your reviews idea earned 2400 saves already.',
+        citation_chunk_ids: ['chunk-nav'],
+      }],
+      suggested_routes: [],
+    }, retrieved, routes)
+    expect(novelFact.ok).toBe(false)
+    if (!novelFact.ok) expect(novelFact.reason).toBe('navigation_only_factual_claim')
+    const tooLong = validatePortalAnswer({
+      outcome: 'answered',
+      blocks: [{
+        text: 'x'.repeat(401),
+        citation_chunk_ids: ['chunk-nav'],
+      }],
+      suggested_routes: [],
+    }, retrieved, routes)
+    expect(tooLong.ok).toBe(false)
+  })
+
+  it('mixed grounded + navigation citations count as grounded support', () => {
+    const result = validatePortalAnswer({
+      outcome: 'answered',
+      blocks: [{
+        text: 'Invoice 0137 is paid, and the 500 reviews idea is queued.',
+        citation_chunk_ids: ['chunk-2', 'chunk-nav'],
+      }],
+      suggested_routes: ['billing'],
+    }, retrieved, routes)
+    expect(result.ok).toBe(true)
+  })
+
+  it('rejects uncited blocks carrying fact-like digits', () => {
+    const result = validatePortalAnswer({
+      outcome: 'answered',
+      blocks: [
+        { text: 'Your invoice total is 800 CAD.', citation_chunk_ids: [] },
+        { text: 'ok', citation_chunk_ids: ['chunk-2'] },
+      ],
+      suggested_routes: [],
+    }, retrieved, routes)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.reason).toBe('uncited_factual_block')
+  })
+})
+
+describe('claim-level web citation coverage', () => {
+  it('accepts answers whose every factual paragraph intersects a citation', () => {
+    const text = 'The LMIA fee is $1,000 per position.\nThis applies to most streams.'
+    const result = validateWebClaimCitations(text, [
+      { startIndex: 4, endIndex: 36 }, // covers paragraph 1
+    ])
+    // paragraph 2 has no digits and is short: connective text, no citation required
+    expect(result.ok).toBe(true)
+  })
+
+  it('rejects a factual paragraph with no intersecting citation (Codex blocker)', () => {
+    const text =
+      'The LMIA fee is $1,000 per position.\n' +
+      'Express Entry draw 361 invited 3,000 candidates on July 15.'
+    const result = validateWebClaimCitations(text, [
+      { startIndex: 4, endIndex: 36 }, // only the first paragraph is cited
+    ])
+    expect(result.ok).toBe(false)
+    expect(result.reason).toBe('uncited_factual_paragraph')
+  })
+
+  it('one citation cannot vouch for a whole multi-paragraph answer', () => {
+    const text = 'Fee: $1,000.\nProcessing time: 45 business days.\nCap: 20 positions.'
+    const result = validateWebClaimCitations(text, [{ startIndex: 0, endIndex: 12 }])
+    expect(result.ok).toBe(false)
   })
 })
 

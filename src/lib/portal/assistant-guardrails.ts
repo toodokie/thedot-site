@@ -13,7 +13,9 @@
 
 // Bump on ANY change to instructions, classifier, or schema: the golden eval must be rerun
 // and the evaluated (model, prompt_version) pair re-pinned before launch.
-export const ASSISTANT_PROMPT_VERSION = 'oai-1'
+// oai-2: public-mode instructions demand a citation in EVERY factual paragraph (matches
+// the claim-level server validation added on the Codex review).
+export const ASSISTANT_PROMPT_VERSION = 'oai-2'
 
 // ---- fixed client-safe responses --------------------------------------------
 
@@ -246,13 +248,35 @@ export type PortalAnswerCheck =
   | { ok: true; answer: PortalAnswer }
   | { ok: false; reason: string }
 
+// The evidence the validator needs about each retrieved chunk: identity, trust class,
+// and the excerpt (so navigation-only claims can be checked against what the chunk
+// actually says). Structurally compatible with the gateway's RetrievedChunk.
+export type PortalEvidenceChunk = {
+  chunk_id: string
+  answer_eligibility: 'navigation_only' | 'grounded_answer'
+  excerpt: string
+}
+
+// Digit runs of 2+ are the deterministic proxy for "fact-like" content (dates, counts,
+// amounts). Used by the trust-class and glue-block checks below.
+const FACT_DIGITS = /\d{2,}/g
+
 // Full server-side validation of the model's structured portal answer against the
 // retrieved same-tenant evidence set. Anything outside that set is rejected wholesale.
+// Trust classes are enforced (Codex blocker): a block whose ONLY support is
+// navigation_only chunks may carry location/status-style content (short, and every
+// digit run present in the cited excerpts), never novel factual claims; factual support
+// requires at least one grounded_answer citation. Uncited blocks may only be short,
+// digit-free connective text.
 export function validatePortalAnswer(
   raw: unknown,
-  retrievedChunkIds: ReadonlySet<string>,
+  retrievedChunks: readonly PortalEvidenceChunk[],
   allowedRoutes: ReadonlySet<string>,
 ): PortalAnswerCheck {
+  const eligibilityById = new Map(
+    retrievedChunks.map((chunk) => [chunk.chunk_id, chunk.answer_eligibility]),
+  )
+  const excerptById = new Map(retrievedChunks.map((chunk) => [chunk.chunk_id, chunk.excerpt]))
   if (typeof raw !== 'object' || raw === null) return { ok: false, reason: 'not_an_object' }
   const value = raw as Record<string, unknown>
   if (value.outcome !== 'answered' && value.outcome !== 'no_grounding') {
@@ -272,17 +296,39 @@ export function validatePortalAnswer(
     if (!Array.isArray(candidate.citation_chunk_ids)) {
       return { ok: false, reason: 'invalid_block_citations' }
     }
+    let groundedSupport = false
+    const citedExcerpts: string[] = []
     for (const id of candidate.citation_chunk_ids) {
-      if (typeof id !== 'string' || !retrievedChunkIds.has(id)) {
+      if (typeof id !== 'string' || !eligibilityById.has(id)) {
         return { ok: false, reason: 'citation_outside_retrieved_set' }
       }
+      if (eligibilityById.get(id) === 'grounded_answer') groundedSupport = true
+      citedExcerpts.push(excerptById.get(id) ?? '')
       citations += 1
     }
     if (!validateAssistantOutput(candidate.text).ok) {
       return { ok: false, reason: 'guarantee_language' }
     }
+    const text = candidate.text
+    const digitRuns = text.match(FACT_DIGITS) ?? []
+    if (candidate.citation_chunk_ids.length === 0) {
+      // uncited glue text only: short and free of fact-like digit runs
+      if (text.length > 200 || digitRuns.length > 0) {
+        return { ok: false, reason: 'uncited_factual_block' }
+      }
+    } else if (!groundedSupport) {
+      // navigation_only support: location/status responses only; every digit run in the
+      // block must literally appear in the cited navigation excerpts (no novel facts)
+      if (text.length > 400) return { ok: false, reason: 'navigation_only_factual_claim' }
+      const citedText = citedExcerpts.join('\n')
+      for (const run of digitRuns) {
+        if (!citedText.includes(run)) {
+          return { ok: false, reason: 'navigation_only_factual_claim' }
+        }
+      }
+    }
     blocks.push({
-      text: candidate.text,
+      text,
       citation_chunk_ids: candidate.citation_chunk_ids as string[],
     })
   }
@@ -301,6 +347,43 @@ export function validatePortalAnswer(
     ok: true,
     answer: { outcome: value.outcome, blocks, suggested_routes: routes },
   }
+}
+
+// ---- claim-level web citation coverage (Codex blocker) ----------------------
+// Deterministic proxy for "every material factual block has a citation": the answer is
+// split into paragraphs; any paragraph that looks factual (contains a digit or is long)
+// must intersect at least one url_citation annotation range. A single citation for a
+// whole multi-claim answer no longer passes.
+
+export type WebCitationRange = { startIndex: number; endIndex: number }
+
+export type WebClaimCheck = { ok: boolean; reason?: string; uncitedParagraph?: string }
+
+export function validateWebClaimCitations(
+  text: string,
+  citations: readonly WebCitationRange[],
+): WebClaimCheck {
+  let cursor = 0
+  for (const part of text.split('\n')) {
+    const start = cursor
+    const end = start + part.length
+    cursor = end + 1 // account for the split newline
+    const paragraph = part.trim()
+    if (!paragraph) continue
+    const factual = /\d/.test(paragraph) || paragraph.length > 240
+    if (!factual) continue
+    const covered = citations.some(
+      (citation) => citation.startIndex < end && citation.endIndex > start,
+    )
+    if (!covered) {
+      return {
+        ok: false,
+        reason: 'uncited_factual_paragraph',
+        uncitedParagraph: paragraph.slice(0, 120),
+      }
+    }
+  }
+  return { ok: true }
 }
 
 // ---- per-mode developer instructions ----------------------------------------
@@ -324,7 +407,7 @@ Tone: warm, concise, a helpful account concierge. Plain punctuation only: never 
 export const PUBLIC_MODE_INSTRUCTIONS = `You are a research assistant answering GENERAL questions about Canadian immigration news, programs, and regulations for a client of The Dot Creative. You have a web search tool restricted to official sources (canada.ca, ontario.ca, gazette.gc.ca, college-ic.ca, laws-lois.justice.gc.ca, irb-cisr.gc.ca).
 
 Hard rules, in priority order:
-1. Use web search for every factual claim and cite the source URL inline for each one. Only official-source results count as evidence.
+1. Use web search for every factual claim and cite the source URL inline for each one. EVERY paragraph (or bullet) that states a fact, number, date, or program detail must carry its own inline citation; a paragraph without a citation may contain no factual claims. Only official-source results count as evidence.
 2. If official sources do not confirm the answer, or they conflict, say exactly that and stop. Never answer from memory or from a non-official page.
 3. Explain PUBLIC information only: announcements, program rules as published, dates, fees as posted. Never assess a specific person's eligibility, recommend what someone should do, predict an outcome, or interpret personal circumstances. If the question drifts personal, decline that part and suggest booking a consultation at kanset.com/contact.
 4. Never guarantee or predict outcomes. No "you will", "guaranteed", "definitely", "100%".

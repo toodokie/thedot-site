@@ -30,7 +30,7 @@ const timestamp = (value: unknown, field: string) => {
 
 async function main() {
   const [command, inputPath, flag] = process.argv.slice(2)
-  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|invoice> <payload.json> [--dry-run]')
+  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|invoice|idea> <payload.json> [--dry-run]')
   const payload = JSON.parse(await readFile(inputPath, 'utf8')) as Payload
   const slug = requiredText(payload.clientSlug, 'clientSlug', 100)
   const actor = requiredText(payload.actorKey ?? 'thedot-admin', 'actorKey', 64)
@@ -120,6 +120,20 @@ async function main() {
       p_number: number, p_issued_at: issuedAt, p_period_start: periodStart, p_period_end: periodEnd,
       p_amount: amount, p_currency: currency, p_document_url: documentUrl,
       p_notes: optionalText(payload.notes, 'notes', 4000),
+      p_actor_key: actor, p_idempotency_key: idempotency }
+  } else if (command === 'idea') {
+    // Audited agency idea entry (agency_add_idea, migration 0019). authorType records
+    // WHOSE idea it is (Maria's emailed ideas stay hers); the receipt + activity trail
+    // records that the agency entered it. The client-side add_idea path is unchanged.
+    const title = requiredText(payload.title, 'title', 300)
+    const body = optionalText(payload.body, 'body', 4000)
+    const authorName = requiredText(payload.authorName, 'authorName', 200)
+    assertClientSafeAgencyText({ title, body, authorName })
+    rpc = 'agency_add_idea'; args = { p_client_id: null,
+      p_title: title, p_body: body,
+      p_status: stringArray(payload.status ?? 'new', 'status', ['new','considering','planned','archived']),
+      p_author_type: stringArray(payload.authorType ?? 'client', 'authorType', ['client','anastasia','agent']),
+      p_author_name: authorName,
       p_actor_key: actor, p_idempotency_key: idempotency }
   } else throw new Error(`unknown portal-write command: ${command}`)
   if (flag === '--dry-run') { console.log(`VALID ${command} for ${slug} (${idempotency})`); return }

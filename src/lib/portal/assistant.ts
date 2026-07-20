@@ -23,6 +23,7 @@ import {
   isAllowedCitationUrl,
   validateAssistantOutput,
   validatePortalAnswer,
+  validateWebClaimCitations,
   detectPersonalIdentifiers,
   type PortalAnswer,
 } from './assistant-guardrails'
@@ -272,9 +273,10 @@ export async function runPortalMode(options: {
     return { kind: 'rejected_output', reason: 'unparseable_output', usage }
   }
 
-  const retrievedIds = new Set(options.chunks.map((chunk) => chunk.chunk_id))
+  // Trust-class-aware validation: the chunks carry eligibility + excerpts so a block
+  // supported only by navigation_only chunks is held to location/status content.
   const allowedRoutes = new Set(options.chunks.map((chunk) => chunk.related_route))
-  const checked = validatePortalAnswer(parsed, retrievedIds, allowedRoutes)
+  const checked = validatePortalAnswer(parsed, options.chunks, allowedRoutes)
   if (!checked.ok) return { kind: 'rejected_output', reason: checked.reason, usage }
   if (checked.answer.outcome === 'no_grounding') return { kind: 'no_grounding', usage }
   return { kind: 'answered', answer: checked.answer, usage }
@@ -287,7 +289,9 @@ export type WebCitation = { url: string; title: string; startIndex: number; endI
 export type PublicModeOutcome =
   | { kind: 'answered'; text: string; citations: WebCitation[]; usage: GatewayUsage }
   | { kind: 'no_grounding'; usage: GatewayUsage }
-  | { kind: 'rejected_output'; reason: string; usage: GatewayUsage }
+  // withheldText is server-side evidence for eval/review logging; the route NEVER
+  // renders any part of a rejected output to the client.
+  | { kind: 'rejected_output'; reason: string; usage: GatewayUsage; withheldText?: string }
 
 type OutputTextContent = {
   type?: string
@@ -328,7 +332,7 @@ export async function runPublicMode(options: {
     safety_identifier: options.safetyIdentifier,
   })
 
-  const output = (response.output ?? []) as Array<Record<string, unknown>>
+  const output = (response.output ?? []) as unknown as Array<Record<string, unknown>>
   const webSearchCalls = output.filter((item) => item.type === 'web_search_call').length
   const usage: GatewayUsage = {
     inputTokens: response.usage?.input_tokens ?? 0,
@@ -381,6 +385,17 @@ export async function runPublicMode(options: {
   for (const match of text.match(/https?:\/\/[^\s)\]>"']+/g) ?? []) {
     if (!isAllowedCitationUrl(match.replace(/[.,;:]+$/, ''))) {
       return { kind: 'rejected_output', reason: 'unapproved_url_in_text', usage }
+    }
+  }
+  // Claim-level coverage (Codex blocker): every factual paragraph must intersect a
+  // citation annotation; one citation cannot vouch for a whole multi-claim answer.
+  const claimCheck = validateWebClaimCitations(text, citations)
+  if (!claimCheck.ok) {
+    return {
+      kind: 'rejected_output',
+      reason: claimCheck.reason ?? 'uncited_factual_paragraph',
+      usage,
+      withheldText: text,
     }
   }
   return { kind: 'answered', text, citations, usage }

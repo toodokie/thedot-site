@@ -229,3 +229,11 @@
   font-size: 13px;
   color: var(--dot-grey);
 }
+
+.reportNote {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--dot-grey);
+}

@@ -151,6 +151,10 @@ function ReportControl({ slug, runIds }: { slug: string; runIds: string[] }) {
           >
             {state === 'sending' ? 'Sending' : 'Send report'}
           </button>
+          <p className={styles.reportNote}>
+            Reports go to The Dot for review. Please don&rsquo;t include personal case
+            details here.
+          </p>
         </div>
       )}
     </div>
