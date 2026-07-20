@@ -1861,6 +1861,14 @@ function LeadCaptureForm({ action, formType, onClose }: LeadCaptureFormProps) {
       const leadAction = action === 'pdf' ? 'pdf_download'
                        : action === 'email' ? 'email_sent'
                        : 'contact_request';
+
+      // GA funnel: calculator completed (with estimated value). A "discuss" submit is
+      // the site's real contact-request signal (there is no standalone contact form).
+      trackLeadGeneration.calculatorComplete(formType, estimateData.total || 0);
+      if (action === 'discuss') {
+        trackLeadGeneration.contactFormSubmit('estimate');
+      }
+
       try {
         const leadSaveResponse = await fetch('/api/save-calculator-lead', {
           method: 'POST',

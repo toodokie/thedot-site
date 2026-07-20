@@ -331,7 +331,6 @@ export default function BriefResults({ formType, briefData, leadData }: BriefRes
           
           // Track PDF download conversion
           trackLeadGeneration.leadCapture('pdf_download', formType);
-          trackLeadGeneration.briefSubmission(formType, 'pdf_download');
         } else {
           throw new Error('Failed to generate PDF');
         }
@@ -348,7 +347,6 @@ export default function BriefResults({ formType, briefData, leadData }: BriefRes
           
           // Track email request conversion
           trackLeadGeneration.leadCapture('email_sent', formType);
-          trackLeadGeneration.briefSubmission(formType, 'email_sent');
         } else {
           const errorText = await response.text();
           console.error('Email API error:', response.status, errorText);
@@ -399,7 +397,7 @@ export default function BriefResults({ formType, briefData, leadData }: BriefRes
           
           // Track discussion request conversion (highest value)
           trackLeadGeneration.leadCapture('contact_request', formType);
-          trackLeadGeneration.briefSubmission(formType, 'discussion_request');
+          trackLeadGeneration.contactFormSubmit('brief');
         } else {
           const errorText = await response.text();
           console.error('Consultation API error:', response.status, errorText);

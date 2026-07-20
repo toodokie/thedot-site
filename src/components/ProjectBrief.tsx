@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Footer from './Footer';
+import { trackLeadGeneration } from '@/lib/analytics';
 
 // Type definitions for form data
 interface LeadData {
@@ -104,6 +105,8 @@ export default function ProjectBrief() {
 
       const result = await response.json();
       briefData.briefId = result.briefId;
+      // GA funnel: a brief was successfully submitted (fires once per submission)
+      trackLeadGeneration.briefSubmission(formType, 'submitted');
       handleBriefSubmission(formType, leadData, briefData);
     } catch (error) {
       console.error('Failed to submit brief:', error);
