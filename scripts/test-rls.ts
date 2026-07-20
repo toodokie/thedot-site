@@ -1187,6 +1187,123 @@ async function main(): Promise<void> {
         `${pClaim.error?.message ?? 'NO CLAIM ERR'} / ${pSucc.error?.message ?? 'NO SUCC ERR'} / ${pRec.error?.message ?? 'NO REC ERR'}`)
     }
 
+    console.log('\n--- 0017 assistant usage/gate boundary ---')
+
+    {
+      // Grant the assistant capability to B's primary member (identical flags otherwise), then prove
+      // the gate stays closed while the 'assistant' switch is off: fail-closed before any model call.
+      const grantAssistant = await admin.rpc('upsert_portal_membership', {
+        p_client_id: bClientId, p_auth_user_id: bUserId, p_email: B_EMAIL,
+        p_name: 'RLS Test B', p_can_decide: true, p_can_comment: true,
+        p_can_submit_requests: true, p_can_manage_schedule: true, p_can_use_assistant: true,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-assistant-member-${RUN_ID}`,
+      })
+      const gateOff = await bClient.rpc('portal_assistant_gate', { p_client_id: bClientId })
+      check('AS1: assistant gate refuses a capable member while the switch is off',
+        !grantAssistant.error && !!gateOff.error,
+        grantAssistant.error?.message ?? gateOff.error?.message ?? 'GATE OPENED WHILE OFF')
+
+      for (const [scope, key] of [
+        [null, `rls-global-assistant-${RUN_ID}`],
+        [bClientId, `rls-tenant-assistant-${RUN_ID}`],
+      ] as const) {
+        const enabled = await admin.rpc('set_portal_feature_switch', {
+          p_client_id: scope, p_feature: 'assistant', p_enabled: true,
+          p_reason: 'Disposable RLS integration test', p_actor_key: 'thedot-admin',
+          p_idempotency_key: key,
+        })
+        if (enabled.error) throw new Error(`enable assistant: ${enabled.error.message}`)
+      }
+
+      const gateOn = await bClient.rpc('portal_assistant_gate', { p_client_id: bClientId })
+      const gateViewer = await bViewerClient.rpc('portal_assistant_gate', { p_client_id: bClientId })
+      const gateCross = await bClient.rpc('portal_assistant_gate', { p_client_id: kansetClientId })
+      const gateAnon = await anonClient.rpc('portal_assistant_gate', { p_client_id: bClientId })
+      check('AS2: capable member passes the gate; viewer, cross-tenant, and anon are refused',
+        !gateOn.error && !!gateViewer.error && !!gateCross.error && !!gateAnon.error,
+        gateOn.error?.message ?? `viewer=${gateViewer.error?.message ?? 'OPEN'} cross=${gateCross.error?.message ?? 'OPEN'} anon=${gateAnon.error?.message ?? 'OPEN'}`)
+
+      const budget = await admin.rpc('portal_assistant_check_budget', { p_client_id: bClientId })
+      const unknownBudget = await admin.rpc('portal_assistant_check_budget', {
+        p_client_id: '00000000-0000-0000-0000-000000000000',
+      })
+      check('AS3: budget check allows an under-limit tenant and fails closed on an unknown one',
+        !budget.error && budget.data?.allowed === true
+          && !unknownBudget.error && unknownBudget.data?.allowed === false
+          && unknownBudget.data?.reason === 'unknown_client',
+        budget.error?.message ?? JSON.stringify({ budget: budget.data, unknown: unknownBudget.data }))
+
+      const logged = await admin.rpc('portal_assistant_log_usage', {
+        p_client_id: bClientId, p_question_hash: 'a'.repeat(64), p_decision: 'answered',
+        p_prompt_tokens: 1200, p_completion_tokens: 300, p_cost_cents: 4.25,
+        p_model: 'claude-opus-4-8',
+      })
+      const badDecision = await admin.rpc('portal_assistant_log_usage', {
+        p_client_id: bClientId, p_question_hash: 'a'.repeat(64), p_decision: 'not-a-decision',
+        p_prompt_tokens: 0, p_completion_tokens: 0, p_cost_cents: 0, p_model: 'claude-opus-4-8',
+      })
+      const badHash = await admin.rpc('portal_assistant_log_usage', {
+        p_client_id: bClientId, p_question_hash: 'nope', p_decision: 'answered',
+        p_prompt_tokens: 0, p_completion_tokens: 0, p_cost_cents: 0, p_model: 'claude-opus-4-8',
+      })
+      check('AS4: service logger writes a row and rejects invalid decision/hash',
+        !logged.error && !!logged.data && !!badDecision.error && !!badHash.error,
+        logged.error?.message ?? `bad=${badDecision.error?.message ?? 'WROTE'} hash=${badHash.error?.message ?? 'WROTE'}`)
+
+      const own = await bClient.from('assistant_usage').select('id,client_id,occurred_at,decision')
+      const crossUsage = await kansetClient.from('assistant_usage').select('id').eq('client_id', bClientId)
+      const privateCols = await bClient.from('assistant_usage')
+        .select('cost_cents,model,question_hash,prompt_tokens')
+      const directInsert = await bClient.from('assistant_usage').insert({
+        client_id: bClientId, question_hash: 'b'.repeat(64), decision: 'answered',
+        model: 'forged',
+      })
+      check('AS5: RLS scopes usage to the tenant with outcome columns only and no direct writes',
+        !own.error && (own.data ?? []).length >= 1
+          && (own.data ?? []).every((row) => row.client_id === bClientId)
+          && !crossUsage.error && (crossUsage.data ?? []).length === 0
+          && !!privateCols.error && !!directInsert.error,
+        own.error?.message ?? crossUsage.error?.message
+          ?? `private=${privateCols.error?.message ?? 'READ'} insert=${directInsert.error?.message ?? 'WROTE'}`)
+
+      const clientBudget = await bClient.rpc('portal_assistant_check_budget', { p_client_id: bClientId })
+      const clientLog = await bClient.rpc('portal_assistant_log_usage', {
+        p_client_id: bClientId, p_question_hash: 'c'.repeat(64), p_decision: 'answered',
+        p_prompt_tokens: 0, p_completion_tokens: 0, p_cost_cents: 0, p_model: 'claude-opus-4-8',
+      })
+      check('AS6: client denied the service-role assistant RPCs',
+        !!clientBudget.error && !!clientLog.error,
+        `${clientBudget.error?.message ?? 'NO BUDGET ERROR'} / ${clientLog.error?.message ?? 'NO LOG ERROR'}`)
+
+      for (let i = 0; i < 20; i++) {
+        const fill = await admin.rpc('portal_assistant_log_usage', {
+          p_client_id: bClientId, p_question_hash: 'd'.repeat(64), p_decision: 'answered',
+          p_prompt_tokens: 10, p_completion_tokens: 10, p_cost_cents: 0.1,
+          p_model: 'claude-opus-4-8',
+        })
+        if (fill.error) throw new Error(`fill assistant usage: ${fill.error.message}`)
+      }
+      const overLimit = await admin.rpc('portal_assistant_check_budget', { p_client_id: bClientId })
+      check('AS7: hourly request ceiling rejects once filled',
+        !overLimit.error && overLimit.data?.allowed === false
+          && overLimit.data?.reason === 'hourly_request_limit',
+        overLimit.error?.message ?? JSON.stringify(overLimit.data))
+
+      const disableAssistant = await admin.rpc('set_portal_feature_switch', {
+        p_client_id: bClientId, p_feature: 'assistant', p_enabled: false,
+        p_reason: 'Disposable RLS integration test teardown', p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-assistant-off-${RUN_ID}`,
+      })
+      const disabledBudget = await admin.rpc('portal_assistant_check_budget', { p_client_id: bClientId })
+      const disabledGate = await bClient.rpc('portal_assistant_gate', { p_client_id: bClientId })
+      check('AS8: tenant switch off fails both the budget check and the gate closed',
+        !disableAssistant.error && !disabledBudget.error
+          && disabledBudget.data?.allowed === false
+          && disabledBudget.data?.reason === 'assistant_disabled' && !!disabledGate.error,
+        disableAssistant.error?.message ?? disabledBudget.error?.message
+          ?? disabledGate.error?.message ?? JSON.stringify(disabledBudget.data))
+    }
+
     {
       const stop = await admin.rpc('set_portal_feature_switch', {
         p_client_id: bClientId, p_feature: 'client_mutations', p_enabled: false,
