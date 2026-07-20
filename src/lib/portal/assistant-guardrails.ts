@@ -73,8 +73,11 @@ const ADVICE_FRAME =
   /\b(am i|are we|is my client|is he|is she|do i|does my client|do we|will i|will we|will my client|would i|can i|could i|should i|should we|should my client|how do i|how can i|how do we|(will|should|can|could|would) (our|my|his|her|their) \w+)\b/i
 
 // Clearly case-specific phrasings that, with an immigration subject, are advice-seeking.
+// The person-outcome alternation catches third-person case narratives ("my cousin was
+// refused", "he gets approved") while excluding portal nouns so "my posts were approved"
+// stays an account question.
 const CASE_SPECIFIC =
-  /\b(my case|my application|my file|my eligibility|my chances|my odds|what are (my|his|her|our|the) chances|(get|be) (approved|denied|rejected|granted)|qualif(y|ies|ied) for|eligible for)\b/i
+  /\b(my case|my application|my file|my eligibility|my chances|my odds|what are (my|his|her|our|the) chances|(get|be) (approved|denied|rejected|granted)|qualif(y|ies|ied) for|eligible for|(?:(?:he|she|they)|(?:my|our) (?!post|posts|reel|reels|carousel|carousels|caption|captions|video|videos|story|stories|draft|drafts|content|invoice|invoices)\w+)\s+(?:was|were|is|are|gets?|got|will be|has been|have been)\s+(?:refused|denied|rejected|approved|granted))\b/i
 
 // Personalized-guidance ingredients (Codex finding: "What documents do I need for my LMIA?"
 // must refuse). Refusal needs ALL THREE: a personal marker, an immigration subject, and a

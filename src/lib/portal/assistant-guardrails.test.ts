@@ -21,6 +21,8 @@ describe('inbound mode classifier', () => {
       'How do I immigrate to Canada?',
       'Will I be approved for permanent residence?',
       'If we file the LMIA next month, will our employee get PR?',
+      'My cousin was refused a visitor visa. What should he change so he gets approved next time?',
+      'Our worker was denied a work permit, what now?',
     ]) {
       expect(classifyAssistantRequest(q).mode, q).toBe('case_specific')
     }
@@ -62,6 +64,7 @@ describe('inbound mode classifier', () => {
       'Which posts about work permits are approved?',
       'What is the status of my Wednesday carousel?',
       'When does my LMIA decoder reel go out?',
+      'Were my posts about work permits approved?', // person-outcome exclusion: portal noun
     ]) {
       expect(classifyAssistantRequest(q).mode, q).toBe('portal_workspace')
     }
