@@ -1522,6 +1522,51 @@ async function main(): Promise<void> {
         `kanset=${kansetContent.count} fixture=${kansetFixture.count} `
           + `bReports=${bReports.count} bLinks=${bLinks.count} bIdeas=${bIdeas.count}`)
 
+      // Two-session concurrency (round-3 blocker): the scheduled reconciliation and a
+      // source write's commit-time trigger refresh race for the same tenant index. The
+      // per-tenant advisory lock in portal_assistant_reindex must serialize them: no
+      // duplicate-key failures, and every write is searchable afterwards.
+      let concurrencyFailure: string | null = null
+      const concurrencyRounds = 4
+      for (let round = 0; round < concurrencyRounds && !concurrencyFailure; round++) {
+        const [reconcileA, reconcileB, write] = await Promise.all([
+          admin.rpc('portal_assistant_reconcile_index'),
+          admin.rpc('portal_assistant_reconcile_index'),
+          bClient.rpc('add_idea', {
+            p_client_id: bClientId, p_title: `Zephyr concurrency probe ${round}`, p_body: null,
+          }),
+        ])
+        concurrencyFailure = reconcileA.error?.message ?? reconcileB.error?.message
+          ?? write.error?.message ?? null
+      }
+      const concurrencySearch = await bClient.rpc('portal_assistant_search', {
+        p_client_id: bClientId, p_query: 'Zephyr concurrency probe',
+      })
+      check('AS17: concurrent reconciliation and source writes never fail or lose index rows',
+        concurrencyFailure === null && !concurrencySearch.error
+          && (concurrencySearch.data ?? []).length >= concurrencyRounds,
+        concurrencyFailure ?? concurrencySearch.error?.message
+          ?? `rows=${(concurrencySearch.data ?? []).length}`)
+
+      // Tenant relocation (round-3 blocker): a source row can NEVER move to another
+      // tenant. Two independent walls both forbid it: the API surface holds no
+      // client_id update grant, and the 0019 BEFORE UPDATE immutability trigger raises
+      // even for privileged in-database paths. Either failure mode passes; the
+      // migration assertion separately proves the trigger exists on all 12 tables.
+      const relocationTarget = (await admin.from('content_ideas')
+        .select('id').eq('client_id', bClientId).limit(1).single()).data?.id
+      const relocation = await admin.from('content_ideas')
+        .update({ client_id: kansetClientId })
+        .eq('id', relocationTarget ?? '00000000-0000-0000-0000-000000000000')
+        .select()
+      const relocated = await admin.from('content_ideas')
+        .select('id', { count: 'exact', head: true })
+        .eq('id', relocationTarget ?? '00000000-0000-0000-0000-000000000000')
+        .eq('client_id', kansetClientId)
+      check('AS18: a source row can never move tenants (grant wall or immutability trigger)',
+        !!relocationTarget && !!relocation.error && (relocated.count ?? 0) === 0,
+        relocation.error?.message ?? `RELOCATED (count=${relocated.count})`)
+
       // Leave the disposable tenant's assistant switch off, as AS11 intended.
       const reDisable = await admin.rpc('set_portal_feature_switch', {
         p_client_id: bClientId, p_feature: 'assistant', p_enabled: false,

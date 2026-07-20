@@ -63,6 +63,23 @@ end;
 $$;
 revoke all on function public.portal_assistant_index_touch() from public,anon,authenticated,service_role;
 
+-- Tenancy invariant (Codex blocker): a source row's client_id is IMMUTABLE. The touch
+-- trigger reads one client_id per row; if any path could relocate a row across tenants,
+-- the old tenant would keep a stale searchable document. Immutability is truer to the
+-- portal's tenancy model than dual-refresh (no legitimate flow moves rows between
+-- clients), so any such update raises instead. Asserted below on every source table.
+create or replace function public.portal_assistant_client_id_immutable()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if new.client_id is distinct from old.client_id then
+    raise exception 'client_id is immutable on %', tg_table_name;
+  end if;
+  return new;
+end;
+$$;
+revoke all on function public.portal_assistant_client_id_immutable()
+  from public,anon,authenticated,service_role;
+
 do $$
 declare
   v_table text;
@@ -75,6 +92,10 @@ begin
     execute pg_catalog.format(
       'create constraint trigger assistant_index_touch after insert or update or delete on public.%I '
       || 'deferrable initially deferred for each row execute function public.portal_assistant_index_touch()',
+      v_table);
+    execute pg_catalog.format(
+      'create trigger client_id_immutable before update on public.%I '
+      || 'for each row execute function public.portal_assistant_client_id_immutable()',
       v_table);
   end loop;
 end;
@@ -298,6 +319,33 @@ begin
     return;
   end if;
 
+  -- Provenance gate (Codex blocker): a content_id alone could in principle be reused by
+  -- a real piece. The two retired fixtures are the ONLY items whose versions were synced
+  -- from the retired 'content/portal/' directory prefix (verified against the live
+  -- catalog 2026-07-20: all real rows carry bare canonical filenames), and their
+  -- synthetic titles are known. A candidate with ANY other provenance ABORTS the
+  -- migration instead of being deleted.
+  select pg_catalog.count(*) into v_count
+    from public.content_items ci
+    where ci.client_id = v_kanset
+      and ci.content_id in ('kanset-2026-07-lmia-reel','kanset-2026-07-oinp-employer')
+      and (
+        exists (
+          select 1 from public.content_item_versions v
+          where v.content_item_id = ci.id and v.client_id = ci.client_id
+            and v.source_path not like 'content/portal/%'
+        )
+        or not exists (
+          select 1 from public.content_item_versions v
+          where v.content_item_id = ci.id and v.client_id = ci.client_id
+            and v.title in ('LMIA work permit explainer reel','OINP employer job offer carousel')
+        )
+      );
+  if v_count > 0 then
+    raise exception
+      'demo purge: a fixture content_id matched a row with non-fixture provenance; aborting (delete nothing, investigate)';
+  end if;
+
   select coalesce(pg_catalog.array_agg(ci.id), '{}') into v_item_ids
     from public.content_items ci
     where ci.client_id = v_kanset
@@ -349,13 +397,36 @@ begin
   get diagnostics v_count = row_count;
   raise notice 'demo purge: % demo report snapshots', v_count;
 
+  -- Demo ideas: the literal '(demo)' author names AND the three known seed titles. A
+  -- demo-author row with any OTHER title would mean the criteria drifted: abort rather
+  -- than delete. (The six real seed ideas carry author_name 'Maria Guerts' and are
+  -- untouchable by either predicate.)
+  select pg_catalog.count(*) into v_count from public.content_ideas ci
+    where ci.client_id = v_kanset
+      and ci.author_name in ('Maria (demo)','The Dot (demo)')
+      and ci.title not in (
+        'Employer: hired before, lost track of filings',
+        'H&C success story',
+        '500 Google reviews milestone');
+  if v_count > 0 then
+    raise exception 'demo purge: a demo-author idea has an unexpected title; aborting';
+  end if;
   delete from public.content_ideas ci
-    where ci.client_id = v_kanset and ci.author_name in ('Maria (demo)','The Dot (demo)');
+    where ci.client_id = v_kanset
+      and ci.author_name in ('Maria (demo)','The Dot (demo)')
+      and ci.title in (
+        'Employer: hired before, lost track of filings',
+        'H&C success story',
+        '500 Google reviews milestone');
   get diagnostics v_count = row_count;
   raise notice 'demo purge: % demo ideas', v_count;
 
+  -- Placeholder links: label + placeholder ROOT url + the 0011 backfill provenance. A
+  -- label/url match with different provenance is left in place and caught by the
+  -- trailing assertion (abort, never a blind delete).
   delete from public.links l
     where l.client_id = v_kanset
+      and l.source_ref = 'migration:0011'
       and ((l.label = 'Brand guide (PDF)' and l.url = 'https://drive.google.com/')
         or (l.label = 'Canva brand kit' and l.url = 'https://www.canva.com/'));
   get diagnostics v_count = row_count;
@@ -387,12 +458,22 @@ begin
     ) then
       raise exception 'assistant index trigger missing/not deferred on %', v_table;
     end if;
+    -- tenancy invariant: client_id immutable on every indexed source table
+    if not exists (
+      select 1 from pg_catalog.pg_trigger t
+      join pg_catalog.pg_class c on c.oid = t.tgrelid
+      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public' and c.relname = v_table
+        and t.tgname = 'client_id_immutable' and not t.tgisinternal
+    ) then
+      raise exception 'client_id immutability trigger missing on %', v_table;
+    end if;
   end loop;
 
   if exists (select 1 from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.proname in ('portal_assistant_index_touch',
-      'portal_assistant_reconcile_index','portal_assistant_reap_reservations',
-      'portal_assistant_purge_feedback','agency_add_idea')
+      'portal_assistant_client_id_immutable','portal_assistant_reconcile_index',
+      'portal_assistant_reap_reservations','portal_assistant_purge_feedback','agency_add_idea')
       and (not p.prosecdef or not (coalesce(p.proconfig,'{}'::text[]) @> array['search_path=""']))) then
     raise exception 'assistant ops function is not hardened'; end if;
 

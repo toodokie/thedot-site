@@ -188,6 +188,12 @@ begin
     raise exception 'assistant reindex: unknown client';
   end if;
 
+  -- Serialize per-tenant rebuilds: without this, a commit-time trigger refresh and the
+  -- scheduled reconciliation can interleave delete+insert phases into duplicate-key
+  -- failures, or let the older rebuild win and leave the index stale.
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('portal_assistant_reindex:' || p_client_id::text, 0));
+
   delete from public.assistant_documents d where d.client_id = p_client_id;
 
   -- content pieces: grounded once approved/externally committed/live; a piece still under
