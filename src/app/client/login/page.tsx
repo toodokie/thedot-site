@@ -1,18 +1,23 @@
 'use client'
 import { useState } from 'react'
 import Image from 'next/image'
-import { createSupabaseBrowser } from '@/lib/supabase/client'
 import { Heading, Text, Input, Button } from '@thedot/design-system'
 export default function ClientLogin() {
   const [email, setEmail] = useState(''); const [sent, setSent] = useState(false)
   async function send(e: React.FormEvent) {
     e.preventDefault()
-    const supabase = createSupabaseBrowser()
-    const base = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
-    const callback = new URL('/client/auth/callback', base).toString() // no double slash on a trailing-slash base
-    await supabase.auth.signInWithOtp({
-      email, options: { shouldCreateUser: false, emailRedirectTo: callback },
-    })
+    // Server-minted, scanner-proof sign-in email (see /api/client/auth/request-link). We route through
+    // the app instead of supabase.auth.signInWithOtp so the emailed link points at the prefetch-proof
+    // confirm page: mail-provider link scanners can no longer pre-consume the one-time token.
+    try {
+      await fetch('/api/client/auth/request-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+    } catch {
+      // Swallow: show the same confirmation regardless, so the UI reveals no error and no account signal.
+    }
     // Always show the same confirmation, whatever the result, so the UI cannot be used to tell
     // whether an address has an account (network-level enumeration still needs rate limits/CAPTCHA).
     setSent(true)
