@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
+import { isAuthSessionMissingError } from '@supabase/auth-js'
 import type { EmailOtpType } from '@supabase/auth-js'
 import { safeNext } from '@/lib/portal/redirect'
 
@@ -8,14 +9,20 @@ const OTP_TYPES: EmailOtpType[] = ['email', 'magiclink', 'signup', 'invite', 're
 
 // POST target for the prefetch-proof confirm page's "Sign in" button. A mail scanner only ever GETs the
 // confirm page (plain HTML, no token spent); the single-use token is verified here ONLY on the human's
-// explicit POST. This mirrors the /client/auth/callback route handler, whose session-cookie persistence
-// across a redirect is proven, rather than a Server Action (which did not persist the session).
+// explicit POST. Route handler (not a Server Action) so the session cookie provably persists.
 //
-// Cookie hygiene: repeated failed login attempts (the pre-fix loop) can leave stale sb-* auth cookies
-// (chunked remnants, PKCE code verifiers) that confuse later session reads. We record which cookies the
-// fresh verify writes and expire every other sb-* cookie on the response.
+// Cookie hygiene (Codex review 2026-07-20): stale sb-* cookies (chunk remnants, PKCE code verifiers)
+// from failed attempts are expired on EVERY exit that leaves no valid session, and after a successful
+// verify. The one exception is the dead-token-with-live-session fallthrough, where the preexisting
+// cookies ARE the session and must survive.
 export async function POST(request: Request) {
   const { origin } = new URL(request.url)
+
+  // Same-origin gate: a state-changing POST; the confirm page's form is same-origin and every current
+  // browser sends Origin on form POSTs. Missing or foreign Origin is rejected outright.
+  const originHeader = request.headers.get('origin')
+  if (originHeader !== origin) return new NextResponse('Forbidden', { status: 403 })
+
   const form = await request.formData()
   const tokenHash = String(form.get('token_hash') || '')
   const rawType = String(form.get('type') || 'email')
@@ -28,11 +35,7 @@ export async function POST(request: Request) {
     res.headers.set('Cache-Control', 'private, no-store')
     return res
   }
-  // 'expired' keeps the login page's message honest: with single-use tokens, a failed verify almost
-  // always means the link was superseded or already used, not a system fault.
-  const fail = seeOther(`${origin}/client/login?error=expired`)
 
-  if (!tokenHash) return fail
   const cookieStore = await cookies()
   const preexisting = cookieStore.getAll().map((c) => c.name)
   const written = new Set<string>()
@@ -53,17 +56,29 @@ export async function POST(request: Request) {
       },
     }
   )
-  const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
-  if (error) {
-    // The link may already have been consumed by a browser preloader or a double click, in which case
-    // the SESSION exists even though this token is dead. Fall through into the portal instead of
-    // bouncing an authenticated user to the login form.
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) return seeOther(destination)
-    return fail
+  // Expire every preexisting sb-* cookie the current attempt did not (re)write.
+  const purgeStale = () => {
+    for (const name of preexisting) {
+      if (name.startsWith('sb-') && !written.has(name)) cookieStore.delete(name)
+    }
   }
-  for (const name of preexisting) {
-    if (name.startsWith('sb-') && !written.has(name)) cookieStore.delete(name)
+
+  if (tokenHash) {
+    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
+    if (!error) {
+      purgeStale()
+      return seeOther(destination)
+    }
   }
-  return seeOther(destination)
+
+  // Dead or missing token. If a live session exists (browser preloader consumed the link, double click,
+  // reopened tab), continue into the portal; the preexisting cookies are that session, so no purge.
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  if (user) return seeOther(destination)
+
+  // No session at all: everything sb-* left over is stale. Purge before the visible failure, and keep
+  // an auth-service outage distinguishable from a genuinely dead link.
+  purgeStale()
+  const code = userError && !isAuthSessionMissingError(userError) ? 'service' : 'expired'
+  return seeOther(`${origin}/client/login?error=${code}`)
 }

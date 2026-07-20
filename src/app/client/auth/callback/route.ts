@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { isAuthSessionMissingError } from '@supabase/auth-js'
 import type { EmailOtpType } from '@supabase/auth-js'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { safeNext } from '@/lib/portal/redirect'
@@ -23,7 +24,9 @@ export async function GET(request: Request) {
   }
   // A dead code/token with a LIVE session (browser preloaders consume one-time links before the human
   // presses Enter, double clicks, re-opened tabs) should land in the portal, not at the login form.
-  const { data: { user } } = await supabase.auth.getUser()
+  // Keep an auth-service outage distinguishable from a genuinely dead link (Codex review 2026-07-20).
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
   if (user) return NextResponse.redirect(destination, noStore)
-  return NextResponse.redirect(`${origin}/client/login?error=expired`, noStore)
+  const errCode = userError && !isAuthSessionMissingError(userError) ? 'service' : 'expired'
+  return NextResponse.redirect(`${origin}/client/login?error=${errCode}`, noStore)
 }
