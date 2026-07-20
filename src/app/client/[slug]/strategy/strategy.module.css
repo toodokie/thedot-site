@@ -45,7 +45,7 @@
 .chip {
   display: inline-block;
   font-family: var(--dot-font-text);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--dot-graphite);
   border: 1px solid var(--dot-hairline);
   background: transparent;

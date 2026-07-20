@@ -26,7 +26,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--dot-graphite);
   letter-spacing: 0.01em;
 }
@@ -46,7 +46,7 @@
 .gridHeadCell {
   padding: 9px 10px;
   font-family: var(--dot-font-display);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: var(--dot-weight-medium);
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -73,7 +73,7 @@
   box-shadow: inset 0 3px 0 0 var(--dot-yellow);
 }
 .dayNum {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--dot-graphite);
   font-variant-numeric: tabular-nums;
   margin-bottom: 6px;
@@ -96,7 +96,7 @@
 .chip:hover { transform: translateX(2px); }
 .chipTitle {
   display: block;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.35;
   color: var(--dot-black);
   font-weight: var(--dot-weight-medium);
@@ -104,13 +104,13 @@
 .chipMeta {
   display: block;
   margin-top: 3px;
-  font-size: 10.5px;
+  font-size: 11.5px;
   color: var(--dot-graphite);
   text-transform: capitalize;
 }
 .chipPlatforms { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
 .plat {
-  font-size: 9.5px;
+  font-size: 11px;
   line-height: 1.4;
   color: var(--dot-graphite);
   border: 1px solid var(--dot-hairline);
@@ -155,14 +155,14 @@
 }
 .listWd {
   display: block;
-  font-size: 10px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--dot-grey);
 }
 .listDay {
   display: block;
-  font-size: 14px;
+  font-size: 15px;
   color: var(--dot-black);
   font-variant-numeric: tabular-nums;
 }
@@ -171,7 +171,7 @@
 
 .metaChip {
   display: inline-block;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--dot-graphite);
   border: 1px solid var(--dot-hairline);
   background: transparent;
@@ -197,7 +197,7 @@
 .calendarNote {
   max-width: 760px;
   color: var(--color-grey, #666);
-  font-size: 0.875rem;
+  font-size: 1rem;
   line-height: 1.5;
   margin: 12px 0 24px;
 }

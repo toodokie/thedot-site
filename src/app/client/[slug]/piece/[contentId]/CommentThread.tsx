@@ -70,14 +70,14 @@ export default function CommentThread({
               borderTop: '1px solid var(--dot-hairline)', padding: '14px 0',
               ...(isAgency ? { borderLeft: '2px solid var(--dot-yellow)', paddingLeft: 14, marginLeft: 12 } : {}),
             }}>
-              {c.quoted_text && <div style={quoteBox}><Text size="sm" tone="graphite">{c.quoted_text}</Text></div>}
+              {c.quoted_text && <div style={quoteBox}><Text size="md" tone="graphite">{c.quoted_text}</Text></div>}
               {isAgency ? (
                 <>
                   <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--dot-graphite)', marginBottom: 3 }}>{c.author_name}</div>
-                  <Text as="div" size="sm" tone="graphite">{c.body}</Text>
+                  <Text as="div" size="md" tone="graphite">{c.body}</Text>
                 </>
               ) : (
-                <Text as="div" size="sm" tone="graphite"><strong>{c.author_name}</strong> {c.body}</Text>
+                <Text as="div" size="md" tone="graphite"><strong>{c.author_name}</strong> {c.body}</Text>
               )}
               <time dateTime={c.created_at} style={{ display: 'block', marginTop: 4, fontSize: 12, color: 'var(--dot-graphite)', fontVariantNumeric: 'tabular-nums' }}>{c.created_at.slice(0, 10)}</time>
             </div>
@@ -98,7 +98,7 @@ export default function CommentThread({
         <input type="hidden" name="copyBlockKey" value={quote?.blockKey ?? ''} />
         {quote && (
           <div style={{ ...quoteBox, display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-            <Text size="sm" tone="graphite">{quote.text}</Text>
+            <Text size="md" tone="graphite">{quote.text}</Text>
             <button type="button" onClick={() => setQuote(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dot-graphite)', fontSize: 12 }}>clear</button>
           </div>
         )}

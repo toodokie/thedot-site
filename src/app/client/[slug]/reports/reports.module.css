@@ -30,14 +30,14 @@
   background: var(--dot-white);
 }
 .jumpLabel {
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--dot-grey);
 }
 .jumpLinks { display: flex; flex-wrap: wrap; gap: 8px; }
 .jumpLink {
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--dot-graphite);
   text-decoration: none;
   border: 1px solid var(--dot-hairline);
@@ -64,7 +64,7 @@
   margin: 0 0 20px;
 }
 .periodMeta {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--dot-grey);
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -134,7 +134,7 @@
 }
 .tileLabel {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--dot-grey);
@@ -156,18 +156,18 @@
   align-items: baseline;
   gap: 4px;
   margin-top: 6px;
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
 }
-.deltaArrow { font-size: 11px; line-height: 1; }
+.deltaArrow { font-size: 12px; line-height: 1; }
 .up { color: #2e7d32; }
 .down { color: #b3261e; }
 .flat { color: var(--dot-grey); }
 .prev {
   display: block;
   margin-top: 3px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--dot-grey);
   font-variant-numeric: tabular-nums;
 }
@@ -175,7 +175,7 @@
 /* top posts / pages: hairline-divided rows with the metric right-aligned */
 .list { margin: 20px 0 0; }
 .listHead {
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--dot-grey);
@@ -199,7 +199,7 @@
 .listPlain { color: var(--dot-black); overflow-wrap: anywhere; }
 .listMetric {
   flex: none;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--dot-graphite);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
@@ -213,7 +213,7 @@
 }
 .summaryLabel {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--dot-grey);

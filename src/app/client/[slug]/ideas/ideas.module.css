@@ -38,7 +38,7 @@
 .error {
   color: #c0392b;
   margin: 10px 0 0;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 /* the list of ideas */
@@ -74,13 +74,13 @@
   margin-top: 14px;
 }
 .metaName {
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--dot-graphite);
 }
 .metaDate {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--dot-graphite);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.03em;
@@ -90,7 +90,7 @@
 .statusChip {
   display: inline-block;
   font-family: var(--dot-font-text);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--dot-graphite);
   border: 1px solid var(--dot-hairline);
   background: transparent;

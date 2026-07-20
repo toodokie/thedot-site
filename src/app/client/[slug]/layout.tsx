@@ -1,8 +1,18 @@
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
+import type { Metadata } from 'next'
 import { getClientSession } from '@/lib/portal/auth'
 import PortalNav from './PortalNav'
 import styles from './portal-shell.module.css'
+
+// Private workspace: a real tab title instead of the marketing site's, and never indexed.
+export async function generateMetadata(
+  { params }: { params: Promise<{ slug: string }> }
+): Promise<Metadata> {
+  const { slug } = await params
+  const name = slug.charAt(0).toUpperCase() + slug.slice(1)
+  return { title: `${name} · Client Portal`, robots: { index: false, follow: false } }
+}
 
 export default async function ClientWorkspaceLayout(
   { children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }

@@ -30,7 +30,7 @@
 }
 .table thead th {
   text-align: left;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--dot-graphite, #4a4a44);
@@ -49,7 +49,7 @@
 .sub {
   display: block;
   margin-top: 3px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--dot-graphite, #6a6a62);
 }
 .amount {
@@ -88,7 +88,7 @@
   gap: 6px;
   color: var(--dot-teal, #1f5a5a);
   text-decoration: none;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
 }
 .docLink:hover {

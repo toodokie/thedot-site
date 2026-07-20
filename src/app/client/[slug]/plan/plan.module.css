@@ -42,14 +42,14 @@
 }
 .wd {
   display: block;
-  font-size: 10px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--dot-grey);
 }
 .day {
   display: block;
-  font-size: 14px;
+  font-size: 15px;
   color: var(--dot-black);
   font-variant-numeric: tabular-nums;
 }
@@ -58,7 +58,7 @@
 .chipRow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
 .chip {
   display: inline-block;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--dot-graphite);
   border: 1px solid var(--dot-hairline);
   background: transparent;

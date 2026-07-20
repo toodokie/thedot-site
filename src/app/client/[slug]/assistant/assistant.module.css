@@ -35,7 +35,7 @@
 
 .empty {
   color: var(--dot-grey);
-  font-size: 13.5px;
+  font-size: 15px;
   margin: auto;
   text-align: center;
   max-width: 40ch;
@@ -43,7 +43,7 @@
 
 .turn {
   padding: 12px 14px;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.55;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -88,7 +88,7 @@
   border: 1px solid var(--dot-hairline);
   background: var(--dot-white);
   font-family: var(--dot-font-text);
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.5;
   padding: 10px 12px;
   color: var(--dot-black);
@@ -106,7 +106,7 @@
   color: var(--dot-white);
   font-family: var(--dot-font-text);
   font-weight: var(--dot-weight-demi);
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: 0.02em;
   padding: 11px 20px;
   cursor: pointer;
@@ -124,7 +124,7 @@
 
 .disclaimer {
   margin: 14px 0 0;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--dot-grey);
   max-width: 62ch;
