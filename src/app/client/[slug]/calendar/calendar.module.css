@@ -32,14 +32,71 @@
 }
 .swatch { width: 12px; height: 12px; display: inline-block; }
 
-/* ---- month grids (one block per month, newest first) ---- */
+/* ---- the month grid (single month, prev/next navigation) ---- */
 .monthBlock { margin: 0 0 44px; }
-.monthLabel { margin: 0 0 14px; }
-.gridScroll { overflow-x: auto; }
+
+.monthNav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 14px;
+}
+.navBtn {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--dot-hairline);
+  background: var(--dot-white);
+  color: var(--dot-black);
+  font-family: var(--dot-font-text);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+.navBtn:hover {
+  border-color: var(--dot-yellow);
+  background: var(--dot-yellow);
+}
+.navBtn:focus-visible {
+  outline: 2px solid var(--dot-yellow);
+  outline-offset: 2px;
+}
+.monthTitle {
+  margin: 0;
+  min-width: 190px;
+  text-align: center;
+  font-family: var(--dot-font-display);
+  font-size: 24px;
+  font-weight: var(--dot-weight-medium);
+  color: var(--dot-black);
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.todayBtn {
+  margin-left: 8px;
+  border: 1px solid var(--dot-hairline);
+  background: transparent;
+  color: var(--dot-graphite);
+  font-family: var(--dot-font-text);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: border-color 140ms ease, color 140ms ease;
+}
+.todayBtn:hover { border-color: var(--dot-yellow); color: var(--dot-black); }
+.todayBtn:focus-visible {
+  outline: 2px solid var(--dot-yellow);
+  outline-offset: 2px;
+}
 
 .gridHead {
   display: grid;
-  grid-template-columns: repeat(7, minmax(120px, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   border: 1px solid var(--dot-hairline);
   border-bottom: none;
 }
@@ -57,11 +114,12 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(120px, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   border-left: 1px solid var(--dot-hairline);
   border-top: 1px solid var(--dot-hairline);
 }
 .cell {
+  min-width: 0;
   min-height: 116px;
   padding: 8px;
   border-right: 1px solid var(--dot-hairline);
@@ -100,6 +158,7 @@
   line-height: 1.35;
   color: var(--dot-black);
   font-weight: var(--dot-weight-medium);
+  overflow-wrap: anywhere;
 }
 .chipMeta {
   display: block;
@@ -189,6 +248,22 @@
 
 @media (max-width: 760px) {
   .wrap { padding: 4px 0 64px; }
+
+  /* The grid stays 7 columns and NEVER overflows sideways: day cells shrink and each
+     piece collapses to a status-coloured bar (still a link, named via aria-label).
+     The by-week list below carries the readable detail on small screens. */
+  .cell { min-height: 56px; padding: 4px; }
+  .dayNum { font-size: 11px; margin-bottom: 4px; }
+  .chips { gap: 3px; }
+  .chip { padding: 0; height: 10px; border: none; border-left: 3px solid var(--dot-grey); background: var(--dot-hairline); }
+  .chip:hover { transform: none; }
+  .chip .chipTitle,
+  .chip .chipMeta,
+  .chip .chipPlatforms { display: none; }
+  .chip.accent_yellow { background: var(--dot-yellow); }
+  .chip.accent_graphite { background: var(--dot-graphite); }
+  .chip.accent_grey { background: var(--dot-grey); }
+  .monthTitle { min-width: 0; flex: 1 1 auto; font-size: 19px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -3,13 +3,11 @@ import { redirect } from 'next/navigation'
 import { getClientSession } from '@/lib/portal/auth'
 import { getSchedule, statusAccent, isProduced, type ScheduleRow } from '@/lib/portal/schedule'
 import { Eyebrow, Heading, Text } from '@thedot/design-system'
+import MonthGrid, { type CalendarChip } from './MonthGrid'
 import styles from './calendar.module.css'
 
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const WD_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-// Monday-start week to match Kanset's business-week cadence.
-const WEEK_HEAD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 const pad = (n: number) => String(n).padStart(2, '0')
 const isoOf = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)}`
@@ -31,30 +29,12 @@ function weekStartIso(iso: string): string {
   return isoOf(dt.getFullYear(), dt.getMonth() + 1, dt.getDate())
 }
 
-// A month is addressed by a single index (year * 12 + zero-based month) so the range from the
-// earliest piece to next month is a plain integer sweep.
-const monthKey = (y: number, m: number) => y * 12 + m
-const yearOfKey = (k: number) => Math.floor(k / 12)
-const monthOfKey = (k: number) => ((k % 12) + 12) % 12
-
-// One month's calendar cells (Monday-start): leading blanks, the days, trailing blanks.
-function monthCells(year: number, month: number): (number | null)[] {
-  const firstDow = (new Date(year, month, 1).getDay() + 6) % 7
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const cells: (number | null)[] = []
-  for (let i = 0; i < firstDow; i++) cells.push(null)
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d)
-  while (cells.length % 7 !== 0) cells.push(null)
-  return cells
-}
-
-// Heading over the whole calendar: the span it covers, e.g. "June to August 2026".
-function rangeLabel(startKey: number, endKey: number): string {
-  const sY = yearOfKey(startKey), sM = monthOfKey(startKey)
-  const eY = yearOfKey(endKey), eM = monthOfKey(endKey)
-  if (startKey === endKey) return `${MONTHS[sM]} ${sY}`
-  if (sY === eY) return `${MONTHS[sM]} to ${MONTHS[eM]} ${eY}`
-  return `${MONTHS[sM]} ${sY} to ${MONTHS[eM]} ${eY}`
+// Request-time "today" in the business timezone (Toronto), not the server's UTC clock:
+// a late-evening Toronto visit must not open next month's grid. en-CA formats YYYY-MM-DD.
+function torontoTodayIso(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date())
 }
 
 export default async function Calendar({ params }: { params: Promise<{ slug: string }> }) {
@@ -63,33 +43,32 @@ export default async function Calendar({ params }: { params: Promise<{ slug: str
   if (!session) redirect('/client/login')
   const rows = await getSchedule(session.clientId)
 
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth() // 0-based
-  const todayIso = isoOf(year, month + 1, now.getDate())
-  const currentKey = monthKey(year, month)
+  const todayIso = torontoTodayIso()
 
-  // Group scheduled pieces by day; collect the unscheduled ones separately. Track the earliest
-  // scheduled month so the grids can reach back over every month that actually holds a piece.
-  const byDay = new Map<string, ScheduleRow[]>()
+  const hrefFor = (r: ScheduleRow) =>
+    isProduced(r.status)
+      ? `/client/${encodeURIComponent(slug)}/piece/${encodeURIComponent(r.content_id)}`
+      : `/client/${encodeURIComponent(slug)}/plan/${encodeURIComponent(r.content_id)}`
+
+  // Group scheduled pieces by day as ready-to-render chip data for the client grid;
+  // collect the unscheduled ones separately.
+  const days: Record<string, CalendarChip[]> = {}
   const unscheduled: ScheduleRow[] = []
-  let startKey = currentKey // never later than this: the current month always renders
   for (const r of rows) {
     if (!r.planned_date) { unscheduled.push(r); continue }
     const key = r.planned_date.slice(0, 10)
-    const list = byDay.get(key)
-    if (list) list.push(r)
-    else byDay.set(key, [r])
-    const [ry, rm] = key.split('-').map(Number)
-    const k = monthKey(ry, rm - 1)
-    if (k < startKey) startKey = k
+    const chip: CalendarChip = {
+      id: r.id,
+      href: hrefFor(r),
+      title: r.title,
+      meta: [r.format, r.pillar].filter(Boolean).join(' · ') || null,
+      platforms: r.platforms,
+      stateNote: r.status === 'approved' ? r.schedule_state.replaceAll('_', ' ') : null,
+      syncLabel: r.calendar_sync_label ?? null,
+      accent: statusAccent(r.status),
+    }
+    ;(days[key] ??= []).push(chip)
   }
-
-  // Range: earliest month that has a piece through next month. Newest month first (next month
-  // at the top, history below), so the most actionable content leads. Only months in range render.
-  const endKey = currentKey + 1
-  const monthsToRender: number[] = []
-  for (let k = endKey; k >= startKey; k--) monthsToRender.push(k)
 
   // Upcoming list, grouped by week (today onward, any month).
   const upcoming = rows.filter((r) => r.planned_date && r.planned_date.slice(0, 10) >= todayIso)
@@ -101,34 +80,11 @@ export default async function Calendar({ params }: { params: Promise<{ slug: str
     g.rows.push(r)
   }
 
-  const hrefFor = (r: ScheduleRow) =>
-    isProduced(r.status)
-      ? `/client/${encodeURIComponent(slug)}/piece/${encodeURIComponent(r.content_id)}`
-      : `/client/${encodeURIComponent(slug)}/plan/${encodeURIComponent(r.content_id)}`
-
-  const renderChip = (r: ScheduleRow) => (
-    <Link key={r.id} href={hrefFor(r)} className={`${styles.chip} ${styles[`accent_${statusAccent(r.status)}`]}`}>
-      <span className={styles.chipTitle}>{r.title}</span>
-      {(r.format || r.pillar) && (
-        <span className={styles.chipMeta}>{[r.format, r.pillar].filter(Boolean).join(' · ')}</span>
-      )}
-      {r.platforms.length > 0 && (
-        <span className={styles.chipPlatforms}>
-          {r.platforms.map((p) => <span key={p} className={styles.plat}>{p}</span>)}
-        </span>
-      )}
-      {r.status === 'approved' && (
-        <span className={styles.chipMeta}>{r.schedule_state.replaceAll('_', ' ')}</span>
-      )}
-      {r.calendar_sync_label && <span className={styles.chipMeta}>{r.calendar_sync_label}</span>}
-    </Link>
-  )
-
   return (
     <div className={styles.wrap}>
       <div className={styles.eyebrow}><Eyebrow tone="grey">Kanset · Content calendar</Eyebrow></div>
       <div className={styles.head}>
-        <Heading level={2}>{rangeLabel(startKey, endKey)}</Heading>
+        <Heading level={2}>Content calendar</Heading>
       </div>
       <div className={styles.sub}>
         <Text size="lg" tone="graphite">Everything planned, produced, and posted.</Text>
@@ -142,36 +98,8 @@ export default async function Calendar({ params }: { params: Promise<{ slug: str
         <span className={styles.legendItem}><span className={`${styles.swatch} ${styles.accent_grey}`} />Published</span>
       </div>
 
-      {/* one month grid per month in range, newest first */}
-      {monthsToRender.map((mk) => {
-        const my = yearOfKey(mk)
-        const mm = monthOfKey(mk)
-        const cells = monthCells(my, mm)
-        return (
-          <section key={mk} className={styles.monthBlock}>
-            <div className={styles.monthLabel}><Heading level={3}>{MONTHS[mm]} {my}</Heading></div>
-            <div className={styles.gridScroll}>
-              <div className={styles.gridHead}>
-                {WEEK_HEAD.map((w) => <div key={w} className={styles.gridHeadCell}>{w}</div>)}
-              </div>
-              <div className={styles.grid}>
-                {cells.map((day, i) => {
-                  if (day === null) return <div key={`b-${i}`} className={`${styles.cell} ${styles.cellBlank}`} />
-                  const key = isoOf(my, mm + 1, day)
-                  const dayRows = byDay.get(key) ?? []
-                  const isToday = key === todayIso
-                  return (
-                    <div key={key} className={isToday ? `${styles.cell} ${styles.today}` : styles.cell}>
-                      <div className={styles.dayNum}>{day}</div>
-                      {dayRows.length > 0 && <div className={styles.chips}>{dayRows.map(renderChip)}</div>}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </section>
-        )
-      })}
+      {/* the month grid: current month by default, prev/next navigation */}
+      <MonthGrid days={days} todayIso={todayIso} />
 
       {/* upcoming list, grouped by week */}
       <div className={styles.listHead}><Eyebrow tone="grey">Upcoming, by week</Eyebrow></div>
