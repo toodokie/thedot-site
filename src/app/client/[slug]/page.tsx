@@ -7,11 +7,13 @@ import MarkSeen from './MarkSeen'
 import { Eyebrow, Heading, Text, Button, Dot } from '@thedot/design-system'
 import styles from './overview.module.css'
 
-// One consistent section box for every group.
-function Panel({ label, children }: { label: string; children: React.ReactNode }) {
+// One consistent section box for every group. `note` renders a small clarifying line
+// under the label (used to explain whose action a bucket is waiting on).
+function Panel({ label, note, children }: { label: string; note?: string; children: React.ReactNode }) {
   return (
     <section className={styles.panel}>
       <div className={styles.panelHead}><Eyebrow tone="grey">{label}</Eyebrow></div>
+      {note && <p className={styles.panelNote}>{note}</p>}
       {children}
     </section>
   )
@@ -71,9 +73,12 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
 
         <div className={styles.grid}>
           <div>
-            <Panel label="Needs your approval">
+            <Panel
+              label="Waiting on approval"
+              note="Fact-checked (Confirmed) is our gate; Approve is yours."
+            >
               {needs.length === 0 ? (
-                <div className={styles.emptyRow}><Text size="md" tone="graphite">Nothing needs your approval right now.</Text></div>
+                <div className={styles.emptyRow}><Text size="md" tone="graphite">Nothing is waiting on your approval right now.</Text></div>
               ) : (
                 needs.map((it) => <ContentRow key={it.id} it={it} slug={slug} priority />)
               )}

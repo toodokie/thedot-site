@@ -39,6 +39,15 @@
 }
 .panelHead { margin: 0 0 2px; }
 
+/* small clarifying line under a panel label (whose action a bucket waits on) */
+.panelNote {
+  margin: 2px 0 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--dot-grey);
+  max-width: 48ch;
+}
+
 /* hairline-divided rows, consistent across every section */
 .row {
   display: flex;
