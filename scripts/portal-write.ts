@@ -30,7 +30,7 @@ const timestamp = (value: unknown, field: string) => {
 
 async function main() {
   const [command, inputPath, flag] = process.argv.slice(2)
-  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|invoice|idea> <payload.json> [--dry-run]')
+  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|invoice|idea|design-link> <payload.json> [--dry-run]')
   const payload = JSON.parse(await readFile(inputPath, 'utf8')) as Payload
   const slug = requiredText(payload.clientSlug, 'clientSlug', 100)
   const actor = requiredText(payload.actorKey ?? 'thedot-admin', 'actorKey', 64)
@@ -120,6 +120,27 @@ async function main() {
       p_number: number, p_issued_at: issuedAt, p_period_start: periodStart, p_period_end: periodEnd,
       p_amount: amount, p_currency: currency, p_document_url: documentUrl,
       p_notes: optionalText(payload.notes, 'notes', 4000),
+      p_actor_key: actor, p_idempotency_key: idempotency }
+  } else if (command === 'design-link') {
+    // Item-level design links (set_content_design_links, migration 0020): presentation
+    // metadata outside the sealed version checksum. FULL overwrite semantics: both
+    // fields must be present in the payload (null clears the item-level override), so
+    // an omitted field can never silently wipe an existing link by accident.
+    if (!('canvaUrl' in payload) || !('driveUrl' in payload)) {
+      throw new Error('design-link payload must carry BOTH canvaUrl and driveUrl (null to clear)')
+    }
+    const canvaUrl = payload.canvaUrl === null ? null : requiredText(payload.canvaUrl, 'canvaUrl', 2048)
+    const driveUrl = payload.driveUrl === null ? null : requiredText(payload.driveUrl, 'driveUrl', 2048)
+    const hostOf = (url: string) => new URL(url).hostname.toLowerCase()
+    if (canvaUrl !== null
+      && (!/^https:\/\//.test(canvaUrl) || !['canva.com', 'www.canva.com'].includes(hostOf(canvaUrl))))
+      throw new Error('canvaUrl must be an https canva.com/www.canva.com link')
+    if (driveUrl !== null
+      && (!/^https:\/\//.test(driveUrl) || hostOf(driveUrl) !== 'drive.google.com'))
+      throw new Error('driveUrl must be an https drive.google.com link')
+    rpc = 'set_content_design_links'; args = { p_client_id: null,
+      p_content_id: requiredText(payload.contentId, 'contentId', 200),
+      p_canva_url: canvaUrl, p_drive_url: driveUrl,
       p_actor_key: actor, p_idempotency_key: idempotency }
   } else if (command === 'idea') {
     // Audited agency idea entry (agency_add_idea, migration 0019). authorType records

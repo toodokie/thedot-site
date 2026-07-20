@@ -1576,6 +1576,111 @@ async function main(): Promise<void> {
       if (reDisable.error) throw new Error(`re-disable assistant: ${reDisable.error.message}`)
     }
 
+    console.log('\n--- 0020 design links (item-level presentation metadata) ---')
+
+    {
+      const itemRow = await admin.from('content_items')
+        .select('id').eq('client_id', bClientId).eq('content_id', B_CONTENT_ID).single()
+      const itemId = itemRow.data?.id as string
+      const checksumBefore = await admin.from('content_item_versions')
+        .select('content_checksum').eq('content_item_id', itemId).eq('version', 1).single()
+
+      // DL1: the audited write sets ITEM-level links; the client view serves them; the
+      // released version snapshot (checksum + row count) is untouched by construction.
+      const setLinks = await admin.rpc('set_content_design_links', {
+        p_client_id: bClientId, p_content_id: B_CONTENT_ID,
+        p_canva_url: 'https://www.canva.com/design/TESTDESIGN/view',
+        p_drive_url: 'https://drive.google.com/open?id=TESTFILE',
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-design-link-${RUN_ID}`,
+      })
+      const viewRow = await bClient.from('content_with_state')
+        .select('canva_url, drive_url').eq('content_id', B_CONTENT_ID).single()
+      const checksumAfter = await admin.from('content_item_versions')
+        .select('content_checksum').eq('content_item_id', itemId).eq('version', 1).single()
+      const versionCount = await admin.from('content_item_versions')
+        .select('id', { count: 'exact', head: true }).eq('content_item_id', itemId)
+      check('DL1: item-level design links render in the client view with the released checksum untouched',
+        !!itemId && !setLinks.error
+          && viewRow.data?.canva_url === 'https://www.canva.com/design/TESTDESIGN/view'
+          && viewRow.data?.drive_url === 'https://drive.google.com/open?id=TESTFILE'
+          && !checksumBefore.error && !checksumAfter.error
+          && checksumBefore.data?.content_checksum === checksumAfter.data?.content_checksum
+          && (versionCount.count ?? 0) === 1,
+        setLinks.error?.message ?? viewRow.error?.message
+          ?? `view=${JSON.stringify(viewRow.data)} checksum=${checksumBefore.data?.content_checksum === checksumAfter.data?.content_checksum} versions=${versionCount.count}`)
+
+      // DL2: fingerprinted idempotency: exact retry returns the receipt, a reused key
+      // with a different payload is rejected.
+      const retry = await admin.rpc('set_content_design_links', {
+        p_client_id: bClientId, p_content_id: B_CONTENT_ID,
+        p_canva_url: 'https://www.canva.com/design/TESTDESIGN/view',
+        p_drive_url: 'https://drive.google.com/open?id=TESTFILE',
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-design-link-${RUN_ID}`,
+      })
+      const conflicted = await admin.rpc('set_content_design_links', {
+        p_client_id: bClientId, p_content_id: B_CONTENT_ID,
+        p_canva_url: 'https://www.canva.com/design/OTHER/view', p_drive_url: null,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-design-link-${RUN_ID}`,
+      })
+      check('DL2: design-link writes are idempotent by fingerprint',
+        !retry.error && retry.data?.canva_url === 'https://www.canva.com/design/TESTDESIGN/view'
+          && !!conflicted.error,
+        retry.error?.message ?? conflicted.error?.message ?? 'CONFLICT ACCEPTED')
+
+      // DL3: URL shape wall (non-allowlisted hosts, http, lookalikes, userinfo tricks),
+      // client denial, and cross-tenant denial.
+      const rejections = await Promise.all([
+        admin.rpc('set_content_design_links', {
+          p_client_id: bClientId, p_content_id: B_CONTENT_ID,
+          p_canva_url: null, p_drive_url: 'https://www.dropbox.com/s/leak',
+          p_actor_key: 'thedot-admin', p_idempotency_key: `rls-dl-bad1-${RUN_ID}`,
+        }),
+        admin.rpc('set_content_design_links', {
+          p_client_id: bClientId, p_content_id: B_CONTENT_ID,
+          p_canva_url: 'http://www.canva.com/design/X/view', p_drive_url: null,
+          p_actor_key: 'thedot-admin', p_idempotency_key: `rls-dl-bad2-${RUN_ID}`,
+        }),
+        admin.rpc('set_content_design_links', {
+          p_client_id: bClientId, p_content_id: B_CONTENT_ID,
+          p_canva_url: 'https://canva.com.evil.example/design/X', p_drive_url: null,
+          p_actor_key: 'thedot-admin', p_idempotency_key: `rls-dl-bad3-${RUN_ID}`,
+        }),
+        admin.rpc('set_content_design_links', {
+          p_client_id: bClientId, p_content_id: B_CONTENT_ID,
+          p_canva_url: null, p_drive_url: 'https://drive.google.com@evil.example/x',
+          p_actor_key: 'thedot-admin', p_idempotency_key: `rls-dl-bad4-${RUN_ID}`,
+        }),
+      ])
+      const clientDenied = await bClient.rpc('set_content_design_links', {
+        p_client_id: bClientId, p_content_id: B_CONTENT_ID,
+        p_canva_url: null, p_drive_url: null,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-dl-client-${RUN_ID}`,
+      })
+      const crossTenant = await admin.rpc('set_content_design_links', {
+        p_client_id: kansetClientId, p_content_id: B_CONTENT_ID,
+        p_canva_url: null, p_drive_url: null,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-dl-cross-${RUN_ID}`,
+      })
+      check('DL3: bad hosts, http, lookalikes, userinfo, client callers, and cross-tenant ids all reject',
+        rejections.every((result) => !!result.error) && !!clientDenied.error && !!crossTenant.error,
+        rejections.map((r, i) => `${i}=${r.error ? 'ok' : 'ACCEPTED'}`).join(' ')
+          + ` client=${clientDenied.error?.message ?? 'ALLOWED'} cross=${crossTenant.error?.message ?? 'ALLOWED'}`)
+
+      // DL4: null clears the item-level override and the view falls back to the sealed
+      // version values (this fixture's v1 carries none, so the view reads null again).
+      const clearLinks = await admin.rpc('set_content_design_links', {
+        p_client_id: bClientId, p_content_id: B_CONTENT_ID,
+        p_canva_url: null, p_drive_url: null,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-design-clear-${RUN_ID}`,
+      })
+      const clearedView = await bClient.from('content_with_state')
+        .select('canva_url, drive_url').eq('content_id', B_CONTENT_ID).single()
+      check('DL4: clearing the override falls back to the sealed version values',
+        !clearLinks.error && !clearedView.error
+          && clearedView.data?.canva_url === null && clearedView.data?.drive_url === null,
+        clearLinks.error?.message ?? clearedView.error?.message ?? JSON.stringify(clearedView.data))
+    }
+
     {
       const stop = await admin.rpc('set_portal_feature_switch', {
         p_client_id: bClientId, p_feature: 'client_mutations', p_enabled: false,
