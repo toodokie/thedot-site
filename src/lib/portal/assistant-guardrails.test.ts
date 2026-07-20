@@ -176,16 +176,22 @@ describe('portal answer validation', () => {
       chunk_id: 'chunk-1',
       answer_eligibility: 'grounded_answer' as const,
       excerpt: 'Piece: LMIA decoder reel. Status: scheduled. Planned date: July 20, 2026.',
+      title: 'LMIA decoder reel',
+      related_route: 'piece/lmia-decoder-reel',
     },
     {
       chunk_id: 'chunk-2',
       answer_eligibility: 'grounded_answer' as const,
       excerpt: 'Invoice 0137: 800.00 CAD, status paid.',
+      title: 'Invoice 0137',
+      related_route: 'billing',
     },
     {
       chunk_id: 'chunk-nav',
       answer_eligibility: 'navigation_only' as const,
       excerpt: 'Idea: 500 reviews milestone. Status: new. Added: July 14, 2026.',
+      title: '500 reviews milestone',
+      related_route: 'ideas',
     },
   ]
   const routes = new Set(['piece/lmia-decoder-reel', 'billing'])
@@ -253,7 +259,7 @@ describe('portal answer validation', () => {
     const novelFact = validatePortalAnswer({
       outcome: 'answered',
       blocks: [{
-        // "2400" appears nowhere in the cited navigation excerpt: a fabricated figure
+        // "earned 2400 saves" appears nowhere in the cited navigation metadata
         text: 'Your reviews idea earned 2400 saves already.',
         citation_chunk_ids: ['chunk-nav'],
       }],
@@ -270,6 +276,33 @@ describe('portal answer validation', () => {
       suggested_routes: [],
     }, retrieved, routes)
     expect(tooLong.ok).toBe(false)
+  })
+
+  it("rejects Codex's exact adversarial sentence on a navigation citation", () => {
+    // no digits, short, previously passed the digit heuristic; the token-overlap rule
+    // rejects it because application/eligible/complete are not in the cited metadata
+    const result = validatePortalAnswer({
+      outcome: 'answered',
+      blocks: [{
+        text: 'Your application is eligible and complete.',
+        citation_chunk_ids: ['chunk-nav'],
+      }],
+      suggested_routes: [],
+    }, retrieved, routes)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.reason).toBe('navigation_only_factual_claim')
+  })
+
+  it('navigation answers assembled from the cited metadata fields still pass', () => {
+    const result = validatePortalAnswer({
+      outcome: 'answered',
+      blocks: [{
+        text: 'Yes: the idea "500 reviews milestone" is on your Ideas board, status new, added July 14, 2026.',
+        citation_chunk_ids: ['chunk-nav'],
+      }],
+      suggested_routes: [],
+    }, retrieved, routes)
+    expect(result.ok).toBe(true)
   })
 
   it('mixed grounded + navigation citations count as grounded support', () => {
@@ -298,30 +331,57 @@ describe('portal answer validation', () => {
   })
 })
 
-describe('claim-level web citation coverage', () => {
-  it('accepts answers whose every factual paragraph intersects a citation', () => {
-    const text = 'The LMIA fee is $1,000 per position.\nThis applies to most streams.'
-    const result = validateWebClaimCitations(text, [
-      { startIndex: 4, endIndex: 36 }, // covers paragraph 1
-    ])
-    // paragraph 2 has no digits and is short: connective text, no citation required
+describe('claim-level web citation coverage (sentence-level)', () => {
+  const rangeOf = (text: string, marker: string) => ({
+    startIndex: text.indexOf(marker),
+    endIndex: text.indexOf(marker) + marker.length,
+  })
+
+  it('accepts answers where every factual sentence carries its own citation', () => {
+    const text =
+      'Here is what we found:\n' +
+      'The LMIA fee is $1,000 per position [1].\n' +
+      'The program remains open to employers [2].'
+    const result = validateWebClaimCitations(text, [rangeOf(text, '[1]'), rangeOf(text, '[2]')])
+    // line 1 is pure connective framing (allow-listed words, no digits): no citation needed
     expect(result.ok).toBe(true)
   })
 
-  it('rejects a factual paragraph with no intersecting citation (Codex blocker)', () => {
+  it('rejects a factual sentence with no intersecting citation (Codex blocker)', () => {
     const text =
-      'The LMIA fee is $1,000 per position.\n' +
+      'The LMIA fee is $1,000 per position [1].\n' +
       'Express Entry draw 361 invited 3,000 candidates on July 15.'
-    const result = validateWebClaimCitations(text, [
-      { startIndex: 4, endIndex: 36 }, // only the first paragraph is cited
-    ])
+    const result = validateWebClaimCitations(text, [rangeOf(text, '[1]')])
     expect(result.ok).toBe(false)
-    expect(result.reason).toBe('uncited_factual_paragraph')
+    expect(result.reason).toBe('uncited_factual_claim')
+  })
+
+  it('rejects SHORT no-digit factual claims without a citation (round-3 blocker)', () => {
+    const text = 'The program is closed.'
+    const result = validateWebClaimCitations(text, [])
+    expect(result.ok).toBe(false)
+    expect(result.reason).toBe('uncited_factual_claim')
+  })
+
+  it('one range cannot vouch for two distinct claims in the SAME paragraph', () => {
+    const text = 'The fee is $1,000 [1]. The cap doubled to 40 positions this year.'
+    const oneRange = validateWebClaimCitations(text, [rangeOf(text, '[1]')])
+    expect(oneRange.ok).toBe(false)
+    const bothCited = validateWebClaimCitations(text, [
+      rangeOf(text, '[1]'),
+      rangeOf(text, 'doubled'),
+    ])
+    expect(bothCited.ok).toBe(true)
   })
 
   it('one citation cannot vouch for a whole multi-paragraph answer', () => {
     const text = 'Fee: $1,000.\nProcessing time: 45 business days.\nCap: 20 positions.'
     const result = validateWebClaimCitations(text, [{ startIndex: 0, endIndex: 12 }])
+    expect(result.ok).toBe(false)
+  })
+
+  it('subject-matter words never count as connective ("This applies to most streams.")', () => {
+    const result = validateWebClaimCitations('This applies to most streams.', [])
     expect(result.ok).toBe(false)
   })
 })

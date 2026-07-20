@@ -47,11 +47,9 @@ function mapContentRow(value: unknown): ContentRow {
   return { ...row, state: parseClientState(row.client_state) } as unknown as ContentRow
 }
 
-// TEMPORARY (dies with the 0019 demo purge): the two pre-ledger fixture items are lookalikes of real
-// pieces with real-sounding titles; rendering them risks a client mistaking demo for reality. They
-// cannot be archived by data (service role holds no update grant on content_items, correctly), so the
-// client surfaces exclude them here until 0019 deletes the rows. Remove this set after the purge lands.
-const RETIRED_FIXTURES = new Set(['kanset-2026-07-lmia-reel', 'kanset-2026-07-oinp-employer'])
+// The pre-ledger fixture rows are deleted by migration 0019's provenance-checked demo
+// purge; this module needs no app-side exclusion list (the temporary RETIRED_FIXTURES
+// guard was removed in the same round that ships the purge).
 
 export async function getContent(clientId: string): Promise<ContentRow[]> {
   const supabase = await createSupabaseServer()
@@ -61,12 +59,9 @@ export async function getContent(clientId: string): Promise<ContentRow[]> {
     .order('planned_date', { ascending: true, nullsFirst: false })
     .order('content_id', { ascending: true })
   if (error) throw new PortalDataError(error.message)
-  return (data ?? [])
-    .filter((row) => !RETIRED_FIXTURES.has(String((row as { content_id?: unknown }).content_id)))
-    .map(mapContentRow)
+  return (data ?? []).map(mapContentRow)
 }
 export async function getContentItem(clientId: string, contentId: string): Promise<ContentRow | null> {
-  if (RETIRED_FIXTURES.has(contentId)) return null // temp: fixture detail pages 404
   const supabase = await createSupabaseServer()
   const { data, error } = await supabase
     .from('content_with_state').select(SELECT)

@@ -19,8 +19,13 @@ function authorized(request: Request): boolean {
   return a.length === b.length && timingSafeEqual(a, b)
 }
 
+// Operational counters are internal state: never cacheable anywhere.
+const NO_STORE = { 'Cache-Control': 'private, no-store' } as const
+
 export async function GET(request: Request) {
-  if (!authorized(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!authorized(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: NO_STORE })
+  }
   const admin = createSupabaseAdmin()
   const [reaped, purged, reconciled] = await Promise.all([
     admin.rpc('portal_assistant_reap_reservations', { p_older_than_minutes: 30 }),
@@ -32,12 +37,12 @@ export async function GET(request: Request) {
     console.error('assistant maintenance failures:', failures.map((error) => error?.message))
     return NextResponse.json(
       { error: 'partial failure', details: failures.map((error) => error?.message) },
-      { status: 500 },
+      { status: 500, headers: NO_STORE },
     )
   }
   return NextResponse.json({
     reapedReservations: reaped.data ?? 0,
     purgedFeedback: purged.data ?? 0,
     reconciledIndex: reconciled.data ?? null,
-  })
+  }, { headers: NO_STORE })
 }
