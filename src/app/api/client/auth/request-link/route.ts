@@ -24,7 +24,14 @@ function isEmail(v: unknown): v is string {
   return typeof v === 'string' && v.length <= 254 && EMAIL_RE.test(v)
 }
 
-function signinEmailHtml(url: string): string {
+function requestedAtLabel(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit', hour12: true,
+    month: 'short', day: 'numeric',
+  }).format(new Date()) + ' ET'
+}
+
+function signinEmailHtml(url: string, requestedAt: string): string {
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="margin:0;background:#faf9f6;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:#35332f;">
@@ -32,7 +39,8 @@ function signinEmailHtml(url: string): string {
     <p style="font-size:20px;font-weight:600;margin:0 0 8px;">Your workspace</p>
     <p style="color:#68665f;margin:0 0 24px;">Click below to sign in. The link works once and expires in about an hour.</p>
     <a href="${url}" style="display:inline-block;background:#35332f;color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:999px;font-size:15px;">Sign in to your workspace</a>
-    <p style="color:#9a978f;font-size:13px;margin:28px 0 0;">If you did not request this, you can safely ignore this email.</p>
+    <p style="color:#9a978f;font-size:13px;margin:28px 0 0;">Requested at ${requestedAt}. Only your newest sign-in email works: requesting a new link cancels earlier ones.</p>
+    <p style="color:#9a978f;font-size:13px;margin:8px 0 0;">If you did not request this, you can safely ignore this email.</p>
   </div>
 </body></html>`
 }
@@ -79,12 +87,13 @@ export async function POST(request: NextRequest) {
       `&type=${encodeURIComponent(type)}` +
       `&next=/client/kanset`
 
+    const requestedAt = requestedAtLabel()
     await transporter.sendMail({
       from: process.env.FROM_EMAIL,
       to: target,
-      subject: 'Your sign-in link',
-      text: `Sign in to your workspace:\n\n${url}\n\nThe link works once and expires in about an hour. If you did not request it, you can ignore this email.`,
-      html: signinEmailHtml(url),
+      subject: `Your sign-in link (${requestedAt})`,
+      text: `Sign in to your workspace:\n\n${url}\n\nRequested at ${requestedAt}. The link works once and expires in about an hour. Only your newest sign-in email works: requesting a new link cancels earlier ones. If you did not request it, you can ignore this email.`,
+      html: signinEmailHtml(url, requestedAt),
     })
   } catch {
     // Never surface an internal failure to the caller; the generic response also preserves non-enumeration.
