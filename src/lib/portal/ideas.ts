@@ -24,6 +24,7 @@ export async function getIdeas(clientId: string): Promise<IdeaRow[]> {
     .from('content_ideas')
     .select(SELECT)
     .eq('client_id', clientId)
+    .neq('status', 'archived') // archive is a soft remove; the client board never shows archived rows
     .order('created_at', { ascending: false })
   if (error) throw new PortalDataError(error.message)
   return (data ?? []) as IdeaRow[]
