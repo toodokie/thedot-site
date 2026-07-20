@@ -1,5 +1,3 @@
-import { confirmSignIn } from './actions'
-
 const MUTED = '#68665f'
 
 // Prefetch-proof sign-in step. The magic-link email points HERE (not straight at the callback), so a
@@ -20,7 +18,7 @@ export default async function Confirm(
         {valid ? (
           <>
             <p style={{ color: MUTED, marginBottom: 24 }}>Click below to sign in to your workspace.</p>
-            <form action={confirmSignIn}>
+            <form action="/client/auth/confirm/verify" method="post">
               <input type="hidden" name="token_hash" value={tokenHash} />
               <input type="hidden" name="type" value={type} />
               <input type="hidden" name="next" value={next} />
