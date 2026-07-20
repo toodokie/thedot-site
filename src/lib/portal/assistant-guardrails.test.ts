@@ -247,7 +247,7 @@ describe('portal answer validation', () => {
     const result = validatePortalAnswer({
       outcome: 'answered',
       blocks: [{
-        text: 'Yes, you have an idea "500 reviews milestone" (status: new, added July 14) on your Ideas board.',
+        text: 'You have an idea "500 reviews milestone" (status: new, added July 14) on your Ideas board.',
         citation_chunk_ids: ['chunk-nav'],
       }],
       suggested_routes: [],
@@ -297,7 +297,7 @@ describe('portal answer validation', () => {
     const result = validatePortalAnswer({
       outcome: 'answered',
       blocks: [{
-        text: 'Yes: the idea "500 reviews milestone" is on your Ideas board, status new, added July 14, 2026.',
+        text: 'The idea "500 reviews milestone" is on your Ideas board, status new, added July 14, 2026.',
         citation_chunk_ids: ['chunk-nav'],
       }],
       suggested_routes: [],
@@ -328,6 +328,82 @@ describe('portal answer validation', () => {
     }, retrieved, routes)
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.reason).toBe('uncited_factual_block')
+  })
+
+  // ---- round-4 Codex blockers: negation inversion + cross-chunk mixing ------
+  describe('nav negation and single-chunk rules (round-4 blockers)', () => {
+    const statusChunk = {
+      chunk_id: 'nav-status',
+      answer_eligibility: 'navigation_only' as const,
+      excerpt: 'Piece: Work permit explainer. Status: approved.',
+      title: 'Work permit explainer',
+      related_route: 'piece/work-permit-explainer',
+    }
+    const invoiceNav = {
+      chunk_id: 'nav-inv',
+      answer_eligibility: 'navigation_only' as const,
+      excerpt: 'Invoice 0137: status paid.',
+      title: 'Invoice 0137',
+      related_route: 'billing',
+    }
+    const ideaNav = {
+      chunk_id: 'nav-idea',
+      answer_eligibility: 'navigation_only' as const,
+      excerpt: 'Idea: fall campaign. Status: new.',
+      title: 'Fall campaign',
+      related_route: 'ideas',
+    }
+    const negatedChunk = {
+      chunk_id: 'nav-negated',
+      answer_eligibility: 'navigation_only' as const,
+      excerpt: 'Piece: H&C carousel. Status: not yet scheduled.',
+      title: 'H&C carousel',
+      related_route: 'piece/hc-carousel',
+    }
+    const chunks = [statusChunk, invoiceNav, ideaNav, negatedChunk]
+    const answer = (text: string, ids: string[]) =>
+      validatePortalAnswer(
+        { outcome: 'answered', blocks: [{ text, citation_chunk_ids: ids }], suggested_routes: [] },
+        chunks, new Set<string>(),
+      )
+
+    it("rejects status inversion: Codex's exact example against a Status: approved chunk", () => {
+      const exact = answer('Your application is not approved.', ['nav-status'])
+      expect(exact.ok).toBe(false)
+      if (!exact.ok) expect(exact.reason).toBe('navigation_only_factual_claim')
+      // isolated negation: every other word IS in the chunk, only "not" is foreign
+      const isolated = answer('The work permit explainer is not approved.', ['nav-status'])
+      expect(isolated.ok).toBe(false)
+    })
+
+    it("rejects cross-chunk field mixing: Codex's exact invoice/idea example", () => {
+      const mixed = answer('Invoice is new.', ['nav-inv', 'nav-idea'])
+      expect(mixed.ok).toBe(false)
+      if (!mixed.ok) expect(mixed.reason).toBe('navigation_only_factual_claim')
+      // control: the same citations, each sentence true to a single chunk, passes
+      const perChunk = answer('Invoice 0137 is paid. The idea "Fall campaign" is new.', ['nav-inv', 'nav-idea'])
+      expect(perChunk.ok).toBe(true)
+    })
+
+    it('rejects a contradictory status attributed across two cited chunks', () => {
+      // statusChunk says approved (work permit explainer); negatedChunk is the carousel:
+      // asserting the carousel is approved needs both chunks' words in ONE sentence
+      const contradicted = answer('The H&C carousel is approved.', ['nav-status', 'nav-negated'])
+      expect(contradicted.ok).toBe(false)
+    })
+
+    it("permits a negation the cited chunk's own text carries", () => {
+      const own = answer('The H&C carousel is not yet scheduled.', ['nav-negated'])
+      expect(own.ok).toBe(true)
+    })
+
+    it('rejects a bare "Yes." affirmation (could affirm a false premise in the question)', () => {
+      const bare = answer('Yes.', ['nav-status'])
+      expect(bare.ok).toBe(false)
+      // the model is instructed to restate fields instead; that form passes
+      const restated = answer('The work permit explainer is approved.', ['nav-status'])
+      expect(restated.ok).toBe(true)
+    })
   })
 })
 
@@ -383,6 +459,28 @@ describe('claim-level web citation coverage (sentence-level)', () => {
   it('subject-matter words never count as connective ("This applies to most streams.")', () => {
     const result = validateWebClaimCitations('This applies to most streams.', [])
     expect(result.ok).toBe(false)
+  })
+
+  it('a citation marker after the period cannot carry the NEXT sentence (round-4 blocker)', () => {
+    // exact provider output shape: marker attached after the closing period of the
+    // sentence it supports; the following sentence has no citation and must reject
+    const text = 'The program is open. ([Canada.ca](https://www.canada.ca/en/page)) It is closed.'
+    const marker = '([Canada.ca](https://www.canada.ca/en/page))'
+    const result = validateWebClaimCitations(text, [rangeOf(text, marker)])
+    expect(result.ok).toBe(false)
+    expect(result.reason).toBe('uncited_factual_claim')
+    expect(result.uncitedParagraph).toContain('It is closed.')
+  })
+
+  it('marker-after-period answers pass when EVERY sentence carries its own marker', () => {
+    const text =
+      'The program is open. ([Canada.ca](https://www.canada.ca/en/a)) ' +
+      'The fee is $1,000. ([Canada.ca](https://www.canada.ca/en/b))'
+    const result = validateWebClaimCitations(text, [
+      rangeOf(text, '([Canada.ca](https://www.canada.ca/en/a))'),
+      rangeOf(text, '([Canada.ca](https://www.canada.ca/en/b))'),
+    ])
+    expect(result.ok).toBe(true)
   })
 })
 
