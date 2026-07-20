@@ -21,5 +21,9 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
     if (!error) return NextResponse.redirect(destination, noStore)
   }
-  return NextResponse.redirect(`${origin}/client/login?error=auth`, noStore)
+  // A dead code/token with a LIVE session (browser preloaders consume one-time links before the human
+  // presses Enter, double clicks, re-opened tabs) should land in the portal, not at the login form.
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) return NextResponse.redirect(destination, noStore)
+  return NextResponse.redirect(`${origin}/client/login?error=expired`, noStore)
 }

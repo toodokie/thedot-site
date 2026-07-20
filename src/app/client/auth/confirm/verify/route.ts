@@ -54,7 +54,14 @@ export async function POST(request: Request) {
     }
   )
   const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
-  if (error) return fail
+  if (error) {
+    // The link may already have been consumed by a browser preloader or a double click, in which case
+    // the SESSION exists even though this token is dead. Fall through into the portal instead of
+    // bouncing an authenticated user to the login form.
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) return seeOther(destination)
+    return fail
+  }
   for (const name of preexisting) {
     if (name.startsWith('sb-') && !written.has(name)) cookieStore.delete(name)
   }

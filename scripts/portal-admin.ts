@@ -164,15 +164,17 @@ async function accessLog(slug?: string) {
 }
 
 // Mint a one-time sign-in URL WITHOUT sending email (bypasses the built-in email rate limit and any
-// mail-client link pre-consumption). Uses the token_hash flow, which the callback verifies server-side.
+// mail-client link pre-consumption). Points at the CONFIRM page (GET renders a button, only the button
+// POST spends the token), never the GET-consuming callback: browsers preload pasted/typed URLs before
+// Enter, which would burn a callback-style link invisibly.
 async function signinLink(email: string, origin: string) {
   const { data, error } = await admin.auth.admin.generateLink({ type: 'magiclink', email })
   if (error) throw new Error(`generateLink: ${error.message}`)
   const props = data.properties as { hashed_token?: string; verification_type?: string }
   if (!props?.hashed_token) throw new Error('generateLink returned no hashed_token')
   const type = props.verification_type ?? 'magiclink'
-  const url = `${origin}/client/auth/callback?token_hash=${encodeURIComponent(props.hashed_token)}&type=${encodeURIComponent(type)}&next=/client/kanset`
-  console.log(`One-time sign-in link for ${email} (type=${type}); paste into your browser (no email, single use):\n`)
+  const url = `${origin}/client/auth/confirm?token_hash=${encodeURIComponent(props.hashed_token)}&type=${encodeURIComponent(type)}&next=/client/kanset`
+  console.log(`One-time sign-in link for ${email} (type=${type}); paste into any browser, then click Sign in (no email, single use):\n`)
   console.log(url)
 }
 
