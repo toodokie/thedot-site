@@ -16,7 +16,7 @@ export default async function ClientWorkspaceLayout(
   if (!session) redirect('/client/login')
   return (
     <div className={styles.shell}>
-      <PortalNav slug={slug} />
+      <PortalNav slug={slug} showAssistant={session.canUseAssistant} />
       <div className={styles.content}>
         <header className={styles.topbar}>
           <Image src="/images/logo.png" alt="The Dot Creative" width={64} height={36} priority />
