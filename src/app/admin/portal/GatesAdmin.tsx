@@ -1,49 +1,71 @@
-import type { CSSProperties } from 'react'
 import { GATE_ORDER, resolveNineGates, deriveContentStage, deriveMyTasks,
   type StagePiece, type OpsTaskRow, type MyTask, type CompletedOpsTask } from '@/lib/portal/gates'
+import StatusPill, { type PillTone } from './StatusPill'
+import styles from './portal-admin.module.css'
 
-// Agency-only surface (gate-system spec sections 4 + 6.8): My Tasks + the per-piece
-// gate strip render HERE, never in the client shell. Read-only in v1; emissions go
-// through `portal-write gate` / `ops-task`.
+// Agency-only surface (gate-system spec sections 4 + 6.8): My Tasks + the per-piece gate
+// strip render HERE, never in the client shell. Read-only: emissions go through
+// portal-write (gate / ops-task). This is a display/IA refactor only; no logic changed.
 
-const cell: CSSProperties = { padding: '6px 8px', borderBottom: '1px solid #e5e5e5', fontSize: 13, verticalAlign: 'top' }
-const dot = (state: string): CSSProperties => ({
-  display: 'inline-block', width: 12, height: 12, borderRadius: 6, marginRight: 3,
-  background: state === 'done' ? '#1a1a1a' : state === 'na' ? '#c9c9c9' : 'transparent',
-  border: state === 'open' ? '1px solid #999' : '1px solid transparent',
-})
-const chip: CSSProperties = {
-  display: 'inline-block', padding: '1px 7px', fontSize: 11, fontWeight: 600,
-  background: '#ffd700', color: '#1a1a1a', borderRadius: 2, marginLeft: 6,
-}
-
-// Composite React key: content_ids are unique only per tenant, so a piece-derived task
-// keys on ${clientId}:${contentId}:${kind} and an ops task on its own uuid (Codex
-// round-3 fix 2). Kills the duplicate-key risk once a second client exists.
+// Composite React key: content_ids are unique only per tenant (Codex round-3 fix 2).
 function taskKey(task: MyTask): string {
-  return task.kind === 'ops'
-    ? `ops:${task.id}`
-    : `${task.clientId}:${task.contentId}:${task.kind}`
+  return task.kind === 'ops' ? `ops:${task.id}` : `${task.clientId}:${task.contentId}:${task.kind}`
 }
 
-// The client label prefix (Codex round-4 fix 2): every task shows whose account it is so
-// agency tasks are distinguishable once a second client exists.
-const clientTag = (name: string) => <span style={{ color: '#777' }}>{name} · </span>
+function ClientTag({ name }: { name: string }) {
+  return <span className={styles.clientTag}>{name}</span>
+}
 
 function TaskRow({ task }: { task: MyTask }) {
   if (task.kind === 'action') {
-    return <li>{clientTag(task.clientName)}{task.title}: <strong>{task.gate}{task.dest ? `:${task.dest}` : ''}</strong>
-      {task.moreOpen > 0 && <span style={{ color: '#777' }}> (+{task.moreOpen} more gates)</span>}</li>
+    return (
+      <li className={styles.taskRow}>
+        <ClientTag name={task.clientName} />
+        <span className={styles.taskTitle}>{task.title}</span>
+        <StatusPill tone="open" label={`${task.gate}${task.dest ? `:${task.dest}` : ''}`} />
+        {task.moreOpen > 0 && <span className={styles.meta}>+{task.moreOpen} more gates</span>}
+      </li>
+    )
   }
   if (task.kind === 'waiting_maria') {
-    return <li>{clientTag(task.clientName)}{task.title}: waiting on Maria, {task.daysWaiting} business day{task.daysWaiting === 1 ? '' : 's'}
-      {task.nudge && <span style={chip}>nudge?</span>}</li>
+    return (
+      <li className={styles.taskRow}>
+        <ClientTag name={task.clientName} />
+        <span className={styles.taskTitle}>{task.title}</span>
+        <span className={styles.meta}>waiting on Maria, {task.daysWaiting} business day{task.daysWaiting === 1 ? '' : 's'}</span>
+        {task.nudge && <StatusPill tone="nudge" label="nudge?" />}
+      </li>
+    )
   }
   if (task.kind === 'waiting_studio') {
-    return <li>{clientTag(task.clientName)}{task.title}: waiting on studio{task.note ? ` (${task.note})` : ''}</li>
+    return (
+      <li className={styles.taskRow}>
+        <ClientTag name={task.clientName} />
+        <span className={styles.taskTitle}>{task.title}</span>
+        <span className={styles.meta}>waiting on studio{task.note ? ` (${task.note})` : ''}</span>
+      </li>
+    )
   }
-  return <li>{clientTag(task.clientName)}[{task.category}] {task.title}{task.dueDate ? ` · due ${task.dueDate}` : ''}
-    {task.triggerNote ? ` · watch: ${task.triggerNote}` : ''}</li>
+  return (
+    <li className={styles.taskRow}>
+      <ClientTag name={task.clientName} />
+      <StatusPill tone="muted" label={task.category} />
+      <span className={styles.taskTitle}>{task.title}</span>
+      {task.dueDate && <span className={styles.meta}>due {task.dueDate}</span>}
+      {task.triggerNote && <span className={styles.meta}>watch: {task.triggerNote}</span>}
+    </li>
+  )
+}
+
+// A piece's stage maps to a semantic pill tone (display only; deriveContentStage owns the
+// value). Live/done read positive (teal/check), failures rust, in-flight neutral.
+function stageTone(stage: string): PillTone {
+  if (stage === 'done') return 'verified'
+  if (stage === 'live' || stage === 'posted_unverified') return 'live'
+  if (stage === 'scheduled' || stage === 'scheduled_partial') return 'scheduled'
+  if (stage === 'approved') return 'done'
+  if (stage === 'publish_failed' || stage === 'schedule_failed') return 'failed'
+  return 'muted'
 }
 
 export default function GatesAdmin({ pieces, opsTasks, completedOps, todayIso }: {
@@ -60,78 +82,108 @@ export default function GatesAdmin({ pieces, opsTasks, completedOps, todayIso }:
   const opsBuckets: Array<[string, typeof ops]> = (
     ['overdue', 'today', 'this_week', 'upcoming', 'watch'] as const
   ).map((bucket) => [bucket.replace('_', ' '), ops.filter((task) => task.bucket === bucket)])
+  const openCount = actions.length + maria.length + studio.length + ops.length
+  const visiblePieces = pieces.filter((piece) => !piece.archived)
+
+  const group = (label: string, rows: MyTask[]) => rows.length > 0 && (
+    <div className={styles.group} key={label}>
+      <div className={styles.groupLabel}>{label}</div>
+      <ul className={styles.taskList}>{rows.map((task) => <TaskRow key={taskKey(task)} task={task} />)}</ul>
+    </div>
+  )
 
   return (
-    <section style={{ marginTop: 40 }}>
-      <h2>Production gates (agency-only)</h2>
-      <p style={{ color: '#555', maxWidth: 760, fontSize: 14 }}>
-        Derived, never stored: the my-tasks view and per-piece stage over production gates,
-        decisions, schedule targets, and publication evidence. Nothing here is client-visible.
-        Emissions run through portal-write (gate / ops-task); this surface only reads.
-      </p>
+    <>
+      {/* My Tasks: the hero card (spec IA #1) */}
+      <section className={`${styles.card} ${styles.hero}`}>
+        <div className={styles.cardHead}>
+          <div>
+            <div className={styles.cardTitle}>My tasks</div>
+            <div className={styles.cardSub}>Derived from production gates, decisions, schedule + publication evidence. Agency-only; emissions go through portal-write.</div>
+          </div>
+          <span className={styles.count}>{openCount} open</span>
+        </div>
+        {openCount === 0
+          ? <p className={styles.empty}>Nothing open.</p>
+          : <>
+            {group('Actions', actions)}
+            {group('Waiting on Maria', maria)}
+            {group('Waiting on studio', studio)}
+            {opsBuckets.map(([label, rows]) => group(`Ops · ${label}`, rows))}
+          </>}
 
-      <h3>My tasks</h3>
-      {actions.length === 0 && maria.length === 0 && studio.length === 0 && ops.length === 0
-        ? <p style={{ color: '#777' }}>Nothing open.</p>
-        : <>
-          {actions.length > 0 && <><h4>Actions</h4><ul>{actions.map((task) => <TaskRow key={taskKey(task)} task={task} />)}</ul></>}
-          {maria.length > 0 && <><h4>Waiting on Maria</h4><ul>{maria.map((task) => <TaskRow key={taskKey(task)} task={task} />)}</ul></>}
-          {studio.length > 0 && <><h4>Waiting on studio</h4><ul>{studio.map((task) => <TaskRow key={taskKey(task)} task={task} />)}</ul></>}
-          {opsBuckets.map(([label, rows]) => rows.length > 0
-            && <div key={label}><h4>Ops · {label}</h4><ul>{rows.map((task) => <TaskRow key={taskKey(task)} task={task} />)}</ul></div>)}
-        </>}
+        {completedOps.length > 0 && (
+          <div className={styles.group}>
+            <div className={styles.groupLabel}>Recently completed ops</div>
+            <ul className={styles.taskList}>
+              {completedOps.map((task) => (
+                <li key={task.id} className={styles.taskRow}>
+                  <ClientTag name={task.clientName} />
+                  <StatusPill tone="muted" label={task.category} />
+                  <span className={styles.taskTitle}>{task.title}</span>
+                  <span className={styles.meta}>{task.status}{task.completedAt ? ` ${task.completedAt.slice(0, 10)}` : ''}</span>
+                  {/* fix B: completion note is separate; the original trigger note survives */}
+                  {task.triggerNote && <span className={styles.meta}>trigger: {task.triggerNote}</span>}
+                  {task.completionNote && <span className={styles.meta}>outcome: {task.completionNote}</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </section>
 
-      {completedOps.length > 0 && <>
-        <h3>Recently completed ops</h3>
-        <ul>
-          {completedOps.map((task) => (
-            <li key={task.id}>
-              {clientTag(task.clientName)}[{task.category}] {task.title} · {task.status}
-              {task.completedAt ? ` ${task.completedAt.slice(0, 10)}` : ''}
-              {/* fix B: the completion note is separate; the original trigger note survives */}
-              {task.triggerNote && <span style={{ color: '#777' }}> · trigger: {task.triggerNote}</span>}
-              {task.completionNote && <span style={{ color: '#777' }}> · outcome: {task.completionNote}</span>}
-            </li>
-          ))}
-        </ul>
-      </>}
-
-      <h3>Pieces</h3>
-      <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-        <thead>
-          <tr>
-            <th style={{ ...cell, textAlign: 'left' }}>Client</th>
-            <th style={{ ...cell, textAlign: 'left' }}>Piece</th>
-            <th style={{ ...cell, textAlign: 'left' }}>Stage</th>
-            <th style={{ ...cell, textAlign: 'left' }}>Gates (1-9)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {pieces.filter((piece) => !piece.archived).map((piece) => {
-            const stage = deriveContentStage(piece)
-            const resolved = resolveNineGates(piece)
-            return (
-              <tr key={`${piece.clientId}:${piece.contentId}`}>
-                <td style={{ ...cell, color: '#777' }}>{piece.clientName}</td>
-                <td style={cell}>{piece.title}</td>
-                <td style={cell}>{stage.label}</td>
-                <td style={cell} title={resolved.map((gate) =>
-                  `${gate.key}${gate.dest ? ':' + gate.dest : ''}: ${gate.present ? gate.state : 'not tracked'}`).join('\n')}>
-                  {GATE_ORDER.map((key) => {
-                    const rows = resolved.filter((gate) => gate.key === key)
-                    const state = rows.length === 0 || rows.some((gate) => !gate.present) ? 'absent'
-                      : rows.every((gate) => gate.state === 'done') ? 'done'
-                      : rows.every((gate) => gate.state !== 'open') ? 'na'
-                      : 'open'
-                    return <span key={key} style={state === 'absent'
-                      ? { ...dot('open'), borderStyle: 'dashed' } : dot(state)} />
-                  })}
-                </td>
+      {/* Pieces (spec IA #2): styled table + a legend for the 9-gate strip */}
+      <section className={styles.card}>
+        <div className={styles.cardHead}>
+          <div>
+            <div className={styles.cardTitle}>Pieces</div>
+            <div className={styles.cardSub}>Per-piece stage and the nine-gate strip in canonical order.</div>
+          </div>
+          <span className={styles.count}>{visiblePieces.length} active</span>
+        </div>
+        <div className={styles.legend} aria-hidden="true">
+          <span className={styles.legendItem}><span className={`${styles.gateCell} ${styles.gateDone}`} /> done</span>
+          <span className={styles.legendItem}><span className={`${styles.gateCell} ${styles.gateOpen}`} /> open</span>
+          <span className={styles.legendItem}><span className={`${styles.gateCell} ${styles.gateNa}`} /> n/a</span>
+          <span className={styles.legendItem}><span className={`${styles.gateCell} ${styles.gateAbsent}`} /> not tracked</span>
+          <span className={styles.legendItem}>order: {GATE_ORDER.join(' · ')}</span>
+        </div>
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Client</th><th>Piece</th><th>Stage</th><th>Gates (1-9)</th>
               </tr>
-            )
-          })}
-        </tbody>
-      </table>
-    </section>
+            </thead>
+            <tbody>
+              {visiblePieces.map((piece) => {
+                const stage = deriveContentStage(piece)
+                const resolved = resolveNineGates(piece)
+                return (
+                  <tr key={`${piece.clientId}:${piece.contentId}`}>
+                    <td className={styles.cellMuted}>{piece.clientName}</td>
+                    <td>{piece.title}</td>
+                    <td><StatusPill tone={stageTone(stage.stage)} label={stage.label} /></td>
+                    <td>
+                      <span className={styles.gateStrip} title={resolved.map((gate) =>
+                        `${gate.key}${gate.dest ? ':' + gate.dest : ''}: ${gate.present ? gate.state : 'not tracked'}`).join('\n')}>
+                        {GATE_ORDER.map((key) => {
+                          const rows = resolved.filter((gate) => gate.key === key)
+                          const cls = rows.length === 0 || rows.some((gate) => !gate.present) ? styles.gateAbsent
+                            : rows.every((gate) => gate.state === 'done') ? styles.gateDone
+                            : rows.every((gate) => gate.state !== 'open') ? styles.gateNa
+                            : styles.gateOpen
+                          return <span key={key} className={`${styles.gateCell} ${cls}`} />
+                        })}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </>
   )
 }

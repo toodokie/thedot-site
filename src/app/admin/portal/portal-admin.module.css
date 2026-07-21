@@ -1,0 +1,324 @@
+/* Admin ops cockpit (/admin/portal), agency-only. Data-dense operations dashboard on
+   The Dot design-system --dot-* tokens (cream ground, charcoal text, hairline borders),
+   plus a small set of SEMANTIC status colors defined once here (the DS ships no teal/rust
+   tokens, so they live as named module vars, never inline hex). Display-plane only:
+   nothing here changes behavior, data, or logic. Not imported by the client shell. */
+
+.page {
+  --admin-ink: var(--dot-black);
+  --admin-muted: var(--dot-grey);
+  --admin-line: var(--dot-hairline);
+  --admin-card: var(--dot-white);
+  --admin-ground: var(--dot-cream);
+  /* semantic status accents (complement the warm DS palette; not DS tokens) */
+  --admin-teal: #3f6f78;      /* scheduled / live / verified (River family) */
+  --admin-teal-soft: #e4eef0;
+  --admin-rust: #b4502f;      /* failed / danger */
+  --admin-rust-soft: #f6e7e1;
+  --admin-warn-bg: #fbf6d9;   /* status banner */
+
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: var(--dot-space-6) var(--dot-space-5) var(--dot-space-8);
+  background: var(--admin-ground);
+  color: var(--admin-ink);
+  font-family: var(--dot-font-text);
+}
+
+.backlink {
+  display: inline-block;
+  margin-bottom: var(--dot-space-4);
+  font-size: 13px;
+  color: var(--admin-muted);
+}
+.backlink:hover { color: var(--admin-ink); }
+
+.pageHead { margin-bottom: var(--dot-space-6); }
+.pageSub {
+  max-width: 720px;
+  margin-top: var(--dot-space-2);
+  color: var(--admin-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ---- cards ---------------------------------------------------------------- */
+.card {
+  background: var(--admin-card);
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  padding: var(--dot-space-5);
+  margin-bottom: var(--dot-space-5);
+}
+.hero { border-color: var(--admin-ink); } /* My Tasks: the one card that leads */
+.secondary { padding: var(--dot-space-4) var(--dot-space-5); }
+
+.cardHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--dot-space-3);
+  margin-bottom: var(--dot-space-4);
+}
+.cardTitle {
+  font-family: var(--dot-font-display);
+  font-size: 20px;
+  font-weight: var(--dot-weight-demi);
+  letter-spacing: 0.01em;
+  color: var(--admin-ink);
+}
+.cardSub {
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  margin-top: 2px;
+}
+.count {
+  font-variant-numeric: tabular-nums;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+
+/* ---- task groups (My Tasks hero) ----------------------------------------- */
+.group { margin-top: var(--dot-space-4); }
+.group:first-of-type { margin-top: 0; }
+.groupLabel {
+  font-size: 11px;
+  font-weight: var(--dot-weight-demi);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--admin-muted);
+  margin-bottom: var(--dot-space-2);
+}
+.taskList { list-style: none; margin: 0; padding: 0; }
+.taskRow {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 7px var(--dot-space-2);
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1.45;
+  transition: background 160ms ease;
+}
+.taskRow:hover { background: var(--admin-ground); }
+.taskTitle { color: var(--admin-ink); }
+.clientTag {
+  font-size: 12px;
+  color: var(--admin-muted);
+  font-variant-numeric: tabular-nums;
+}
+.meta {
+  color: var(--admin-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.empty {
+  color: var(--admin-muted);
+  font-size: 14px;
+  padding: var(--dot-space-2) 0;
+}
+
+/* ---- status pills (shared component) ------------------------------------- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: var(--dot-weight-medium);
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  font-variant-numeric: tabular-nums;
+}
+.pill svg { display: block; flex: none; }
+/* gate + generic tones */
+.pillDone { background: var(--admin-ink); color: var(--dot-white); }
+.pillOpen { background: transparent; color: var(--admin-ink); border-color: var(--admin-ink); }
+.pillNa { background: var(--admin-ground); color: var(--admin-muted); border-color: var(--admin-line); }
+.pillMuted { background: var(--admin-ground); color: var(--admin-muted); border-color: var(--admin-line); }
+.pillInfo { background: var(--dot-yellow-pale); color: var(--admin-ink); }
+/* schedule / publication tones */
+.pillPending { background: var(--admin-ground); color: var(--admin-muted); border-color: var(--admin-line); }
+.pillScheduled { background: transparent; color: var(--admin-teal); border-color: var(--admin-teal); }
+.pillLive { background: var(--admin-teal); color: var(--dot-white); }
+.pillVerified { background: var(--admin-teal-soft); color: var(--admin-teal); border-color: var(--admin-teal); }
+.pillFailed { background: var(--admin-rust-soft); color: var(--admin-rust); border-color: var(--admin-rust); }
+.nudge { background: var(--dot-yellow); color: var(--admin-ink); font-weight: var(--dot-weight-demi); }
+
+/* ---- pieces table --------------------------------------------------------- */
+.tableWrap { overflow-x: auto; }
+.table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.table th {
+  text-align: left;
+  padding: 6px var(--dot-space-2);
+  border-bottom: 1px solid var(--admin-line);
+  font-size: 11px;
+  font-weight: var(--dot-weight-demi);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--admin-muted);
+}
+.table td {
+  padding: 8px var(--dot-space-2);
+  border-bottom: 1px solid var(--admin-line);
+  vertical-align: middle;
+}
+.table tbody tr { transition: background 160ms ease; }
+.table tbody tr:hover { background: var(--admin-ground); }
+.cellMuted { color: var(--admin-muted); }
+.cellNum { font-variant-numeric: tabular-nums; }
+
+/* 9-gate strip + legend */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dot-space-3);
+  align-items: center;
+  margin-bottom: var(--dot-space-3);
+  font-size: 11.5px;
+  color: var(--admin-muted);
+}
+.legendItem { display: inline-flex; align-items: center; gap: 5px; }
+.gateStrip { display: inline-flex; gap: 3px; }
+.gateCell {
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  box-sizing: border-box;
+}
+.gateDone { background: var(--admin-ink); }
+.gateOpen { background: transparent; border: 1px solid var(--admin-muted); }
+.gateNa { background: var(--admin-line); }
+.gateAbsent { background: transparent; border: 1px dashed var(--admin-line); }
+
+/* ---- publication coordination (progressive disclosure) -------------------- */
+.pubPiece {
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  padding: var(--dot-space-4);
+  margin-bottom: var(--dot-space-4);
+}
+.pubPieceHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--dot-space-3);
+  margin-bottom: var(--dot-space-3);
+}
+.pubPieceTitle { font-size: 15px; font-weight: var(--dot-weight-demi); color: var(--admin-ink); }
+.pubVersion { color: var(--admin-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+.destRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--dot-space-2);
+  padding: var(--dot-space-2) 0;
+  border-top: 1px solid var(--admin-line);
+}
+.destName {
+  min-width: 96px;
+  font-size: 13px;
+  font-weight: var(--dot-weight-medium);
+  text-transform: capitalize;
+}
+.destPills { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.destLink { font-size: 12.5px; color: var(--admin-teal); text-decoration: underline; }
+.destSpacer { flex: 1 1 auto; }
+
+.disclose {
+  appearance: none;
+  border: 1px solid var(--admin-ink);
+  background: transparent;
+  color: var(--admin-ink);
+  font-family: var(--dot-font-text);
+  font-size: 12.5px;
+  font-weight: var(--dot-weight-medium);
+  padding: 3px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+.disclose:hover { background: var(--admin-ink); color: var(--dot-white); }
+.disclose:focus-visible { outline: 2px solid var(--admin-teal); outline-offset: 2px; }
+.discloseOpen { background: var(--admin-ink); color: var(--dot-white); }
+
+.auditToggle {
+  font-size: 12px;
+  color: var(--admin-muted);
+  cursor: pointer;
+  margin-top: var(--dot-space-2);
+}
+.auditList { margin: var(--dot-space-2) 0 0; padding-left: var(--dot-space-4); font-size: 12.5px; color: var(--admin-muted); }
+.auditList li { margin: 6px 0; font-variant-numeric: tabular-nums; }
+
+/* the collapsed confirm/correct form, expanded inline on demand */
+.form {
+  display: grid;
+  gap: var(--dot-space-2);
+  max-width: 640px;
+  margin: var(--dot-space-3) 0 var(--dot-space-2);
+  padding: var(--dot-space-3);
+  background: var(--admin-ground);
+  border: 1px solid var(--admin-line);
+  border-radius: 6px;
+}
+.field { display: grid; gap: 3px; }
+.fieldLabel {
+  font-size: 11px;
+  font-weight: var(--dot-weight-demi);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--admin-muted);
+}
+.input, .select, .textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  font-family: var(--dot-font-text);
+  font-size: 13px;
+  color: var(--admin-ink);
+  background: var(--admin-card);
+  border: 1px solid var(--admin-line);
+  border-radius: 4px;
+}
+.input:focus-visible, .select:focus-visible, .textarea:focus-visible {
+  outline: 2px solid var(--admin-teal);
+  outline-offset: 1px;
+  border-color: var(--admin-teal);
+}
+.hint { font-size: 12px; color: var(--admin-muted); }
+.submit {
+  justify-self: start;
+  appearance: none;
+  border: none;
+  background: var(--admin-ink);
+  color: var(--dot-white);
+  font-family: var(--dot-font-text);
+  font-size: 13px;
+  font-weight: var(--dot-weight-medium);
+  padding: 9px 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: opacity 160ms ease;
+}
+.submit:hover { opacity: 0.9; }
+.submit:disabled { opacity: 0.5; cursor: progress; }
+
+.banner {
+  padding: var(--dot-space-3);
+  border-radius: 6px;
+  background: var(--admin-warn-bg);
+  color: var(--admin-ink);
+  font-size: 13px;
+  margin-bottom: var(--dot-space-4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .taskRow, .table tbody tr, .disclose, .submit { transition: none; }
+}

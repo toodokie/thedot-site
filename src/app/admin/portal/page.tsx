@@ -1,7 +1,9 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { Heading } from '@thedot/design-system'
 import { verifySession } from '@/lib/auth'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
+import styles from './portal-admin.module.css'
 import PublicationAdmin, { type AdminTarget } from './PublicationAdmin'
 import CalendarAdmin, { type CalendarConflictAdmin, type CalendarIntegrationAdmin,
   type UnmappedCalendarEventAdmin } from './CalendarAdmin'
@@ -141,21 +143,34 @@ export default async function PortalAdminPage() {
   }).format(new Date())
 
   return (
-    <main style={{ maxWidth: 980, margin: '0 auto', padding: '40px 24px' }}>
-      <p><Link href="/admin/dashboard">Back to dashboard</Link></p>
-      <h1>Portal publication coordination</h1>
-      <p style={{ maxWidth: 760, color: '#555' }}>
-        Provider truth is recorded per destination. A planned time is never proof of scheduling or publication.
-        Every operation below requires immutable evidence and preserves corrections as new observations.
-      </p>
-      <PublicationAdmin targets={targets} />
-      <CalendarAdmin clients={(clients.data ?? []).map((client) => ({ id: client.id, name: client.name }))}
-        integrations={calendarIntegrations} conflicts={calendarConflicts} unmapped={unmappedEvents}
-        contentOptions={(content.data ?? []).map((item) => ({ id: item.id, clientId: item.client_id,
-          version: item.version, title: item.title }))} />
-      <BillingAdmin invoices={adminInvoices} />
-      <RequestAdmin requests={adminRequests} />
+    <main className={styles.page}>
+      <Link href="/admin/dashboard" className={styles.backlink}>Back to dashboard</Link>
+      <header className={styles.pageHead}>
+        <Heading level={1} variant="display">Portal ops</Heading>
+        <p className={styles.pageSub}>
+          Agency-only coordination cockpit. Derived views and provider-truth records; nothing here is client-visible.
+        </p>
+      </header>
+
+      {/* IA #1-2: My Tasks (hero) + Pieces */}
       <GatesAdmin pieces={stagePieces} opsTasks={adminOpsTasks} completedOps={completedOps} todayIso={todayIso} />
+
+      {/* IA #3: publication coordination (progressive disclosure) */}
+      <PublicationAdmin targets={targets} />
+
+      {/* IA #4: supporting, compact secondary cards */}
+      <section className={`${styles.card} ${styles.secondary}`}>
+        <CalendarAdmin clients={(clients.data ?? []).map((client) => ({ id: client.id, name: client.name }))}
+          integrations={calendarIntegrations} conflicts={calendarConflicts} unmapped={unmappedEvents}
+          contentOptions={(content.data ?? []).map((item) => ({ id: item.id, clientId: item.client_id,
+            version: item.version, title: item.title }))} />
+      </section>
+      <section className={`${styles.card} ${styles.secondary}`}>
+        <BillingAdmin invoices={adminInvoices} />
+      </section>
+      <section className={`${styles.card} ${styles.secondary}`}>
+        <RequestAdmin requests={adminRequests} />
+      </section>
     </main>
   )
 }
