@@ -292,6 +292,19 @@ export default function AdminDashboard() {
           </div>
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
             <Link
+              href="/admin/portal"
+              style={{
+                fontSize: '0.875rem',
+                color: 'var(--foreground)',
+                textDecoration: 'none',
+                transition: 'color 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = 'var(--highlight-color)'}
+              onMouseLeave={(e) => e.currentTarget.style.color = 'var(--foreground)'}
+            >
+              Client Portal
+            </Link>
+            <Link
               href="/"
               style={{
                 fontSize: '0.875rem',
