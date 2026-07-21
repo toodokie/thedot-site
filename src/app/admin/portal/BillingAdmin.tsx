@@ -69,7 +69,7 @@ export default function BillingAdmin({ invoices }: { invoices: AdminInvoice[] })
       </div>
       {message && <p className={styles.statusMsg} role="status">{message}</p>}
       {rows.length === 0 ? (
-        <p className={styles.empty}>No invoices yet. Create them with <span className={styles.codeId}>portal-write invoice</span>.</p>
+        <p className={styles.empty}>No invoices yet.</p>
       ) : (
         <div className={styles.tableWrap}>
           <table className={styles.table}>

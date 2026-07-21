@@ -38,12 +38,12 @@ export default function RequestAdmin({ requests }: { requests: AdminContentReque
   return <>
     <div className={styles.cardHead}>
       <div>
-        <div className={styles.cardTitle}>Client content requests</div>
-        <div className={styles.cardSub}>Apply commands run only through the checked local portal-inbox apply-* path. This browser never writes the canonical repository.</div>
+        <div className={styles.cardTitle}>Change requests from Maria</div>
+        <div className={styles.cardSub}>Requests Maria sends from her portal. Decline or flag a conflict here; the actual edit happens in the content workflow, not this browser.</div>
       </div>
     </div>
     {message && <p className={styles.statusMsg} role="status">{message}</p>}
-    {!requests.length ? <p className={styles.empty}>No content requests.</p> : <div>
+    {!requests.length ? <p className={styles.empty}>No change requests from Maria right now.</p> : <div>
       {requests.map((request) => <article key={request.id} className={styles.subCard}>
         <div className={styles.pubPieceHead}>
           <span className={styles.subCardTitle}>{request.title}</span>

@@ -101,7 +101,7 @@ export default function CalendarAdmin({ clients, integrations, conflicts = [], u
     <div className={styles.cardHead}>
       <div>
         <div className={styles.cardTitle}>Shared Google Calendar</div>
-        <div className={styles.cardSub}>Supabase remains authoritative. Calendar edits may move an eligible editorial hold, but never approve copy or prove that a destination was scheduled or published.</div>
+        <div className={styles.cardSub}>Connects the shared Kanset calendar. A calendar change can nudge a planned date, but never approves copy or confirms that a post went out.</div>
       </div>
     </div>
     {integrations.map((item) => <article key={item.id} className={styles.subCard}>

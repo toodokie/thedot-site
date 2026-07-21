@@ -38,6 +38,11 @@ function actionLabel(gate: string, dest: string | null): string {
   return dest ? `${base}: ${dest}` : base
 }
 
+// Plain-English names for the nine steps, shown in the Pieces legend (never the raw gate
+// keys like "source-in-hand" / "link-confirmed").
+const STEP_NAMES = ['Fact-check', 'Studio cut', 'Design', 'Proof', 'Sent to Maria',
+  'Approved', 'Scheduled', 'Posted', 'Link confirmed']
+
 // One row shape for every task: title on the LEFT, the plain-English next step / status on
 // the RIGHT, inline so it sits right beside the title (never stranded far away).
 function TaskRow({ task, showClient }: { task: MyTask; showClient: boolean }) {
@@ -47,7 +52,7 @@ function TaskRow({ task, showClient }: { task: MyTask; showClient: boolean }) {
   if (task.kind === 'action') {
     trail = <StatusPill tone="open" label={actionLabel(task.gate, task.dest)} />
   } else if (task.kind === 'link_pending') {
-    trail = <span className={styles.meta}>confirm link{task.dest ? `: ${task.dest}` : ''}{task.moreOpen > 0 ? ` (+${task.moreOpen})` : ''}</span>
+    trail = <span className={styles.meta}>confirm the live link{task.dest ? ` on ${task.dest}` : ''}{task.moreOpen > 0 ? ` +${task.moreOpen} more` : ''}</span>
   } else if (task.kind === 'waiting_maria') {
     trail = <>
       <span className={styles.meta}>waiting on Maria, {task.daysWaiting} business day{task.daysWaiting === 1 ? '' : 's'}</span>
@@ -86,7 +91,7 @@ function stageDisplay(stage: string, label: string): { label: string; tone: Pill
     case 'scheduled':
     case 'scheduled_partial': return { label: 'Scheduled', tone: 'scheduled', detail: label.replace(/^scheduled\s*/i, '') }
     case 'approved': return { label: 'Approved', tone: 'done', detail: '' }
-    case 'direction_approved': return { label: 'Direction approved', tone: 'done', detail: 'production gates open' }
+    case 'direction_approved': return { label: 'Direction approved', tone: 'done', detail: 'still in production' }
     case 'awaiting_decision': return { label: 'Awaiting Maria', tone: 'open', detail: '' }
     case 'publish_failed':
     case 'schedule_failed': return { label: 'Issue', tone: 'failed', detail: label }
@@ -132,7 +137,7 @@ export default function GatesAdmin({ pieces, opsTasks, completedOps, todayIso }:
         <div className={styles.cardHead}>
           <div>
             <div className={styles.cardTitle}>My tasks</div>
-            <div className={styles.cardSub}>Derived from production gates, decisions, schedule + publication evidence. Agency-only; emissions go through portal-write.</div>
+            <div className={styles.cardSub}>What needs your attention, most pressing first.</div>
           </div>
           <span className={styles.count}><span className={styles.countPop}>{openCount}</span> open</span>
         </div>
@@ -175,7 +180,7 @@ export default function GatesAdmin({ pieces, opsTasks, completedOps, todayIso }:
         <div className={styles.cardHead}>
           <div>
             <div className={styles.cardTitle}>Pieces</div>
-            <div className={styles.cardSub}>Per-piece stage and the nine-gate strip in canonical order.</div>
+            <div className={styles.cardSub}>Every piece and how far along it is. The squares track the nine steps, left to right.</div>
           </div>
           <span className={styles.count}>{visiblePieces.length} active</span>
         </div>
@@ -184,13 +189,13 @@ export default function GatesAdmin({ pieces, opsTasks, completedOps, todayIso }:
           <span className={styles.legendItem}><span className={`${styles.gateCell} ${styles.gateOpen}`} /> open</span>
           <span className={styles.legendItem}><span className={`${styles.gateCell} ${styles.gateNa}`} /> n/a</span>
           <span className={styles.legendItem}><span className={`${styles.gateCell} ${styles.gateAbsent}`} /> not tracked</span>
-          <span className={styles.legendItem}>order: {GATE_ORDER.join(' · ')}</span>
+          <span className={styles.legendItem}>steps: {STEP_NAMES.join(' · ')}</span>
         </div>
         <div className={styles.tableWrap}>
           <table className={styles.table}>
             <thead>
               <tr>
-                {multiClient && <th>Client</th>}<th className={styles.pieceCol}>Piece</th><th>Stage</th><th className={styles.gatesCol}>Gates (1-9)</th>
+                {multiClient && <th>Client</th>}<th className={styles.pieceCol}>Piece</th><th>Stage</th><th className={styles.gatesCol}>Steps</th>
               </tr>
             </thead>
             <tbody>
