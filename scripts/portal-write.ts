@@ -1,6 +1,7 @@
 import { loadEnvConfig } from '@next/env'
 import { createClient } from '@supabase/supabase-js'
-import { readFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
+import { renderStatusGatesBlock } from '../src/lib/portal/gates'
 import {
   assertClientSafeAgencyText, assertReportMetrics, assertReviewedHttpsUrl,
   optionalText, requiredText, sha256,
@@ -29,10 +30,15 @@ const timestamp = (value: unknown, field: string) => {
 }
 
 async function main() {
-  const [command, inputPath, flag] = process.argv.slice(2)
-  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|invoice|idea|design-link> <payload.json> [--dry-run]')
+  const [command, inputPath, ...rest] = process.argv.slice(2)
+  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|invoice|idea|design-link|gate|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
+  const dryRun = rest.includes('--dry-run')
+  const packIndex = rest.indexOf('--pack')
+  const packPath = packIndex >= 0 ? rest[packIndex + 1] ?? null : null
   const payload = JSON.parse(await readFile(inputPath, 'utf8')) as Payload
-  const slug = requiredText(payload.clientSlug, 'clientSlug', 100)
+  // ops commands may be agency-global (no client); everything else requires the slug
+  const slugOptional = (command === 'ops-task' && payload.clientSlug == null) || command === 'ops-task-complete'
+  const slug = slugOptional ? null : requiredText(payload.clientSlug, 'clientSlug', 100)
   const actor = requiredText(payload.actorKey ?? 'thedot-admin', 'actorKey', 64)
   const idempotency = requiredText(payload.idempotencyKey, 'idempotencyKey', 200)
   let rpc: string; let args: Record<string, unknown>
@@ -156,19 +162,134 @@ async function main() {
       p_author_type: stringArray(payload.authorType ?? 'client', 'authorType', ['client','anastasia','agent']),
       p_author_name: authorName,
       p_actor_key: actor, p_idempotency_key: idempotency }
+  } else if (command === 'gate') {
+    // Production-gate emission (set_production_gate, migration 0022). Accepts the
+    // grammar's hyphenated keys or the DB's underscored ones. Notes are agency-only
+    // provenance (never client-facing), so no client-safe text gate here.
+    const gateKey = requiredText(payload.gateKey, 'gateKey', 40).replaceAll('-', '_')
+    const state = stringArray(payload.state, 'state', ['open', 'done', 'na'])
+    if (state === 'na' && !payload.naReason) throw new Error('na requires naReason (the [~] rule)')
+    if (state === 'done' && !payload.occurredAt) throw new Error('done requires occurredAt (every [x] carries a date)')
+    rpc = 'set_production_gate'; args = { p_client_id: null,
+      p_content_id: requiredText(payload.contentId, 'contentId', 200),
+      p_gate_key: stringArray(gateKey, 'gateKey', ['source_in_hand', 'design_built', 'proofed', 'approval_sent']),
+      p_state: state,
+      p_owner: stringArray(payload.owner ?? 'anastasia', 'owner', ['anastasia', 'studio', 'agent']),
+      p_note: optionalText(payload.note, 'note', 2000),
+      p_na_reason: optionalText(payload.naReason, 'naReason', 1000),
+      p_occurred_at: payload.occurredAt == null ? null : timestamp(payload.occurredAt, 'occurredAt'),
+      p_actor_key: actor, p_idempotency_key: idempotency }
+  } else if (command === 'ops-task') {
+    rpc = 'add_ops_task'; args = { p_client_id: null,
+      p_title: requiredText(payload.title, 'title', 300),
+      p_category: stringArray(payload.category, 'category',
+        ['invoice', 'follow_up', 'revisit', 'access', 'watch', 'plan', 'report', 'portal', 'admin']),
+      p_due_date: payload.dueDate == null ? null : requiredText(payload.dueDate, 'dueDate', 10),
+      p_trigger_note: optionalText(payload.triggerNote, 'triggerNote', 1000),
+      p_owner: stringArray(payload.owner ?? 'anastasia', 'owner', ['anastasia', 'studio', 'agent']),
+      p_source: requiredText(payload.source, 'source', 1000),
+      p_actor_key: actor, p_idempotency_key: idempotency }
+  } else if (command === 'ops-task-complete') {
+    rpc = 'complete_ops_task'; args = {
+      p_task_id: requiredText(payload.taskId, 'taskId', 40),
+      p_status: stringArray(payload.status ?? 'done', 'status', ['done', 'dropped']),
+      p_note: optionalText(payload.note, 'note', 1000),
+      p_actor_key: actor, p_idempotency_key: idempotency }
   } else throw new Error(`unknown portal-write command: ${command}`)
-  if (flag === '--dry-run') { console.log(`VALID ${command} for ${slug} (${idempotency})`); return }
-  const { data: client, error: clientError } = await admin.from('clients').select('id').eq('slug', slug).single()
-  if (clientError || !client) throw new Error(`client unavailable: ${clientError?.message ?? 'missing'}`)
-  args.p_client_id=client.id
+  if (dryRun) { console.log(`VALID ${command} for ${slug ?? 'agency'} (${idempotency})`); return }
+  let clientId: string | null = null
+  if (slug) {
+    const { data: client, error: clientError } = await admin.from('clients').select('id').eq('slug', slug).single()
+    if (clientError || !client) throw new Error(`client unavailable: ${clientError?.message ?? 'missing'}`)
+    clientId = client.id
+    if ('p_client_id' in args) args.p_client_id = clientId
+  }
   if(externalContentId){
     const {data:item,error:itemError}=await admin.from('content_items').select('id,working_version')
-      .eq('client_id',client.id).eq('content_id',externalContentId).single()
+      .eq('client_id',clientId).eq('content_id',externalContentId).single()
     if(itemError||!item) throw new Error(`content unavailable: ${itemError?.message ?? 'missing'}`)
     args.p_content_id=item.id; args.p_content_version=externalContentVersion ?? item.working_version
   }
   const { data,error }=await admin.rpc(rpc,args)
   if(error) throw new Error(`${rpc}: ${error.message}`)
   console.log(`OK ${command} ${String(data)}`)
+  if (command === 'gate' && clientId) {
+    await emitStatusGatesBlock(clientId, String(args.p_content_id), packPath)
+  }
+}
+
+// After a gate emission, regenerate the piece's STATUS GATES block from the portal's
+// full truth (production gates from 0022 + fact-check/decision/schedule/publication
+// from their real homes). With --pack <path> the block is patched into the pack
+// (best-effort mirror: the file is the OUTPUT of the write); without it the block is
+// PRINTED so the mirror can never silently diverge without a visible step.
+async function emitStatusGatesBlock(clientId: string, contentId: string, packPath: string | null) {
+  const { data: item, error: itemError } = await admin.from('content_with_state')
+    .select('id, content_id, title, status, fact_check, fact_check_exemption, platforms, current_decision, version, archived_at')
+    .eq('client_id', clientId).eq('content_id', contentId).single()
+  if (itemError || !item) { console.warn(`WARN: no released view row for ${contentId}; block not regenerated`); return }
+  const [gates, schedules, publications] = await Promise.all([
+    admin.from('content_production_gates')
+      .select('gate_key, state, owner_label, occurred_at, note, na_reason')
+      .eq('client_id', clientId).eq('content_item_id', item.id),
+    admin.from('content_schedule_targets')
+      .select('destination, status, scheduled_at')
+      .eq('client_id', clientId).eq('content_id', item.id).eq('content_version', item.version),
+    admin.from('content_publication_targets')
+      .select('destination, status, live_url, first_verified_at')
+      .eq('client_id', clientId).eq('content_id', item.id).eq('content_version', item.version),
+  ])
+  if (gates.error || schedules.error || publications.error) {
+    console.warn(`WARN: gate block data unavailable: ${gates.error?.message ?? schedules.error?.message ?? publications.error?.message}`)
+    return
+  }
+  const dests = (item.platforms ?? []).map((platform: string) => {
+    const schedule = (schedules.data ?? []).find((row) => row.destination === platform)
+    const publication = (publications.data ?? []).find((row) => row.destination === platform)
+    return { destination: platform, scheduleStatus: schedule?.status ?? null,
+      publicationStatus: publication?.status ?? null,
+      verified: Boolean(publication?.first_verified_at),
+      scheduledAt: schedule?.scheduled_at ?? null, liveUrl: publication?.live_url ?? null }
+  })
+  const block = renderStatusGatesBlock({
+    contentId: item.content_id, title: item.title, status: item.status,
+    factCheck: item.fact_check, factCheckExempt: Boolean(item.fact_check_exemption),
+    currentDecision: item.current_decision, approvalSentAt: null,
+    platforms: item.platforms ?? [], archived: Boolean(item.archived_at),
+    gates: (gates.data ?? []) as never, dests,
+  }, new Date().toISOString())
+  if (packPath) {
+    const patched = await patchPackBlock(packPath, item.content_id, block)
+    if (patched) { console.log(`PACK UPDATED: ${packPath}`); return }
+    console.warn('WARN: no matching STATUS GATES block found in the pack; paste this:')
+  } else {
+    console.log('Regenerated STATUS GATES block (paste into the piece pack; or rerun with --pack <path>):')
+  }
+  console.log(block)
+}
+
+// Best-effort block replacement: matches the block whose `gates: id=` attribute equals
+// the contentId, or shares its slug tail once date/client prefixes are stripped.
+// Preserves the pack's own header line (packs suffix it, e.g. "(decoder reel)").
+function normalizeGateId(id: string): string {
+  return id.replace(/^kanset-/, '').replace(/^\d{4}-\d{2}(-\d{2})?-/, '')
+}
+
+async function patchPackBlock(packPath: string, contentId: string, block: string): Promise<boolean> {
+  let source: string
+  try { source = await readFile(packPath, 'utf8') } catch { return false }
+  const pattern = /(## STATUS GATES[^\n]*\n)<!-- gates: id=([^ ]+) date=[^>]*-->\n((?:- \[[^\]]\][^\n]*\n?)*)/g
+  const target = normalizeGateId(contentId)
+  let replaced = false
+  const output = source.replace(pattern, (match, header: string, id: string) => {
+    if (replaced) return match
+    if (id !== contentId && normalizeGateId(id) !== target) return match
+    replaced = true
+    const [, ...generated] = block.split('\n') // drop the generic header, keep the pack's
+    return header + generated.join('\n') + '\n'
+  })
+  if (!replaced) return false
+  await writeFile(packPath, output, 'utf8')
+  return true
 }
 main().catch((error)=>{ console.error(`FAILED: ${error?.message ?? error}`); process.exit(1) })

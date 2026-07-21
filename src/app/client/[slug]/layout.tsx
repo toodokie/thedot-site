@@ -34,12 +34,22 @@ export default async function ClientWorkspaceLayout(
     const gate = await supabase.rpc('portal_assistant_gate', { p_client_id: session.clientId })
     assistantAvailable = !gate.error
   }
+  // Seat indicator: any window instantly shows whose seat it is (the preview seat
+  // greeted Anastasia as Maria once). "(preview)" in the member name gets a chip.
+  const isPreview = /\(preview\)/i.test(session.name ?? '')
+  const seat = (
+    <span className={styles.seat}>
+      Signed in as {session.name}
+      {isPreview && <span className={styles.previewChip}>preview</span>}
+    </span>
+  )
   return (
     <div className={styles.shell}>
-      <PortalNav slug={slug} showAssistant={assistantAvailable} />
+      <PortalNav slug={slug} showAssistant={assistantAvailable} seat={seat} />
       <div className={styles.content}>
         <header className={styles.topbar}>
           <Image src="/images/logo.png" alt="The Dot Creative" width={64} height={36} priority />
+          {seat}
         </header>
         <main className={styles.main}>{children}</main>
       </div>

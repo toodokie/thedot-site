@@ -27,9 +27,13 @@ const ITEMS = [
 export default function PortalNav({
   slug,
   showAssistant = false,
+  seat,
 }: {
   slug: string
   showAssistant?: boolean
+  // seat indicator (rendered in the desktop sidebar brand block; the mobile topbar
+  // carries its own copy since the sidebar is hidden there)
+  seat?: React.ReactNode
 }) {
   const pathname = usePathname()
   const base = `/client/${slug}`
@@ -38,6 +42,7 @@ export default function PortalNav({
     <nav className={styles.nav} aria-label="Portal sections">
       <div className={styles.brand}>
         <Image src="/images/logo.png" alt="The Dot Creative" width={80} height={45} priority />
+        {seat}
       </div>
       <ul className={styles.list}>
         {items.map((it) => {
