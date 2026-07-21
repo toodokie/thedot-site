@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getClientSession } from '@/lib/portal/auth'
-import { getSchedule, statusAccent, type ScheduleRow } from '@/lib/portal/schedule'
+import { getSchedule, statusAccent, belongsOnPlanSurface, type ScheduleRow } from '@/lib/portal/schedule'
 import { Eyebrow, Heading, Text } from '@thedot/design-system'
 import styles from './plan.module.css'
 
@@ -34,8 +34,11 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
   if (!session) redirect('/client/login')
   const rows = await getSchedule(session.clientId)
 
-  // The plan surface is the not-yet-produced pipeline: ideas and drafts only.
-  const planned = rows.filter((r) => r.status === 'idea' || r.status === 'draft')
+  // The plan surface is the quiet pipeline only (audit B1): ideas and drafts still with
+  // The Dot. A released-for-review piece (client_state needs_review) is already the
+  // client's approval ask and renders in the Overview's waiting bucket instead; showing
+  // it here as "before they come to you" contradicted the ask.
+  const planned = rows.filter((r) => belongsOnPlanSurface(r.status, r.client_state))
   const dated = planned.filter((r) => r.planned_date)
   const undated = planned.filter((r) => !r.planned_date)
 

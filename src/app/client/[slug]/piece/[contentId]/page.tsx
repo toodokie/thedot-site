@@ -16,6 +16,7 @@ import PublicationPanel from './PublicationPanel'
 import { getContentRequests } from '@/lib/portal/requests'
 import RequestHistory from '../../requests/RequestHistory'
 import RemovalRequestForm from './RemovalRequestForm'
+import { clientStateLabel } from '@/lib/portal/state'
 
 const chip: CSSProperties = {
   fontFamily: 'var(--dot-font-text)', fontSize: 11, color: 'var(--dot-graphite)',
@@ -54,7 +55,11 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 24 }}>
         {(item.platforms || []).map((p) => <span key={p} style={chip}>{p}</span>)}
         <span style={chip}>v{item.version}</span>
-        {item.fact_check && <span style={chipFact}>{item.fact_check}</span>}
+        {/* 'confirmed' is OUR fact-check gate, not the client's approval; same wording
+            ruling as the Overview chip (Anastasia, 2026-07-20) */}
+        {item.fact_check && <span style={chipFact}>
+          {item.fact_check === 'confirmed' ? 'fact-checked' : item.fact_check}
+        </span>}
       </div>
 
       {item.canva_url && /^https:\/\//i.test(item.canva_url) && (
@@ -95,7 +100,8 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
       {item.state === 'needs_review' && session.canDecide
         ? <DecideForm slug={slug} contentId={item.content_id} />
         : item.state !== 'needs_review'
-          ? <Text tone="grey">This piece is {item.state === 'with_dot' ? 'back with The Dot' : item.state}.</Text>
+          /* audit B4: always the client wording map, never a raw state token */
+          ? <Text tone="grey">This piece is {clientStateLabel(item.state)}.</Text>
           : <Text tone="grey">This piece is waiting for the primary decision-maker.</Text>}
 
       <CommentThread slug={slug} contentId={item.content_id} comments={comments}

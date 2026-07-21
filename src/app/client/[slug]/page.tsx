@@ -19,14 +19,16 @@ function Panel({ label, note, children }: { label: string; note?: string; childr
   )
 }
 
-// A clickable content row; `priority` shows a yellow dot marker (needs the client's eyes).
-function ContentRow({ it, slug, priority }: { it: ContentRowType; slug: string; priority?: boolean }) {
+// A clickable content row; `priority` shows a yellow dot marker (needs the client's eyes);
+// `note` renders a small grey qualifier after the title (e.g. partial verification).
+function ContentRow({ it, slug, priority, note }: { it: ContentRowType; slug: string; priority?: boolean; note?: string }) {
   const platforms = it.platforms || []
   return (
     <Link className={styles.row} href={`/client/${encodeURIComponent(slug)}/piece/${encodeURIComponent(it.content_id)}`}>
       {priority && <span className={styles.marker}><Dot fill="yellow" size={8} /></span>}
       <span className={styles.rowMain}>
         <Text as="span" size="md" tone="black">{it.title}</Text>
+        {note && <>{' '}<Text as="span" size="sm" tone="grey">({note})</Text></>}
         {(platforms.length > 0 || it.fact_check) && (
           <span className={styles.chipRow}>
             {platforms.map((p) => <span key={p} className={styles.chip}>{p}</span>)}
@@ -59,7 +61,11 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
   const withDot = items.filter((i) => i.state === 'with_dot')
   const approved = items.filter((i) => i.state === 'approved')
   const scheduled = items.filter((i) => i.state === 'scheduled')
-  const live = items.filter((i) => i.state === 'live')
+  // Audit C1: the Published bucket includes partially_live, or the whole imported posted
+  // history (which can never reach 'live' under 0009's manual+verified rule) would be
+  // invisible on the landing page. The per-target verification labels on each piece page
+  // carry the honest nuance; the row note flags the partial case. Display only.
+  const published = items.filter((i) => i.state === 'live' || i.state === 'partially_live')
   const communication = activity.filter((a) => a.event_type === 'meeting_email_note_added')
   const firstName = session.name ? session.name.split(' ')[0] : ''
 
@@ -105,7 +111,10 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
 
             {approved.length > 0 && <Panel label="Approved">{approved.map((it) => <ContentRow key={it.id} it={it} slug={slug} />)}</Panel>}
             {scheduled.length > 0 && <Panel label="Scheduled">{scheduled.map((it) => <ContentRow key={it.id} it={it} slug={slug} />)}</Panel>}
-            {live.length > 0 && <Panel label="Published">{live.map((it) => <ContentRow key={it.id} it={it} slug={slug} />)}</Panel>}
+            {published.length > 0 && <Panel label="Published">{published.map((it) => (
+              <ContentRow key={it.id} it={it} slug={slug}
+                note={it.state === 'partially_live' ? 'some platforms verified' : undefined} />
+            ))}</Panel>}
           </div>
 
           <aside>

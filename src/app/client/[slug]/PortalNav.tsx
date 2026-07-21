@@ -9,14 +9,17 @@ import styles from './portal-shell.module.css'
 // and via calendar deep-links. The Assistant entry appears only when the member holds the
 // can_use_assistant capability AND the 'assistant' feature switch is on (the layout runs the
 // database gate RPC and passes the result; the API re-runs the same gate on every question).
+// Priority order (audit C2): the mobile bottom bar shows roughly the first five and a
+// half entries, so the five core surfaces come first and the occasional ones scroll.
+// The bar's edge shadow (portal-shell.module.css) is the visible more-to-the-right hint.
 const ITEMS = [
   { label: 'Overview', seg: '' },
   { label: 'Calendar', seg: 'calendar' },
   { label: 'Plan', seg: 'plan' },
   { label: 'Ideas', seg: 'ideas' },
+  { label: 'Reports', seg: 'reports' },
   { label: 'Requests', seg: 'requests' },
   { label: 'Strategy', seg: 'strategy' },
-  { label: 'Reports', seg: 'reports' },
   { label: 'Library', seg: 'library' },
   { label: 'Billing', seg: 'billing' },
 ]

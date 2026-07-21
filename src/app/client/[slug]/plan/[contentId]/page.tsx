@@ -2,6 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import type { CSSProperties } from 'react'
 import { getClientSession } from '@/lib/portal/auth'
 import { getContentItem } from '@/lib/portal/data'
+import { routesToPiecePage } from '@/lib/portal/schedule'
 import { Eyebrow, Heading, Text, Button } from '@thedot/design-system'
 import CopyBlock from '@/app/client/[slug]/piece/[contentId]/CopyBlock'
 import FactCheckEvidence from '../../FactCheckEvidence'
@@ -26,6 +27,12 @@ export default async function PlanPiece({ params }: { params: Promise<{ slug: st
   if (!session) redirect('/client/login')
   const item = await getContentItem(session.clientId, contentId)
   if (!item || !PLANNED.has(item.status)) notFound()
+  // Audit B1: this page's closing line promises "we will send it to you for approval";
+  // the moment that ask exists (or the piece has moved on), the decidable piece page is
+  // the only truthful door, even for old links.
+  if (routesToPiecePage(item.state)) {
+    redirect(`/client/${encodeURIComponent(slug)}/piece/${encodeURIComponent(item.content_id)}`)
+  }
 
   const blocks = item.copy_blocks && item.copy_blocks.length > 0
     ? item.copy_blocks
@@ -47,7 +54,10 @@ export default async function PlanPiece({ params }: { params: Promise<{ slug: st
         {item.pillar && <span style={chip}>{item.pillar}</span>}
         {(item.platforms || []).map((p) => <span key={p} style={chip}>{p}</span>)}
         {item.planned_date && <span style={chipDate}>{item.planned_date.slice(0, 10)}</span>}
-        {item.fact_check && <span style={chipFact}>{item.fact_check}</span>}
+        {/* same fact-check wording ruling as the Overview chip (Anastasia, 2026-07-20) */}
+        {item.fact_check && <span style={chipFact}>
+          {item.fact_check === 'confirmed' ? 'fact-checked' : item.fact_check}
+        </span>}
       </div>
 
       <div style={{ marginBottom: 28 }}>

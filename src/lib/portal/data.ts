@@ -70,11 +70,19 @@ export async function getContentItem(clientId: string, contentId: string): Promi
   if (!data) return null
   return mapContentRow(data)
 }
+// Pure-housekeeping event types never render in the CLIENT feed (audit C4): eleven
+// "Design link updated" sync rows flooded the 30-row window and pushed the client's own
+// recorded decisions off the first page. Her feed leads with decisions, releases, live
+// confirmations, and reports. Agency-facing surfaces read activity_log directly and
+// keep everything; the rows themselves are untouched.
+const CLIENT_FEED_EXCLUDED_EVENTS = ['design_link_updated']
+
 export async function getActivity(clientId: string): Promise<ActivityRow[]> {
   const supabase = await createSupabaseServer()
   const { data, error } = await supabase
     .from('activity_log').select('id, event_type, title, summary, actor_type, actor_name, created_at')
     .eq('client_id', clientId)
+    .not('event_type', 'in', `(${CLIENT_FEED_EXCLUDED_EVENTS.join(',')})`)
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
     .limit(30)

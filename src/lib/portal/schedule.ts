@@ -16,6 +16,7 @@ export type ScheduleRow = {
   pillar: string | null
   platforms: string[]
   status: ContentStatus
+  client_state: string
   planned_date: string | null
   schedule_state: ScheduleState
   calendar_sync_status: string | null
@@ -50,7 +51,7 @@ export type ScheduleRequestRow = {
   resolved_at: string | null
 }
 
-const SELECT = 'id, content_id, title, format, pillar, platforms, status, planned_date, schedule_state'
+const SELECT = 'id, content_id, title, format, pillar, platforms, status, client_state, planned_date, schedule_state'
 
 export async function getSchedule(clientId: string): Promise<ScheduleRow[]> {
   const supabase = await createSupabaseServer()
@@ -99,10 +100,20 @@ export async function getScheduleDetails(
   }
 }
 
-// A PRODUCED piece (approved, scheduled, posted) has a client-facing piece page; a PLANNED
-// piece (idea, draft) only has a plan subpage. The calendar and plan lists route accordingly.
-export function isProduced(status: string): boolean {
-  return status === 'approved' || status === 'scheduled' || status === 'posted'
+// Client-view audit B1 (the two-door contradiction): the piece-vs-plan door routes on
+// client_state, NEVER status. A released-for-review piece is status 'draft' AND
+// client_state 'needs_review' at the same time; routing on status sent the client to a
+// plan subpage saying "still in planning" while the Overview said the same piece was
+// waiting on her. Every state except a quiet with_dot lands on the decidable piece page.
+export function routesToPiecePage(clientState: string): boolean {
+  return clientState !== 'with_dot'
+}
+
+// The Plan list is the quiet pipeline only: unproduced rows genuinely still with The
+// Dot. A released-for-review piece (needs_review) belongs to the approval surfaces and
+// must never render under "before they come to you for approval".
+export function belongsOnPlanSurface(status: string, clientState: string): boolean {
+  return (status === 'idea' || status === 'draft') && clientState === 'with_dot'
 }
 
 export type StatusAccent = 'yellow' | 'graphite' | 'grey'

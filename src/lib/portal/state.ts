@@ -28,3 +28,25 @@ export function parseClientState(value: unknown): ClientState {
   }
   return value as ClientState
 }
+
+// Client wording for every state (audit B4): a raw enum token never renders in client
+// prose. Each label completes the sentence "This piece is ___." Exhaustive over
+// ClientState, so a new state fails the type check instead of leaking a token.
+const CLIENT_STATE_LABELS: Record<ClientState, string> = {
+  needs_review: 'waiting for your review',
+  with_dot: 'back with The Dot',
+  approved: 'approved',
+  partially_scheduled: 'scheduled on some platforms (the rest are being confirmed)',
+  schedule_failed: 'having a scheduling issue (The Dot is on it)',
+  scheduled: 'scheduled',
+  reschedule_pending: 'being rescheduled',
+  cancel_pending: 'coming off the schedule',
+  partially_live: 'posted (some platforms verified)',
+  publish_failed: 'having a posting issue (The Dot is on it)',
+  live: 'posted',
+  archived: 'archived',
+}
+
+export function clientStateLabel(state: ClientState): string {
+  return CLIENT_STATE_LABELS[state]
+}

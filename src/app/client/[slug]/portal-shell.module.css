@@ -35,6 +35,10 @@
 }
 
 /* ---- NAV (mobile bottom bar) ---- */
+/* Audit C2: nine entries overflow a phone with no hint that more exist. Scrolling
+   shadows (the background-attachment local/scroll pair) put a soft edge shadow on
+   whichever side has hidden items and remove it at the end of the scroll, so the
+   off-screen sections announce themselves. Item order handles priority (PortalNav). */
 .nav {
   position: fixed;
   bottom: 0;
@@ -44,7 +48,14 @@
   display: flex;
   align-items: stretch;
   overflow-x: auto;
-  background: var(--dot-cream);
+  background:
+    linear-gradient(to right, var(--dot-cream) 40%, rgba(255, 255, 255, 0)) left / 44px 100%,
+    linear-gradient(to left, var(--dot-cream) 40%, rgba(255, 255, 255, 0)) right / 44px 100%,
+    radial-gradient(farthest-side at 0 50%, rgba(26, 26, 26, 0.22), transparent) left / 16px 100%,
+    radial-gradient(farthest-side at 100% 50%, rgba(26, 26, 26, 0.22), transparent) right / 16px 100%;
+  background-color: var(--dot-cream);
+  background-repeat: no-repeat;
+  background-attachment: local, local, scroll, scroll;
   border-top: 1px solid var(--dot-hairline);
 }
 
@@ -112,6 +123,7 @@
     flex-direction: column;
     align-items: stretch;
     overflow: visible;
+    background: var(--dot-cream); /* no scrolling shadows on the desktop sidebar */
     border-top: none;
     border-right: 1px solid var(--dot-hairline);
     padding: 28px 16px;

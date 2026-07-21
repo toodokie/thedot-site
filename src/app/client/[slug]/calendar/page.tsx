@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getClientSession } from '@/lib/portal/auth'
-import { getSchedule, statusAccent, isProduced, type ScheduleRow } from '@/lib/portal/schedule'
+import { getSchedule, statusAccent, routesToPiecePage, type ScheduleRow } from '@/lib/portal/schedule'
 import { Eyebrow, Heading, Text } from '@thedot/design-system'
 import MonthGrid, { type CalendarChip } from './MonthGrid'
 import styles from './calendar.module.css'
@@ -45,8 +45,10 @@ export default async function Calendar({ params }: { params: Promise<{ slug: str
 
   const todayIso = torontoTodayIso()
 
+  // Audit B1: the door routes on client_state (needs_review lands on the decidable
+  // piece page), never on status.
   const hrefFor = (r: ScheduleRow) =>
-    isProduced(r.status)
+    routesToPiecePage(r.client_state)
       ? `/client/${encodeURIComponent(slug)}/piece/${encodeURIComponent(r.content_id)}`
       : `/client/${encodeURIComponent(slug)}/plan/${encodeURIComponent(r.content_id)}`
 
