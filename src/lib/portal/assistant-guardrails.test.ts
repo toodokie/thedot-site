@@ -397,6 +397,16 @@ describe('portal answer validation', () => {
       expect(own.ok).toBe(true)
     })
 
+    it("rejects DROPPING the chunk's own negation (round-5 blocker: polarity parity)", () => {
+      // "Status: not yet scheduled" reversed to a positive status by omission
+      const dropped = answer('The H&C carousel is scheduled.', ['nav-negated'])
+      expect(dropped.ok).toBe(false)
+      if (!dropped.ok) expect(dropped.reason).toBe('navigation_only_factual_claim')
+      // and the omission cannot hide behind a second cited chunk of clean polarity
+      const laundered = answer('The H&C carousel is scheduled.', ['nav-negated', 'nav-status'])
+      expect(laundered.ok).toBe(false)
+    })
+
     it('rejects a bare "Yes." affirmation (could affirm a false premise in the question)', () => {
       const bare = answer('Yes.', ['nav-status'])
       expect(bare.ok).toBe(false)
