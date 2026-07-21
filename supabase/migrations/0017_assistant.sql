@@ -57,7 +57,10 @@ create policy assistant_usage_client_read on public.assistant_usage
   for select to authenticated
   using (client_id in (select public.my_client_ids()));
 
-revoke all on public.assistant_usage from public,anon,authenticated;
+-- The revoke includes service_role: hosted Supabase default privileges pre-grant DML on
+-- newly created tables (prod push incident 2026-07-21; the local stack has no such
+-- defaults, which is why replays passed). Revoke everything, grant back the minimal set.
+revoke all on public.assistant_usage from public,anon,authenticated,service_role;
 grant select (id, client_id, occurred_at, decision) on public.assistant_usage to authenticated;
 grant select on public.assistant_usage to service_role;
 

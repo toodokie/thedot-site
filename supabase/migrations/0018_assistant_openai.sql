@@ -111,8 +111,10 @@ create index assistant_document_chunks_search
 
 alter table public.assistant_documents enable row level security;
 alter table public.assistant_document_chunks enable row level security;
-revoke all on public.assistant_documents from public,anon,authenticated;
-revoke all on public.assistant_document_chunks from public,anon,authenticated;
+-- Revokes include service_role: hosted default privileges pre-grant DML on new tables
+-- (prod push incident 2026-07-21). Revoke everything, grant back the minimal set.
+revoke all on public.assistant_documents from public,anon,authenticated,service_role;
+revoke all on public.assistant_document_chunks from public,anon,authenticated,service_role;
 grant select on public.assistant_documents to service_role;
 grant select on public.assistant_document_chunks to service_role;
 
@@ -149,7 +151,7 @@ create index assistant_runs_tenant_time on public.assistant_runs (client_id, cre
 create index assistant_runs_user_time on public.assistant_runs (auth_user_id, created_at desc);
 
 alter table public.assistant_runs enable row level security;
-revoke all on public.assistant_runs from public,anon,authenticated;
+revoke all on public.assistant_runs from public,anon,authenticated,service_role;
 grant select on public.assistant_runs to service_role;
 
 -- --- "report this answer" ----------------------------------------------------
@@ -169,7 +171,7 @@ create table public.assistant_feedback (
 create index assistant_feedback_tenant_time on public.assistant_feedback (client_id, created_at desc);
 
 alter table public.assistant_feedback enable row level security;
-revoke all on public.assistant_feedback from public,anon,authenticated;
+revoke all on public.assistant_feedback from public,anon,authenticated,service_role;
 grant select on public.assistant_feedback to service_role;
 
 -- --- service-only index rebuild/reconciliation -------------------------------

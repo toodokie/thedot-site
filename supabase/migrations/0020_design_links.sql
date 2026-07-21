@@ -89,7 +89,9 @@ create policy content_design_links_client_read on public.content_design_links
   for select to authenticated
   using (client_id in (select public.my_client_ids()));
 
-revoke all on public.content_design_links from public,anon,authenticated;
+-- The revoke includes service_role: hosted default privileges pre-grant DML on new
+-- tables (prod push incident 2026-07-21). Revoke everything, grant back the minimal set.
+revoke all on public.content_design_links from public,anon,authenticated,service_role;
 grant select (content_item_id, client_id, canva_url, drive_url, updated_at)
   on public.content_design_links to authenticated;
 grant select on public.content_design_links to service_role;
