@@ -253,37 +253,53 @@ async function emitStatusGatesBlock(clientId: string, contentId: string, packPat
   if (!piece) { console.warn(`WARN: no working snapshot for ${contentId}; block not regenerated`); return }
   const block = renderStatusGatesBlock(piece, new Date().toISOString())
   if (packPath) {
-    const patched = await patchPackBlock(packPath, piece.contentId, block)
-    if (patched) { console.log(`PACK UPDATED: ${packPath}`); return }
-    console.warn('WARN: no matching STATUS GATES block found in the pack; paste this:')
+    const result = await patchPackBlock(packPath, piece.contentId, block)
+    if (result.patched) { console.log(`PACK UPDATED: ${packPath}`); return }
+    console.warn(result.reason === 'ambiguous'
+      ? `WARN: multiple STATUS GATES blocks in ${packPath} share this normalized id; refusing to guess which. Paste this:`
+      : 'WARN: no matching STATUS GATES block found in the pack; paste this:')
   } else {
     console.log('Regenerated STATUS GATES block (paste into the piece pack; or rerun with --pack <path>):')
   }
   console.log(block)
 }
 
-// Best-effort block replacement: matches the block whose `gates: id=` attribute equals
-// the contentId, or shares its slug tail once date/client prefixes are stripped.
-// Preserves the pack's own header line (packs suffix it, e.g. "(decoder reel)").
+// Strip the client + date prefix so a pack block written under an old id form still
+// matches; used only as the fallback when there is no exact content_id match.
 function normalizeGateId(id: string): string {
   return id.replace(/^kanset-/, '').replace(/^\d{4}-\d{2}(-\d{2})?-/, '')
 }
 
-async function patchPackBlock(packPath: string, contentId: string, block: string): Promise<boolean> {
+type PatchResult = { patched: true } | { patched: false; reason: 'not_found' | 'ambiguous' }
+
+// Patch the ONE block for this content_id. An EXACT id match wins outright (post-cutover
+// blocks carry the bare content_id). Only when there is no exact match do we fall back to
+// the date/client-stripped normalized suffix, and if TWO blocks share that suffix we
+// REFUSE rather than guess (Codex round-3 nice-to-have 1: a wrong-block patch is a silent
+// data error). The pack's own header line is preserved (packs suffix it, e.g. "(decoder
+// reel)").
+async function patchPackBlock(packPath: string, contentId: string, block: string): Promise<PatchResult> {
   let source: string
-  try { source = await readFile(packPath, 'utf8') } catch { return false }
+  try { source = await readFile(packPath, 'utf8') } catch { return { patched: false, reason: 'not_found' } }
   const pattern = /(## STATUS GATES[^\n]*\n)<!-- gates: id=([^ ]+) date=[^>]*-->\n((?:- \[[^\]]\][^\n]*\n?)*)/g
+  const matches = [...source.matchAll(pattern)].map((m) => ({
+    full: m[0], header: m[1], id: m[2], index: m.index ?? 0,
+  }))
   const target = normalizeGateId(contentId)
-  let replaced = false
-  const output = source.replace(pattern, (match, header: string, id: string) => {
-    if (replaced) return match
-    if (id !== contentId && normalizeGateId(id) !== target) return match
-    replaced = true
-    const [, ...generated] = block.split('\n') // drop the generic header, keep the pack's
-    return header + generated.join('\n') + '\n'
-  })
-  if (!replaced) return false
+  const exact = matches.filter((m) => m.id === contentId)
+  let chosen: (typeof matches)[number] | undefined
+  if (exact.length >= 1) {
+    chosen = exact[0]
+  } else {
+    const normalized = matches.filter((m) => normalizeGateId(m.id) === target)
+    if (normalized.length > 1) return { patched: false, reason: 'ambiguous' }
+    chosen = normalized[0]
+  }
+  if (!chosen) return { patched: false, reason: 'not_found' }
+  const [, ...generated] = block.split('\n') // drop the generic header, keep the pack's
+  const replacement = chosen.header + generated.join('\n') + '\n'
+  const output = source.slice(0, chosen.index) + replacement + source.slice(chosen.index + chosen.full.length)
   await writeFile(packPath, output, 'utf8')
-  return true
+  return { patched: true }
 }
 main().catch((error)=>{ console.error(`FAILED: ${error?.message ?? error}`); process.exit(1) })

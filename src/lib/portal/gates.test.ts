@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   deriveContentStage, deriveMyTasks, renderStatusGatesBlock, resolveNineGates,
-  businessDaysBetween, type StagePiece, type ProductionGateRow,
+  businessDaysBetween, canonicalScheduleDestination, canonicalDestinations,
+  selectCurrentDecision, type StagePiece, type ProductionGateRow,
 } from './gates'
 
 const gate = (
@@ -15,6 +16,7 @@ const gate = (
 })
 
 const piece = (overrides: Partial<StagePiece> = {}): StagePiece => ({
+  clientId: 'client-kanset', clientName: 'Kanset',
   contentId: 'kanset-2026-07-test-piece', title: 'Test piece', status: 'draft',
   factCheck: 'confirmed', factCheckExempt: false, currentDecision: null,
   approvalSentAt: null, platforms: ['instagram', 'facebook'], archived: false,
@@ -261,6 +263,7 @@ describe('resolveNineGates', () => {
 // derivations do not accept.
 describe('admin input-shape contract', () => {
   const loaderShaped: StagePiece = {
+    clientId: 'client-kanset', clientName: 'Kanset',
     contentId: 'kanset-2026-07-askkanset-ep3-move-provinces',
     title: 'Ask Kanset: moving provinces',
     status: 'draft', // unreleased piece: the loader still stages it (BLOCKER 1)
@@ -282,5 +285,106 @@ describe('admin input-shape contract', () => {
     const tasks = deriveMyTasks([loaderShaped], [], '2026-07-21')
     expect(tasks[0]).toMatchObject({ kind: 'action', gate: 'design-built' })
     expect(renderStatusGatesBlock(loaderShaped, '2026-07-21')).toContain('## STATUS GATES')
+  })
+})
+
+// Codex round-3 blocker: the loader must canonicalize raw frontmatter platforms to the
+// SAME destination vocabulary the schedule/publication targets are stored under
+// (portal_schedule_destination in 0008), or a complete youtube_shorts / website / blog
+// destination reads as unscheduled.
+describe('canonicalScheduleDestination (mirror of the SQL mapping)', () => {
+  it('maps every alias Codex named, and passes instagram/facebook through', () => {
+    const cases: Array<[string, string]> = [
+      ['instagram', 'instagram'],
+      ['facebook', 'facebook'],
+      ['youtube', 'youtube'],
+      ['youtube_shorts', 'youtube'],
+      ['youtube-shorts', 'youtube'],
+      ['youtube shorts', 'youtube'],
+      ['YouTube Shorts', 'youtube'], // case + trim insensitive, like lower(btrim())
+      ['  facebook  ', 'facebook'],
+      ['website', 'squarespace'],
+      ['blog', 'squarespace'],
+      ['squarespace', 'squarespace'],
+      ['other', 'other'],
+    ]
+    for (const [raw, expected] of cases) {
+      expect(canonicalScheduleDestination(raw)).toBe(expected)
+    }
+  })
+
+  it('collapses aliases that map to the same destination, preserving order', () => {
+    expect(canonicalDestinations(['instagram', 'facebook', 'youtube_shorts']))
+      .toEqual(['instagram', 'facebook', 'youtube'])
+    // youtube + youtube_shorts collapse to a single youtube destination (SQL DISTINCT)
+    expect(canonicalDestinations(['youtube', 'youtube-shorts'])).toEqual(['youtube'])
+    expect(canonicalDestinations(['website', 'blog'])).toEqual(['squarespace'])
+  })
+
+  it('a youtube_shorts piece matches a stored youtube target (the blocker, end to end)', () => {
+    // BEFORE the fix this piece read as scheduled-partial: platforms=[youtube_shorts]
+    // never matched the youtube schedule target. Now platforms canonicalize to youtube.
+    const p = piece({
+      platforms: canonicalDestinations(['instagram', 'youtube_shorts']),
+      dests: [dest('instagram', { scheduleStatus: 'scheduled' }),
+        dest('youtube', { scheduleStatus: 'scheduled' })],
+    })
+    expect(p.platforms).toEqual(['instagram', 'youtube'])
+    expect(deriveContentStage(p).stage).toBe('scheduled')
+  })
+})
+
+// Codex round-3 fix 2: piece-derived tasks carry the tenant so composite keys never
+// collide across clients that share a content_id.
+describe('my_tasks carry tenant identity', () => {
+  it('action / waiting_maria / waiting_studio all carry clientId + clientName', () => {
+    const action = deriveMyTasks([piece({ platforms: [],
+      gates: [gate('design_built', 'open')] })], [], '2026-07-21')[0]
+    expect(action).toMatchObject({ kind: 'action', clientId: 'client-kanset', clientName: 'Kanset' })
+
+    const maria = deriveMyTasks([piece({ platforms: [],
+      gates: [gate('design_built', 'done'), gate('proofed', 'done'),
+        gate('approval_sent', 'done', { occurred_at: '2026-07-16T12:00:00Z' })] })], [], '2026-07-21')[0]
+    expect(maria).toMatchObject({ kind: 'waiting_maria', clientId: 'client-kanset', clientName: 'Kanset' })
+
+    const studio = deriveMyTasks([piece({
+      gates: [gate('source_in_hand', 'open', { owner_label: 'studio' })] })], [], '2026-07-21')[0]
+    expect(studio).toMatchObject({ kind: 'waiting_studio', clientId: 'client-kanset', clientName: 'Kanset' })
+  })
+
+  it('two tenants sharing a content_id produce distinct composite keys', () => {
+    const a = piece({ clientId: 'client-a', clientName: 'A', contentId: 'shared-id',
+      platforms: [], gates: [gate('design_built', 'open')] })
+    const b = piece({ clientId: 'client-b', clientName: 'B', contentId: 'shared-id',
+      platforms: [], gates: [gate('design_built', 'open')] })
+    const tasks = deriveMyTasks([a, b], [], '2026-07-21')
+    const keys = tasks.map((t) => t.kind === 'ops' ? t.id : `${t.clientId}:${t.contentId}:${t.kind}`)
+    expect(new Set(keys).size).toBe(keys.length) // no collision
+  })
+})
+
+// Codex round-3 fix 1: the loader selects the current decision with the SAME tie-break
+// as the canonical content_with_state view (created_at DESC, id DESC), so on equal
+// timestamps the admin stage cannot disagree with client-facing portal state.
+describe('selectCurrentDecision tie-break', () => {
+  it('picks the latest created_at', () => {
+    expect(selectCurrentDecision([
+      { id: 'a', state: 'change_requested', created_at: '2026-07-20T10:00:00Z' },
+      { id: 'b', state: 'approved', created_at: '2026-07-21T10:00:00Z' },
+    ])).toBe('approved')
+  })
+
+  it('on equal created_at, the larger id wins (matches created_at DESC, id DESC)', () => {
+    const rows = [
+      { id: 'id-0001', state: 'change_requested', created_at: '2026-07-21T10:00:00Z' },
+      { id: 'id-0002', state: 'approved', created_at: '2026-07-21T10:00:00Z' },
+    ]
+    expect(selectCurrentDecision(rows)).toBe('approved') // id-0002 > id-0001
+    // order-independent: the tie-break, not array order, decides
+    expect(selectCurrentDecision([...rows].reverse())).toBe('approved')
+  })
+
+  it('no decisions -> null', () => {
+    expect(selectCurrentDecision([])).toBeNull()
   })
 })

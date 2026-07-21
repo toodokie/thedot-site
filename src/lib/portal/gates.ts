@@ -26,6 +26,11 @@ export type DestState = {
 }
 
 export type StagePiece = {
+  // content_id is unique only PER TENANT, so the tenant identity rides every piece
+  // (Codex round-3 fix 2): composite keys downstream stop cross-tenant collisions when a
+  // second client exists.
+  clientId: string
+  clientName: string
   contentId: string
   title: string
   status: string // idea | draft | approved | scheduled | posted
@@ -33,10 +38,64 @@ export type StagePiece = {
   factCheckExempt: boolean
   currentDecision: 'approved' | 'change_requested' | null
   approvalSentAt: string | null // derived from the approval_sent gate row when done
+  // platforms are CANONICAL schedule destinations (portal_schedule_destination mapping),
+  // not raw frontmatter, so they match content_schedule_targets / content_publication_
+  // targets which store the canonicalized destination (Codex round-3 blocker).
   platforms: string[]
   archived: boolean
   gates: ProductionGateRow[]
   dests: DestState[]
+}
+
+// TypeScript mirror of the SQL portal_schedule_destination() (0008): the loader must
+// canonicalize a piece's raw frontmatter platforms to the SAME destination vocabulary
+// the schedule/publication targets are stored under, or a complete youtube_shorts /
+// website / blog destination reads as unscheduled. A value that maps to nothing falls
+// back to its lowercased/trimmed self (a released piece can never carry an unmapped
+// platform, since portal_ensure_schedule_targets raises on one; a draft's unmapped
+// platform simply has no target lane and stays inert). Keep this in lockstep with 0008.
+const SCHEDULE_DESTINATION_MAP: Record<string, string> = {
+  instagram: 'instagram',
+  facebook: 'facebook',
+  youtube: 'youtube',
+  'youtube shorts': 'youtube',
+  youtube_shorts: 'youtube',
+  'youtube-shorts': 'youtube',
+  squarespace: 'squarespace',
+  website: 'squarespace',
+  blog: 'squarespace',
+  other: 'other',
+}
+
+export function canonicalScheduleDestination(platform: string): string {
+  const normalized = platform.trim().toLowerCase()
+  return SCHEDULE_DESTINATION_MAP[normalized] ?? normalized
+}
+
+// The current decision on a version, selected with the SAME tie-break the canonical
+// content_with_state view uses: created_at DESC, then id DESC (Codex round-3 fix 1). On
+// equal timestamps the loader and the view therefore pick the same row, so the admin
+// stage can never disagree with client-facing portal state.
+export type DecisionRow = { id: string; state: string; created_at: string }
+export function selectCurrentDecision(rows: DecisionRow[]): 'approved' | 'change_requested' | null {
+  const top = [...rows].sort((a, b) =>
+    a.created_at !== b.created_at
+      ? (a.created_at < b.created_at ? 1 : -1)
+      : (a.id < b.id ? 1 : -1))[0]?.state
+  return top === 'approved' ? 'approved' : top === 'change_requested' ? 'change_requested' : null
+}
+
+// Canonicalize a raw platform list to distinct destinations, preserving first-seen order
+// (matches the SQL DISTINCT collapse: two platforms mapping to the same destination
+// become one).
+export function canonicalDestinations(platforms: string[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const platform of platforms) {
+    const dest = canonicalScheduleDestination(platform)
+    if (!seen.has(dest)) { seen.add(dest); out.push(dest) }
+  }
+  return out
 }
 
 // Canonical order (my-tasks spec section 4, locked vocabulary).
@@ -219,10 +278,12 @@ export function deriveContentStage(piece: StagePiece): StageResult {
 
 // ---- my_tasks (spec 4.2, agency-only) ----------------------------------------
 
+// Piece-derived tasks carry the tenant (clientId + clientName) so the admin can key +
+// label them across tenants (Codex round-3 fix 2); ops tasks are keyed by their own uuid.
 export type MyTask =
-  | { kind: 'action'; contentId: string; title: string; gate: GateKey; dest: string | null; moreOpen: number }
-  | { kind: 'waiting_maria'; contentId: string; title: string; daysWaiting: number; nudge: boolean }
-  | { kind: 'waiting_studio'; contentId: string; title: string; note: string | null }
+  | { kind: 'action'; clientId: string; clientName: string; contentId: string; title: string; gate: GateKey; dest: string | null; moreOpen: number }
+  | { kind: 'waiting_maria'; clientId: string; clientName: string; contentId: string; title: string; daysWaiting: number; nudge: boolean }
+  | { kind: 'waiting_studio'; clientId: string; clientName: string; contentId: string; title: string; note: string | null }
   | { kind: 'ops'; id: string; title: string; category: string; bucket: 'overdue' | 'today' | 'this_week' | 'upcoming' | 'watch'; dueDate: string | null; triggerNote: string | null }
 
 // A recently-completed ops task, for the admin's "Recently completed" reader: it shows
@@ -269,6 +330,7 @@ export function deriveMyTasks(
 
   for (const piece of pieces) {
     if (piece.archived) continue
+    const tenant = { clientId: piece.clientId, clientName: piece.clientName }
     const resolved = resolveNineGates(piece)
     // only gates the portal actually stores generate tasks (absent rows are unknowns,
     // not obligations: a podcast episode must not show "needs source" forever)
@@ -281,17 +343,17 @@ export function deriveMyTasks(
         const days = businessDaysBetween(approvalSent.occurred_at, todayIso)
         // call 4: at 2 business days the row flags nudge?; a draft is OFFERED, nothing
         // ever auto-sends
-        tasks.push({ kind: 'waiting_maria', contentId: piece.contentId, title: piece.title,
-          daysWaiting: days, nudge: days >= 2 })
+        tasks.push({ kind: 'waiting_maria', ...tenant, contentId: piece.contentId,
+          title: piece.title, daysWaiting: days, nudge: days >= 2 })
         continue
       }
     }
     if (first.key === 'source-in-hand' && first.owner === 'studio') {
-      tasks.push({ kind: 'waiting_studio', contentId: piece.contentId, title: piece.title,
-        note: first.note })
+      tasks.push({ kind: 'waiting_studio', ...tenant, contentId: piece.contentId,
+        title: piece.title, note: first.note })
       continue
     }
-    tasks.push({ kind: 'action', contentId: piece.contentId, title: piece.title,
+    tasks.push({ kind: 'action', ...tenant, contentId: piece.contentId, title: piece.title,
       gate: first.key, dest: first.dest, moreOpen: open.length - 1 })
   }
 

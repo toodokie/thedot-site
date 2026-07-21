@@ -17,6 +17,15 @@ const chip: CSSProperties = {
   background: '#ffd700', color: '#1a1a1a', borderRadius: 2, marginLeft: 6,
 }
 
+// Composite React key: content_ids are unique only per tenant, so a piece-derived task
+// keys on ${clientId}:${contentId}:${kind} and an ops task on its own uuid (Codex
+// round-3 fix 2). Kills the duplicate-key risk once a second client exists.
+function taskKey(task: MyTask): string {
+  return task.kind === 'ops'
+    ? `ops:${task.id}`
+    : `${task.clientId}:${task.contentId}:${task.kind}`
+}
+
 function TaskRow({ task }: { task: MyTask }) {
   if (task.kind === 'action') {
     return <li>{task.title}: <strong>{task.gate}{task.dest ? `:${task.dest}` : ''}</strong>
@@ -61,11 +70,11 @@ export default function GatesAdmin({ pieces, opsTasks, completedOps, todayIso }:
       {actions.length === 0 && maria.length === 0 && studio.length === 0 && ops.length === 0
         ? <p style={{ color: '#777' }}>Nothing open.</p>
         : <>
-          {actions.length > 0 && <><h4>Actions</h4><ul>{actions.map((task, i) => <TaskRow key={i} task={task} />)}</ul></>}
-          {maria.length > 0 && <><h4>Waiting on Maria</h4><ul>{maria.map((task, i) => <TaskRow key={i} task={task} />)}</ul></>}
-          {studio.length > 0 && <><h4>Waiting on studio</h4><ul>{studio.map((task, i) => <TaskRow key={i} task={task} />)}</ul></>}
+          {actions.length > 0 && <><h4>Actions</h4><ul>{actions.map((task) => <TaskRow key={taskKey(task)} task={task} />)}</ul></>}
+          {maria.length > 0 && <><h4>Waiting on Maria</h4><ul>{maria.map((task) => <TaskRow key={taskKey(task)} task={task} />)}</ul></>}
+          {studio.length > 0 && <><h4>Waiting on studio</h4><ul>{studio.map((task) => <TaskRow key={taskKey(task)} task={task} />)}</ul></>}
           {opsBuckets.map(([label, rows]) => rows.length > 0
-            && <div key={label}><h4>Ops · {label}</h4><ul>{rows.map((task, i) => <TaskRow key={i} task={task} />)}</ul></div>)}
+            && <div key={label}><h4>Ops · {label}</h4><ul>{rows.map((task) => <TaskRow key={taskKey(task)} task={task} />)}</ul></div>)}
         </>}
 
       {completedOps.length > 0 && <>
@@ -97,7 +106,7 @@ export default function GatesAdmin({ pieces, opsTasks, completedOps, todayIso }:
             const stage = deriveContentStage(piece)
             const resolved = resolveNineGates(piece)
             return (
-              <tr key={piece.contentId}>
+              <tr key={`${piece.clientId}:${piece.contentId}`}>
                 <td style={cell}>{piece.title}</td>
                 <td style={cell}>{stage.label}</td>
                 <td style={cell} title={resolved.map((gate) =>
