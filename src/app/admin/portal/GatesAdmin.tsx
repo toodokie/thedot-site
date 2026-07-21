@@ -119,7 +119,7 @@ export default function GatesAdmin({ pieces, opsTasks, completedOps, todayIso }:
             <div className={styles.cardTitle}>My tasks</div>
             <div className={styles.cardSub}>Derived from production gates, decisions, schedule + publication evidence. Agency-only; emissions go through portal-write.</div>
           </div>
-          <span className={styles.count}>{openCount} open</span>
+          <span className={styles.count}><span className={styles.countPop}>{openCount}</span> open</span>
         </div>
         {openCount === 0 && linkPending.length === 0
           ? <p className={styles.empty}>Nothing open.</p>
