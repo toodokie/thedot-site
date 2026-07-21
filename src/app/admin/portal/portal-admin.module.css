@@ -319,6 +319,37 @@
   margin-bottom: var(--dot-space-4);
 }
 
+/* ---- secondary sections (calendar / billing / requests) ------------------- */
+.subCard {
+  border: 1px solid var(--admin-line);
+  border-radius: 6px;
+  padding: var(--dot-space-3);
+  margin: var(--dot-space-3) 0;
+}
+.subCardWarn { border-color: var(--admin-rust); }
+.subCardTitle { font-size: 14px; font-weight: var(--dot-weight-demi); color: var(--admin-ink); margin-bottom: 4px; }
+.metaLine { color: var(--admin-muted); font-size: 12.5px; font-variant-numeric: tabular-nums; margin-top: 3px; line-height: 1.5; }
+.errorText { color: var(--admin-rust); font-size: 12.5px; margin-top: 4px; }
+.codeId { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: var(--admin-muted); }
+.statusMsg { font-size: 13px; color: var(--admin-muted); margin-top: var(--dot-space-2); }
+.inlineForm { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.actions { display: flex; flex-wrap: wrap; gap: var(--dot-space-2); align-items: center; margin-top: var(--dot-space-2); }
+.btn {
+  appearance: none; border: 1px solid var(--admin-ink); background: transparent; color: var(--admin-ink);
+  font-family: var(--dot-font-text); font-size: 12.5px; font-weight: var(--dot-weight-medium);
+  padding: 6px 14px; border-radius: 4px; cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+.btn:hover:not(:disabled) { background: var(--admin-ink); color: var(--dot-white); }
+.btn:focus-visible { outline: 2px solid var(--admin-teal); outline-offset: 2px; }
+.btn:disabled { opacity: 0.5; cursor: progress; }
+.btnDanger { border-color: var(--admin-rust); color: var(--admin-rust); }
+.btnDanger:hover:not(:disabled) { background: var(--admin-rust); color: var(--dot-white); }
+.voided { opacity: 0.55; }
+.controlAuto { width: auto; }
+.nowrap { white-space: nowrap; }
+.rowActions { margin-top: 0; }
+
 @media (prefers-reduced-motion: reduce) {
-  .taskRow, .table tbody tr, .disclose, .submit { transition: none; }
+  .taskRow, .table tbody tr, .disclose, .submit, .btn { transition: none; }
 }

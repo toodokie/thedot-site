@@ -1,10 +1,20 @@
 'use client'
 
 import { useState } from 'react'
+import styles from './portal-admin.module.css'
+import StatusPill, { type PillTone } from './StatusPill'
 
 export type AdminContentRequest = {
   id: string; clientName: string; requestType: string; status: string; requesterName: string
   createdAt: string; title: string; baseVersion: number | null; resolutionNote: string | null
+}
+
+// Request status -> pill tone (presentation only; the raw status string is unchanged upstream).
+function requestTone(status: string): PillTone {
+  if (status === 'applied') return 'verified'
+  if (status === 'rejected' || status === 'conflicted') return 'failed'
+  if (status === 'pending' || status === 'applying') return 'pending'
+  return 'muted'
 }
 
 export default function RequestAdmin({ requests }: { requests: AdminContentRequest[] }) {
@@ -25,21 +35,28 @@ export default function RequestAdmin({ requests }: { requests: AdminContentReque
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Request resolution failed') }
     finally { setBusy(null) }
   }
-  return <section style={{ marginTop: 42 }}>
-    <h2>Client content requests</h2>
-    <p>Apply commands run only through the checked local <code>portal-inbox apply-*</code> path. This browser never writes the canonical repository.</p>
-    {message && <p role="status">{message}</p>}
-    {!requests.length ? <p>No content requests.</p> : <div style={{ display: 'grid', gap: 12 }}>
-      {requests.map((request) => <article key={request.id} style={{ border: '1px solid #ddd', padding: 14 }}>
-        <strong>{request.title}</strong> · {request.clientName} · {request.requestType} · {request.status}
-        <div style={{ color: '#666', fontSize: 13 }}>{request.requesterName} · {request.createdAt.slice(0, 10)}{request.baseVersion ? ` · v${request.baseVersion}` : ''}</div>
-        {request.resolutionNote && <p>{request.resolutionNote}</p>}
-        {['pending', 'applying'].includes(request.status) && <p style={{ display: 'flex', gap: 8 }}>
-          <button type="button" disabled={busy === request.id} onClick={() => resolve(request.id, 'rejected')}>Reject</button>
-          <button type="button" disabled={busy === request.id} onClick={() => resolve(request.id, 'conflicted')}>Mark conflict</button>
-        </p>}
-        <code>{request.id}</code>
+  return <>
+    <div className={styles.cardHead}>
+      <div>
+        <div className={styles.cardTitle}>Client content requests</div>
+        <div className={styles.cardSub}>Apply commands run only through the checked local portal-inbox apply-* path. This browser never writes the canonical repository.</div>
+      </div>
+    </div>
+    {message && <p className={styles.statusMsg} role="status">{message}</p>}
+    {!requests.length ? <p className={styles.empty}>No content requests.</p> : <div>
+      {requests.map((request) => <article key={request.id} className={styles.subCard}>
+        <div className={styles.pubPieceHead}>
+          <span className={styles.subCardTitle}>{request.title}</span>
+          <StatusPill tone={requestTone(request.status)} label={request.status} />
+        </div>
+        <div className={styles.metaLine}>{request.clientName} · {request.requestType} · {request.requesterName} · {request.createdAt.slice(0, 10)}{request.baseVersion ? ` · v${request.baseVersion}` : ''}</div>
+        {request.resolutionNote && <p className={styles.metaLine}>{request.resolutionNote}</p>}
+        {['pending', 'applying'].includes(request.status) && <div className={styles.actions}>
+          <button type="button" className={`${styles.btn} ${styles.btnDanger}`} disabled={busy === request.id} onClick={() => resolve(request.id, 'rejected')}>Reject</button>
+          <button type="button" className={styles.btn} disabled={busy === request.id} onClick={() => resolve(request.id, 'conflicted')}>Mark conflict</button>
+        </div>}
+        <div className={styles.codeId}>{request.id}</div>
       </article>)}
     </div>}
-  </section>
+  </>
 }

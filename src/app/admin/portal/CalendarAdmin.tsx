@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import styles from './portal-admin.module.css'
+import StatusPill, { type PillTone } from './StatusPill'
 
 export type CalendarIntegrationAdmin = {
   id: string; clientId: string; clientName: string; displayName: string; ownerEmail: string
@@ -11,6 +13,14 @@ export type CalendarIntegrationAdmin = {
 export type CalendarConflictAdmin = { id: string; integrationId: string; kind: string; summary: string; createdAt: string }
 export type UnmappedCalendarEventAdmin = { id: string; clientId: string; summary: string|null; start: string|null; reason: string }
 export type CalendarContentOption = { id: string; clientId: string; version: number; title: string }
+
+// Sync health -> pill tone (presentation only; the raw health string is unchanged upstream).
+function healthTone(health: string): PillTone {
+  const h = health.toLowerCase()
+  if (h.includes('health') || h === 'ok' || h === 'active') return 'verified'
+  if (h.includes('error') || h.includes('fail')) return 'failed'
+  return 'pending'
+}
 
 export default function CalendarAdmin({ clients, integrations, conflicts = [], unmapped = [], contentOptions = [] }: {
   clients: Array<{ id: string; name: string }>; integrations: CalendarIntegrationAdmin[]
@@ -87,58 +97,68 @@ export default function CalendarAdmin({ clients, integrations, conflicts = [], u
       window.location.reload()
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Ignore failed'); setBusy(false) }
   }
-  return <section style={{ marginTop: 48, borderTop: '1px solid #ddd', paddingTop: 32 }}>
-    <h2>Shared Google Calendar</h2>
-    <p style={{ maxWidth: 760, color: '#555' }}>
-      Supabase remains authoritative. Calendar edits may move an eligible editorial hold, but never
-      approve copy or prove that a destination was scheduled or published.
-    </p>
-    {integrations.map((item) => <article key={item.id} style={{ border: '1px solid #ddd', padding: 16, margin: '16px 0' }}>
-      <h3>{item.clientName} · {item.displayName}</h3>
-      <p><strong>{item.health}</strong> · {item.status} · OAuth account {item.ownerEmail} ({item.accessRole})</p>
-      <p>Last incremental sync: {item.lastIncrementalSync ? new Date(item.lastIncrementalSync).toLocaleString() : 'Never'}.
-        {' '}Next reconciliation: {item.nextReconcile ? new Date(item.nextReconcile).toLocaleString() : 'Not scheduled'}.</p>
-      <p>Open conflicts: {item.openConflicts} · Unmapped events: {item.unmappedEvents} · Failed jobs: {item.failedJobs}</p>
-      {item.lastError && <p style={{ color: '#8b1a1a' }}>{item.lastError}</p>}
+  return <>
+    <div className={styles.cardHead}>
+      <div>
+        <div className={styles.cardTitle}>Shared Google Calendar</div>
+        <div className={styles.cardSub}>Supabase remains authoritative. Calendar edits may move an eligible editorial hold, but never approve copy or prove that a destination was scheduled or published.</div>
+      </div>
+    </div>
+    {integrations.map((item) => <article key={item.id} className={styles.subCard}>
+      <div className={styles.pubPieceHead}>
+        <span className={styles.subCardTitle}>{item.clientName} · {item.displayName}</span>
+        <StatusPill tone={healthTone(item.health)} label={item.health} />
+      </div>
+      <div className={styles.metaLine}>{item.status} · OAuth account {item.ownerEmail} ({item.accessRole})</div>
+      <div className={styles.metaLine}>Last incremental sync: {item.lastIncrementalSync ? new Date(item.lastIncrementalSync).toLocaleString() : 'Never'}.
+        {' '}Next reconciliation: {item.nextReconcile ? new Date(item.nextReconcile).toLocaleString() : 'Not scheduled'}.</div>
+      <div className={styles.metaLine}>Open conflicts: {item.openConflicts} · Unmapped events: {item.unmappedEvents} · Failed jobs: {item.failedJobs}</div>
+      {item.lastError && <div className={styles.errorText}>{item.lastError}</div>}
     </article>)}
     {conflicts.length > 0 && <div>
-      <h3>Open reconciliation conflicts</h3>
-      {conflicts.map((conflict) => <article key={conflict.id}
-        style={{ border: '1px solid #b66', padding: 12, margin: '8px 0' }}>
-        <p><strong>{conflict.kind.replaceAll('_',' ')}</strong> · {conflict.summary}</p>
-        <p><button type="button" disabled={busy} onClick={() => resolve(conflict.id,'portal')}>Keep portal date</button>
-          {conflict.kind !== 'mapping_integrity' && <>{' '}<button type="button" disabled={busy}
-            onClick={() => resolve(conflict.id,'google')}>Accept Google change</button></>}</p>
+      <div className={styles.groupLabel}>Open reconciliation conflicts</div>
+      {conflicts.map((conflict) => <article key={conflict.id} className={`${styles.subCard} ${styles.subCardWarn}`}>
+        <div className={styles.metaLine}><strong>{conflict.kind.replaceAll('_',' ')}</strong> · {conflict.summary}</div>
+        <div className={styles.actions}>
+          <button type="button" className={styles.btn} disabled={busy} onClick={() => resolve(conflict.id,'portal')}>Keep portal date</button>
+          {conflict.kind !== 'mapping_integrity' && <button type="button" className={styles.btn} disabled={busy}
+            onClick={() => resolve(conflict.id,'google')}>Accept Google change</button>}
+        </div>
       </article>)}
     </div>}
     {unmapped.length > 0 && <div>
-      <h3>Unmapped existing events</h3>
-      <p>Review each exact event. Titles are never used automatically to select a tenant or content item.</p>
+      <div className={styles.groupLabel}>Unmapped existing events</div>
+      <p className={styles.metaLine}>Review each exact event. Titles are never used automatically to select a tenant or content item.</p>
       {unmapped.map((event) => {
         const options = contentOptions.filter((item) => item.clientId === event.clientId)
-        return <article key={event.id} style={{ border: '1px solid #d7aa50', padding: 12, margin: '8px 0' }}>
-          <p><strong>{event.summary || 'Untitled event'}</strong> · {event.start || 'No usable date'} · {event.reason}</p>
-          <select value={mappingSelections[event.id] ?? ''} disabled={busy}
-            onChange={(change) => setMappingSelections((current) => ({ ...current, [event.id]: change.target.value }))}>
-            <option value="">Select the reviewed portal piece</option>
-            {options.map((option) => <option key={option.id} value={option.id}>{option.title} · v{option.version}</option>)}
-          </select>{' '}<button type="button" disabled={busy || !mappingSelections[event.id]}
-            onClick={() => linkUnmapped(event,options)}>Link reviewed event</button>{' '}
-          <button type="button" disabled={busy} onClick={() => ignoreUnmapped(event)}>Ignore unrelated event</button>
+        return <article key={event.id} className={`${styles.subCard} ${styles.subCardWarn}`}>
+          <div className={styles.metaLine}><strong>{event.summary || 'Untitled event'}</strong> · {event.start || 'No usable date'} · {event.reason}</div>
+          <div className={styles.actions}>
+            <select className={`${styles.select} ${styles.controlAuto}`} value={mappingSelections[event.id] ?? ''} disabled={busy}
+              onChange={(change) => setMappingSelections((current) => ({ ...current, [event.id]: change.target.value }))}>
+              <option value="">Select the reviewed portal piece</option>
+              {options.map((option) => <option key={option.id} value={option.id}>{option.title} · v{option.version}</option>)}
+            </select>
+            <button type="button" className={styles.btn} disabled={busy || !mappingSelections[event.id]}
+              onClick={() => linkUnmapped(event,options)}>Link reviewed event</button>
+            <button type="button" className={styles.btn} disabled={busy} onClick={() => ignoreUnmapped(event)}>Ignore unrelated event</button>
+          </div>
         </article>
       })}
     </div>}
-    <div style={{ display: 'grid', gap: 8, maxWidth: 620 }}>
-      <label>Client<select value={clientId} onChange={(event) => setClientId(event.target.value)} disabled={busy}>
-        {clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
-      </select></label>
-      <label>Exact existing Google Calendar ID<input value={calendarId}
-        onChange={(event) => setCalendarId(event.target.value)} disabled={busy} required /></label>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button type="button" onClick={connect} disabled={busy || !clientId || !calendarId}>Connect existing calendar</button>
-        <button type="button" onClick={run} disabled={busy || integrations.length === 0}>Run reconciliation</button>
+    <div className={styles.form}>
+      <label className={styles.field}><span className={styles.fieldLabel}>Client</span>
+        <select className={styles.select} value={clientId} onChange={(event) => setClientId(event.target.value)} disabled={busy}>
+          {clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
+        </select></label>
+      <label className={styles.field}><span className={styles.fieldLabel}>Exact existing Google Calendar ID</span>
+        <input className={styles.input} value={calendarId}
+          onChange={(event) => setCalendarId(event.target.value)} disabled={busy} required /></label>
+      <div className={styles.actions}>
+        <button type="button" className={styles.btn} onClick={connect} disabled={busy || !clientId || !calendarId}>Connect existing calendar</button>
+        <button type="button" className={styles.btn} onClick={run} disabled={busy || integrations.length === 0}>Run reconciliation</button>
       </div>
-      {message && <p role="status">{message}</p>}
+      {message && <p className={styles.statusMsg} role="status">{message}</p>}
     </div>
-  </section>
+  </>
 }

@@ -1,5 +1,7 @@
 'use client'
 import { useState } from 'react'
+import styles from './portal-admin.module.css'
+import StatusPill from './StatusPill'
 
 export type AdminInvoice = {
   id: string
@@ -61,66 +63,73 @@ export default function BillingAdmin({ invoices }: { invoices: AdminInvoice[] })
   }
 
   return (
-    <section style={{ marginTop: 32 }}>
-      <h2>Billing</h2>
-      {message && <p role="status">{message}</p>}
+    <>
+      <div className={styles.cardHead}>
+        <div className={styles.cardTitle}>Billing</div>
+      </div>
+      {message && <p className={styles.statusMsg} role="status">{message}</p>}
       {rows.length === 0 ? (
-        <p>No invoices yet. Create them with <code>portal-write invoice</code>.</p>
+        <p className={styles.empty}>No invoices yet. Create them with <span className={styles.codeId}>portal-write invoice</span>.</p>
       ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ textAlign: 'left' }}>
-              <th>Client</th><th>Invoice</th><th>Amount</th><th>Status</th><th>Document</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((inv) => {
-              const isVoid = inv.status === 'void'
-              return (
-                <tr key={inv.id} style={{ borderTop: '1px solid #ddd', opacity: isVoid ? 0.6 : 1 }}>
-                  <td>{inv.clientName}</td>
-                  <td>#{inv.number}<br /><small>{inv.issuedAt}</small></td>
-                  <td style={{ whiteSpace: 'nowrap' }}>{inv.currency} {inv.amount}</td>
-                  <td>
-                    {isVoid ? (
-                      <strong>Void (final)</strong>
-                    ) : (
-                      <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
-                        <select
-                          value={inv.status}
-                          disabled={busy === inv.id}
-                          onChange={(e) => setPaidState(inv, e.target.value as 'paid' | 'unpaid')}
-                          aria-label={`Payment status for invoice ${inv.number}`}
-                        >
-                          <option value="unpaid">Unpaid</option>
-                          <option value="paid">Paid</option>
-                        </select>
-                        <button
-                          type="button"
-                          disabled={busy === inv.id}
-                          onClick={() => voidInvoice(inv)}
-                          title="Void this invoice (permanent)"
-                        >
-                          Void…
-                        </button>
-                      </span>
-                    )}
-                  </td>
-                  <td>
-                    {inv.documentUrl
-                      ? <a href={inv.documentUrl} target="_blank" rel="noreferrer">View</a>
-                      : <span>None</span>}
-                    {!isVoid && (
-                      <AttachForm disabled={busy === inv.id} onAttach={(url) => attach(inv, url)} />
-                    )}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Client</th><th>Invoice</th><th>Amount</th><th>Status</th><th>Document</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((inv) => {
+                const isVoid = inv.status === 'void'
+                return (
+                  <tr key={inv.id} className={isVoid ? styles.voided : undefined}>
+                    <td>{inv.clientName}</td>
+                    <td>#{inv.number}<div className={styles.metaLine}>{inv.issuedAt}</div></td>
+                    <td className={`${styles.cellNum} ${styles.nowrap}`}>{inv.currency} {inv.amount}</td>
+                    <td>
+                      {isVoid ? (
+                        <StatusPill tone="na" label="void (final)" />
+                      ) : (
+                        <span className={`${styles.actions} ${styles.rowActions}`}>
+                          <StatusPill tone={inv.status === 'paid' ? 'verified' : 'muted'} label={inv.status} />
+                          <select
+                            className={`${styles.select} ${styles.controlAuto}`}
+                            value={inv.status}
+                            disabled={busy === inv.id}
+                            onChange={(e) => setPaidState(inv, e.target.value as 'paid' | 'unpaid')}
+                            aria-label={`Payment status for invoice ${inv.number}`}
+                          >
+                            <option value="unpaid">Unpaid</option>
+                            <option value="paid">Paid</option>
+                          </select>
+                          <button
+                            type="button"
+                            className={`${styles.btn} ${styles.btnDanger}`}
+                            disabled={busy === inv.id}
+                            onClick={() => voidInvoice(inv)}
+                            title="Void this invoice (permanent)"
+                          >
+                            Void…
+                          </button>
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      {inv.documentUrl
+                        ? <a className={styles.destLink} href={inv.documentUrl} target="_blank" rel="noreferrer">View</a>
+                        : <span className={styles.cellMuted}>None</span>}
+                      {!isVoid && (
+                        <AttachForm disabled={busy === inv.id} onAttach={(url) => attach(inv, url)} />
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
-    </section>
+    </>
   )
 }
 
@@ -129,9 +138,10 @@ function AttachForm({ onAttach, disabled }: { onAttach: (url: string) => void; d
   return (
     <form
       onSubmit={(e) => { e.preventDefault(); if (url) { onAttach(url); setUrl('') } }}
-      style={{ display: 'inline-flex', gap: 6, marginLeft: 8 }}
+      className={styles.inlineForm}
     >
       <input
+        className={`${styles.input} ${styles.controlAuto}`}
         type="url"
         placeholder="Google Doc/Drive link"
         value={url}
@@ -139,7 +149,7 @@ function AttachForm({ onAttach, disabled }: { onAttach: (url: string) => void; d
         disabled={disabled}
         aria-label="Invoice document link"
       />
-      <button type="submit" disabled={disabled || !url}>Attach</button>
+      <button type="submit" className={styles.btn} disabled={disabled || !url}>Attach</button>
     </form>
   )
 }
