@@ -256,7 +256,7 @@ async function emitStatusGatesBlock(clientId: string, contentId: string, packPat
     const result = await patchPackBlock(packPath, piece.contentId, block)
     if (result.patched) { console.log(`PACK UPDATED: ${packPath}`); return }
     console.warn(result.reason === 'ambiguous'
-      ? `WARN: multiple STATUS GATES blocks in ${packPath} share this normalized id; refusing to guess which. Paste this:`
+      ? `WARN: multiple STATUS GATES blocks in ${packPath} match this content_id (duplicate exact or shared normalized suffix); refusing to guess which. Paste this:`
       : 'WARN: no matching STATUS GATES block found in the pack; paste this:')
   } else {
     console.log('Regenerated STATUS GATES block (paste into the piece pack; or rerun with --pack <path>):')
@@ -273,11 +273,11 @@ function normalizeGateId(id: string): string {
 type PatchResult = { patched: true } | { patched: false; reason: 'not_found' | 'ambiguous' }
 
 // Patch the ONE block for this content_id. An EXACT id match wins outright (post-cutover
-// blocks carry the bare content_id). Only when there is no exact match do we fall back to
-// the date/client-stripped normalized suffix, and if TWO blocks share that suffix we
-// REFUSE rather than guess (Codex round-3 nice-to-have 1: a wrong-block patch is a silent
-// data error). The pack's own header line is preserved (packs suffix it, e.g. "(decoder
-// reel)").
+// blocks carry the bare content_id), UNLESS two blocks carry the same exact id, which is
+// as ambiguous as a shared normalized suffix and refuses (Codex round-4 fix 1). Only when
+// there is no exact match do we fall back to the date/client-stripped normalized suffix,
+// and if TWO blocks share that suffix we REFUSE too. A wrong-block patch is a silent data
+// error. The pack's own header line is preserved (packs suffix it, e.g. "(decoder reel)").
 async function patchPackBlock(packPath: string, contentId: string, block: string): Promise<PatchResult> {
   let source: string
   try { source = await readFile(packPath, 'utf8') } catch { return { patched: false, reason: 'not_found' } }
@@ -288,7 +288,9 @@ async function patchPackBlock(packPath: string, contentId: string, block: string
   const target = normalizeGateId(contentId)
   const exact = matches.filter((m) => m.id === contentId)
   let chosen: (typeof matches)[number] | undefined
-  if (exact.length >= 1) {
+  if (exact.length > 1) {
+    return { patched: false, reason: 'ambiguous' } // duplicate exact ids: refuse, don't guess
+  } else if (exact.length === 1) {
     chosen = exact[0]
   } else {
     const normalized = matches.filter((m) => normalizeGateId(m.id) === target)

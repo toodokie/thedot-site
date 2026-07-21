@@ -50,10 +50,12 @@ export type StagePiece = {
 // TypeScript mirror of the SQL portal_schedule_destination() (0008): the loader must
 // canonicalize a piece's raw frontmatter platforms to the SAME destination vocabulary
 // the schedule/publication targets are stored under, or a complete youtube_shorts /
-// website / blog destination reads as unscheduled. A value that maps to nothing falls
-// back to its lowercased/trimmed self (a released piece can never carry an unmapped
-// platform, since portal_ensure_schedule_targets raises on one; a draft's unmapped
-// platform simply has no target lane and stays inert). Keep this in lockstep with 0008.
+// website / blog destination reads as unscheduled. An UNKNOWN platform returns NULL
+// exactly as the SQL does (Codex round-4 blocker): a passthrough would invent a phantom
+// destination (e.g. tiktok) with perpetual gate tasks that the SQL never schedules. A
+// released piece can never carry an unmapped platform (portal_ensure_schedule_targets
+// raises on one); a draft's unmapped platform simply has no target lane and is dropped.
+// Keep this in lockstep with 0008.
 const SCHEDULE_DESTINATION_MAP: Record<string, string> = {
   instagram: 'instagram',
   facebook: 'facebook',
@@ -67,9 +69,9 @@ const SCHEDULE_DESTINATION_MAP: Record<string, string> = {
   other: 'other',
 }
 
-export function canonicalScheduleDestination(platform: string): string {
+export function canonicalScheduleDestination(platform: string): string | null {
   const normalized = platform.trim().toLowerCase()
-  return SCHEDULE_DESTINATION_MAP[normalized] ?? normalized
+  return SCHEDULE_DESTINATION_MAP[normalized] ?? null
 }
 
 // The current decision on a version, selected with the SAME tie-break the canonical
@@ -85,15 +87,17 @@ export function selectCurrentDecision(rows: DecisionRow[]): 'approved' | 'change
   return top === 'approved' ? 'approved' : top === 'change_requested' ? 'change_requested' : null
 }
 
-// Canonicalize a raw platform list to distinct destinations, preserving first-seen order
-// (matches the SQL DISTINCT collapse: two platforms mapping to the same destination
-// become one).
+// Canonicalize a raw platform list to distinct SUPPORTED destinations, preserving
+// first-seen order (matches the SQL DISTINCT collapse: two platforms mapping to the same
+// destination become one). Unknown platforms canonicalize to null and are DROPPED (Codex
+// round-4 blocker): they have no schedule/publication target lane, so they must not
+// become phantom per-destination gates.
 export function canonicalDestinations(platforms: string[]): string[] {
   const seen = new Set<string>()
   const out: string[] = []
   for (const platform of platforms) {
     const dest = canonicalScheduleDestination(platform)
-    if (!seen.has(dest)) { seen.add(dest); out.push(dest) }
+    if (dest !== null && !seen.has(dest)) { seen.add(dest); out.push(dest) }
   }
   return out
 }
@@ -280,17 +284,21 @@ export function deriveContentStage(piece: StagePiece): StageResult {
 
 // Piece-derived tasks carry the tenant (clientId + clientName) so the admin can key +
 // label them across tenants (Codex round-3 fix 2); ops tasks are keyed by their own uuid.
+// Every task carries a resolved clientName so the admin can label it across tenants
+// (Codex round-4 fix 2). An ops task with a null client_id is agency-global: its
+// clientName is 'Agency'. Piece-derived tasks also carry clientId for composite keys.
 export type MyTask =
   | { kind: 'action'; clientId: string; clientName: string; contentId: string; title: string; gate: GateKey; dest: string | null; moreOpen: number }
   | { kind: 'waiting_maria'; clientId: string; clientName: string; contentId: string; title: string; daysWaiting: number; nudge: boolean }
   | { kind: 'waiting_studio'; clientId: string; clientName: string; contentId: string; title: string; note: string | null }
-  | { kind: 'ops'; id: string; title: string; category: string; bucket: 'overdue' | 'today' | 'this_week' | 'upcoming' | 'watch'; dueDate: string | null; triggerNote: string | null }
+  | { kind: 'ops'; id: string; clientName: string; title: string; category: string; bucket: 'overdue' | 'today' | 'this_week' | 'upcoming' | 'watch'; dueDate: string | null; triggerNote: string | null }
 
 // A recently-completed ops task, for the admin's "Recently completed" reader: it shows
 // BOTH the original trigger_note (immutable) and the completion_note (fix B), proving a
 // completion never overwrites the trigger provenance.
 export type CompletedOpsTask = {
   id: string
+  clientName: string // 'Agency' for a null-client global task
   title: string
   category: string
   status: string
@@ -299,8 +307,13 @@ export type CompletedOpsTask = {
   completedAt: string | null
 }
 
+// clientId is nullable: an ops task may be agency-global (Codex round-4 fix 2 threads it
+// through so the admin can resolve + display the client name). clientName is the resolved
+// label ('Agency' when clientId is null).
 export type OpsTaskRow = {
   id: string
+  clientId: string | null
+  clientName: string
   title: string
   category: string
   due_date: string | null
@@ -368,8 +381,8 @@ export function deriveMyTasks(
       : task.due_date === todayIso ? 'today'
       : task.due_date <= weekIso ? 'this_week'
       : 'upcoming'
-    tasks.push({ kind: 'ops', id: task.id, title: task.title, category: task.category,
-      bucket, dueDate: task.due_date, triggerNote: task.trigger_note })
+    tasks.push({ kind: 'ops', id: task.id, clientName: task.clientName, title: task.title,
+      category: task.category, bucket, dueDate: task.due_date, triggerNote: task.trigger_note })
   }
   return tasks
 }

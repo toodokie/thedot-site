@@ -33,8 +33,8 @@ export default async function PortalAdminPage() {
     admin.from('calendar_sync_jobs').select('integration_id').in('status',['failed','abandoned']),
     admin.from('invoices').select('id,client_id,number,issued_at,amount,currency,status,document_url').order('issued_at', { ascending: false }),
     admin.rpc('list_content_change_requests', { p_client_id: null }),
-    admin.from('ops_tasks').select('id,title,category,due_date,trigger_note,status').eq('status', 'open'),
-    admin.from('ops_tasks').select('id,title,category,status,trigger_note,completion_note,completed_at')
+    admin.from('ops_tasks').select('id,client_id,title,category,due_date,trigger_note,status').eq('status', 'open'),
+    admin.from('ops_tasks').select('id,client_id,title,category,status,trigger_note,completion_note,completed_at')
       .in('status', ['done', 'dropped']).order('completed_at', { ascending: false }).limit(10),
   ])
   const failure = clients.error ?? content.error ?? schedules.error ?? publications.error ?? observations.error
@@ -122,9 +122,18 @@ export default async function PortalAdminPage() {
   // released content_with_state view), so gates on an unreleased draft/idea piece show
   // here too. loadAgencyStagePieces runs its own service-role queries.
   const stagePieces: StagePiece[] = await loadAgencyStagePieces(admin)
-  const adminOpsTasks: OpsTaskRow[] = (opsTasks.data ?? [])
+  // Resolve the ops task's client name for display; a null client_id is an agency-global
+  // task labelled 'Agency' (Codex round-4 fix 2).
+  const opsClientName = (clientId: string | null) =>
+    clientId === null ? 'Agency' : clientMap.get(clientId)?.name ?? 'Unknown client'
+  const adminOpsTasks: OpsTaskRow[] = (opsTasks.data ?? []).map((task) => ({
+    id: task.id, clientId: task.client_id, clientName: opsClientName(task.client_id),
+    title: task.title, category: task.category, due_date: task.due_date,
+    trigger_note: task.trigger_note, status: task.status,
+  }))
   const completedOps: CompletedOpsTask[] = (completedOpsRows.data ?? []).map((task) => ({
-    id: task.id, title: task.title, category: task.category, status: task.status,
+    id: task.id, clientName: opsClientName(task.client_id),
+    title: task.title, category: task.category, status: task.status,
     triggerNote: task.trigger_note, completionNote: task.completion_note, completedAt: task.completed_at,
   }))
   const todayIso = new Intl.DateTimeFormat('en-CA', {

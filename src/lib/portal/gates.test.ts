@@ -181,16 +181,30 @@ describe('deriveMyTasks', () => {
   })
 
   it('buckets ops tasks: overdue, today, this week, upcoming, watch', () => {
+    const ops = (over: Partial<import('./gates').OpsTaskRow>): import('./gates').OpsTaskRow => ({
+      id: 'x', clientId: 'client-kanset', clientName: 'Kanset', title: 't', category: 'admin',
+      due_date: null, trigger_note: null, status: 'open', ...over,
+    })
     const tasks = deriveMyTasks([], [
-      { id: '1', title: 'Chase invoice', category: 'invoice', due_date: '2026-07-20', trigger_note: null, status: 'open' },
-      { id: '2', title: 'Send plan', category: 'plan', due_date: '2026-07-21', trigger_note: null, status: 'open' },
-      { id: '3', title: 'Podcast revisit', category: 'revisit', due_date: '2026-07-24', trigger_note: null, status: 'open' },
-      { id: '4', title: 'Next month kickoff', category: 'plan', due_date: '2026-09-01', trigger_note: null, status: 'open' },
-      { id: '5', title: '500 reviews watch', category: 'watch', due_date: null, trigger_note: 'fires at 500', status: 'open' },
-      { id: '6', title: 'Done thing', category: 'admin', due_date: null, trigger_note: null, status: 'done' },
+      ops({ id: '1', title: 'Chase invoice', category: 'invoice', due_date: '2026-07-20' }),
+      ops({ id: '2', title: 'Send plan', category: 'plan', due_date: '2026-07-21' }),
+      ops({ id: '3', title: 'Podcast revisit', category: 'revisit', due_date: '2026-07-24' }),
+      ops({ id: '4', title: 'Next month kickoff', category: 'plan', due_date: '2026-09-01' }),
+      ops({ id: '5', title: '500 reviews watch', category: 'watch', trigger_note: 'fires at 500' }),
+      ops({ id: '6', title: 'Done thing', status: 'done' }),
     ], '2026-07-21')
     const buckets = tasks.map((task) => (task.kind === 'ops' ? task.bucket : null))
     expect(buckets).toEqual(['overdue', 'today', 'this_week', 'upcoming', 'watch'])
+  })
+
+  it("an agency-global ops task (null client) is labelled 'Agency' in its derived row", () => {
+    // the admin resolves clientName='Agency' for a null client_id before deriveMyTasks;
+    // this asserts the label rides through the derivation to the render
+    const tasks = deriveMyTasks([], [
+      { id: 'g', clientId: null, clientName: 'Agency', title: 'Renew domain',
+        category: 'admin', due_date: '2026-07-21', trigger_note: null, status: 'open' },
+    ], '2026-07-21')
+    expect(tasks[0]).toMatchObject({ kind: 'ops', clientName: 'Agency' })
   })
 })
 
@@ -331,6 +345,42 @@ describe('canonicalScheduleDestination (mirror of the SQL mapping)', () => {
     })
     expect(p.platforms).toEqual(['instagram', 'youtube'])
     expect(deriveContentStage(p).stage).toBe('scheduled')
+  })
+
+  // Codex round-4 blocker: an UNKNOWN platform returns null (like the SQL), never a
+  // passthrough, so it can never invent a phantom destination the SQL would not schedule.
+  it('an unsupported platform canonicalizes to null, not a passthrough', () => {
+    expect(canonicalScheduleDestination('tiktok')).toBeNull()
+    expect(canonicalScheduleDestination('linkedin')).toBeNull()
+    expect(canonicalScheduleDestination('!!garbage!!')).toBeNull()
+    expect(canonicalScheduleDestination('')).toBeNull()
+  })
+
+  it('canonicalDestinations drops unknown platforms (zero phantom destinations)', () => {
+    expect(canonicalDestinations(['tiktok'])).toEqual([])
+    expect(canonicalDestinations(['!!garbage!!', 'nowhere'])).toEqual([])
+    // supported survive, unsupported drop, order + distinctness preserved
+    expect(canonicalDestinations(['instagram', 'tiktok', 'youtube_shorts', 'linkedin']))
+      .toEqual(['instagram', 'youtube'])
+  })
+
+  it('a piece whose platforms canonicalize to an empty set derives + tasks without crashing', () => {
+    // tiktok-only piece: no supported destinations, so no per-destination gates 7-9. The
+    // stage derives from decision/production gates alone; My Tasks surfaces the open
+    // production gate, never a phantom "scheduled:tiktok".
+    const p = piece({
+      platforms: canonicalDestinations(['tiktok']),
+      gates: [gate('design_built', 'open')],
+    })
+    expect(p.platforms).toEqual([])
+    expect(() => deriveContentStage(p)).not.toThrow()
+    expect(deriveContentStage(p).stage).toBe('in_production')
+    const tasks = deriveMyTasks([p], [], '2026-07-21')
+    expect(tasks).toHaveLength(1)
+    expect(tasks[0]).toMatchObject({ kind: 'action', gate: 'design-built' })
+    // no scheduled/posted/link-confirmed lines exist for a destinationless piece
+    const nine = resolveNineGates(p)
+    expect(nine.some((g) => g.dest !== null)).toBe(false)
   })
 })
 

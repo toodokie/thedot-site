@@ -26,19 +26,23 @@ function taskKey(task: MyTask): string {
     : `${task.clientId}:${task.contentId}:${task.kind}`
 }
 
+// The client label prefix (Codex round-4 fix 2): every task shows whose account it is so
+// agency tasks are distinguishable once a second client exists.
+const clientTag = (name: string) => <span style={{ color: '#777' }}>{name} · </span>
+
 function TaskRow({ task }: { task: MyTask }) {
   if (task.kind === 'action') {
-    return <li>{task.title}: <strong>{task.gate}{task.dest ? `:${task.dest}` : ''}</strong>
+    return <li>{clientTag(task.clientName)}{task.title}: <strong>{task.gate}{task.dest ? `:${task.dest}` : ''}</strong>
       {task.moreOpen > 0 && <span style={{ color: '#777' }}> (+{task.moreOpen} more gates)</span>}</li>
   }
   if (task.kind === 'waiting_maria') {
-    return <li>{task.title}: waiting on Maria, {task.daysWaiting} business day{task.daysWaiting === 1 ? '' : 's'}
+    return <li>{clientTag(task.clientName)}{task.title}: waiting on Maria, {task.daysWaiting} business day{task.daysWaiting === 1 ? '' : 's'}
       {task.nudge && <span style={chip}>nudge?</span>}</li>
   }
   if (task.kind === 'waiting_studio') {
-    return <li>{task.title}: waiting on studio{task.note ? ` (${task.note})` : ''}</li>
+    return <li>{clientTag(task.clientName)}{task.title}: waiting on studio{task.note ? ` (${task.note})` : ''}</li>
   }
-  return <li>[{task.category}] {task.title}{task.dueDate ? ` · due ${task.dueDate}` : ''}
+  return <li>{clientTag(task.clientName)}[{task.category}] {task.title}{task.dueDate ? ` · due ${task.dueDate}` : ''}
     {task.triggerNote ? ` · watch: ${task.triggerNote}` : ''}</li>
 }
 
@@ -82,7 +86,7 @@ export default function GatesAdmin({ pieces, opsTasks, completedOps, todayIso }:
         <ul>
           {completedOps.map((task) => (
             <li key={task.id}>
-              [{task.category}] {task.title} · {task.status}
+              {clientTag(task.clientName)}[{task.category}] {task.title} · {task.status}
               {task.completedAt ? ` ${task.completedAt.slice(0, 10)}` : ''}
               {/* fix B: the completion note is separate; the original trigger note survives */}
               {task.triggerNote && <span style={{ color: '#777' }}> · trigger: {task.triggerNote}</span>}
@@ -96,6 +100,7 @@ export default function GatesAdmin({ pieces, opsTasks, completedOps, todayIso }:
       <table style={{ borderCollapse: 'collapse', width: '100%' }}>
         <thead>
           <tr>
+            <th style={{ ...cell, textAlign: 'left' }}>Client</th>
             <th style={{ ...cell, textAlign: 'left' }}>Piece</th>
             <th style={{ ...cell, textAlign: 'left' }}>Stage</th>
             <th style={{ ...cell, textAlign: 'left' }}>Gates (1-9)</th>
@@ -107,6 +112,7 @@ export default function GatesAdmin({ pieces, opsTasks, completedOps, todayIso }:
             const resolved = resolveNineGates(piece)
             return (
               <tr key={`${piece.clientId}:${piece.contentId}`}>
+                <td style={{ ...cell, color: '#777' }}>{piece.clientName}</td>
                 <td style={cell}>{piece.title}</td>
                 <td style={cell}>{stage.label}</td>
                 <td style={cell} title={resolved.map((gate) =>
