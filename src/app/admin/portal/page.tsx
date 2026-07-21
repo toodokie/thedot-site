@@ -148,7 +148,7 @@ export default async function PortalAdminPage() {
       <header className={styles.pageHead}>
         <Heading level={1} variant="display">Portal ops</Heading>
         <p className={styles.pageSub}>
-          Agency-only coordination cockpit. Derived views and provider-truth records; nothing here is client-visible.
+          Your private ops view: what needs doing, where each piece stands, and the real posting record. Maria never sees this.
         </p>
       </header>
 
