@@ -30,7 +30,7 @@ describe('clientStateLabel', () => {
     }
   })
   it('maps the states live in the launch dataset to the agreed wording', () => {
-    expect(clientStateLabel('partially_live')).toBe('posted (some platforms verified)')
+    expect(clientStateLabel('partially_live')).toBe('posted (some platforms not yet verified)')
     expect(clientStateLabel('live')).toBe('posted')
     expect(clientStateLabel('with_dot')).toBe('back with The Dot')
   })

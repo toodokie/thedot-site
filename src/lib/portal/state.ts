@@ -41,7 +41,7 @@ const CLIENT_STATE_LABELS: Record<ClientState, string> = {
   scheduled: 'scheduled',
   reschedule_pending: 'being rescheduled',
   cancel_pending: 'coming off the schedule',
-  partially_live: 'posted (some platforms verified)',
+  partially_live: 'posted (some platforms not yet verified)',
   publish_failed: 'having a posting issue (The Dot is on it)',
   live: 'posted',
   archived: 'archived',

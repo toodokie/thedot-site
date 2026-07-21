@@ -91,7 +91,7 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
       </div>
 
       {planned.length === 0 ? (
-        <div className={styles.emptyRow}><Text size="md" tone="graphite">No pieces planned yet.</Text></div>
+        <div className={styles.emptyRow}><Text size="md" tone="graphite">Nothing in early planning right now. Pieces awaiting your approval are on the Overview.</Text></div>
       ) : (
         <>
           {weeks.map((w) => (

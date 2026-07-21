@@ -113,7 +113,7 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
             {scheduled.length > 0 && <Panel label="Scheduled">{scheduled.map((it) => <ContentRow key={it.id} it={it} slug={slug} />)}</Panel>}
             {published.length > 0 && <Panel label="Published">{published.map((it) => (
               <ContentRow key={it.id} it={it} slug={slug}
-                note={it.state === 'partially_live' ? 'some platforms verified' : undefined} />
+                note={it.state === 'partially_live' ? 'some platforms not yet verified' : undefined} />
             ))}</Panel>}
           </div>
 
