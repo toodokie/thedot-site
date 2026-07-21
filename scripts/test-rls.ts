@@ -1937,6 +1937,23 @@ async function main(): Promise<void> {
           && draftBlock.includes('- [ ] design-built @anastasia'),
         draftGate.error?.message
           ?? `piece=${draftPiece ? 'loaded' : 'null'} tasks=${draftTasks.length} block=${draftBlock.includes('design-built')}`)
+
+      // PG9 (Codex round-3 blocker): the loader canonicalizes raw frontmatter platforms
+      // to the schedule/publication destination vocabulary. Synced with alias platforms
+      // (youtube_shorts + website), the loaded StagePiece must carry the canonical
+      // destinations (youtube + squarespace) that content_schedule_targets /
+      // content_publication_targets are stored under; otherwise a complete destination
+      // would read as unscheduled. Also carries the tenant name (fix 2).
+      const canonSync = await sync([snapshot(bClientId, 'rls-canon-piece', 1,
+        'Canonicalization piece', 'body', 'main', { platforms: ['instagram', 'youtube_shorts', 'website'] })])
+      const canonPiece = canonSync[0]?.item_id
+        ? await loadAgencyStagePiece(admin, bClientId, 'rls-canon-piece') : null
+      check('PG9: the loader canonicalizes platforms to the target destination vocabulary',
+        canonPiece !== null
+          && JSON.stringify(canonPiece.platforms) === JSON.stringify(['instagram', 'youtube', 'squarespace'])
+          && canonPiece.dests.every((d) => ['instagram', 'youtube', 'squarespace'].includes(d.destination))
+          && canonPiece.clientName === 'RLS Test Co',
+        `platforms=${JSON.stringify(canonPiece?.platforms)} client=${canonPiece?.clientName}`)
     }
 
     {
