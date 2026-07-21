@@ -99,6 +99,10 @@ create table public.ops_tasks (
   request_fingerprint text not null check (request_fingerprint ~ '^[0-9a-f]{64}$'),
   completion_key text unique,
   completion_fingerprint text check (completion_fingerprint is null or completion_fingerprint ~ '^[0-9a-f]{64}$'),
+  -- completion_note is a SEPARATE field (Codex round-2 fix B): the completion reason
+  -- never overwrites trigger_note, so the task's original watch/trigger provenance
+  -- survives beside its resolution
+  completion_note text check (completion_note is null or pg_catalog.char_length(completion_note) between 1 and 1000),
   completed_at timestamptz,
   completed_by text,
   created_at timestamptz not null default pg_catalog.now(),
@@ -107,6 +111,38 @@ create table public.ops_tasks (
   check (status = 'open' or (completed_at is not null and completion_key is not null))
 );
 create index ops_tasks_open on public.ops_tasks (status, due_date) where status = 'open';
+
+-- trigger_note is IMMUTABLE (Codex round-2 fix B): once captured it never changes, so a
+-- completion can never rewrite the original trigger/watch provenance. The RPC is the
+-- only writer, but the trigger makes the invariant structural.
+create or replace function public.ops_tasks_trigger_note_immutable()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+  if new.trigger_note is distinct from old.trigger_note then
+    raise exception 'ops_tasks.trigger_note is immutable';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function public.ops_tasks_trigger_note_immutable() from public,anon,authenticated,service_role;
+create trigger ops_tasks_trigger_note_immutable
+  before update on public.ops_tasks
+  for each row execute function public.ops_tasks_trigger_note_immutable();
+
+-- Reserved-grammar/injection guard for gate + ops notes (Codex round-2 fix C): the
+-- STATUS GATES block renders these strings straight into markdown lines, so a note that
+-- carries a newline, a control char, the field separator '|', the owner marker '@', or a
+-- checkbox '- [' could inject a fake gate line or break the parser. Rejected at the
+-- source (the RPCs raise; the CLI validator mirrors it).
+create or replace function public.portal_note_grammar_safe(p_text text)
+returns boolean language sql immutable set search_path = '' as $$
+  select p_text is null
+    or (p_text !~ '[[:cntrl:]]'
+        and p_text not like '%|%'
+        and p_text not like '%@%'
+        and p_text not like '%- [%');
+$$;
+revoke all on function public.portal_note_grammar_safe(text) from public,anon,authenticated,service_role;
 
 -- --- security posture (spec 2.4) ---------------------------------------------
 
@@ -159,6 +195,9 @@ begin
     raise exception 'done requires occurred_at (every [x] carries a date)'; end if;
   if p_note is not null and pg_catalog.char_length(p_note) > 2000 then
     raise exception 'note too long'; end if;
+  -- fix C: notes/reasons render into the STATUS GATES markdown; reject injection chars
+  if not public.portal_note_grammar_safe(p_note) or not public.portal_note_grammar_safe(p_na_reason) then
+    raise exception 'note contains a reserved grammar or control character (newline, |, @, - [)'; end if;
   if p_idempotency_key is null or pg_catalog.char_length(p_idempotency_key) not between 1 and 200 then
     raise exception 'idempotency key is required'; end if;
 
@@ -283,6 +322,8 @@ begin
   if p_status not in ('done','dropped') then raise exception 'completion status must be done or dropped'; end if;
   if p_note is not null and pg_catalog.char_length(p_note) > 1000 then
     raise exception 'note too long'; end if;
+  if not public.portal_note_grammar_safe(p_note) then
+    raise exception 'completion note contains a reserved grammar or control character'; end if;
   if p_idempotency_key is null or pg_catalog.char_length(p_idempotency_key) not between 1 and 200 then
     raise exception 'idempotency key is required'; end if;
   select * into v_task from public.ops_tasks t where t.id = p_task_id for update;
@@ -298,10 +339,13 @@ begin
     raise exception 'ops task already completed';
   end if;
 
+  -- completion writes completion_note ONLY (fix B): trigger_note is left untouched, so
+  -- the task's original trigger/watch provenance survives (the immutability trigger
+  -- would reject any change to it anyway)
   update public.ops_tasks t
     set status = p_status, completed_at = pg_catalog.now(), completed_by = p_actor_key,
         completion_key = p_idempotency_key, completion_fingerprint = v_fingerprint,
-        trigger_note = coalesce(p_note, t.trigger_note), updated_at = pg_catalog.now()
+        completion_note = p_note, updated_at = pg_catalog.now()
     where t.id = v_task.id;
   return pg_catalog.jsonb_build_object('id', v_task.id, 'status', p_status);
 end;
@@ -374,6 +418,24 @@ begin
      or pg_catalog.has_function_privilege('anon','public.complete_ops_task(uuid,text,text,text,text)','EXECUTE')
      or not pg_catalog.has_function_privilege('service_role','public.complete_ops_task(uuid,text,text,text,text)','EXECUTE') then
     raise exception 'unsafe complete_ops_task privilege'; end if;
+
+  -- fix B: completion_note is a distinct column and trigger_note is immutable
+  if not exists (select 1 from information_schema.columns c
+    where c.table_schema = 'public' and c.table_name = 'ops_tasks' and c.column_name = 'completion_note') then
+    raise exception 'ops_tasks.completion_note column missing'; end if;
+  if not exists (select 1 from pg_catalog.pg_trigger t
+    where t.tgrelid = 'public.ops_tasks'::pg_catalog.regclass
+      and t.tgname = 'ops_tasks_trigger_note_immutable' and not t.tgisinternal) then
+    raise exception 'ops_tasks trigger_note immutability trigger missing'; end if;
+
+  -- fix C: the note grammar guard behaves on the boundary cases
+  if not public.portal_note_grammar_safe('email-mg-monday-posts.md (Spark thread 34600)')
+     or not public.portal_note_grammar_safe(null)
+     or public.portal_note_grammar_safe(pg_catalog.concat('line one', pg_catalog.chr(10), '- [ ] fake gate'))
+     or public.portal_note_grammar_safe('field | injection')
+     or public.portal_note_grammar_safe('owner @studio')
+     or public.portal_note_grammar_safe(pg_catalog.concat('tab', pg_catalog.chr(9), 'here')) then
+    raise exception 'portal_note_grammar_safe boundary failure'; end if;
 end;
 $$;
 revoke all on function public.assert_portal_production_gates_security() from public,anon,authenticated;

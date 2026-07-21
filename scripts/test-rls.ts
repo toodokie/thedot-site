@@ -7,6 +7,8 @@ import { loadEnvConfig } from '@next/env'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { randomUUID } from 'node:crypto'
 import { PRIMARY_SOURCE_HOSTS } from '../src/lib/portal/primary-source-policy'
+import { loadAgencyStagePiece } from '../src/lib/portal/gates-loader'
+import { deriveMyTasks, renderStatusGatesBlock } from '../src/lib/portal/gates'
 
 loadEnvConfig(process.cwd())
 
@@ -1837,7 +1839,7 @@ async function main(): Promise<void> {
       // re-complete refused, add retries idempotent by fingerprint.
       const clientTask = await admin.rpc('add_ops_task', {
         p_client_id: bClientId, p_title: 'Chase the studio brief', p_category: 'follow_up',
-        p_due_date: '2026-07-23', p_trigger_note: null, p_owner: 'anastasia',
+        p_due_date: '2026-07-23', p_trigger_note: 'watch: brief due Wed', p_owner: 'anastasia',
         p_source: 'rls test', p_actor_key: 'thedot-admin', p_idempotency_key: `rls-ops-a-${RUN_ID}`,
       })
       const globalTask = await admin.rpc('add_ops_task', {
@@ -1847,28 +1849,34 @@ async function main(): Promise<void> {
       })
       const addRetry = await admin.rpc('add_ops_task', {
         p_client_id: bClientId, p_title: 'Chase the studio brief', p_category: 'follow_up',
-        p_due_date: '2026-07-23', p_trigger_note: null, p_owner: 'anastasia',
+        p_due_date: '2026-07-23', p_trigger_note: 'watch: brief due Wed', p_owner: 'anastasia',
         p_source: 'rls test', p_actor_key: 'thedot-admin', p_idempotency_key: `rls-ops-a-${RUN_ID}`,
       })
       const taskId = (clientTask.data as { id?: string } | null)?.id
       const completed = await admin.rpc('complete_ops_task', {
-        p_task_id: taskId, p_status: 'done', p_note: 'done in test',
+        p_task_id: taskId, p_status: 'done', p_note: 'closed after the studio delivered',
         p_actor_key: 'thedot-admin', p_idempotency_key: `rls-ops-done-${RUN_ID}`,
       })
       const completeRetry = await admin.rpc('complete_ops_task', {
-        p_task_id: taskId, p_status: 'done', p_note: 'done in test',
+        p_task_id: taskId, p_status: 'done', p_note: 'closed after the studio delivered',
         p_actor_key: 'thedot-admin', p_idempotency_key: `rls-ops-done-${RUN_ID}`,
       })
       const recomplete = await admin.rpc('complete_ops_task', {
         p_task_id: taskId, p_status: 'dropped', p_note: null,
         p_actor_key: 'thedot-admin', p_idempotency_key: `rls-ops-again-${RUN_ID}`,
       })
-      check('PG4: ops task lifecycle with table-local idempotency and no re-completion',
+      // fix B: completion writes completion_note, and the original trigger_note survives
+      const completedRow = await admin.from('ops_tasks')
+        .select('status, trigger_note, completion_note').eq('id', taskId).single()
+      check('PG4: ops task lifecycle; completion keeps trigger_note and writes completion_note',
         !clientTask.error && !globalTask.error && !addRetry.error && !!taskId
-          && !completed.error && !completeRetry.error && !!recomplete.error,
+          && !completed.error && !completeRetry.error && !!recomplete.error
+          && completedRow.data?.status === 'done'
+          && completedRow.data?.trigger_note === 'watch: brief due Wed'
+          && completedRow.data?.completion_note === 'closed after the studio delivered',
         clientTask.error?.message ?? globalTask.error?.message ?? addRetry.error?.message
           ?? completed.error?.message ?? completeRetry.error?.message
-          ?? `recomplete=${recomplete.error ? 'ok' : 'ACCEPTED'}`)
+          ?? `recomplete=${recomplete.error ? 'ok' : 'ACCEPTED'} row=${JSON.stringify(completedRow.data)}`)
 
       // PG5: the assistant never learns production internals: the gate note marker never
       // appears in any index chunk, and no assistant document carries a gate-like source
@@ -1880,6 +1888,55 @@ async function main(): Promise<void> {
       check('PG5: production gates never reach the assistant index',
         (leakedChunks.data?.length ?? 0) === 0 && (leakedDocs.data?.length ?? 0) === 0,
         `chunks=${leakedChunks.data?.length} docs=${leakedDocs.data?.length}`)
+
+      // PG6 (fix C): note injection is rejected in the RPC for gate notes, na_reason, and
+      // completion notes; a clean note is accepted.
+      const injections = await Promise.all([
+        admin.rpc('set_production_gate', {
+          p_client_id: bClientId, p_content_id: B_CONTENT_ID, p_gate_key: 'design_built',
+          p_state: 'open', p_owner: 'anastasia', p_note: 'line one\n- [ ] fake gate',
+          p_na_reason: null, p_occurred_at: null, p_actor_key: 'thedot-admin',
+          p_idempotency_key: `rls-pg-inj1-${RUN_ID}`,
+        }),
+        admin.rpc('set_production_gate', {
+          p_client_id: bClientId, p_content_id: B_CONTENT_ID, p_gate_key: 'proofed',
+          p_state: 'na', p_owner: 'anastasia', p_note: null, p_na_reason: 'field | injection',
+          p_occurred_at: null, p_actor_key: 'thedot-admin', p_idempotency_key: `rls-pg-inj2-${RUN_ID}`,
+        }),
+        admin.rpc('complete_ops_task', {
+          p_task_id: (globalTask.data as { id?: string } | null)?.id, p_status: 'done',
+          p_note: 'owner @studio', p_actor_key: 'thedot-admin', p_idempotency_key: `rls-pg-inj3-${RUN_ID}`,
+        }),
+      ])
+      check('PG6: note injection (newline, |, @) is rejected at the RPC',
+        injections.every((result) => !!result.error),
+        injections.map((r, i) => `${i}=${r.error ? 'ok' : 'ACCEPTED'}`).join(' '))
+
+      // PG7 (fix B): trigger_note is immutable even for service_role via the trigger.
+      const tamperTrigger = await admin.from('ops_tasks')
+        .update({ trigger_note: 'rewritten' }).eq('id', taskId)
+      check('PG7: ops_tasks.trigger_note is immutable',
+        !!tamperTrigger.error, tamperTrigger.error?.message ?? 'REWRITTEN')
+
+      // PG8 (BLOCKER 1): a gate written on an UNRELEASED piece is visible via the agency
+      // loader (My Tasks) and regenerates its STATUS GATES block. B_HIDDEN_ID was synced
+      // as a working v1 that was never released (no mark_content_ready), so
+      // content_with_state excludes it; the loader over content_items must include it.
+      const draftGate = await admin.rpc('set_production_gate', {
+        p_client_id: bClientId, p_content_id: B_HIDDEN_ID, p_gate_key: 'design_built',
+        p_state: 'open', p_owner: 'anastasia', p_note: 'draft-piece design pending',
+        p_na_reason: null, p_occurred_at: null, p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-pg-draft-${RUN_ID}`,
+      })
+      const draftPiece = await loadAgencyStagePiece(admin, bClientId, B_HIDDEN_ID)
+      const draftTasks = draftPiece ? deriveMyTasks([draftPiece], [], '2026-07-21') : []
+      const draftBlock = draftPiece ? renderStatusGatesBlock(draftPiece, '2026-07-21') : ''
+      check('PG8: a gate on an unreleased piece is visible in My Tasks and regenerates its block',
+        !draftGate.error && draftPiece !== null
+          && draftTasks.some((task) => task.kind === 'action' && task.gate === 'design-built')
+          && draftBlock.includes('- [ ] design-built @anastasia'),
+        draftGate.error?.message
+          ?? `piece=${draftPiece ? 'loaded' : 'null'} tasks=${draftTasks.length} block=${draftBlock.includes('design-built')}`)
     }
 
     {
