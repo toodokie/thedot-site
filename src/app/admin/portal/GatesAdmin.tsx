@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { GATE_ORDER, resolveNineGates, deriveContentStage, deriveMyTasks,
   type StagePiece, type OpsTaskRow, type MyTask, type CompletedOpsTask } from '@/lib/portal/gates'
 import StatusPill, { type PillTone } from './StatusPill'
@@ -19,66 +20,64 @@ function ClientTag({ name, show }: { name: string; show: boolean }) {
   return <span className={styles.clientTag}>{name}</span>
 }
 
+// One row shape for every task: title on the LEFT (truncated, full text on hover), the
+// status / gate / meta cluster on the RIGHT so pills align in a column across all rows.
 function TaskRow({ task, showClient }: { task: MyTask; showClient: boolean }) {
+  const title = 'title' in task ? task.title : ''
+  let trail: ReactNode = null
+  let lead: ReactNode = null
   if (task.kind === 'action') {
-    return (
-      <li className={styles.taskRow}>
-        <ClientTag name={task.clientName} show={showClient} />
-        <span className={styles.taskTitle}>{task.title}</span>
-        <StatusPill tone="open" label={`${task.gate}${task.dest ? `:${task.dest}` : ''}`} />
-        {task.moreOpen > 0 && <span className={styles.meta}>+{task.moreOpen} more gates</span>}
-      </li>
-    )
-  }
-  if (task.kind === 'link_pending') {
-    return (
-      <li className={styles.taskRow}>
-        <ClientTag name={task.clientName} show={showClient} />
-        <span className={styles.taskTitle}>{task.title}</span>
-        <span className={styles.meta}>confirm link{task.dest ? `: ${task.dest}` : ''}{task.moreOpen > 0 ? ` (+${task.moreOpen})` : ''}</span>
-      </li>
-    )
-  }
-  if (task.kind === 'waiting_maria') {
-    return (
-      <li className={styles.taskRow}>
-        <ClientTag name={task.clientName} show={showClient} />
-        <span className={styles.taskTitle}>{task.title}</span>
-        <span className={styles.meta}>waiting on Maria, {task.daysWaiting} business day{task.daysWaiting === 1 ? '' : 's'}</span>
-        {task.nudge && <StatusPill tone="nudge" label="nudge?" />}
-      </li>
-    )
-  }
-  if (task.kind === 'waiting_studio') {
-    return (
-      <li className={styles.taskRow}>
-        <ClientTag name={task.clientName} show={showClient} />
-        <span className={styles.taskTitle}>{task.title}</span>
-        <span className={styles.meta}>waiting on studio{task.note ? ` (${task.note})` : ''}</span>
-      </li>
-    )
+    trail = <>
+      <StatusPill tone="open" label={`${task.gate}${task.dest ? `:${task.dest}` : ''}`} />
+      {task.moreOpen > 0 && <span className={styles.meta}>+{task.moreOpen}</span>}
+    </>
+  } else if (task.kind === 'link_pending') {
+    trail = <span className={styles.meta}>confirm link{task.dest ? `: ${task.dest}` : ''}{task.moreOpen > 0 ? ` (+${task.moreOpen})` : ''}</span>
+  } else if (task.kind === 'waiting_maria') {
+    trail = <>
+      <span className={styles.meta}>waiting on Maria, {task.daysWaiting} business day{task.daysWaiting === 1 ? '' : 's'}</span>
+      {task.nudge && <StatusPill tone="nudge" label="nudge?" />}
+    </>
+  } else if (task.kind === 'waiting_studio') {
+    trail = <span className={styles.meta}>waiting on studio{task.note ? ` (${task.note})` : ''}</span>
+  } else {
+    lead = <StatusPill tone="muted" label={task.category} />
+    trail = <>
+      {task.dueDate && <span className={styles.meta}>due {task.dueDate}</span>}
+      {task.triggerNote && <span className={styles.meta}>watch: {task.triggerNote}</span>}
+    </>
   }
   return (
     <li className={styles.taskRow}>
-      <ClientTag name={task.clientName} show={showClient} />
-      <StatusPill tone="muted" label={task.category} />
-      <span className={styles.taskTitle}>{task.title}</span>
-      {task.dueDate && <span className={styles.meta}>due {task.dueDate}</span>}
-      {task.triggerNote && <span className={styles.meta}>watch: {task.triggerNote}</span>}
+      <span className={styles.taskMain}>
+        <ClientTag name={task.clientName} show={showClient} />
+        {lead}
+        <span className={styles.taskTitle} title={title}>{title}</span>
+      </span>
+      <span className={styles.taskTrail}>{trail}</span>
     </li>
   )
 }
 
-// A piece's stage maps to a semantic pill tone (display only; deriveContentStage owns the
-// value). done reads positive (soft teal + check); posted-but-unconfirmed and scheduled
-// stay light (outline) so a board of posted history does not read as a wall of solid teal.
-function stageTone(stage: string): PillTone {
-  if (stage === 'done') return 'verified'
-  if (stage === 'live') return 'live'
-  if (stage === 'posted_unverified' || stage === 'scheduled' || stage === 'scheduled_partial') return 'scheduled'
-  if (stage === 'approved') return 'done'
-  if (stage === 'publish_failed' || stage === 'schedule_failed') return 'failed'
-  return 'muted'
+// A stage renders as a SHORT status pill plus muted detail text; a long description never
+// lives inside a pill (that produced a wall of identical sentence-pills). deriveContentStage
+// owns the value; this only splits it into a keyword + the specifics.
+function stageDisplay(stage: string, label: string): { label: string; tone: PillTone; detail: string } {
+  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+  switch (stage) {
+    case 'done': return { label: 'Done', tone: 'verified', detail: '' }
+    case 'live': return { label: 'Live', tone: 'live', detail: '' }
+    case 'posted_unverified': return { label: 'Posted', tone: 'scheduled', detail: label.replace(/^posted[,]?\s*/i, '') }
+    case 'scheduled':
+    case 'scheduled_partial': return { label: 'Scheduled', tone: 'scheduled', detail: label.replace(/^scheduled\s*/i, '') }
+    case 'approved': return { label: 'Approved', tone: 'done', detail: '' }
+    case 'direction_approved': return { label: 'Direction approved', tone: 'done', detail: 'production gates open' }
+    case 'awaiting_decision': return { label: 'Awaiting Maria', tone: 'open', detail: '' }
+    case 'publish_failed':
+    case 'schedule_failed': return { label: 'Issue', tone: 'failed', detail: label }
+    case 'in_production': return { label: cap(label), tone: 'muted', detail: '' } // "needs design" etc, already short
+    default: return { label: 'Draft', tone: 'muted', detail: '' }
+  }
 }
 
 export default function GatesAdmin({ pieces, opsTasks, completedOps, todayIso }: {
@@ -138,13 +137,17 @@ export default function GatesAdmin({ pieces, opsTasks, completedOps, todayIso }:
             <ul className={styles.taskList}>
               {completedOps.map((task) => (
                 <li key={task.id} className={styles.taskRow}>
-                  <ClientTag name={task.clientName} show={multiClient} />
-                  <StatusPill tone="muted" label={task.category} />
-                  <span className={styles.taskTitle}>{task.title}</span>
-                  <span className={styles.meta}>{task.status}{task.completedAt ? ` ${task.completedAt.slice(0, 10)}` : ''}</span>
-                  {/* fix B: completion note is separate; the original trigger note survives */}
-                  {task.triggerNote && <span className={styles.meta}>trigger: {task.triggerNote}</span>}
-                  {task.completionNote && <span className={styles.meta}>outcome: {task.completionNote}</span>}
+                  <span className={styles.taskMain}>
+                    <ClientTag name={task.clientName} show={multiClient} />
+                    <StatusPill tone="muted" label={task.category} />
+                    <span className={styles.taskTitle} title={task.title}>{task.title}</span>
+                  </span>
+                  <span className={styles.taskTrail}>
+                    <span className={styles.meta}>{task.status}{task.completedAt ? ` ${task.completedAt.slice(0, 10)}` : ''}</span>
+                    {/* fix B: completion note is separate; the original trigger note survives */}
+                    {task.triggerNote && <span className={styles.meta}>trigger: {task.triggerNote}</span>}
+                    {task.completionNote && <span className={styles.meta}>outcome: {task.completionNote}</span>}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -172,19 +175,25 @@ export default function GatesAdmin({ pieces, opsTasks, completedOps, todayIso }:
           <table className={styles.table}>
             <thead>
               <tr>
-                {multiClient && <th>Client</th>}<th>Piece</th><th>Stage</th><th>Gates (1-9)</th>
+                {multiClient && <th>Client</th>}<th className={styles.pieceCol}>Piece</th><th>Stage</th><th className={styles.gatesCol}>Gates (1-9)</th>
               </tr>
             </thead>
             <tbody>
               {visiblePieces.map((piece) => {
                 const stage = deriveContentStage(piece)
+                const sd = stageDisplay(stage.stage, stage.label)
                 const resolved = resolveNineGates(piece)
                 return (
                   <tr key={`${piece.clientId}:${piece.contentId}`}>
                     {multiClient && <td className={styles.cellMuted}>{piece.clientName}</td>}
-                    <td>{piece.title}</td>
-                    <td><StatusPill tone={stageTone(stage.stage)} label={stage.label} /></td>
+                    <td className={styles.pieceCol}>{piece.title}</td>
                     <td>
+                      <span className={styles.stageCell}>
+                        <StatusPill tone={sd.tone} label={sd.label} />
+                        {sd.detail && <span className={styles.stageDetail}>{sd.detail}</span>}
+                      </span>
+                    </td>
+                    <td className={styles.gatesCol}>
                       <span className={styles.gateStrip} title={resolved.map((gate) =>
                         `${gate.key}${gate.dest ? ':' + gate.dest : ''}: ${gate.present ? gate.state : 'not tracked'}`).join('\n')}>
                         {GATE_ORDER.map((key) => {

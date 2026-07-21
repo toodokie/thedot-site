@@ -38,20 +38,24 @@
   max-width: 720px;
   margin-top: var(--dot-space-2);
   color: var(--admin-muted);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.5;
 }
 
 /* ---- cards ---------------------------------------------------------------- */
+/* Cards need real elevation: The Dot cream and white are almost the same colour, so a
+   white card on cream with only a hairline is invisible. A soft shadow is what separates
+   the surfaces and gives the page a designed, layered feel instead of a flat text column. */
 .card {
   background: var(--admin-card);
   border: 1px solid var(--admin-line);
-  border-radius: 8px;
-  padding: var(--dot-space-5);
+  border-radius: 10px;
+  padding: var(--dot-space-5) var(--dot-space-6);
   margin-bottom: var(--dot-space-5);
+  box-shadow: 0 1px 2px rgba(20, 18, 16, 0.04), 0 6px 18px rgba(20, 18, 16, 0.05);
 }
-.hero { border-color: var(--admin-ink); } /* My Tasks: the one card that leads */
-.secondary { padding: var(--dot-space-4) var(--dot-space-5); }
+.hero { box-shadow: 0 1px 2px rgba(20, 18, 16, 0.05), 0 12px 30px rgba(20, 18, 16, 0.08); } /* My Tasks leads with more lift */
+.secondary { padding: var(--dot-space-4) var(--dot-space-6); }
 
 .cardHead {
   display: flex;
@@ -62,61 +66,76 @@
 }
 .cardTitle {
   font-family: var(--dot-font-display);
-  font-size: 20px;
+  font-size: 24px;
   font-weight: var(--dot-weight-demi);
   letter-spacing: 0.01em;
   color: var(--admin-ink);
 }
 .cardSub {
   color: var(--admin-muted);
-  font-size: 13px;
-  line-height: 1.5;
-  margin-top: 2px;
+  font-size: 14px;
+  line-height: 1.55;
+  margin-top: 3px;
+  max-width: 640px;
 }
 .count {
   font-variant-numeric: tabular-nums;
   color: var(--admin-muted);
-  font-size: 13px;
+  font-size: 14px;
+  flex: none;
 }
 
 /* ---- task groups (My Tasks hero) ----------------------------------------- */
-.group { margin-top: var(--dot-space-4); }
+.group { margin-top: var(--dot-space-5); }
 .group:first-of-type { margin-top: 0; }
 .groupLabel {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: var(--dot-weight-demi);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--admin-muted);
   margin-bottom: var(--dot-space-2);
+  padding-bottom: var(--dot-space-2);
+  border-bottom: 1px solid var(--admin-line);
 }
 .taskList { list-style: none; margin: 0; padding: 0; }
+/* Title on the left, status/gate on the right: the pills line up in a column no matter how
+   long the titles run, instead of floating mid-sentence at ragged positions. */
 .taskRow {
   display: flex;
   align-items: baseline;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 7px var(--dot-space-2);
-  border-radius: 4px;
-  font-size: 14px;
-  line-height: 1.45;
+  justify-content: space-between;
+  gap: var(--dot-space-4);
+  padding: 9px var(--dot-space-3);
+  border-radius: 7px;
+  font-size: 15px;
+  line-height: 1.5;
   transition: background 160ms ease;
 }
+.taskRow + .taskRow { border-top: 1px solid var(--admin-line); }
 .taskRow:hover { background: var(--admin-ground); }
-.taskTitle { color: var(--admin-ink); }
+.taskMain { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.taskTitle {
+  color: var(--admin-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.taskTrail { display: inline-flex; align-items: center; gap: var(--dot-space-2); flex: none; }
 .clientTag {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--admin-muted);
   font-variant-numeric: tabular-nums;
+  flex: none;
 }
 .meta {
   color: var(--admin-muted);
-  font-size: 13px;
+  font-size: 13.5px;
   font-variant-numeric: tabular-nums;
 }
 .empty {
   color: var(--admin-muted);
-  font-size: 14px;
+  font-size: 15px;
   padding: var(--dot-space-2) 0;
 }
 
@@ -125,9 +144,9 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 1px 8px;
+  padding: 2px 10px;
   border-radius: 999px;
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: var(--dot-weight-medium);
   line-height: 1.55;
   letter-spacing: 0.01em;
@@ -152,19 +171,19 @@
 
 /* ---- pieces table --------------------------------------------------------- */
 .tableWrap { overflow-x: auto; }
-.table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.table { border-collapse: collapse; width: 100%; font-size: 14px; }
 .table th {
   text-align: left;
-  padding: 6px var(--dot-space-2);
+  padding: 7px var(--dot-space-2);
   border-bottom: 1px solid var(--admin-line);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: var(--dot-weight-demi);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--admin-muted);
 }
 .table td {
-  padding: 8px var(--dot-space-2);
+  padding: 11px var(--dot-space-2);
   border-bottom: 1px solid var(--admin-line);
   vertical-align: middle;
 }
@@ -172,6 +191,14 @@
 .table tbody tr:hover { background: var(--admin-ground); }
 .cellMuted { color: var(--admin-muted); }
 .cellNum { font-variant-numeric: tabular-nums; }
+/* column rhythm: title takes the room, gates ride a fixed narrow rail on the right so the
+   strip is not stranded far from its piece with a gap of dead space between. */
+.pieceCol { width: 42%; }
+.gatesCol { width: 128px; }
+/* stage = a SHORT status pill + muted detail text; long descriptions never live inside a
+   pill shape (that made a wall of identical sentence-pills). */
+.stageCell { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.stageDetail { color: var(--admin-muted); font-size: 12.5px; }
 
 /* 9-gate strip + legend */
 .legend {
@@ -180,14 +207,14 @@
   gap: var(--dot-space-3);
   align-items: center;
   margin-bottom: var(--dot-space-3);
-  font-size: 11.5px;
+  font-size: 12.5px;
   color: var(--admin-muted);
 }
 .legendItem { display: inline-flex; align-items: center; gap: 5px; }
 .gateStrip { display: inline-flex; gap: 3px; }
 .gateCell {
-  width: 13px;
-  height: 13px;
+  width: 15px;
+  height: 15px;
   border-radius: 3px;
   box-sizing: border-box;
 }
@@ -210,8 +237,8 @@
   gap: var(--dot-space-3);
   margin-bottom: var(--dot-space-3);
 }
-.pubPieceTitle { font-size: 15px; font-weight: var(--dot-weight-demi); color: var(--admin-ink); }
-.pubVersion { color: var(--admin-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.pubPieceTitle { font-size: 16px; font-weight: var(--dot-weight-demi); color: var(--admin-ink); }
+.pubVersion { color: var(--admin-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 
 .destRow {
   display: flex;
@@ -222,13 +249,13 @@
   border-top: 1px solid var(--admin-line);
 }
 .destName {
-  min-width: 96px;
-  font-size: 13px;
+  min-width: 104px;
+  font-size: 14px;
   font-weight: var(--dot-weight-medium);
   text-transform: capitalize;
 }
 .destPills { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.destLink { font-size: 12.5px; color: var(--admin-teal); text-decoration: underline; }
+.destLink { font-size: 13.5px; color: var(--admin-teal); text-decoration: underline; }
 .destSpacer { flex: 1 1 auto; }
 
 .disclose {
@@ -237,7 +264,7 @@
   background: transparent;
   color: var(--admin-ink);
   font-family: var(--dot-font-text);
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: var(--dot-weight-medium);
   padding: 3px 12px;
   border-radius: 999px;
@@ -270,7 +297,7 @@
 }
 .field { display: grid; gap: 3px; }
 .fieldLabel {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: var(--dot-weight-demi);
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -279,9 +306,9 @@
 .input, .select, .textarea {
   width: 100%;
   box-sizing: border-box;
-  padding: 7px 9px;
+  padding: 8px 10px;
   font-family: var(--dot-font-text);
-  font-size: 13px;
+  font-size: 14px;
   color: var(--admin-ink);
   background: var(--admin-card);
   border: 1px solid var(--admin-line);
@@ -292,7 +319,7 @@
   outline-offset: 1px;
   border-color: var(--admin-teal);
 }
-.hint { font-size: 12px; color: var(--admin-muted); }
+.hint { font-size: 13px; color: var(--admin-muted); }
 .submit {
   justify-self: start;
   appearance: none;
@@ -300,7 +327,7 @@
   background: var(--admin-ink);
   color: var(--dot-white);
   font-family: var(--dot-font-text);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: var(--dot-weight-medium);
   padding: 9px 18px;
   border-radius: 4px;
@@ -327,16 +354,16 @@
   margin: var(--dot-space-3) 0;
 }
 .subCardWarn { border-color: var(--admin-rust); }
-.subCardTitle { font-size: 14px; font-weight: var(--dot-weight-demi); color: var(--admin-ink); margin-bottom: 4px; }
-.metaLine { color: var(--admin-muted); font-size: 12.5px; font-variant-numeric: tabular-nums; margin-top: 3px; line-height: 1.5; }
-.errorText { color: var(--admin-rust); font-size: 12.5px; margin-top: 4px; }
-.codeId { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: var(--admin-muted); }
-.statusMsg { font-size: 13px; color: var(--admin-muted); margin-top: var(--dot-space-2); }
+.subCardTitle { font-size: 15px; font-weight: var(--dot-weight-demi); color: var(--admin-ink); margin-bottom: 4px; }
+.metaLine { color: var(--admin-muted); font-size: 13.5px; font-variant-numeric: tabular-nums; margin-top: 3px; line-height: 1.5; }
+.errorText { color: var(--admin-rust); font-size: 13.5px; margin-top: 4px; }
+.codeId { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--admin-muted); }
+.statusMsg { font-size: 14px; color: var(--admin-muted); margin-top: var(--dot-space-2); }
 .inlineForm { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
 .actions { display: flex; flex-wrap: wrap; gap: var(--dot-space-2); align-items: center; margin-top: var(--dot-space-2); }
 .btn {
   appearance: none; border: 1px solid var(--admin-ink); background: transparent; color: var(--admin-ink);
-  font-family: var(--dot-font-text); font-size: 12.5px; font-weight: var(--dot-weight-medium);
+  font-family: var(--dot-font-text); font-size: 13.5px; font-weight: var(--dot-weight-medium);
   padding: 6px 14px; border-radius: 4px; cursor: pointer;
   transition: background 160ms ease, color 160ms ease;
 }
