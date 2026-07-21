@@ -1747,6 +1747,141 @@ async function main(): Promise<void> {
           ?? `projected=${projected.data?.length} eligibility=${projectedDoc.data?.answer_eligibility} retracted=${retracted.data?.length}`)
     }
 
+    console.log('\n--- 0022 production gates + ops tasks (agency-only) ---')
+
+    {
+      // PG1: client roles reach NOTHING: no table read, no RPC execute.
+      const reads = await Promise.all([
+        bClient.from('content_production_gates').select('id').limit(1),
+        bClient.from('production_gate_events').select('id').limit(1),
+        bClient.from('ops_tasks').select('id').limit(1),
+      ])
+      const clientGate = await bClient.rpc('set_production_gate', {
+        p_client_id: bClientId, p_content_id: B_CONTENT_ID, p_gate_key: 'design_built',
+        p_state: 'open', p_owner: 'anastasia', p_note: null, p_na_reason: null,
+        p_occurred_at: null, p_actor_key: 'thedot-admin', p_idempotency_key: `rls-pg-client-${RUN_ID}`,
+      })
+      const clientOps = await bClient.rpc('add_ops_task', {
+        p_client_id: bClientId, p_title: 'x', p_category: 'admin', p_due_date: null,
+        p_trigger_note: null, p_owner: 'anastasia', p_source: 'x',
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-pg-client-ops-${RUN_ID}`,
+      })
+      check('PG1: client roles are denied the gate tables and every gate RPC',
+        reads.every((result) => !!result.error) && !!clientGate.error && !!clientOps.error,
+        reads.map((r, i) => `${i}=${r.error ? 'ok' : 'READ'}`).join(' ')
+          + ` gate=${clientGate.error ? 'ok' : 'EXECUTED'} ops=${clientOps.error ? 'ok' : 'EXECUTED'}`)
+
+      // PG2: gate lifecycle: open -> done -> reopen, event per transition, grammar rules
+      // enforced (na needs a reason, done needs a date), fingerprinted idempotency.
+      const marker = `PG-MARKER-${RUN_ID}`
+      const openGate = await admin.rpc('set_production_gate', {
+        p_client_id: bClientId, p_content_id: B_CONTENT_ID, p_gate_key: 'design_built',
+        p_state: 'open', p_owner: 'anastasia', p_note: marker, p_na_reason: null,
+        p_occurred_at: null, p_actor_key: 'thedot-admin', p_idempotency_key: `rls-pg-open-${RUN_ID}`,
+      })
+      const doneGate = await admin.rpc('set_production_gate', {
+        p_client_id: bClientId, p_content_id: B_CONTENT_ID, p_gate_key: 'design_built',
+        p_state: 'done', p_owner: 'anastasia', p_note: 'built', p_na_reason: null,
+        p_occurred_at: '2026-07-21T12:00:00Z', p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-pg-done-${RUN_ID}`,
+      })
+      const reopened = await admin.rpc('set_production_gate', {
+        p_client_id: bClientId, p_content_id: B_CONTENT_ID, p_gate_key: 'design_built',
+        p_state: 'open', p_owner: 'anastasia', p_note: 'change requested: rebuild frame 2',
+        p_na_reason: null, p_occurred_at: null, p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-pg-reopen-${RUN_ID}`,
+      })
+      const naNoReason = await admin.rpc('set_production_gate', {
+        p_client_id: bClientId, p_content_id: B_CONTENT_ID, p_gate_key: 'proofed',
+        p_state: 'na', p_owner: 'anastasia', p_note: null, p_na_reason: null,
+        p_occurred_at: null, p_actor_key: 'thedot-admin', p_idempotency_key: `rls-pg-na-${RUN_ID}`,
+      })
+      const doneNoDate = await admin.rpc('set_production_gate', {
+        p_client_id: bClientId, p_content_id: B_CONTENT_ID, p_gate_key: 'proofed',
+        p_state: 'done', p_owner: 'anastasia', p_note: null, p_na_reason: null,
+        p_occurred_at: null, p_actor_key: 'thedot-admin', p_idempotency_key: `rls-pg-nodate-${RUN_ID}`,
+      })
+      const retryGate = await admin.rpc('set_production_gate', {
+        p_client_id: bClientId, p_content_id: B_CONTENT_ID, p_gate_key: 'design_built',
+        p_state: 'open', p_owner: 'anastasia', p_note: 'change requested: rebuild frame 2',
+        p_na_reason: null, p_occurred_at: null, p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-pg-reopen-${RUN_ID}`,
+      })
+      const conflictGate = await admin.rpc('set_production_gate', {
+        p_client_id: bClientId, p_content_id: B_CONTENT_ID, p_gate_key: 'design_built',
+        p_state: 'done', p_owner: 'anastasia', p_note: 'different', p_na_reason: null,
+        p_occurred_at: '2026-07-21T13:00:00Z', p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-pg-reopen-${RUN_ID}`,
+      })
+      const gateItemRow = await admin.from('content_items')
+        .select('id').eq('client_id', bClientId).eq('content_id', B_CONTENT_ID).single()
+      const events = await admin.from('production_gate_events')
+        .select('gate_key, from_state, to_state').eq('client_id', bClientId)
+        .eq('content_item_id', gateItemRow.data?.id).eq('gate_key', 'design_built')
+        .order('created_at', { ascending: true })
+      const transitions = (events.data ?? []).map((row) => `${row.from_state ?? 'none'}>${row.to_state}`)
+      check('PG2: gate lifecycle appends an event per transition and enforces the grammar',
+        !openGate.error && !doneGate.error && !reopened.error && !retryGate.error
+          && !!naNoReason.error && !!doneNoDate.error && !!conflictGate.error
+          && transitions.join(',') === 'none>open,open>done,done>open',
+        openGate.error?.message ?? doneGate.error?.message ?? reopened.error?.message
+          ?? retryGate.error?.message ?? `na=${naNoReason.error ? 'ok' : 'ACCEPTED'} nodate=${doneNoDate.error ? 'ok' : 'ACCEPTED'} conflict=${conflictGate.error ? 'ok' : 'ACCEPTED'} transitions=${transitions.join(',')}`)
+
+      // PG3: the audit trail is append-only even for service_role
+      const eventTamper = await admin.from('production_gate_events')
+        .delete().eq('client_id', bClientId)
+      check('PG3: gate events are immutable (service_role cannot delete)',
+        !!eventTamper.error, eventTamper.error?.message ?? 'DELETED')
+
+      // PG4: ops task lifecycle: add (client-scoped + agency-global), complete,
+      // re-complete refused, add retries idempotent by fingerprint.
+      const clientTask = await admin.rpc('add_ops_task', {
+        p_client_id: bClientId, p_title: 'Chase the studio brief', p_category: 'follow_up',
+        p_due_date: '2026-07-23', p_trigger_note: null, p_owner: 'anastasia',
+        p_source: 'rls test', p_actor_key: 'thedot-admin', p_idempotency_key: `rls-ops-a-${RUN_ID}`,
+      })
+      const globalTask = await admin.rpc('add_ops_task', {
+        p_client_id: null, p_title: 'Renew the domain', p_category: 'admin',
+        p_due_date: null, p_trigger_note: 'watch: expiry notice', p_owner: 'anastasia',
+        p_source: 'rls test', p_actor_key: 'thedot-admin', p_idempotency_key: `rls-ops-b-${RUN_ID}`,
+      })
+      const addRetry = await admin.rpc('add_ops_task', {
+        p_client_id: bClientId, p_title: 'Chase the studio brief', p_category: 'follow_up',
+        p_due_date: '2026-07-23', p_trigger_note: null, p_owner: 'anastasia',
+        p_source: 'rls test', p_actor_key: 'thedot-admin', p_idempotency_key: `rls-ops-a-${RUN_ID}`,
+      })
+      const taskId = (clientTask.data as { id?: string } | null)?.id
+      const completed = await admin.rpc('complete_ops_task', {
+        p_task_id: taskId, p_status: 'done', p_note: 'done in test',
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-ops-done-${RUN_ID}`,
+      })
+      const completeRetry = await admin.rpc('complete_ops_task', {
+        p_task_id: taskId, p_status: 'done', p_note: 'done in test',
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-ops-done-${RUN_ID}`,
+      })
+      const recomplete = await admin.rpc('complete_ops_task', {
+        p_task_id: taskId, p_status: 'dropped', p_note: null,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-ops-again-${RUN_ID}`,
+      })
+      check('PG4: ops task lifecycle with table-local idempotency and no re-completion',
+        !clientTask.error && !globalTask.error && !addRetry.error && !!taskId
+          && !completed.error && !completeRetry.error && !!recomplete.error,
+        clientTask.error?.message ?? globalTask.error?.message ?? addRetry.error?.message
+          ?? completed.error?.message ?? completeRetry.error?.message
+          ?? `recomplete=${recomplete.error ? 'ok' : 'ACCEPTED'}`)
+
+      // PG5: the assistant never learns production internals: the gate note marker never
+      // appears in any index chunk, and no assistant document carries a gate-like source
+      // type (the 0022 assertion pins the vocabulary; this checks the live rows).
+      const leakedChunks = await admin.from('assistant_document_chunks')
+        .select('id').eq('client_id', bClientId).like('body', `%${marker}%`)
+      const leakedDocs = await admin.from('assistant_documents')
+        .select('id').eq('client_id', bClientId).in('source_type', ['production_gate', 'ops_task', 'gate'])
+      check('PG5: production gates never reach the assistant index',
+        (leakedChunks.data?.length ?? 0) === 0 && (leakedDocs.data?.length ?? 0) === 0,
+        `chunks=${leakedChunks.data?.length} docs=${leakedDocs.data?.length}`)
+    }
+
     {
       const stop = await admin.rpc('set_portal_feature_switch', {
         p_client_id: bClientId, p_feature: 'client_mutations', p_enabled: false,
