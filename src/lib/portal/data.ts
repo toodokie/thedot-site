@@ -47,10 +47,9 @@ function mapContentRow(value: unknown): ContentRow {
   return { ...row, state: parseClientState(row.client_state) } as unknown as ContentRow
 }
 
-// HOTFIX (Codex blocker 3, 2026-07-20): this guard STAYS until migration 0019's provenance-checked
-// demo purge is applied to prod AND verified (the earlier removal shipped ahead of the migration and
-// re-exposed the fixture rows). Remove only after a prod read-back proves zero fixture rows.
-const RETIRED_FIXTURES = new Set(['kanset-2026-07-lmia-reel', 'kanset-2026-07-oinp-employer'])
+// The pre-ledger fixture rows were deleted by migration 0019's provenance-checked purge, applied to
+// prod 2026-07-21 and verified by read-back (zero fixture rows); the temporary app-side guard that
+// covered the gap between deploy and migration is gone with that verification.
 
 export async function getContent(clientId: string): Promise<ContentRow[]> {
   const supabase = await createSupabaseServer()
@@ -60,12 +59,9 @@ export async function getContent(clientId: string): Promise<ContentRow[]> {
     .order('planned_date', { ascending: true, nullsFirst: false })
     .order('content_id', { ascending: true })
   if (error) throw new PortalDataError(error.message)
-  return (data ?? [])
-    .filter((row) => !RETIRED_FIXTURES.has(String((row as { content_id?: unknown }).content_id)))
-    .map(mapContentRow)
+  return (data ?? []).map(mapContentRow)
 }
 export async function getContentItem(clientId: string, contentId: string): Promise<ContentRow | null> {
-  if (RETIRED_FIXTURES.has(contentId)) return null // hotfix guard, see above
   const supabase = await createSupabaseServer()
   const { data, error } = await supabase
     .from('content_with_state').select(SELECT)

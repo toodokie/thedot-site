@@ -1,5 +1,6 @@
 {
   "crons": [
-    { "path": "/api/cron/portal-calendar", "schedule": "17 * * * *" }
+    { "path": "/api/cron/portal-calendar", "schedule": "17 * * * *" },
+    { "path": "/api/cron/portal-assistant", "schedule": "41 * * * *" }
   ]
 }
