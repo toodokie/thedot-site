@@ -26,13 +26,16 @@ export default async function PlanPiece({ params }: { params: Promise<{ slug: st
   const session = await getClientSession(slug)
   if (!session) redirect('/client/login')
   const item = await getContentItem(session.clientId, contentId)
-  if (!item || !PLANNED.has(item.status)) notFound()
-  // Audit B1: this page's closing line promises "we will send it to you for approval";
-  // the moment that ask exists (or the piece has moved on), the decidable piece page is
-  // the only truthful door, even for old links.
+  if (!item) notFound()
+  // Resolve the door by STATE first (Codex review 2026-07-21): a stale Plan URL for a piece
+  // that has moved on (approved, scheduled, posted) must REDIRECT to the decidable piece
+  // page, not 404. Checking status before this sent every produced piece to notFound().
   if (routesToPiecePage(item.state)) {
     redirect(`/client/${encodeURIComponent(slug)}/piece/${encodeURIComponent(item.content_id)}`)
   }
+  // Here the state is a quiet with_dot; the plan surface is truthful only for a genuinely
+  // planned (idea/draft) piece. Any other status paired with with_dot is not a plan page.
+  if (!PLANNED.has(item.status)) notFound()
 
   const blocks = item.copy_blocks && item.copy_blocks.length > 0
     ? item.copy_blocks

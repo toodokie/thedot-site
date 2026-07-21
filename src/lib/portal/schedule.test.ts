@@ -32,5 +32,11 @@ describe('piece-vs-plan routing (audit B1)', () => {
     // produced pieces never render on the Plan list, whatever their state
     expect(belongsOnPlanSurface('approved', 'approved')).toBe(false)
     expect(belongsOnPlanSurface('posted', 'partially_live')).toBe(false)
+    // Codex 2026-07-21: a with_dot piece whose status is no longer idea/draft is not a plan
+    // page. The plan page resolves routesToPiecePage BEFORE this idea/draft gate, so a stale
+    // approved/scheduled link redirects (predicate true above) instead of 404ing, and this
+    // odd with_dot+produced combo notFounds rather than rendering a false planning page.
+    expect(belongsOnPlanSurface('scheduled', 'with_dot')).toBe(false)
+    expect(belongsOnPlanSurface('approved', 'with_dot')).toBe(false)
   })
 })

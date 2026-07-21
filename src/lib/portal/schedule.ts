@@ -1,6 +1,6 @@
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { PortalDataError } from './data'
-import type { ContentStatus } from './state'
+import { parseClientState, type ContentStatus, type ClientState } from './state'
 import type { ScheduleState } from './data'
 
 // Read model for the Calendar + Plan surfaces. Mirrors data.ts (createSupabaseServer,
@@ -16,7 +16,7 @@ export type ScheduleRow = {
   pillar: string | null
   platforms: string[]
   status: ContentStatus
-  client_state: string
+  client_state: ClientState
   planned_date: string | null
   schedule_state: ScheduleState
   calendar_sync_status: string | null
@@ -69,7 +69,11 @@ export async function getSchedule(clientId: string): Promise<ScheduleRow[]> {
   return (contentResult.data ?? []).map((value) => {
     const row = value as unknown as Record<string, unknown>
     const calendar = calendarMap.get(`${row.id}:${row.version}`)
-    return { ...row, platforms: Array.isArray(row.platforms) ? row.platforms : [],
+    // Validate client_state instead of trusting the raw DB string (Codex review 2026-07-21):
+    // an unexpected state used to route fail-open to the piece page and could crash a later
+    // getContentItem. parseClientState throws PortalDataError-adjacent on an unknown value.
+    return { ...row, client_state: parseClientState(row.client_state),
+      platforms: Array.isArray(row.platforms) ? row.platforms : [],
       calendar_sync_status: calendar?.sync_status ?? null,
       calendar_sync_label: calendar?.sync_label ?? null,
       calendar_event_link: calendar?.event_html_link ?? null }

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { getClientSession } from '@/lib/portal/auth'
 import { redirect } from 'next/navigation'
 import { getContent, getActivity, type ContentRow as ContentRowType } from '@/lib/portal/data'
+import { clientStateLabel } from '@/lib/portal/state'
 import { getLastSeen } from '@/lib/portal/seen'
 import MarkSeen from './MarkSeen'
 import { Eyebrow, Heading, Text, Button, Dot } from '@thedot/design-system'
@@ -66,6 +67,13 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
   // invisible on the landing page. The per-target verification labels on each piece page
   // carry the honest nuance; the row note flags the partial case. Display only.
   const published = items.filter((i) => i.state === 'live' || i.state === 'partially_live')
+  // Catch-all so no piece can vanish from the landing page (Codex review 2026-07-21): the
+  // schedule/publish transitional + failure states (partially_scheduled, reschedule_pending,
+  // cancel_pending, schedule_failed, publish_failed) had no bucket and were only reachable
+  // via Calendar. Anything not already bucketed and not archived surfaces here, labeled in
+  // plain words (the failure labels reassure: "The Dot is on it").
+  const BUCKETED_STATES = new Set(['needs_review', 'with_dot', 'approved', 'scheduled', 'live', 'partially_live', 'archived'])
+  const inProgress = items.filter((i) => !BUCKETED_STATES.has(i.state))
   const communication = activity.filter((a) => a.event_type === 'meeting_email_note_added')
   const firstName = session.name ? session.name.split(' ')[0] : ''
 
@@ -111,6 +119,9 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
 
             {approved.length > 0 && <Panel label="Approved">{approved.map((it) => <ContentRow key={it.id} it={it} slug={slug} />)}</Panel>}
             {scheduled.length > 0 && <Panel label="Scheduled">{scheduled.map((it) => <ContentRow key={it.id} it={it} slug={slug} />)}</Panel>}
+            {inProgress.length > 0 && <Panel label="In progress">{inProgress.map((it) => (
+              <ContentRow key={it.id} it={it} slug={slug} note={clientStateLabel(it.state)} />
+            ))}</Panel>}
             {published.length > 0 && <Panel label="Published">{published.map((it) => (
               <ContentRow key={it.id} it={it} slug={slug}
                 note={it.state === 'partially_live' ? 'some platforms not yet verified' : undefined} />
