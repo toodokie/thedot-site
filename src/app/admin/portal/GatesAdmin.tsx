@@ -20,17 +20,32 @@ function ClientTag({ name, show }: { name: string; show: boolean }) {
   return <span className={styles.clientTag}>{name}</span>
 }
 
-// One row shape for every task: title on the LEFT (truncated, full text on hover), the
-// status / gate / meta cluster on the RIGHT so pills align in a column across all rows.
+// The next step, in plain English, NOT the internal gate key. "design-built" is meaningless
+// to a human; the row should say what to DO. Dest appended when it is per-platform.
+const ACTION_LABEL: Record<string, string> = {
+  'fact-check': 'Fact-check',
+  'source-in-hand': 'Get studio cut',
+  'design-built': 'Build design',
+  'proofed': 'Proof it',
+  'approval-sent': 'Send to Maria',
+  'copy-approved': 'Maria to approve',
+  'scheduled': 'Schedule',
+  'posted': 'Post',
+  'link-confirmed': 'Confirm link',
+}
+function actionLabel(gate: string, dest: string | null): string {
+  const base = ACTION_LABEL[gate] ?? gate
+  return dest ? `${base}: ${dest}` : base
+}
+
+// One row shape for every task: title on the LEFT, the plain-English next step / status on
+// the RIGHT, inline so it sits right beside the title (never stranded far away).
 function TaskRow({ task, showClient }: { task: MyTask; showClient: boolean }) {
   const title = 'title' in task ? task.title : ''
   let trail: ReactNode = null
   let lead: ReactNode = null
   if (task.kind === 'action') {
-    trail = <>
-      <StatusPill tone="open" label={`${task.gate}${task.dest ? `:${task.dest}` : ''}`} />
-      {task.moreOpen > 0 && <span className={styles.meta}>+{task.moreOpen}</span>}
-    </>
+    trail = <StatusPill tone="open" label={actionLabel(task.gate, task.dest)} />
   } else if (task.kind === 'link_pending') {
     trail = <span className={styles.meta}>confirm link{task.dest ? `: ${task.dest}` : ''}{task.moreOpen > 0 ? ` (+${task.moreOpen})` : ''}</span>
   } else if (task.kind === 'waiting_maria') {

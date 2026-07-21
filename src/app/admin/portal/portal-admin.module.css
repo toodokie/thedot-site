@@ -24,7 +24,7 @@
 .backlink { display: inline-block; margin-bottom: 20px; font-size: 13px; color: var(--admin-muted); }
 .backlink:hover { color: var(--admin-ink); }
 .pageHead { margin-bottom: 40px; }
-.pageSub { max-width: 640px; margin-top: 8px; color: var(--admin-muted); font-size: 15px; line-height: 1.55; }
+.pageSub { max-width: 640px; margin-top: 8px; color: var(--admin-muted); font-size: 16px; line-height: 1.55; }
 
 /* ---- the shared panel: cream fill, hairline border, sharp corners (client .panel) ------- */
 .card {
@@ -45,8 +45,8 @@
   text-transform: uppercase;
   color: var(--admin-graphite);
 }
-.cardSub { color: var(--admin-muted); font-size: 13px; line-height: 1.55; margin-top: 6px; max-width: 620px; }
-.count { flex: none; color: var(--admin-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.cardSub { color: var(--admin-muted); font-size: 14.5px; line-height: 1.55; margin-top: 6px; max-width: 620px; }
+.count { flex: none; color: var(--admin-muted); font-size: 15px; font-variant-numeric: tabular-nums; }
 .countPop {
   color: var(--admin-ink); font-weight: var(--dot-weight-medium);
   background: linear-gradient(transparent 58%, var(--admin-accent-strong) 58%); padding: 0 4px;
@@ -55,24 +55,24 @@
 /* ---- task groups + rows (client .row: hairline-divided, title + chip inline) ------------ */
 .group { margin-top: 24px; }
 .group:first-of-type { margin-top: 0; }
-.groupLabel { font-size: 14px; font-weight: var(--dot-weight-medium); color: var(--admin-ink); margin-bottom: 2px; }
+.groupLabel { font-size: 15px; font-weight: var(--dot-weight-demi); color: var(--admin-ink); margin-bottom: 4px; }
 .taskList { list-style: none; margin: 0; padding: 0; }
 .taskRow {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 9px;
+  gap: 10px;
   border-top: 1px solid var(--admin-line);
-  padding: 13px 2px;
-  font-size: 15px;
-  line-height: 1.5;
+  padding: 15px 2px;
+  font-size: 16px;
+  line-height: 1.55;
 }
 .taskMain { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 9px; min-width: 0; }
-.taskTitle { color: var(--admin-ink); }
+.taskTitle { color: var(--admin-ink); font-size: 16px; }
 .taskTrail { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
-.clientTag { flex: none; font-size: 12px; color: var(--admin-muted); font-variant-numeric: tabular-nums; }
-.meta { color: var(--admin-graphite); font-size: 13.5px; font-variant-numeric: tabular-nums; }
-.empty { color: var(--admin-muted); font-size: 15px; padding: 13px 2px; border-top: 1px solid var(--admin-line); }
+.clientTag { flex: none; font-size: 13px; color: var(--admin-muted); font-variant-numeric: tabular-nums; }
+.meta { color: var(--admin-graphite); font-size: 14.5px; font-variant-numeric: tabular-nums; }
+.empty { color: var(--admin-muted); font-size: 16px; padding: 15px 2px; border-top: 1px solid var(--admin-line); }
 
 /* ---- chips (client .chip: quiet hairline; the one accent is yellow-pale) ---------------- */
 .pill {
@@ -80,7 +80,7 @@
   align-items: center;
   gap: 4px;
   font-family: var(--dot-font-text);
-  font-size: 12px;
+  font-size: 13px;
   color: var(--admin-graphite);
   border: 1px solid var(--admin-line);
   background: transparent;
@@ -100,10 +100,10 @@
 
 /* ---- pieces table: hairline rows, quiet chips, gate strip ------------------------------- */
 .tableWrap { overflow-x: auto; }
-.table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.table { border-collapse: collapse; width: 100%; font-size: 15px; }
 .table th {
   text-align: left; padding: 8px 2px; border-bottom: 1px solid var(--admin-line);
-  font-size: 11px; font-weight: var(--dot-weight-medium); letter-spacing: 0.07em;
+  font-size: 12px; font-weight: var(--dot-weight-medium); letter-spacing: 0.07em;
   text-transform: uppercase; color: var(--admin-muted);
 }
 .table td { padding: 12px 2px; border-bottom: 1px solid var(--admin-line); vertical-align: baseline; }
@@ -112,11 +112,11 @@
 .pieceCol { width: 42%; padding-right: 16px; }
 .gatesCol { width: 170px; white-space: nowrap; }
 .stageCell { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-.stageDetail { color: var(--admin-muted); font-size: 12.5px; }
+.stageDetail { color: var(--admin-muted); font-size: 13.5px; }
 
 .legend {
   display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
-  margin-bottom: 14px; font-size: 12px; color: var(--admin-muted);
+  margin-bottom: 14px; font-size: 13px; color: var(--admin-muted);
 }
 .legendItem { display: inline-flex; align-items: center; gap: 5px; }
 .gateStrip { display: inline-flex; gap: 3px; }
@@ -129,13 +129,13 @@
 /* ---- publication coordination (progressive disclosure) --------------------------------- */
 .pubPiece { border-top: 1px solid var(--admin-line); padding: 16px 2px; }
 .pubPieceHead { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 8px; }
-.pubPieceTitle { font-size: 15px; font-weight: var(--dot-weight-medium); color: var(--admin-ink); }
+.pubPieceTitle { font-size: 16px; font-weight: var(--dot-weight-medium); color: var(--admin-ink); }
 .pubVersion { color: var(--admin-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 .destRow {
   display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
   padding: 9px 0; border-top: 1px solid var(--admin-line);
 }
-.destName { min-width: 104px; font-size: 14px; font-weight: var(--dot-weight-medium); text-transform: capitalize; }
+.destName { min-width: 104px; font-size: 15px; font-weight: var(--dot-weight-medium); text-transform: capitalize; }
 .destPills { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .destLink { font-size: 13.5px; color: var(--admin-ink); text-decoration: underline; }
 .destSpacer { flex: 1 1 auto; }
@@ -177,8 +177,8 @@
 /* ---- secondary sections (calendar / billing / requests) -------------------------------- */
 .subCard { border: 1px solid var(--admin-line); padding: 14px 16px; margin: 12px 0; }
 .subCardWarn { border-color: var(--admin-danger); }
-.subCardTitle { font-size: 15px; font-weight: var(--dot-weight-medium); color: var(--admin-ink); margin-bottom: 4px; }
-.metaLine { color: var(--admin-graphite); font-size: 13.5px; font-variant-numeric: tabular-nums; margin-top: 3px; line-height: 1.55; }
+.subCardTitle { font-size: 16px; font-weight: var(--dot-weight-medium); color: var(--admin-ink); margin-bottom: 4px; }
+.metaLine { color: var(--admin-graphite); font-size: 14.5px; font-variant-numeric: tabular-nums; margin-top: 3px; line-height: 1.55; }
 .errorText { color: var(--admin-danger); font-size: 13.5px; margin-top: 4px; }
 .codeId { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--admin-muted); }
 .statusMsg { font-size: 14px; color: var(--admin-graphite); margin-top: 10px; }
