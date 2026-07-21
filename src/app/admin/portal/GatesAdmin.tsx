@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import { GATE_ORDER, resolveNineGates, deriveContentStage, deriveMyTasks,
-  type StagePiece, type OpsTaskRow, type MyTask } from '@/lib/portal/gates'
+  type StagePiece, type OpsTaskRow, type MyTask, type CompletedOpsTask } from '@/lib/portal/gates'
 
 // Agency-only surface (gate-system spec sections 4 + 6.8): My Tasks + the per-piece
 // gate strip render HERE, never in the client shell. Read-only in v1; emissions go
@@ -33,9 +33,10 @@ function TaskRow({ task }: { task: MyTask }) {
     {task.triggerNote ? ` · watch: ${task.triggerNote}` : ''}</li>
 }
 
-export default function GatesAdmin({ pieces, opsTasks, todayIso }: {
+export default function GatesAdmin({ pieces, opsTasks, completedOps, todayIso }: {
   pieces: StagePiece[]
   opsTasks: OpsTaskRow[]
+  completedOps: CompletedOpsTask[]
   todayIso: string
 }) {
   const tasks = deriveMyTasks(pieces, opsTasks, todayIso)
@@ -66,6 +67,21 @@ export default function GatesAdmin({ pieces, opsTasks, todayIso }: {
           {opsBuckets.map(([label, rows]) => rows.length > 0
             && <div key={label}><h4>Ops · {label}</h4><ul>{rows.map((task, i) => <TaskRow key={i} task={task} />)}</ul></div>)}
         </>}
+
+      {completedOps.length > 0 && <>
+        <h3>Recently completed ops</h3>
+        <ul>
+          {completedOps.map((task) => (
+            <li key={task.id}>
+              [{task.category}] {task.title} · {task.status}
+              {task.completedAt ? ` ${task.completedAt.slice(0, 10)}` : ''}
+              {/* fix B: the completion note is separate; the original trigger note survives */}
+              {task.triggerNote && <span style={{ color: '#777' }}> · trigger: {task.triggerNote}</span>}
+              {task.completionNote && <span style={{ color: '#777' }}> · outcome: {task.completionNote}</span>}
+            </li>
+          ))}
+        </ul>
+      </>}
 
       <h3>Pieces</h3>
       <table style={{ borderCollapse: 'collapse', width: '100%' }}>

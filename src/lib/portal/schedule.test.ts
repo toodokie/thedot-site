@@ -39,4 +39,29 @@ describe('piece-vs-plan routing (audit B1)', () => {
     expect(belongsOnPlanSurface('scheduled', 'with_dot')).toBe(false)
     expect(belongsOnPlanSurface('approved', 'with_dot')).toBe(false)
   })
+
+  // Codex round-2: an EXPLICIT status x state cross-product. routesToPiecePage depends
+  // only on state (never status); belongsOnPlanSurface is true iff status is idea/draft
+  // AND state is with_dot. The plan page evaluates routesToPiecePage FIRST, so the only
+  // cell that renders the plan subpage is (idea|draft) x with_dot; every other cell
+  // either redirects to the piece page (routesToPiecePage true) or notFounds.
+  describe('status x state cross-product', () => {
+    const STATUSES = ['idea', 'draft', 'approved', 'scheduled', 'posted'] as const
+    const STATES = ['with_dot', 'needs_review', 'approved', 'scheduled', 'partially_live'] as const
+    for (const status of STATUSES) {
+      for (const state of STATES) {
+        const routes = routesToPiecePage(state)
+        const plan = belongsOnPlanSurface(status, state)
+        it(`${status} x ${state}: routes=${routes} plan=${plan}`, () => {
+          // routing is a pure function of state
+          expect(routes).toBe(state !== 'with_dot')
+          // plan surface only for a genuinely-planned piece still quietly with The Dot
+          expect(plan).toBe((status === 'idea' || status === 'draft') && state === 'with_dot')
+          // the two are mutually exclusive: a piece never both routes to its piece page
+          // AND belongs on the plan list
+          expect(routes && plan).toBe(false)
+        })
+      }
+    }
+  })
 })

@@ -2,6 +2,7 @@ import { loadEnvConfig } from '@next/env'
 import { createClient } from '@supabase/supabase-js'
 import { readFile, writeFile } from 'node:fs/promises'
 import { renderStatusGatesBlock } from '../src/lib/portal/gates'
+import { loadAgencyStagePiece } from '../src/lib/portal/gates-loader'
 import {
   assertClientSafeAgencyText, assertReportMetrics, assertReviewedHttpsUrl,
   optionalText, requiredText, sha256,
@@ -27,6 +28,16 @@ const timestamp = (value: unknown, field: string) => {
   const text = requiredText(value, field, 100)
   if (!Number.isFinite(Date.parse(text))) throw new Error(`${field} must be an ISO timestamp`)
   return new Date(text).toISOString()
+}
+// Mirror of the DB's portal_note_grammar_safe (fix C): gate/completion notes render into
+// the STATUS GATES markdown, so reject control chars/newlines and the reserved grammar
+// delimiters (| @ and the '- [' checkbox) before the RPC does.
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARS = new RegExp('[\\u0000-\\u001F\\u007F]')
+const assertNoteGrammarSafe = (value: string | null, field: string) => {
+  if (value === null) return
+  if (CONTROL_CHARS.test(value) || value.includes('|') || value.includes('@') || value.includes('- ['))
+    throw new Error(`${field} contains a reserved grammar or control character (newline, |, @, - [)`)
 }
 
 async function main() {
@@ -170,13 +181,17 @@ async function main() {
     const state = stringArray(payload.state, 'state', ['open', 'done', 'na'])
     if (state === 'na' && !payload.naReason) throw new Error('na requires naReason (the [~] rule)')
     if (state === 'done' && !payload.occurredAt) throw new Error('done requires occurredAt (every [x] carries a date)')
+    const gateNote = optionalText(payload.note, 'note', 2000)
+    const naReason = optionalText(payload.naReason, 'naReason', 1000)
+    assertNoteGrammarSafe(gateNote, 'note')
+    assertNoteGrammarSafe(naReason, 'naReason')
     rpc = 'set_production_gate'; args = { p_client_id: null,
       p_content_id: requiredText(payload.contentId, 'contentId', 200),
       p_gate_key: stringArray(gateKey, 'gateKey', ['source_in_hand', 'design_built', 'proofed', 'approval_sent']),
       p_state: state,
       p_owner: stringArray(payload.owner ?? 'anastasia', 'owner', ['anastasia', 'studio', 'agent']),
-      p_note: optionalText(payload.note, 'note', 2000),
-      p_na_reason: optionalText(payload.naReason, 'naReason', 1000),
+      p_note: gateNote,
+      p_na_reason: naReason,
       p_occurred_at: payload.occurredAt == null ? null : timestamp(payload.occurredAt, 'occurredAt'),
       p_actor_key: actor, p_idempotency_key: idempotency }
   } else if (command === 'ops-task') {
@@ -190,10 +205,12 @@ async function main() {
       p_source: requiredText(payload.source, 'source', 1000),
       p_actor_key: actor, p_idempotency_key: idempotency }
   } else if (command === 'ops-task-complete') {
+    const completionNote = optionalText(payload.note, 'note', 1000)
+    assertNoteGrammarSafe(completionNote, 'note')
     rpc = 'complete_ops_task'; args = {
       p_task_id: requiredText(payload.taskId, 'taskId', 40),
       p_status: stringArray(payload.status ?? 'done', 'status', ['done', 'dropped']),
-      p_note: optionalText(payload.note, 'note', 1000),
+      p_note: completionNote,
       p_actor_key: actor, p_idempotency_key: idempotency }
   } else throw new Error(`unknown portal-write command: ${command}`)
   if (dryRun) { console.log(`VALID ${command} for ${slug ?? 'agency'} (${idempotency})`); return }
@@ -220,46 +237,23 @@ async function main() {
 
 // After a gate emission, regenerate the piece's STATUS GATES block from the portal's
 // full truth (production gates from 0022 + fact-check/decision/schedule/publication
-// from their real homes). With --pack <path> the block is patched into the pack
-// (best-effort mirror: the file is the OUTPUT of the write); without it the block is
-// PRINTED so the mirror can never silently diverge without a visible step.
+// from their real homes). Loads over content_items + the WORKING version (Codex round-2
+// BLOCKER 1), so an UNRELEASED draft/idea piece regenerates too, not just released ones.
+// With --pack <path> the block is patched into the pack (best-effort mirror: the file is
+// the OUTPUT of the write); without it the block is PRINTED so the mirror can never
+// silently diverge without a visible step.
 async function emitStatusGatesBlock(clientId: string, contentId: string, packPath: string | null) {
-  const { data: item, error: itemError } = await admin.from('content_with_state')
-    .select('id, content_id, title, status, fact_check, fact_check_exemption, platforms, current_decision, version, archived_at')
-    .eq('client_id', clientId).eq('content_id', contentId).single()
-  if (itemError || !item) { console.warn(`WARN: no released view row for ${contentId}; block not regenerated`); return }
-  const [gates, schedules, publications] = await Promise.all([
-    admin.from('content_production_gates')
-      .select('gate_key, state, owner_label, occurred_at, note, na_reason')
-      .eq('client_id', clientId).eq('content_item_id', item.id),
-    admin.from('content_schedule_targets')
-      .select('destination, status, scheduled_at')
-      .eq('client_id', clientId).eq('content_id', item.id).eq('content_version', item.version),
-    admin.from('content_publication_targets')
-      .select('destination, status, live_url, first_verified_at')
-      .eq('client_id', clientId).eq('content_id', item.id).eq('content_version', item.version),
-  ])
-  if (gates.error || schedules.error || publications.error) {
-    console.warn(`WARN: gate block data unavailable: ${gates.error?.message ?? schedules.error?.message ?? publications.error?.message}`)
+  let piece
+  try {
+    piece = await loadAgencyStagePiece(admin, clientId, contentId)
+  } catch (error) {
+    console.warn(`WARN: gate block data unavailable: ${(error as Error).message}`)
     return
   }
-  const dests = (item.platforms ?? []).map((platform: string) => {
-    const schedule = (schedules.data ?? []).find((row) => row.destination === platform)
-    const publication = (publications.data ?? []).find((row) => row.destination === platform)
-    return { destination: platform, scheduleStatus: schedule?.status ?? null,
-      publicationStatus: publication?.status ?? null,
-      verified: Boolean(publication?.first_verified_at),
-      scheduledAt: schedule?.scheduled_at ?? null, liveUrl: publication?.live_url ?? null }
-  })
-  const block = renderStatusGatesBlock({
-    contentId: item.content_id, title: item.title, status: item.status,
-    factCheck: item.fact_check, factCheckExempt: Boolean(item.fact_check_exemption),
-    currentDecision: item.current_decision, approvalSentAt: null,
-    platforms: item.platforms ?? [], archived: Boolean(item.archived_at),
-    gates: (gates.data ?? []) as never, dests,
-  }, new Date().toISOString())
+  if (!piece) { console.warn(`WARN: no working snapshot for ${contentId}; block not regenerated`); return }
+  const block = renderStatusGatesBlock(piece, new Date().toISOString())
   if (packPath) {
-    const patched = await patchPackBlock(packPath, item.content_id, block)
+    const patched = await patchPackBlock(packPath, piece.contentId, block)
     if (patched) { console.log(`PACK UPDATED: ${packPath}`); return }
     console.warn('WARN: no matching STATUS GATES block found in the pack; paste this:')
   } else {

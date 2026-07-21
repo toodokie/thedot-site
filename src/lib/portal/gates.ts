@@ -140,9 +140,11 @@ export type StageResult = { stage: ContentStage; label: string }
 
 const listDests = (dests: string[]) => dests.join(', ')
 
-function gateSatisfied(row: ProductionGateRow | null): boolean {
-  // na (with its mandatory reason) satisfies gating: nothing applicable remains open
-  return row !== null && (row.state === 'done' || row.state === 'na')
+// An ABSENT gate row (podcast lane, partial backfill) is NOT a blocker: it is an
+// unknown, not an unmet obligation (Codex round-2 fix A). Only a PRESENT gate that is
+// still open blocks. na (with its mandatory reason) is a satisfied, non-blocking state.
+function gateBlocks(row: ProductionGateRow | null): boolean {
+  return row !== null && row.state === 'open'
 }
 
 export function deriveContentStage(piece: StagePiece): StageResult {
@@ -184,13 +186,17 @@ export function deriveContentStage(piece: StagePiece): StageResult {
   const hasGateRows = piece.gates.length > 0
 
   if (piece.currentDecision === 'approved') {
-    // 4/5. approved vs direction_approved (the H&C shape): a decision with incomplete
-    // production gates claims less. Pieces with NO gate rows (podcast lane,
-    // pre-gate-system) derive from the decision alone (spec 12.7).
-    if (!hasGateRows || (gateSatisfied(design) && gateSatisfied(proofed))) {
-      return { stage: 'approved', label: 'approved' }
+    // 4/5. approved vs direction_approved (the H&C shape): a decision recorded while any
+    // PRESENT production gate is still open claims less than "approved". Codex round-2
+    // fix A: an ABSENT design_built/proofed/approval_sent row never forces
+    // direction_approved (that was the bug: a partial gate set with a done proofed but
+    // no design row wrongly derived direction_approved), and an open approval_sent row
+    // (present and open) DOES, which the old design/proofed-only check missed. Pieces
+    // with no gate rows at all derive approved from the decision alone (spec 12.7).
+    if (gateBlocks(design) || gateBlocks(proofed) || gateBlocks(approvalSent)) {
+      return { stage: 'direction_approved', label: 'direction approved (production gates open)' }
     }
-    return { stage: 'direction_approved', label: 'direction approved (production gates open)' }
+    return { stage: 'approved', label: 'approved' }
   }
   // 6. the ask is out, no decision yet
   if (approvalSent?.state === 'done') {
@@ -218,6 +224,19 @@ export type MyTask =
   | { kind: 'waiting_maria'; contentId: string; title: string; daysWaiting: number; nudge: boolean }
   | { kind: 'waiting_studio'; contentId: string; title: string; note: string | null }
   | { kind: 'ops'; id: string; title: string; category: string; bucket: 'overdue' | 'today' | 'this_week' | 'upcoming' | 'watch'; dueDate: string | null; triggerNote: string | null }
+
+// A recently-completed ops task, for the admin's "Recently completed" reader: it shows
+// BOTH the original trigger_note (immutable) and the completion_note (fix B), proving a
+// completion never overwrites the trigger provenance.
+export type CompletedOpsTask = {
+  id: string
+  title: string
+  category: string
+  status: string
+  triggerNote: string | null
+  completionNote: string | null
+  completedAt: string | null
+}
 
 export type OpsTaskRow = {
   id: string

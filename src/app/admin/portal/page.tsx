@@ -8,7 +8,8 @@ import CalendarAdmin, { type CalendarConflictAdmin, type CalendarIntegrationAdmi
 import BillingAdmin, { type AdminInvoice } from './BillingAdmin'
 import RequestAdmin, { type AdminContentRequest } from './RequestAdmin'
 import GatesAdmin from './GatesAdmin'
-import type { StagePiece, OpsTaskRow, ProductionGateRow } from '@/lib/portal/gates'
+import type { StagePiece, OpsTaskRow, CompletedOpsTask } from '@/lib/portal/gates'
+import { loadAgencyStagePieces } from '@/lib/portal/gates-loader'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,10 +18,10 @@ export default async function PortalAdminPage() {
   if (!session || session.role !== 'admin') redirect('/admin/login')
   const admin = createSupabaseAdmin()
   const [clients, content, schedules, publications, observations, actors, integrations,
-    syncStates, conflicts, unmapped, jobs, invoices, contentRequests, productionGates,
-    opsTasks, publicationBase] = await Promise.all([
+    syncStates, conflicts, unmapped, jobs, invoices, contentRequests, opsTasks,
+    completedOpsRows] = await Promise.all([
     admin.from('clients').select('id,name,slug').order('name'),
-    admin.from('content_with_state').select('id,client_id,content_id,title,version,status,fact_check,fact_check_exemption,platforms,current_decision,archived_at').order('planned_date'),
+    admin.from('content_with_state').select('id,client_id,content_id,title,version').order('planned_date'),
     admin.from('content_schedule_targets').select('id,client_id,content_id,content_version,destination,status,scheduled_at,evidence_id,verifier_actor_id'),
     admin.from('content_publication_targets_client').select('id,client_id,content_id,content_version,destination,status,live_url,published_at,verification_label'),
     admin.from('content_publication_observations').select('id,client_id,publication_target_id,provider_state,published_at,observed_at,source_type,reconciliation_status,evidence_id,permalink,verifier_actor_id').order('created_at', { ascending: false }),
@@ -32,15 +33,13 @@ export default async function PortalAdminPage() {
     admin.from('calendar_sync_jobs').select('integration_id').in('status',['failed','abandoned']),
     admin.from('invoices').select('id,client_id,number,issued_at,amount,currency,status,document_url').order('issued_at', { ascending: false }),
     admin.rpc('list_content_change_requests', { p_client_id: null }),
-    admin.from('content_production_gates')
-      .select('client_id,content_item_id,gate_key,state,owner_label,occurred_at,note,na_reason'),
     admin.from('ops_tasks').select('id,title,category,due_date,trigger_note,status').eq('status', 'open'),
-    admin.from('content_publication_targets')
-      .select('client_id,content_id,content_version,destination,status,live_url,first_verified_at'),
+    admin.from('ops_tasks').select('id,title,category,status,trigger_note,completion_note,completed_at')
+      .in('status', ['done', 'dropped']).order('completed_at', { ascending: false }).limit(10),
   ])
   const failure = clients.error ?? content.error ?? schedules.error ?? publications.error ?? observations.error
     ?? actors.error ?? integrations.error ?? syncStates.error ?? conflicts.error ?? unmapped.error ?? jobs.error ?? invoices.error
-    ?? contentRequests.error ?? productionGates.error ?? opsTasks.error ?? publicationBase.error
+    ?? contentRequests.error ?? opsTasks.error ?? completedOpsRows.error
   if (failure) throw new Error(`Portal admin data unavailable: ${failure.message}`)
   const clientMap = new Map((clients.data ?? []).map((client) => [client.id, client]))
   const contentMap = new Map((content.data ?? []).map((item) => [`${item.client_id}:${item.id}:${item.version}`, item]))
@@ -119,33 +118,15 @@ export default async function PortalAdminPage() {
       resolutionNote: request.resolution_note }
   })
   // Gate-system surface (agency-only, spec section 6.8): per-piece stage + my_tasks.
-  const stagePieces: StagePiece[] = (content.data ?? []).map((item) => {
-    const gates = (productionGates.data ?? [])
-      .filter((gate) => gate.client_id === item.client_id && gate.content_item_id === item.id)
-      .map((gate): ProductionGateRow => ({
-        gate_key: gate.gate_key as ProductionGateRow['gate_key'],
-        state: gate.state as ProductionGateRow['state'],
-        owner_label: gate.owner_label as ProductionGateRow['owner_label'],
-        occurred_at: gate.occurred_at, note: gate.note, na_reason: gate.na_reason }))
-    const platforms: string[] = Array.isArray(item.platforms) ? item.platforms : []
-    const dests = platforms.map((platform) => {
-      const schedule = (schedules.data ?? []).find((row) => row.client_id === item.client_id
-        && row.content_id === item.id && row.content_version === item.version && row.destination === platform)
-      const publication = (publicationBase.data ?? []).find((row) => row.client_id === item.client_id
-        && row.content_id === item.id && row.content_version === item.version && row.destination === platform)
-      return { destination: platform, scheduleStatus: schedule?.status ?? null,
-        publicationStatus: publication?.status ?? null,
-        verified: Boolean(publication?.first_verified_at),
-        scheduledAt: schedule?.scheduled_at ?? null, liveUrl: publication?.live_url ?? null }
-    })
-    const approvalSent = gates.find((gate) => gate.gate_key === 'approval_sent')
-    return { contentId: item.content_id, title: item.title, status: item.status,
-      factCheck: item.fact_check, factCheckExempt: Boolean(item.fact_check_exemption),
-      currentDecision: item.current_decision as StagePiece['currentDecision'],
-      approvalSentAt: approvalSent?.state === 'done' ? approvalSent.occurred_at : null,
-      platforms, archived: Boolean(item.archived_at), gates, dests }
-  })
+  // Codex round-2 BLOCKER 1: loaded over content_items + the WORKING version (not the
+  // released content_with_state view), so gates on an unreleased draft/idea piece show
+  // here too. loadAgencyStagePieces runs its own service-role queries.
+  const stagePieces: StagePiece[] = await loadAgencyStagePieces(admin)
   const adminOpsTasks: OpsTaskRow[] = (opsTasks.data ?? [])
+  const completedOps: CompletedOpsTask[] = (completedOpsRows.data ?? []).map((task) => ({
+    id: task.id, title: task.title, category: task.category, status: task.status,
+    triggerNote: task.trigger_note, completionNote: task.completion_note, completedAt: task.completed_at,
+  }))
   const todayIso = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit',
   }).format(new Date())
@@ -165,7 +146,7 @@ export default async function PortalAdminPage() {
           version: item.version, title: item.title }))} />
       <BillingAdmin invoices={adminInvoices} />
       <RequestAdmin requests={adminRequests} />
-      <GatesAdmin pieces={stagePieces} opsTasks={adminOpsTasks} todayIso={todayIso} />
+      <GatesAdmin pieces={stagePieces} opsTasks={adminOpsTasks} completedOps={completedOps} todayIso={todayIso} />
     </main>
   )
 }

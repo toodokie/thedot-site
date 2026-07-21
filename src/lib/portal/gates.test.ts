@@ -84,6 +84,32 @@ describe('deriveContentStage', () => {
     expect(result.stage).toBe('approved')
   })
 
+  // Codex round-2 fix A: absent gate rows must NOT force direction_approved; only a
+  // PRESENT-and-open design_built/proofed/approval_sent does.
+  it('5c: approved decision + only a PARTIAL gate set (proofed done, no design row) -> approved', () => {
+    const result = deriveContentStage(piece({
+      currentDecision: 'approved',
+      gates: [gate('source_in_hand', 'na'), gate('proofed', 'done')],
+    }))
+    expect(result.stage).toBe('approved') // design_built absent is non-blocking, not unsatisfied
+  })
+
+  it('5d: approved decision + a present-open proofed row -> direction_approved', () => {
+    const result = deriveContentStage(piece({
+      currentDecision: 'approved',
+      gates: [gate('design_built', 'done'), gate('proofed', 'open')],
+    }))
+    expect(result.stage).toBe('direction_approved')
+  })
+
+  it('5e: approved decision + an open approval_sent row -> direction_approved (old check missed this)', () => {
+    const result = deriveContentStage(piece({
+      currentDecision: 'approved',
+      gates: [gate('design_built', 'done'), gate('proofed', 'done'), gate('approval_sent', 'open')],
+    }))
+    expect(result.stage).toBe('direction_approved')
+  })
+
   it('6: awaiting_decision when the ask is out and no decision exists', () => {
     const result = deriveContentStage(piece({
       gates: [gate('design_built', 'done'), gate('proofed', 'done'), gate('approval_sent', 'done')],
@@ -225,5 +251,36 @@ describe('resolveNineGates', () => {
     const source = resolved.find((row) => row.key === 'source-in-hand')
     expect(source?.present).toBe(false)
     expect(source?.state).toBe('open')
+  })
+})
+
+// Contract test for the admin loader input shape (Codex ruling 2): a StagePiece with
+// exactly the fields loadAgencyStagePieces produces (working-version title/platforms,
+// latest decision, gate rows, dest states) flows through all three derivations without
+// throwing. Guards against a loader/engine drift where the admin feeds a shape the
+// derivations do not accept.
+describe('admin input-shape contract', () => {
+  const loaderShaped: StagePiece = {
+    contentId: 'kanset-2026-07-askkanset-ep3-move-provinces',
+    title: 'Ask Kanset: moving provinces',
+    status: 'draft', // unreleased piece: the loader still stages it (BLOCKER 1)
+    factCheck: 'confirmed', factCheckExempt: false,
+    currentDecision: null, approvalSentAt: null,
+    platforms: ['instagram', 'facebook', 'youtube'], archived: false,
+    gates: [
+      gate('source_in_hand', 'done', { owner_label: 'studio', occurred_at: '2026-07-15T16:00:00Z', note: 'Set 1 Clip 3' }),
+      gate('design_built', 'open', { note: 'cover to build' }),
+      gate('proofed', 'open'),
+      gate('approval_sent', 'open'),
+    ],
+    dests: [dest('instagram'), dest('facebook'), dest('youtube')],
+  }
+
+  it('an unreleased loader-shaped piece derives, stages, tasks, and renders without throwing', () => {
+    expect(() => deriveContentStage(loaderShaped)).not.toThrow()
+    expect(deriveContentStage(loaderShaped).stage).toBe('in_production')
+    const tasks = deriveMyTasks([loaderShaped], [], '2026-07-21')
+    expect(tasks[0]).toMatchObject({ kind: 'action', gate: 'design-built' })
+    expect(renderStatusGatesBlock(loaderShaped, '2026-07-21')).toContain('## STATUS GATES')
   })
 })
