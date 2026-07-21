@@ -168,9 +168,13 @@ export function resolveNineGates(piece: StagePiece): ResolvedGate[] {
 
   for (const platform of piece.platforms) {
     const dest = piece.dests.find((d) => d.destination === platform)
+    // A LIVE destination was necessarily scheduled: posting supersedes scheduling, so a
+    // published piece never shows an open "scheduled" gate (which surfaced as a false
+    // "schedule this" action on already-posted pieces in My Tasks). scheduled is done when
+    // the platform is confirmed scheduled OR already live.
     rows.push({
       key: 'scheduled', dest: platform, present: true,
-      state: dest?.scheduleStatus === 'scheduled' ? 'done' : 'open',
+      state: dest?.scheduleStatus === 'scheduled' || dest?.publicationStatus === 'live' ? 'done' : 'open',
       owner: 'anastasia', date: day(dest?.scheduledAt), note: null,
     })
   }
@@ -289,6 +293,10 @@ export function deriveContentStage(piece: StagePiece): StageResult {
 // clientName is 'Agency'. Piece-derived tasks also carry clientId for composite keys.
 export type MyTask =
   | { kind: 'action'; clientId: string; clientName: string; contentId: string; title: string; gate: GateKey; dest: string | null; moreOpen: number }
+  // posted everywhere required, only link-confirmation outstanding: bookkeeping, not
+  // production work, so it renders in a quiet "link-confirm pending" group instead of
+  // flooding Actions (many imported/legacy pieces sit here honestly unverified).
+  | { kind: 'link_pending'; clientId: string; clientName: string; contentId: string; title: string; dest: string | null; moreOpen: number }
   | { kind: 'waiting_maria'; clientId: string; clientName: string; contentId: string; title: string; daysWaiting: number; nudge: boolean }
   | { kind: 'waiting_studio'; clientId: string; clientName: string; contentId: string; title: string; note: string | null }
   | { kind: 'ops'; id: string; clientName: string; title: string; category: string; bucket: 'overdue' | 'today' | 'this_week' | 'upcoming' | 'watch'; dueDate: string | null; triggerNote: string | null }
@@ -364,6 +372,12 @@ export function deriveMyTasks(
     if (first.key === 'source-in-hand' && first.owner === 'studio') {
       tasks.push({ kind: 'waiting_studio', ...tenant, contentId: piece.contentId,
         title: piece.title, note: first.note })
+      continue
+    }
+    // Only link-confirmation left (the piece is posted): quiet bookkeeping, not an action.
+    if (first.key === 'link-confirmed') {
+      tasks.push({ kind: 'link_pending', ...tenant, contentId: piece.contentId,
+        title: piece.title, dest: first.dest, moreOpen: open.length - 1 })
       continue
     }
     tasks.push({ kind: 'action', ...tenant, contentId: piece.contentId, title: piece.title,

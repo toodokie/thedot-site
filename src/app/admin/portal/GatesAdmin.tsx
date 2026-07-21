@@ -5,32 +5,44 @@ import styles from './portal-admin.module.css'
 
 // Agency-only surface (gate-system spec sections 4 + 6.8): My Tasks + the per-piece gate
 // strip render HERE, never in the client shell. Read-only: emissions go through
-// portal-write (gate / ops-task). This is a display/IA refactor only; no logic changed.
+// portal-write (gate / ops-task).
 
 // Composite React key: content_ids are unique only per tenant (Codex round-3 fix 2).
 function taskKey(task: MyTask): string {
   return task.kind === 'ops' ? `ops:${task.id}` : `${task.clientId}:${task.contentId}:${task.kind}`
 }
 
-function ClientTag({ name }: { name: string }) {
+// The client name only earns a slot when more than one client is on the board; with a
+// single client it repeated on every row as pure noise (Anastasia, 2026-07-21).
+function ClientTag({ name, show }: { name: string; show: boolean }) {
+  if (!show) return null
   return <span className={styles.clientTag}>{name}</span>
 }
 
-function TaskRow({ task }: { task: MyTask }) {
+function TaskRow({ task, showClient }: { task: MyTask; showClient: boolean }) {
   if (task.kind === 'action') {
     return (
       <li className={styles.taskRow}>
-        <ClientTag name={task.clientName} />
+        <ClientTag name={task.clientName} show={showClient} />
         <span className={styles.taskTitle}>{task.title}</span>
         <StatusPill tone="open" label={`${task.gate}${task.dest ? `:${task.dest}` : ''}`} />
         {task.moreOpen > 0 && <span className={styles.meta}>+{task.moreOpen} more gates</span>}
       </li>
     )
   }
+  if (task.kind === 'link_pending') {
+    return (
+      <li className={styles.taskRow}>
+        <ClientTag name={task.clientName} show={showClient} />
+        <span className={styles.taskTitle}>{task.title}</span>
+        <span className={styles.meta}>confirm link{task.dest ? `: ${task.dest}` : ''}{task.moreOpen > 0 ? ` (+${task.moreOpen})` : ''}</span>
+      </li>
+    )
+  }
   if (task.kind === 'waiting_maria') {
     return (
       <li className={styles.taskRow}>
-        <ClientTag name={task.clientName} />
+        <ClientTag name={task.clientName} show={showClient} />
         <span className={styles.taskTitle}>{task.title}</span>
         <span className={styles.meta}>waiting on Maria, {task.daysWaiting} business day{task.daysWaiting === 1 ? '' : 's'}</span>
         {task.nudge && <StatusPill tone="nudge" label="nudge?" />}
@@ -40,7 +52,7 @@ function TaskRow({ task }: { task: MyTask }) {
   if (task.kind === 'waiting_studio') {
     return (
       <li className={styles.taskRow}>
-        <ClientTag name={task.clientName} />
+        <ClientTag name={task.clientName} show={showClient} />
         <span className={styles.taskTitle}>{task.title}</span>
         <span className={styles.meta}>waiting on studio{task.note ? ` (${task.note})` : ''}</span>
       </li>
@@ -48,7 +60,7 @@ function TaskRow({ task }: { task: MyTask }) {
   }
   return (
     <li className={styles.taskRow}>
-      <ClientTag name={task.clientName} />
+      <ClientTag name={task.clientName} show={showClient} />
       <StatusPill tone="muted" label={task.category} />
       <span className={styles.taskTitle}>{task.title}</span>
       {task.dueDate && <span className={styles.meta}>due {task.dueDate}</span>}
@@ -58,11 +70,12 @@ function TaskRow({ task }: { task: MyTask }) {
 }
 
 // A piece's stage maps to a semantic pill tone (display only; deriveContentStage owns the
-// value). Live/done read positive (teal/check), failures rust, in-flight neutral.
+// value). done reads positive (soft teal + check); posted-but-unconfirmed and scheduled
+// stay light (outline) so a board of posted history does not read as a wall of solid teal.
 function stageTone(stage: string): PillTone {
   if (stage === 'done') return 'verified'
-  if (stage === 'live' || stage === 'posted_unverified') return 'live'
-  if (stage === 'scheduled' || stage === 'scheduled_partial') return 'scheduled'
+  if (stage === 'live') return 'live'
+  if (stage === 'posted_unverified' || stage === 'scheduled' || stage === 'scheduled_partial') return 'scheduled'
   if (stage === 'approved') return 'done'
   if (stage === 'publish_failed' || stage === 'schedule_failed') return 'failed'
   return 'muted'
@@ -76,19 +89,25 @@ export default function GatesAdmin({ pieces, opsTasks, completedOps, todayIso }:
 }) {
   const tasks = deriveMyTasks(pieces, opsTasks, todayIso)
   const actions = tasks.filter((task) => task.kind === 'action')
+  const linkPending = tasks.filter((task) => task.kind === 'link_pending')
   const maria = tasks.filter((task) => task.kind === 'waiting_maria')
   const studio = tasks.filter((task) => task.kind === 'waiting_studio')
   const ops = tasks.filter((task): task is Extract<MyTask, { kind: 'ops' }> => task.kind === 'ops')
   const opsBuckets: Array<[string, typeof ops]> = (
     ['overdue', 'today', 'this_week', 'upcoming', 'watch'] as const
   ).map((bucket) => [bucket.replace('_', ' '), ops.filter((task) => task.bucket === bucket)])
+  // The headline count is the genuinely-open WORK; link-confirm bookkeeping has its own
+  // labelled group and does not inflate it.
   const openCount = actions.length + maria.length + studio.length + ops.length
   const visiblePieces = pieces.filter((piece) => !piece.archived)
+  // Single-client board: drop the repeated client name / column entirely (it was noise on
+  // every row). Shows again the moment a second client's pieces appear.
+  const multiClient = new Set(pieces.map((p) => p.clientId)).size > 1
 
   const group = (label: string, rows: MyTask[]) => rows.length > 0 && (
     <div className={styles.group} key={label}>
       <div className={styles.groupLabel}>{label}</div>
-      <ul className={styles.taskList}>{rows.map((task) => <TaskRow key={taskKey(task)} task={task} />)}</ul>
+      <ul className={styles.taskList}>{rows.map((task) => <TaskRow key={taskKey(task)} task={task} showClient={multiClient} />)}</ul>
     </div>
   )
 
@@ -103,13 +122,14 @@ export default function GatesAdmin({ pieces, opsTasks, completedOps, todayIso }:
           </div>
           <span className={styles.count}>{openCount} open</span>
         </div>
-        {openCount === 0
+        {openCount === 0 && linkPending.length === 0
           ? <p className={styles.empty}>Nothing open.</p>
           : <>
             {group('Actions', actions)}
             {group('Waiting on Maria', maria)}
             {group('Waiting on studio', studio)}
             {opsBuckets.map(([label, rows]) => group(`Ops · ${label}`, rows))}
+            {group(`Posted · link-confirm pending (${linkPending.length})`, linkPending)}
           </>}
 
         {completedOps.length > 0 && (
@@ -118,7 +138,7 @@ export default function GatesAdmin({ pieces, opsTasks, completedOps, todayIso }:
             <ul className={styles.taskList}>
               {completedOps.map((task) => (
                 <li key={task.id} className={styles.taskRow}>
-                  <ClientTag name={task.clientName} />
+                  <ClientTag name={task.clientName} show={multiClient} />
                   <StatusPill tone="muted" label={task.category} />
                   <span className={styles.taskTitle}>{task.title}</span>
                   <span className={styles.meta}>{task.status}{task.completedAt ? ` ${task.completedAt.slice(0, 10)}` : ''}</span>
@@ -152,7 +172,7 @@ export default function GatesAdmin({ pieces, opsTasks, completedOps, todayIso }:
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>Client</th><th>Piece</th><th>Stage</th><th>Gates (1-9)</th>
+                {multiClient && <th>Client</th>}<th>Piece</th><th>Stage</th><th>Gates (1-9)</th>
               </tr>
             </thead>
             <tbody>
@@ -161,7 +181,7 @@ export default function GatesAdmin({ pieces, opsTasks, completedOps, todayIso }:
                 const resolved = resolveNineGates(piece)
                 return (
                   <tr key={`${piece.clientId}:${piece.contentId}`}>
-                    <td className={styles.cellMuted}>{piece.clientName}</td>
+                    {multiClient && <td className={styles.cellMuted}>{piece.clientName}</td>}
                     <td>{piece.title}</td>
                     <td><StatusPill tone={stageTone(stage.stage)} label={stage.label} /></td>
                     <td>

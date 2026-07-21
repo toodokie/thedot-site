@@ -206,6 +206,32 @@ describe('deriveMyTasks', () => {
     ], '2026-07-21')
     expect(tasks[0]).toMatchObject({ kind: 'ops', clientName: 'Agency' })
   })
+
+  it('a fully-posted but unverified piece is link-confirm bookkeeping, not an action', () => {
+    // posted on every platform, none verified -> only link-confirmed is open; it must NOT
+    // read as an action (that flooded My Tasks with posted history) but as link_pending.
+    const posted = piece({
+      currentDecision: 'approved', factCheckExempt: true,
+      gates: [gate('source_in_hand', 'na'), gate('design_built', 'done'),
+        gate('proofed', 'done'), gate('approval_sent', 'done')],
+      platforms: ['instagram', 'facebook'],
+      dests: [dest('instagram', { publicationStatus: 'live', verified: false }),
+        dest('facebook', { publicationStatus: 'live', verified: false })],
+    })
+    const tasks = deriveMyTasks([posted], [], '2026-07-21')
+    expect(tasks).toHaveLength(1)
+    expect(tasks[0]).toMatchObject({ kind: 'link_pending', dest: 'instagram' })
+  })
+
+  it('a live destination never surfaces a stale scheduled action (posting supersedes scheduling)', () => {
+    const live = piece({ platforms: ['instagram'],
+      dests: [dest('instagram', { publicationStatus: 'live', verified: false })] })
+    const scheduled = resolveNineGates(live).find((g) => g.key === 'scheduled' && g.dest === 'instagram')
+    expect(scheduled?.state).toBe('done')
+    // and My Tasks never emits a scheduled:instagram action for it
+    const tasks = deriveMyTasks([live], [], '2026-07-21')
+    expect(tasks.some((t) => t.kind === 'action' && t.gate === 'scheduled')).toBe(false)
+  })
 })
 
 describe('businessDaysBetween', () => {
