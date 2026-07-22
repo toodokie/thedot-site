@@ -32,7 +32,6 @@ const timestamp = (value: unknown, field: string) => {
 // Mirror of the DB's portal_note_grammar_safe (fix C): gate/completion notes render into
 // the STATUS GATES markdown, so reject control chars/newlines and the reserved grammar
 // delimiters (| @ and the '- [' checkbox) before the RPC does.
-// eslint-disable-next-line no-control-regex
 const CONTROL_CHARS = new RegExp('[\\u0000-\\u001F\\u007F]')
 const assertNoteGrammarSafe = (value: string | null, field: string) => {
   if (value === null) return
@@ -42,13 +41,14 @@ const assertNoteGrammarSafe = (value: string | null, field: string) => {
 
 async function main() {
   const [command, inputPath, ...rest] = process.argv.slice(2)
-  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|invoice|idea|design-link|gate|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
+  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|invoice|idea|news-idea|idea-status|design-link|gate|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
   const dryRun = rest.includes('--dry-run')
   const packIndex = rest.indexOf('--pack')
   const packPath = packIndex >= 0 ? rest[packIndex + 1] ?? null : null
   const payload = JSON.parse(await readFile(inputPath, 'utf8')) as Payload
   // ops commands may be agency-global (no client); everything else requires the slug
-  const slugOptional = (command === 'ops-task' && payload.clientSlug == null) || command === 'ops-task-complete'
+  const slugOptional = (command === 'ops-task' && payload.clientSlug == null)
+    || command === 'ops-task-complete' || command === 'idea-status'
   const slug = slugOptional ? null : requiredText(payload.clientSlug, 'clientSlug', 100)
   const actor = requiredText(payload.actorKey ?? 'thedot-admin', 'actorKey', 64)
   const idempotency = requiredText(payload.idempotencyKey, 'idempotencyKey', 200)
@@ -169,9 +169,31 @@ async function main() {
     assertClientSafeAgencyText({ title, body, authorName })
     rpc = 'agency_add_idea'; args = { p_client_id: null,
       p_title: title, p_body: body,
-      p_status: stringArray(payload.status ?? 'new', 'status', ['new','considering','planned','archived']),
+      p_status: stringArray(payload.status ?? 'proposed', 'status',
+        ['proposed','picked','dropped','new','considering','planned','archived']),
       p_author_type: stringArray(payload.authorType ?? 'client', 'authorType', ['client','anastasia','agent']),
       p_author_name: authorName,
+      p_actor_key: actor, p_idempotency_key: idempotency }
+  } else if (command === 'news-idea') {
+    const title = requiredText(payload.title, 'title', 300)
+    const body = optionalText(payload.body, 'body', 4000)
+    const sourceRef = requiredText(payload.sourceRef, 'sourceRef', 2048)
+    if (!/^https:\/\/[^\s\u0000-\u001F\u007F-\u009F]+$/u.test(sourceRef)
+      || /^https:\/\/[^/?#]*@/u.test(sourceRef)) {
+      throw new Error('sourceRef must be an https URL without credentials or control characters')
+    }
+    const authorName = requiredText(payload.authorName ?? 'Kanset news monitor', 'authorName', 200)
+    assertClientSafeAgencyText({ title, body, authorName })
+    rpc = 'agency_add_news_idea'; args = { p_client_id: null,
+      p_title: title, p_body: body, p_source_ref: sourceRef, p_author_name: authorName,
+      p_actor_key: actor, p_idempotency_key: idempotency }
+  } else if (command === 'idea-status') {
+    const becameContentId = payload.becameContentId == null
+      ? null : requiredText(payload.becameContentId, 'becameContentId', 200)
+    rpc = 'set_idea_status'; args = {
+      p_idea_id: requiredText(payload.ideaId, 'ideaId', 36),
+      p_status: stringArray(payload.status, 'status', ['proposed','picked','dropped','became_piece']),
+      p_became_content_id: becameContentId,
       p_actor_key: actor, p_idempotency_key: idempotency }
   } else if (command === 'gate') {
     // Production-gate emission (set_production_gate, migration 0022). Accepts the

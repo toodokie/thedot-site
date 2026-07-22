@@ -134,6 +134,7 @@ async function main(): Promise<void> {
       throw new Error(`released kanset content missing: ${kansetItemsError?.message ?? 'no rows'}`)
     }
     const kansetContentIds = new Set(kansetItems.map((row) => row.content_id as string))
+    const foreignContentId = [...kansetContentIds][0]
     const kansetItemId = kansetItems[0].id as string
     const kansetVersion = kansetItems[0].version as number
 
@@ -795,6 +796,29 @@ async function main(): Promise<void> {
           { destination: 'facebook' }, { destination: 'instagram' },
         ]), approved.error?.message || targets.error?.message || JSON.stringify(targets.data))
 
+      const lightTarget = await admin.from('content_schedule_targets')
+        .select('id').eq('content_id', multiSync.item_id).eq('destination', 'facebook').single()
+      const lightScheduled = lightTarget.data ? await admin.rpc('confirm_schedule_target', {
+        p_schedule_target_id: lightTarget.data.id,
+        p_scheduled_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+        p_external_url: null, p_external_id: null, p_evidence_id: null,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-light-schedule-${RUN_ID}`,
+      }) : { data: null, error: lightTarget.error }
+      const lightTargetRead = await bClient.from('content_schedule_targets_client')
+        .select('status,scheduled_at')
+        .eq('content_id', multiSync.item_id).eq('destination', 'facebook').single()
+      const lightPrivateRead = await admin.from('content_schedule_targets')
+        .select('external_url,evidence_id').eq('id', lightTarget.data?.id ?? '00000000-0000-0000-0000-000000000000').single()
+      check('T16: scheduled confirmation accepts an audited report without evidence or URL',
+        !lightTarget.error && !lightScheduled.error && !lightTargetRead.error
+          && lightTargetRead.data?.status === 'scheduled'
+          && lightTargetRead.data?.scheduled_at !== null
+          && !lightPrivateRead.error
+          && lightPrivateRead.data?.external_url === null
+          && lightPrivateRead.data?.evidence_id === null,
+        lightTarget.error?.message || lightScheduled.error?.message || lightTargetRead.error?.message
+          || lightPrivateRead.error?.message || JSON.stringify(lightTargetRead.data))
+
       const unsafePayload = snapshot(
         bClientId, 'rls-unsupported-target', 1, 'Unsupported target fixture',
         'Unsupported target body', 'caption',
@@ -812,7 +836,7 @@ async function main(): Promise<void> {
         .select('status, current_decision').eq('id', unsafeSync.item_id).single()
       const unsafeTargets = await bClient.from('content_schedule_targets_client')
         .select('id').eq('content_id', unsafeSync.item_id)
-      check('T16: an unconfigured destination fails the approval transaction closed',
+      check('T17: an unconfigured destination fails the approval transaction closed',
         !!unsafeApproval.error && !unsafeItem.error && unsafeItem.data?.status === 'draft'
         && unsafeItem.data?.current_decision === null
         && !unsafeTargets.error && unsafeTargets.data?.length === 0,
@@ -1467,6 +1491,67 @@ async function main(): Promise<void> {
           ?? `retry=${String(agencyIdeaRetry.data)} conflict=${agencyIdeaConflict.error?.message ?? 'WROTE'} `
           + `client=${agencyIdeaClient.error?.message ?? 'WROTE'} status=${agencyIdeaBadStatus.error?.message ?? 'WROTE'} `
           + `unsafe=${agencyIdeaUnsafe.error?.message ?? 'WROTE'} rows=${(agencyIdeaSearch.data ?? []).length}`)
+
+      // 0023 flow input: curated news ideas are proposed, retain agency-only provenance,
+      // and the lifecycle link is tenant-bound and terminal once promoted.
+      const newsArgs = {
+        p_client_id: bClientId, p_title: 'Ontario policy update probe',
+        p_body: 'A curated source-backed angle.', p_source_ref: 'https://ontario.ca/policy-probe',
+        p_author_name: 'Kanset news monitor', p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-news-idea-${RUN_ID}`,
+      }
+      const newsIdea = await admin.rpc('agency_add_news_idea', newsArgs)
+      const newsRetry = await admin.rpc('agency_add_news_idea', newsArgs)
+      const newsUnverified = await admin.rpc('agency_add_news_idea', {
+        ...newsArgs, p_title: 'Needs confirm [confirm]',
+        p_idempotency_key: `rls-news-unverified-${RUN_ID}`,
+      })
+      const newsClient = await bClient.rpc('agency_add_news_idea', {
+        ...newsArgs, p_idempotency_key: `rls-news-client-${RUN_ID}`,
+      })
+      const newsRow = newsIdea.data
+        ? await admin.from('content_ideas').select('status,source_type,source_ref,became_content_id')
+          .eq('id', newsIdea.data).single()
+        : { data: null, error: newsIdea.error }
+      const newsClientShape = await bClient.from('content_ideas').select('id,source_type').limit(1)
+      const promote = newsIdea.data
+        ? await admin.rpc('set_idea_status', {
+          p_idea_id: newsIdea.data, p_status: 'became_piece', p_became_content_id: B_CONTENT_ID,
+          p_actor_key: 'thedot-admin', p_idempotency_key: `rls-news-promote-${RUN_ID}`,
+        })
+        : { data: null, error: newsIdea.error }
+      const promoteRetry = newsIdea.data
+        ? await admin.rpc('set_idea_status', {
+          p_idea_id: newsIdea.data, p_status: 'became_piece', p_became_content_id: B_CONTENT_ID,
+          p_actor_key: 'thedot-admin', p_idempotency_key: `rls-news-promote-${RUN_ID}`,
+        })
+        : { data: null, error: newsIdea.error }
+      const promoteCrossTenant = agencyIdea.data
+        ? await admin.rpc('set_idea_status', {
+          p_idea_id: agencyIdea.data, p_status: 'became_piece', p_became_content_id: foreignContentId,
+          p_actor_key: 'thedot-admin', p_idempotency_key: `rls-news-cross-${RUN_ID}`,
+        })
+        : { data: null, error: agencyIdea.error }
+      check('AS19: news ingest is curated, idempotent, provenance-private, tenant-safe, and promotable',
+        !newsIdea.error && !newsRetry.error && newsRetry.data === newsIdea.data
+          && !!newsUnverified.error && !!newsClient.error
+          && !newsRow.error && newsRow.data?.status === 'proposed'
+          && newsRow.data?.source_type === 'news_run'
+          && newsRow.data?.source_ref === newsArgs.p_source_ref
+          && !!newsClientShape.error
+          && !promote.error && !promoteRetry.error
+          && promoteRetry.data?.id === promote.data?.id
+          && promoteRetry.data?.status === promote.data?.status
+          && !!promoteCrossTenant.error,
+        JSON.stringify({
+          add: newsIdea.error?.message, retry: newsRetry.error?.message,
+          unverified: newsUnverified.error?.message, client: newsClient.error?.message,
+          row: newsRow.error?.message, shape: newsClientShape.error?.message,
+          promote: promote.error?.message, retryPromote: promoteRetry.error?.message,
+          cross: promoteCrossTenant.error?.message,
+          status: newsRow.data?.status, source: newsRow.data?.source_type,
+          retryId: promoteRetry.data?.id, promoteId: promote.data?.id,
+        }))
 
       // Error settlement preserves the conservative reservation cost (Codex blocker):
       // the viewer's AS10 reservation is settled as 'error' with zeroed usage, and the
