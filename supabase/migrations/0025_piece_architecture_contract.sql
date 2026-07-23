@@ -442,7 +442,7 @@ declare
     'pillar','platforms','synced_at','title','version'
   ];$assert$;
 begin
-  select pg_catalog.pg_get_functiondef('public.assert_portal_slice9_security()'::regprocedure)
+  select pg_catalog.pg_get_functiondef('public.assert_portal_slice2_security()'::regprocedure)
     into v_def;
   if v_def is null or pg_catalog.position(v_old in v_def) = 0 then
     raise exception 'could not update the inherited version-grant assertion';
