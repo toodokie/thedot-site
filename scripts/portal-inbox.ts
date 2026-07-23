@@ -57,7 +57,8 @@ function printSafeEditDiff(before:string,after:string){
   console.log(`- ${before.replace(/\n/g,'\n- ')}`);console.log(`+ ${after.replace(/\n/g,'\n+ ')}`)
 }
 function syncRow(parsed:ParsedContent,clientId:string,commit:string){return {content_id:parsed.content_id,
-  client_id:clientId,title:parsed.title,format:parsed.format,pillar:parsed.pillar,platforms:parsed.platforms,
+  client_id:clientId,title:parsed.title,producer:parsed.producer,calendar_note:parsed.calendar_note,
+  format:parsed.format,pillar:parsed.pillar,platforms:parsed.platforms,
   planned_date:parsed.scheduled_date,canva_url:parsed.canva_url,drive_url:parsed.drive_url,version:parsed.version,
   fact_check:parsed.fact_check,fact_check_scope:parsed.fact_check_scope,
   fact_check_exemption:parsed.fact_check_exemption,fact_check_ledger:parsed.fact_check_ledger,

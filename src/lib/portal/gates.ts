@@ -8,6 +8,7 @@ export type ProductionGateKey = 'source_in_hand' | 'design_built' | 'proofed' | 
 export type GateState = 'open' | 'done' | 'na'
 
 export type ProductionGateRow = {
+  content_version?: number
   gate_key: ProductionGateKey
   state: GateState
   owner_label: 'anastasia' | 'studio' | 'agent'
@@ -18,6 +19,7 @@ export type ProductionGateRow = {
 
 export type DestState = {
   destination: string
+  required?: boolean
   scheduleStatus: string | null // content_schedule_targets vocabulary
   publicationStatus: string | null // pending | live | removed | unavailable | failed
   verified: boolean // link-confirmed: first_verified_at present
@@ -33,9 +35,17 @@ export type StagePiece = {
   clientName: string
   contentId: string
   title: string
+  format?: string | null
+  pillar?: string | null
+  producer?: 'the_dot' | 'studio' | null
+  calendarNote?: string | null
+  workingVersion?: number
+  visibleVersion?: number | null
+  released?: boolean
   status: string // idea | draft | approved | scheduled | posted
   factCheck: string | null // confirmed | needs-confirm | flagged
   factCheckExempt: boolean
+  factCheckValid?: boolean
   currentDecision: 'approved' | 'change_requested' | null
   approvalSentAt: string | null // derived from the approval_sent gate row when done
   // platforms are CANONICAL schedule destinations (portal_schedule_destination mapping),
@@ -43,6 +53,8 @@ export type StagePiece = {
   // targets which store the canonicalized destination (Codex round-3 blocker).
   platforms: string[]
   archived: boolean
+  exceptions?: Array<{ kind: string; destination?: string; stage?: string; note?: string }>
+  legacy?: { classification: 'legacy_unverified' } | null
   gates: ProductionGateRow[]
   dests: DestState[]
 }
@@ -144,7 +156,7 @@ export function resolveNineGates(piece: StagePiece): ResolvedGate[] {
 
   rows.push({
     key: 'fact-check', dest: null, present: true,
-    state: piece.factCheckExempt ? 'na' : piece.factCheck === 'confirmed' ? 'done' : 'open',
+    state: piece.factCheckExempt ? 'na' : (piece.factCheckValid ?? piece.factCheck === 'confirmed') ? 'done' : 'open',
     owner: 'anastasia', date: null,
     note: piece.factCheckExempt ? 'exempt (no regulated claim)' : piece.factCheck,
   })
@@ -202,6 +214,7 @@ export function resolveNineGates(piece: StagePiece): ResolvedGate[] {
 export type ContentStage =
   | 'done' | 'posted_unverified' | 'scheduled' | 'scheduled_partial'
   | 'approved' | 'direction_approved' | 'awaiting_decision' | 'in_production' | 'draft'
+  | 'archived' | 'legacy' | 'needs_platform_mapping'
 
 export type StageResult = { stage: ContentStage; label: string }
 
@@ -215,7 +228,14 @@ function gateBlocks(row: ProductionGateRow | null): boolean {
 }
 
 export function deriveContentStage(piece: StagePiece): StageResult {
-  const required = piece.platforms
+  if (piece.archived) return { stage: 'archived', label: 'archived' }
+  if (piece.legacy) return { stage: 'legacy', label: 'posted (legacy, not portal-verified)' }
+  if (piece.exceptions?.some((exception) =>
+    exception.kind === 'unsupported_destination' || exception.kind === 'needs_platform_mapping')) {
+    return { stage: 'needs_platform_mapping', label: 'needs platform mapping' }
+  }
+  const required = piece.platforms.filter((platform) =>
+    piece.dests.find((dest) => dest.destination === platform)?.required !== false)
   const destOf = (p: string) => piece.dests.find((d) => d.destination === p)
 
   const liveVerified = required.filter((p) => {
@@ -350,7 +370,7 @@ export function deriveMyTasks(
   const tasks: MyTask[] = []
 
   for (const piece of pieces) {
-    if (piece.archived) continue
+    if (piece.archived || piece.legacy) continue
     const tenant = { clientId: piece.clientId, clientName: piece.clientName }
     const resolved = resolveNineGates(piece)
     // only gates the portal actually stores generate tasks (absent rows are unknowns,

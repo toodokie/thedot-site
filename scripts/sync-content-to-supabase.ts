@@ -61,6 +61,8 @@ async function main() {
     content_id: p.content_id,
     client_id: clientIdBySlug.get(p.client)!,
     title: p.title,
+    producer: p.producer,
+    calendar_note: p.calendar_note,
     format: p.format,
     pillar: p.pillar,
     platforms: p.platforms,

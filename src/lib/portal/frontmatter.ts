@@ -7,6 +7,7 @@ const FACT = ['confirmed', 'needs-confirm', 'flagged']
 const FACT_SCOPE = ['required', 'not_applicable']
 const CHECKED_BY_ROLE = ['agency_fact_checker', 'agency_owner']
 const FACT_SOURCE_TYPE = ['primary_source', 'agency_attested']
+const PRODUCERS = ['the_dot', 'studio']
 
 export type FactCheckStatus = 'confirmed' | 'needs-confirm' | 'flagged'
 export type FactCheckScope = 'required' | 'not_applicable'
@@ -20,12 +21,15 @@ export type FactCheckLedgerEntry = {
   checked_by_role: 'agency_fact_checker' | 'agency_owner'
   source_type: 'primary_source' | 'agency_attested'
 }
+export type Producer = 'the_dot' | 'studio'
 
 export type ParsedContent = {
   portal_kind: 'content'
   content_id: string
   client: string
   title: string
+  producer: Producer | null
+  calendar_note: string | null
   format: string | null
   pillar: string | null
   platforms: string[]
@@ -269,6 +273,11 @@ export function parseContentFile(raw: string, sourcePath: string): ParsedContent
   const content_id = requiredString(data.content_id, 'content_id', sourcePath)
   const client = requiredString(data.client, 'client', sourcePath)
   const title = requiredString(data.title, 'title', sourcePath)
+  const producer = parseEnum(data.producer, PRODUCERS, 'producer', sourcePath, null) as Producer | null
+  const calendar_note = optionalString(data.calendar_note, 'calendar_note', sourcePath)
+  if (calendar_note && (calendar_note.length > 1000 || /[\u0000-\u001f\u007f]/.test(calendar_note))) {
+    throw new Error(`calendar_note must be 1-1000 characters with no control characters in ${sourcePath}`)
+  }
   const format = optionalString(data.format, 'format', sourcePath)
   const pillar = optionalString(data.pillar, 'pillar', sourcePath)
   const platforms = parsePlatforms(data.platforms, sourcePath)
@@ -331,6 +340,8 @@ export function parseContentFile(raw: string, sourcePath: string): ParsedContent
     content_id,
     client,
     title,
+    producer,
+    calendar_note,
     format,
     pillar,
     platforms,

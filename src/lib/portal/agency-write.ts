@@ -19,7 +19,8 @@ export function assertClientSafeAgencyText(fields: Record<string, string | null>
     `## ${key}\n${value}`).join('\n\n')
   assertClientSafeContent({
     portal_kind: 'content', content_id: 'agency-write-preview', client: 'kanset',
-    title: fields.title ?? 'Agency portal update', format: null, pillar: null, platforms: [],
+    title: fields.title ?? 'Agency portal update', producer: null, calendar_note: null,
+    format: null, pillar: null, platforms: [],
     scheduled_date: null, status: 'draft', canva_url: null, drive_url: null, version: 1,
     fact_check: 'confirmed', fact_check_scope: 'not_applicable',
     fact_check_exemption: 'Agency-owned client-safe surface update.', fact_check_ledger: [],

@@ -138,6 +138,16 @@ describe('deriveContentStage', () => {
   it('8: draft when nothing else applies', () => {
     expect(deriveContentStage(piece()).stage).toBe('draft')
   })
+
+  it('uses explicit terminal states instead of presenting archived or legacy pieces as done', () => {
+    expect(deriveContentStage(piece({ archived: true })).stage).toBe('archived')
+    expect(deriveContentStage(piece({ legacy: { classification: 'legacy_unverified' } })).stage).toBe('legacy')
+  })
+
+  it('surfaces unsupported platform mappings instead of silently stalling', () => {
+    expect(deriveContentStage(piece({ platforms: [], exceptions: [{ kind: 'unsupported_destination', note: 'tiktok' }] })).stage)
+      .toBe('needs_platform_mapping')
+  })
 })
 
 describe('deriveMyTasks', () => {

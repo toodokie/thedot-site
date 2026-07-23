@@ -39,6 +39,7 @@ const CONTROL_MARKER = /<!--\s*internal\s*-->|<!--\s*portal-block:|portal_state_
 function textFields(content: ParsedContent): Array<[string, string]> {
   const fields: Array<[string, string]> = [
     ['title', content.title],
+    ...(content.calendar_note ? [['calendar_note', content.calendar_note] as [string, string]] : []),
     ['client_body', content.client_body],
   ]
   for (const block of content.copy_blocks) {
@@ -58,6 +59,7 @@ function textFields(content: ParsedContent): Array<[string, string]> {
 function clientLinkTextFields(content: ParsedContent): Array<[string, string]> {
   const fields: Array<[string, string]> = [
     ['title', content.title],
+    ...(content.calendar_note ? [['calendar_note', content.calendar_note] as [string, string]] : []),
     ['client_body', content.client_body],
   ]
   for (const block of content.copy_blocks) {

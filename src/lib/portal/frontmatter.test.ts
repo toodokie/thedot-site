@@ -18,6 +18,8 @@ portal_kind: content
 content_id: test-piece
 client: kanset
 title: "Test piece"
+producer: studio
+calendar_note: "Podcast cut, awaiting caption proof."
 format: carousel
 platforms: [instagram, facebook]
 status: draft
@@ -38,6 +40,8 @@ describe('parseContentFile', () => {
     const parsed = parseContentFile(document('scheduled_date: "2026-07-16"'), 'content/test.md')
     expect(parsed.portal_kind).toBe('content')
     expect(parsed.scheduled_date).toBe('2026-07-16')
+    expect(parsed.producer).toBe('studio')
+    expect(parsed.calendar_note).toBe('Podcast cut, awaiting caption proof.')
     expect(parsed.copy_blocks).toEqual([{ key: 'caption', label: 'Caption', body: 'Client copy.' }])
     expect(parsed.client_body).not.toContain('portal-block:')
     expect(parsed.client_body).not.toContain('Internal only')
@@ -73,6 +77,11 @@ fact_check_ledger: []`)
     expect(() => parseContentFile(document().replace('portal_kind: content', 'portal_kind: knowledge'), 'p.md')).toThrow(/portal_kind/)
     expect(() => parseContentFile(document().replace('fact_check: confirmed\n', ''), 'p.md')).toThrow(/fact_check/)
     expect(() => parseContentFile(document().replace('fact_check_scope: required\n', ''), 'p.md')).toThrow(/fact_check_scope/)
+  })
+
+  it('rejects invalid producer and unsafe calendar notes', () => {
+    expect(() => parseContentFile(document('producer: agency'), 'p.md')).toThrow(/producer/)
+    expect(() => parseContentFile(document('calendar_note: "line1\\nline2"'), 'p.md')).toThrow(/calendar_note/)
   })
 
   it('enforces required versus not-applicable scope cardinality and exemption rules', () => {

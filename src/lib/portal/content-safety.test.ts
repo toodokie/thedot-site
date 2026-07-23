@@ -8,6 +8,8 @@ function content(overrides: Partial<ParsedContent> = {}): ParsedContent {
     content_id: 'piece',
     client: 'kanset',
     title: 'Safe title',
+    producer: null,
+    calendar_note: null,
     format: 'carousel',
     pillar: 'employer',
     platforms: ['instagram'],
