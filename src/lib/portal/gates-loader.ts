@@ -43,6 +43,7 @@ type GateRow = ProductionGateRow & { content_item_id: string }
 type ScheduleRow = { content_id: string; content_version: number; destination: string; required: boolean; status: string; scheduled_at: string | null }
 type PublicationRow = { id: string; content_id: string; content_version: number; destination: string; required: boolean; status: string; live_url: string | null; first_verified_at: string | null }
 type HistoricalRow = { client_id: string; publication_target_id: string; provenance: string }
+type LegacyClassification = 'legacy_verified' | 'legacy_unverified'
 
 async function run<T>(query: { data: unknown; error: { message: string } | null } | PromiseLike<{ data: unknown; error: { message: string } | null }>, label: string): Promise<T[]> {
   const result = await query
@@ -53,7 +54,8 @@ async function run<T>(query: { data: unknown; error: { message: string } | null 
 function buildPieces(
   items: ItemRow[], versions: VersionRow[], approvals: ApprovalRow[],
   gates: GateRow[], schedules: ScheduleRow[], publications: PublicationRow[],
-  clientNames: Map<string, string>, factCheckValid: Map<string, boolean>, legacyItems: Set<string>,
+  clientNames: Map<string, string>, factCheckValid: Map<string, boolean>,
+  legacyItems: Map<string, LegacyClassification>,
 ): StagePiece[] {
   const versionByItem = new Map<string, VersionRow>()
   for (const version of versions) {
@@ -115,7 +117,7 @@ function buildPieces(
       platforms, archived: Boolean(item.archived_at), gates: pieceGates, dests,
       producer: version.producer ?? null, calendarNote: version.calendar_note ?? null,
       workingVersion, visibleVersion: item.client_visible_version, released: item.client_visible_version != null,
-      exceptions, legacy: legacyItems.has(item.id) ? { classification: 'legacy_unverified' } : null,
+      exceptions, legacy: legacyItems.has(item.id) ? { classification: legacyItems.get(item.id)! } : null,
     }]
   })
 }
@@ -152,10 +154,16 @@ async function loadDependents(admin: Client, itemIds: string[], clientIds: strin
     factCheckValid.set(version.content_item_id, result.data === true)
   }))
   const publicationItemById = new Map(publications.map((publication) => [publication.id, publication.content_id]))
-  const legacyItems = new Set(historical
-    .filter((entry) => ['yt_check', 'public_url', 'legacy_unverified'].includes(entry.provenance))
-    .map((entry) => publicationItemById.get(entry.publication_target_id))
-    .filter((itemId): itemId is string => Boolean(itemId)))
+  const legacyItems = new Map<string, LegacyClassification>()
+  for (const entry of historical) {
+    if (!['yt_check', 'public_url', 'legacy_unverified'].includes(entry.provenance)) continue
+    const itemId = publicationItemById.get(entry.publication_target_id)
+    if (!itemId) continue
+    const classification: LegacyClassification = entry.provenance === 'legacy_unverified'
+      ? 'legacy_unverified' : 'legacy_verified'
+    // If destinations disagree, preserve the conservative unverified state.
+    if (legacyItems.get(itemId) !== 'legacy_unverified') legacyItems.set(itemId, classification)
+  }
   return [versions, approvals, gates, schedules, publications, clients, factCheckValid, legacyItems] as const
 }
 

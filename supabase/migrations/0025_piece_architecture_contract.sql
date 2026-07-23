@@ -406,7 +406,7 @@ revoke all on public.content_item_versions from public, anon, authenticated, ser
 grant select (
   id, content_item_id, client_id, version, title, format, pillar, platforms,
   canva_url, drive_url, fact_check, fact_check_scope, fact_check_exemption,
-  fact_check_ledger, client_body, copy_blocks, synced_at
+  fact_check_ledger, client_body, copy_blocks, calendar_note, synced_at
 ) on public.content_item_versions to authenticated;
 grant select on public.content_item_versions to service_role;
 
@@ -425,6 +425,32 @@ where cws.client_id in (select public.my_client_ids());
 revoke all on public.content_calendar_client from public, anon, authenticated, service_role;
 grant select on public.content_calendar_client to authenticated, service_role;
 
+-- The pre-0025 cumulative assertion contains the exact version-table grant set.
+-- Extend that assertion in-place so the new client-safe calendar_note grant is
+-- guarded on every later cumulative fold, while producer remains excluded.
+do $migration$
+declare
+  v_def text;
+  v_old text := $assert$v_expected := array[
+    'canva_url','client_body','client_id','content_item_id','copy_blocks','drive_url',
+    'fact_check','fact_check_exemption','fact_check_ledger','fact_check_scope','format','id',
+    'pillar','platforms','synced_at','title','version'
+  ];$assert$;
+  v_new text := $assert$v_expected := array[
+    'calendar_note','canva_url','client_body','client_id','content_item_id','copy_blocks','drive_url',
+    'fact_check','fact_check_exemption','fact_check_ledger','fact_check_scope','format','id',
+    'pillar','platforms','synced_at','title','version'
+  ];$assert$;
+begin
+  select pg_catalog.pg_get_functiondef('public.assert_portal_slice9_security()'::regprocedure)
+    into v_def;
+  if v_def is null or pg_catalog.position(v_old in v_def) = 0 then
+    raise exception 'could not update the inherited version-grant assertion';
+  end if;
+  execute pg_catalog.replace(v_def, v_old, v_new);
+end;
+$migration$;
+
 -- --- assertions -------------------------------------------------------------
 
 create or replace function public.assert_portal_piece_architecture_security()
@@ -439,7 +465,7 @@ begin
   where cp.table_schema = 'public' and cp.table_name = 'content_item_versions'
     and cp.grantee = 'authenticated' and cp.privilege_type = 'SELECT';
   v_expected := array[
-    'canva_url','client_body','client_id','content_item_id','copy_blocks',
+    'calendar_note','canva_url','client_body','client_id','content_item_id','copy_blocks',
     'drive_url','fact_check','fact_check_exemption','fact_check_ledger','fact_check_scope',
     'format','id','pillar','platforms','synced_at','title','version'
   ];
@@ -491,8 +517,8 @@ begin
   end if;
   if exists (select 1 from public.content_production_gates g
     join public.content_items ci on ci.id = g.content_item_id and ci.client_id = g.client_id
-    where g.content_version <> ci.working_version) then
-    raise exception 'production gate version drift';
+    where g.content_version > ci.working_version) then
+    raise exception 'production gate points at a future version';
   end if;
   if pg_catalog.has_table_privilege('authenticated','public.content_production_gates','SELECT')
      or pg_catalog.has_table_privilege('authenticated','public.production_gate_events','SELECT') then

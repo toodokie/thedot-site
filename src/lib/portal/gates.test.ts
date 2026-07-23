@@ -142,6 +142,8 @@ describe('deriveContentStage', () => {
   it('uses explicit terminal states instead of presenting archived or legacy pieces as done', () => {
     expect(deriveContentStage(piece({ archived: true })).stage).toBe('archived')
     expect(deriveContentStage(piece({ legacy: { classification: 'legacy_unverified' } })).stage).toBe('legacy')
+    expect(deriveContentStage(piece({ legacy: { classification: 'legacy_verified' } })).label)
+      .toBe('posted (legacy, verified)')
   })
 
   it('surfaces unsupported platform mappings instead of silently stalling', () => {

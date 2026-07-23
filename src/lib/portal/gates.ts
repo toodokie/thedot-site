@@ -54,7 +54,7 @@ export type StagePiece = {
   platforms: string[]
   archived: boolean
   exceptions?: Array<{ kind: string; destination?: string; stage?: string; note?: string }>
-  legacy?: { classification: 'legacy_unverified' } | null
+  legacy?: { classification: 'legacy_verified' | 'legacy_unverified' } | null
   gates: ProductionGateRow[]
   dests: DestState[]
 }
@@ -229,7 +229,12 @@ function gateBlocks(row: ProductionGateRow | null): boolean {
 
 export function deriveContentStage(piece: StagePiece): StageResult {
   if (piece.archived) return { stage: 'archived', label: 'archived' }
-  if (piece.legacy) return { stage: 'legacy', label: 'posted (legacy, not portal-verified)' }
+  if (piece.legacy?.classification === 'legacy_verified') {
+    return { stage: 'legacy', label: 'posted (legacy, verified)' }
+  }
+  if (piece.legacy?.classification === 'legacy_unverified') {
+    return { stage: 'legacy', label: 'posted (legacy, not portal-verified)' }
+  }
   if (piece.exceptions?.some((exception) =>
     exception.kind === 'unsupported_destination' || exception.kind === 'needs_platform_mapping')) {
     return { stage: 'needs_platform_mapping', label: 'needs platform mapping' }
