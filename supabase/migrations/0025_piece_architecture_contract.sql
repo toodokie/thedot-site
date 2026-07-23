@@ -415,7 +415,7 @@ with (security_barrier = true, security_invoker = true)
 as
 select
   cws.id, cws.content_id, cws.client_id, cws.title, cws.format, cws.pillar,
-  cws.platforms, cws.status, cws.scheduled_date, cws.version, v.calendar_note,
+  cws.platforms, cws.status, cws.planned_date, cws.version, v.calendar_note,
   cws.client_state, cws.schedule_state, cws.publication_state, cws.updated_at
 from public.content_with_state cws
 join public.content_item_versions v on v.content_item_id = cws.id
@@ -444,7 +444,7 @@ declare
 begin
   select pg_catalog.pg_get_functiondef('public.assert_portal_slice2_security()'::regprocedure)
     into v_def;
-  if v_def is null or pg_catalog.position(v_old in v_def) = 0 then
+  if v_def is null or pg_catalog.strpos(v_def, v_old) = 0 then
     raise exception 'could not update the inherited version-grant assertion';
   end if;
   execute pg_catalog.replace(v_def, v_old, v_new);
@@ -480,8 +480,8 @@ begin
   where a.attrelid = 'public.content_with_state'::pg_catalog.regclass
     and a.attnum > 0 and not a.attisdropped;
   v_expected := array[
-    'id','content_id','client_id','title','format','pillar','platforms','status','scheduled_date',
-    'canva_url','drive_url','version','fact_check','fact_check_scope','fact_check_exemption',
+    'id','content_id','client_id','title','format','pillar','platforms','status','planned_date',
+    'schedule_state','publication_state','canva_url','drive_url','version','fact_check','fact_check_scope','fact_check_exemption',
     'fact_check_ledger','client_body','copy_blocks','updated_at','review_ready_at',
     'revision_in_progress','archived_at','current_decision','client_state'
   ];
@@ -493,7 +493,7 @@ begin
   where a.attrelid = 'public.content_calendar_client'::pg_catalog.regclass
     and a.attnum > 0 and not a.attisdropped;
   v_expected := array[
-    'id','content_id','client_id','title','format','pillar','platforms','status','scheduled_date',
+    'id','content_id','client_id','title','format','pillar','platforms','status','planned_date',
     'version','calendar_note','client_state','schedule_state','publication_state','updated_at'
   ];
   if v_view_columns is distinct from v_expected then

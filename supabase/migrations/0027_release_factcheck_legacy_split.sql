@@ -19,7 +19,7 @@ alter function public.assert_portal_security() rename to assert_portal_slice21_s
 revoke all on function public.assert_portal_slice21_security() from public, anon, authenticated;
 grant execute on function public.assert_portal_slice21_security() to service_role;
 
-create or replace function public.mark_content_ready(p_content_id uuid, p_content_version int)
+create or replace function public.portal_core_mark_content_ready(p_content_id uuid, p_content_version int)
 returns void
 language plpgsql
 security definer
@@ -88,6 +88,52 @@ begin
 end;
 $$;
 
+revoke all on function public.portal_core_mark_content_ready(uuid,int)
+  from public, anon, authenticated, service_role;
+
+-- Preserve 0014's terminal reconciliation wrapper. The stricter predicate lives
+-- in the private core, while this public service-role entry point still applies
+-- prepared edit/create requests atomically after release.
+create or replace function public.mark_content_ready(p_content_id uuid, p_content_version int)
+returns void language plpgsql security definer set search_path = '' as $$
+declare
+  v_client_id uuid;
+  v_title text;
+  v_actor_name text := 'The Dot';
+  v_r record;
+begin
+  select ci.client_id into v_client_id
+  from public.content_items ci where ci.id = p_content_id;
+  if v_client_id is null then raise exception 'content item not found'; end if;
+  if not public.portal_feature_enabled(v_client_id, 'agency_mutations') then
+    raise exception 'agency_mutations_disabled' using errcode = '42501';
+  end if;
+  perform public.portal_core_mark_content_ready(p_content_id, p_content_version);
+  select cv.title into v_title
+  from public.content_item_versions cv
+  where cv.content_item_id = p_content_id and cv.client_id = v_client_id
+    and cv.version = p_content_version;
+  for v_r in
+    update public.content_change_requests r set status = 'applied',
+      reconciled_at = pg_catalog.now(), reconciled_by = v_actor_name,
+      resolution_note = 'Requested version released to the portal.', updated_at = pg_catalog.now()
+    where r.client_id = v_client_id and r.canonical_content_id = p_content_id
+      and r.canonical_version = p_content_version and r.request_type in ('edit','create')
+      and r.status = 'prepared' returning r.id, r.request_type
+  loop
+    insert into public.activity_log(client_id, content_id, content_version, event_type, event_key,
+      title, summary, actor_type, actor_name) values(v_client_id, p_content_id,
+      p_content_version, 'request_applied', 'content-request-applied:' || v_r.id::text,
+      'Request applied: ' || v_title, 'The reviewed version is now available in the portal.',
+      'agent', v_actor_name);
+    insert into public.portal_inbox_events(client_id, event_key, event_type, object_type, object_id,
+      actor_type, actor_name, payload, requires_reconciliation) values(v_client_id,
+      'content-request-applied:' || v_r.id::text, 'request_applied', 'content_change_request', v_r.id,
+      'agent', v_actor_name, pg_catalog.jsonb_build_object('request_type', v_r.request_type,
+        'content_id', p_content_id, 'content_version', p_content_version), false);
+  end loop;
+end;
+$$;
 revoke all on function public.mark_content_ready(uuid,int) from public, anon, authenticated;
 grant execute on function public.mark_content_ready(uuid,int) to service_role;
 
@@ -97,7 +143,7 @@ declare
   v_def text;
 begin
   select pg_catalog.pg_get_functiondef(
-    'public.mark_content_ready(uuid,integer)'::regprocedure
+    'public.portal_core_mark_content_ready(uuid,integer)'::regprocedure
   ) into v_def;
   if v_def is null
      or v_def not ilike '%portal_fact_check_ledger_release_valid%'

@@ -106,7 +106,7 @@ begin
     from pg_catalog.jsonb_array_elements(v_blocks) value
     where value->>'key' = v_key;
     if v_block_body is null then raise exception 'copy block key not found in released version'; end if;
-    if v_quote is not null and pg_catalog.position(v_quote in v_block_body) = 0 then
+    if v_quote is not null and pg_catalog.strpos(v_block_body, v_quote) = 0 then
       raise exception 'quoted text is not present in the released copy block';
     end if;
   end if;
@@ -151,7 +151,7 @@ begin
   from pg_catalog.pg_proc p
   where p.oid = 'public.add_agency_comment_reply(uuid,text,text,text,text,text,text)'::regprocedure;
   if v_def is null or v_def not ilike '%security definer%'
-     or v_def not ilike '%position(v_quote in v_block_body)%'
+     or v_def not ilike '%strpos(v_block_body, v_quote)%'
      or v_def not ilike '%portal_command_receipts%' then
     raise exception 'admin comment reply is not hardened';
   end if;
