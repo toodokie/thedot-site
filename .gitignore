@@ -75,3 +75,6 @@ dist/
 .design-sync/node_modules
 .ds-sync/
 ds-bundle/
+
+# agent scratch (dev server log, one-off screenshot/query scripts, transcripts)
+.work/
