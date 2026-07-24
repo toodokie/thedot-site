@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Dot Creative — Brand in Use</title>
+<link rel="stylesheet" href="https://use.typekit.net/gac6jnd.css" />
+<style>
+  :root{
+    --background:#faf9f6; --foreground:#35332f; --white-3:#fffefc; --white-smoke-2:#ebebe7;
+    --grey:#8f7165; --grey-2:#7a776f; --dim-grey:#888; --coral:#ff7432; --yellow:#daff00;
+    --display:'futura-pt','Futura','Avenir Next','Helvetica Neue',Arial,sans-serif;
+    --body:'ff-real-text-pro',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--background);color:var(--foreground);font-family:var(--body);}
+  .page{max-width:1200px;margin:0 auto;padding:64px 48px 96px;}
+  .kicker{font-family:var(--display);font-weight:600;text-transform:uppercase;letter-spacing:.22em;
+    font-size:.72rem;color:var(--grey);margin:0 0 12px;}
+  h1{font-family:var(--display);font-weight:200;font-size:clamp(2.4rem,6vw,3.6rem);line-height:1.05;
+    letter-spacing:-.01em;margin:0 0 8px;}
+  .lede{color:var(--grey-2);font-size:1.05rem;max-width:56ch;margin:0 0 56px;line-height:1.55;}
+  h2{font-family:var(--display);font-weight:600;text-transform:uppercase;letter-spacing:.14em;font-size:.9rem;
+    border-bottom:1px solid var(--white-smoke-2);padding-bottom:10px;margin:56px 0 24px;}
+  figure{margin:0;}
+  figcaption{font-family:var(--display);font-weight:600;text-transform:uppercase;letter-spacing:.12em;
+    font-size:.7rem;color:var(--grey-2);margin-top:10px;}
+  /* Poster hero */
+  .poster{display:grid;grid-template-columns:1.1fr .9fr;gap:32px;align-items:center;
+    background:var(--foreground);color:var(--background);padding:40px;}
+  .poster img{width:100%;height:auto;display:block;}
+  .poster .txt h3{font-family:var(--display);font-weight:200;font-size:2rem;line-height:1.1;margin:0 0 14px;}
+  .poster .txt p{color:#cfcdc7;font-size:.95rem;line-height:1.55;margin:0;}
+  .poster .dot{display:inline-block;width:14px;height:14px;background:var(--yellow);border-radius:50%;margin-bottom:18px;}
+  /* Work grid */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:24px;}
+  .grid figure{border:1px solid var(--white-smoke-2);background:var(--white-3);}
+  .grid img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;}
+  .grid figcaption{padding:12px 16px 16px;}
+  /* Decorative strip */
+  .decor{display:flex;flex-wrap:wrap;gap:28px;align-items:center;background:var(--white-3);
+    border:1px solid var(--white-smoke-2);padding:36px;}
+  .decor .item{text-align:center;}
+  .decor img{height:80px;width:auto;display:block;margin:0 auto 10px;}
+  .decor .divider{width:100%;}
+  .decor .divider img{height:auto;width:100%;max-width:520px;}
+  .decor span{font-family:var(--display);font-weight:600;text-transform:uppercase;letter-spacing:.12em;
+    font-size:.66rem;color:var(--dim-grey);}
+  .swatch-line{display:flex;height:10px;margin:0 0 56px;}
+  .swatch-line i{flex:1;}
+  footer{margin-top:64px;padding-top:24px;border-top:1px solid var(--white-smoke-2);
+    font-size:.75rem;color:var(--dim-grey);}
+  @media (max-width:720px){ .poster{grid-template-columns:1fr;} }
+  @media print{ body{background:#fff;} figure,.decor{page-break-inside:avoid;} }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <p class="kicker">How we see the brand</p>
+  <h1>The Dot Creative — Brand in Use</h1>
+  <p class="lede">Real production media: the brand poster, live client work, and the decorative
+    motifs that carry our editorial, sharp-cornered, warm-neutral look across every page.</p>
+
+  <div class="swatch-line">
+    <i style="background:#faf9f6;border:1px solid #ebebe7"></i><i style="background:#35332f"></i>
+    <i style="background:#daff00"></i><i style="background:#ff7432"></i><i style="background:#78c8af"></i>
+    <i style="background:#1e4145"></i><i style="background:#ebead7"></i><i style="background:#dac9bb"></i>
+    <i style="background:#c19d8f"></i><i style="background:#8f7165"></i>
+  </div>
+
+  <section class="poster">
+    <img src="./media/the-dot-poster.webp" alt="The Dot Creative brand poster" />
+    <div class="txt">
+      <span class="dot"></span>
+      <h3>The Dot poster</h3>
+      <p>The signature brand image — used as the share card across the whole site. A grid of circles:
+        most filled with a soft radial gradient, a few solid ink, with the wordmark set inside the grid.
+        In live UI the same circles fill with our yellow gradient. This is the tone every project echoes.</p>
+    </div>
+  </section>
+
+  <h2>Selected work</h2>
+  <div class="grid">
+    <figure><img src="./media/work-trueme-beauty.jpeg" alt="TrueMe Beauty"><figcaption>TrueMe Beauty</figcaption></figure>
+    <figure><img src="./media/work-lido.png" alt="Lido"><figcaption>Lido</figcaption></figure>
+    <figure><img src="./media/work-conference.webp" alt="Conference landing page"><figcaption>Conference</figcaption></figure>
+    <figure><img src="./media/work-capital.webp" alt="Capital"><figcaption>Capital</figcaption></figure>
+    <figure><img src="./media/work-giardino.jpg" alt="Giardino flower shop"><figcaption>Giardino</figcaption></figure>
+    <figure><img src="./media/work-wellness.jpeg" alt="Wellness studio & care clinic"><figcaption>Wellness Studio</figcaption></figure>
+  </div>
+
+  <h2>Layout signature</h2>
+  <figure style="border:1px solid var(--white-smoke-2);background:var(--white-3);">
+    <img src="./media/site-layout.jpg" alt="The Dot Creative site layout" style="width:100%;height:auto;display:block;" />
+    <figcaption style="padding:12px 16px 16px;">Split editorial layout — reversed image/text columns, hairline dividers, generous whitespace.</figcaption>
+  </figure>
+
+  <h2>Decorative elements</h2>
+  <div class="decor">
+    <div class="divider">
+      <img src="./decorative/vertical-line-stripe.png" alt="Vertical-line stripe" />
+      <span>Vertical-line stripe — signature full-width divider, used between sections site-wide</span>
+    </div>
+    <div class="item"><img src="./decorative/dot-motif.svg" alt="Dot motif"><span>Dot motif</span></div>
+    <div class="item"><img src="./decorative/shape-7-1.svg" alt="Brand shape"><span>Shape 7·1</span></div>
+    <div class="item"><img src="./decorative/shape-6-2.svg" alt="Brand shape"><span>Shape 6·2</span></div>
+    <div class="item"><img src="./decorative/shape-6-3.svg" alt="Brand shape"><span>Shape 6·3</span></div>
+    <div class="item"><img src="./decorative/arrow.png" alt="Arrow"><span>Arrow</span></div>
+  </div>
+
+  <footer>The Dot Creative Agency · thedotcreative.co — brand media pulled from production for the Claude Design system.</footer>
+
+</div>
+</body>
+</html>
