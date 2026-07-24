@@ -112,10 +112,15 @@ create unique index content_production_gates_current
 
 alter table public.production_gate_events
   add column content_version int;
+-- Existing audit rows predate version binding. The append-only trigger must
+-- remain enabled outside this atomic catalog backfill, but it necessarily
+-- rejects the one-time metadata fill performed here.
+alter table public.production_gate_events disable trigger production_gate_events_immutable;
 update public.production_gate_events e
 set content_version = ci.working_version
 from public.content_items ci
 where ci.id = e.content_item_id and ci.client_id = e.client_id;
+alter table public.production_gate_events enable trigger production_gate_events_immutable;
 alter table public.production_gate_events
   alter column content_version set not null,
   add constraint production_gate_events_version_positive check (content_version > 0);
