@@ -1,0 +1,197 @@
+/* Admin ops shell + nav (agency-only, /admin/portal). A faithful copy of the CLIENT portal
+   shell (src/app/client/[slug]/portal-shell.module.css) so my side reads the same as Maria's:
+   mobile-first top header (logo) + fixed BOTTOM nav bar; desktop (>=768px) a LEFT sidebar
+   (logo + nav) with the header hidden. Uses the @thedot/design-system --dot-* tokens.
+   The .main here also HOSTS the admin design tokens (--admin-*) so every routed page's cards
+   inherit them; portal-admin.module.css styles the content, this file owns the frame. */
+
+.shell {
+  min-height: 100dvh;
+}
+
+.content {
+  min-width: 0;
+}
+
+/* mobile top header (logo); hidden on desktop where the sidebar carries the logo */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: var(--dot-cream);
+  border-bottom: 1px solid var(--dot-hairline);
+}
+
+/* seat / masthead label: "Agency ops" so any window instantly reads as MY side, not Maria's */
+.seat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: var(--dot-weight-demi);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dot-grey);
+  white-space: nowrap;
+}
+
+.main {
+  /* admin design tokens, inherited by every card on every routed page */
+  --admin-ink: var(--dot-black);
+  --admin-muted: var(--dot-grey);
+  --admin-graphite: var(--dot-graphite);
+  --admin-line: var(--dot-hairline);
+  --admin-ground: var(--dot-cream);
+  --admin-accent: var(--dot-yellow-pale);
+  --admin-accent-strong: var(--dot-yellow);
+  --admin-danger: #b4502f;
+
+  padding: 24px 20px 92px; /* bottom padding clears the fixed mobile bar */
+  color: var(--admin-ink);
+  font-family: var(--dot-font-text);
+}
+
+/* ---- NAV (mobile bottom bar) ----
+   Scrolling shadows (the background-attachment local/scroll pair) put a soft edge shadow on
+   whichever side has hidden items, so off-screen sections announce themselves. */
+.nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+  background:
+    linear-gradient(to right, var(--dot-cream) 40%, rgba(255, 255, 255, 0)) left / 44px 100%,
+    linear-gradient(to left, var(--dot-cream) 40%, rgba(255, 255, 255, 0)) right / 44px 100%,
+    radial-gradient(farthest-side at 0 50%, rgba(26, 26, 26, 0.22), transparent) left / 16px 100%,
+    radial-gradient(farthest-side at 100% 50%, rgba(26, 26, 26, 0.22), transparent) right / 16px 100%;
+  background-color: var(--dot-cream);
+  background-repeat: no-repeat;
+  background-attachment: local, local, scroll, scroll;
+  border-top: 1px solid var(--dot-hairline);
+}
+
+.brand {
+  display: none; /* the brand row shows on desktop only */
+}
+
+.list {
+  display: flex;
+  flex-direction: row;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.list li {
+  flex: 1 0 auto;
+}
+
+.item {
+  display: block;
+  min-width: 72px;
+  padding: 13px 10px;
+  text-align: center;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--dot-graphite);
+  text-decoration: none;
+  white-space: nowrap;
+  border-top: 2px solid transparent;
+}
+
+.item:hover {
+  color: var(--dot-black);
+}
+
+.active {
+  color: var(--dot-black);
+  font-weight: 600;
+  border-top-color: var(--dot-yellow);
+}
+
+/* "Dashboard" leave-the-portal link: quieter than the section items */
+.footItem {
+  color: var(--dot-grey);
+}
+
+/* ---- Desktop: left sidebar ---- */
+@media (min-width: 768px) {
+  .shell {
+    display: flex;
+    flex-direction: row;
+  }
+
+  .topbar {
+    display: none;
+  }
+
+  .content {
+    flex: 1 1 auto;
+  }
+
+  .nav {
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    width: 216px;
+    flex: 0 0 216px;
+    flex-direction: column;
+    align-items: stretch;
+    overflow: visible;
+    background: var(--dot-cream); /* no scrolling shadows on the desktop sidebar */
+    border-top: none;
+    border-right: 1px solid var(--dot-hairline);
+    padding: 28px 16px;
+  }
+
+  .brand {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 8px 26px;
+  }
+
+  .list {
+    flex-direction: column;
+    width: auto;
+  }
+
+  .list li {
+    flex: none;
+  }
+
+  .item {
+    min-width: 0;
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 15px;
+    letter-spacing: 0;
+    border-top: none;
+    border-left: 2px solid transparent;
+  }
+
+  .active {
+    border-top-color: transparent;
+    border-left-color: var(--dot-yellow);
+    background: #fff;
+  }
+
+  /* push the Dashboard link to the bottom of the sidebar, set off by a hairline */
+  .foot {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--dot-hairline);
+  }
+
+  .main {
+    padding: 52px 48px 88px; /* generous top + bottom air, matching the client wrap */
+    max-width: 1120px;
+  }
+}

@@ -16,7 +16,8 @@ import PublicationPanel from './PublicationPanel'
 import { getContentRequests } from '@/lib/portal/requests'
 import RequestHistory from '../../requests/RequestHistory'
 import RemovalRequestForm from './RemovalRequestForm'
-import { clientStateLabel } from '@/lib/portal/state'
+import ProgressBar from '@/components/portal/ProgressBar'
+import { clientProgress } from '@/lib/portal/progress-bar-model'
 
 const chip: CSSProperties = {
   fontFamily: 'var(--dot-font-text)', fontSize: 11, color: 'var(--dot-graphite)',
@@ -40,6 +41,12 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
     getContentRequests(session.clientId, item.id),
   ])
 
+  const progress = clientProgress({
+    clientState: item.state,
+    scheduleTargets: schedule.targets.map((t) => ({ destination: t.destination, status: t.status })),
+    publicationTargets: publication.map((t) => ({ destination: t.destination, status: t.status })),
+  })
+
   const blocks = item.copy_blocks && item.copy_blocks.length > 0
     ? item.copy_blocks
     : (item.client_body ? [{ key: null, label: 'Caption', body: item.client_body }] : [])
@@ -50,6 +57,10 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
 
       <div style={{ marginTop: 24, marginBottom: 14 }}>
         <Heading level={3}>{item.title}</Heading>
+      </div>
+
+      <div style={{ marginBottom: 24 }}>
+        <ProgressBar model={progress} />
       </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 24 }}>
@@ -97,12 +108,11 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
 
       <PublicationPanel targets={publication} />
 
-      {item.state === 'needs_review' && session.canDecide
+      {/* The progress bar under the title now carries the state; keep only the ACTION
+          (decide) or the non-decider note here. */}
+      {item.state === 'needs_review' && (session.canDecide
         ? <DecideForm slug={slug} contentId={item.content_id} />
-        : item.state !== 'needs_review'
-          /* audit B4: always the client wording map, never a raw state token */
-          ? <Text tone="grey">This piece is {clientStateLabel(item.state)}.</Text>
-          : <Text tone="grey">This piece is waiting for the primary decision-maker.</Text>}
+        : <Text tone="grey">This piece is waiting for the primary decision-maker.</Text>)}
 
       <CommentThread slug={slug} contentId={item.content_id} comments={comments}
         canComment={session.canComment} />

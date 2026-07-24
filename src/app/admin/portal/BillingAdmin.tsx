@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import styles from './portal-admin.module.css'
 import StatusPill from './StatusPill'
+import AdminPageHeader from './AdminPageHeader'
 
 export type AdminInvoice = {
   id: string
@@ -64,9 +65,9 @@ export default function BillingAdmin({ invoices }: { invoices: AdminInvoice[] })
 
   return (
     <>
-      <div className={styles.cardHead}>
-        <div className={styles.cardTitle}>Billing</div>
-      </div>
+      <AdminPageHeader kicker="Agency ops" title="Billing"
+        intro="Every invoice you have sent, with its paid/unpaid status and the document." />
+      <section className={styles.card}>
       {message && <p className={styles.statusMsg} role="status">{message}</p>}
       {rows.length === 0 ? (
         <p className={styles.empty}>No invoices yet.</p>
@@ -129,6 +130,7 @@ export default function BillingAdmin({ invoices }: { invoices: AdminInvoice[] })
           </table>
         </div>
       )}
+      </section>
     </>
   )
 }

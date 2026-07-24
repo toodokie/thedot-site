@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import styles from './portal-admin.module.css'
 import StatusPill, { type PillTone } from './StatusPill'
+import AdminPageHeader from './AdminPageHeader'
 
 export type AdminContentRequest = {
   id: string; clientName: string; requestType: string; status: string; requesterName: string
@@ -36,12 +37,9 @@ export default function RequestAdmin({ requests }: { requests: AdminContentReque
     finally { setBusy(null) }
   }
   return <>
-    <div className={styles.cardHead}>
-      <div>
-        <div className={styles.cardTitle}>Change requests from Maria</div>
-        <div className={styles.cardSub}>Requests Maria sends from her portal. Decline or flag a conflict here; the actual edit happens in the content workflow, not this browser.</div>
-      </div>
-    </div>
+    <AdminPageHeader kicker="Agency ops" title="Change requests"
+      intro="Requests Maria sends from her portal. Decline or flag a conflict here; the actual edit happens in the content workflow, not this browser." />
+    <section className={styles.card}>
     {message && <p className={styles.statusMsg} role="status">{message}</p>}
     {!requests.length ? <p className={styles.empty}>No change requests from Maria right now.</p> : <div>
       {requests.map((request) => <article key={request.id} className={styles.subCard}>
@@ -58,5 +56,6 @@ export default function RequestAdmin({ requests }: { requests: AdminContentReque
         <div className={styles.codeId}>{request.id}</div>
       </article>)}
     </div>}
+    </section>
   </>
 }

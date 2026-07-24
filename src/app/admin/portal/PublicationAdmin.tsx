@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowser } from '@/lib/supabase/client'
 import StatusPill, { type PillTone } from './StatusPill'
+import AdminPageHeader from './AdminPageHeader'
 import styles from './portal-admin.module.css'
 
 export type AdminTarget = {
@@ -135,15 +136,11 @@ export default function PublicationAdmin({ targets }: { targets: AdminTarget[] }
   }
 
   return (
+    <>
+      <AdminPageHeader kicker="Agency ops" title="Publication"
+        intro="Where each piece actually went live, platform by platform. A scheduled time is not proof; confirming a post saves the live link and evidence, and corrections add a new record rather than overwriting."
+        count={targets.length} countLabel="platform slots" />
     <section className={styles.card}>
-      <div className={styles.cardHead}>
-        <div>
-          <div className={styles.cardTitle}>Where each piece went live</div>
-          <div className={styles.cardSub}>The real posting record, platform by platform. A scheduled time is not proof; confirming a post saves the live link and evidence, and corrections add a new record rather than overwriting.</div>
-        </div>
-        <span className={styles.count}>{targets.length} platform slots</span>
-      </div>
-
       {message && <p role="status" className={styles.banner}>{message}</p>}
       {targets.length === 0 && <p className={styles.empty}>Nothing to confirm yet. Pieces appear here once approved and scheduled.</p>}
 
@@ -283,5 +280,6 @@ export default function PublicationAdmin({ targets }: { targets: AdminTarget[] }
         </article>
       ))}
     </section>
+    </>
   )
 }

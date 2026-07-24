@@ -12,7 +12,12 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { slug } = await params
   const name = slug.charAt(0).toUpperCase() + slug.slice(1)
-  return { title: `${name} · Client Portal`, robots: { index: false, follow: false } }
+  return {
+    title: `${name} · Client Portal`,
+    // Installable-app manifest: opens straight to the workspace, own name + icon ("Kanset Portal").
+    manifest: '/kanset-portal.webmanifest',
+    robots: { index: false, follow: false },
+  }
 }
 
 export default async function ClientWorkspaceLayout(

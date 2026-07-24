@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import styles from './portal-admin.module.css'
 import StatusPill, { type PillTone } from './StatusPill'
+import AdminPageHeader from './AdminPageHeader'
 
 export type CalendarIntegrationAdmin = {
   id: string; clientId: string; clientName: string; displayName: string; ownerEmail: string
@@ -98,12 +99,9 @@ export default function CalendarAdmin({ clients, integrations, conflicts = [], u
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Ignore failed'); setBusy(false) }
   }
   return <>
-    <div className={styles.cardHead}>
-      <div>
-        <div className={styles.cardTitle}>Shared Google Calendar</div>
-        <div className={styles.cardSub}>Connects the shared Kanset calendar. A calendar change can nudge a planned date, but never approves copy or confirms that a post went out.</div>
-      </div>
-    </div>
+    <AdminPageHeader kicker="Agency ops" title="Calendar sync"
+      intro="Optional plumbing: connect the shared Google calendar so date changes stay in step. This is not your content schedule (that is above)." />
+    <section className={styles.card}>
     {integrations.map((item) => <article key={item.id} className={styles.subCard}>
       <div className={styles.pubPieceHead}>
         <span className={styles.subCardTitle}>{item.clientName} · {item.displayName}</span>
@@ -160,5 +158,6 @@ export default function CalendarAdmin({ clients, integrations, conflicts = [], u
       </div>
       {message && <p className={styles.statusMsg} role="status">{message}</p>}
     </div>
+    </section>
   </>
 }

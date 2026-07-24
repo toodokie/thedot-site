@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react'
+import { Eyebrow } from '@thedot/design-system'
 import { GATE_ORDER, resolveNineGates, deriveContentStage, deriveMyTasks,
   type StagePiece, type OpsTaskRow, type MyTask, type CompletedOpsTask } from '@/lib/portal/gates'
 import StatusPill, { type PillTone } from './StatusPill'
+import AdminPageHeader from './AdminPageHeader'
 import styles from './portal-admin.module.css'
 
 // Agency-only surface (gate-system spec sections 4 + 6.8): My Tasks + the per-piece gate
@@ -82,7 +84,7 @@ function TaskRow({ task, showClient }: { task: MyTask; showClient: boolean }) {
 // A stage renders as a SHORT status pill plus muted detail text; a long description never
 // lives inside a pill (that produced a wall of identical sentence-pills). deriveContentStage
 // owns the value; this only splits it into a keyword + the specifics.
-function stageDisplay(stage: string, label: string): { label: string; tone: PillTone; detail: string } {
+export function stageDisplay(stage: string, label: string): { label: string; tone: PillTone; detail: string } {
   const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
   switch (stage) {
     case 'done': return { label: 'Done', tone: 'verified', detail: '' }
@@ -100,7 +102,9 @@ function stageDisplay(stage: string, label: string): { label: string; tone: Pill
   }
 }
 
-export default function GatesAdmin({ pieces, opsTasks, completedOps, todayIso }: {
+// My tasks: the landing surface (spec IA #1). Its own routed page (/admin/portal) so it is
+// never buried under the rest of the ops board.
+export function MyTasksAdmin({ pieces, opsTasks, completedOps, todayIso }: {
   pieces: StagePiece[]
   opsTasks: OpsTaskRow[]
   completedOps: CompletedOpsTask[]
@@ -118,72 +122,82 @@ export default function GatesAdmin({ pieces, opsTasks, completedOps, todayIso }:
   // The headline count is the genuinely-open WORK; link-confirm bookkeeping has its own
   // labelled group and does not inflate it.
   const openCount = actions.length + maria.length + studio.length + ops.length
-  const visiblePieces = pieces.filter((piece) => !piece.archived)
   // Single-client board: drop the repeated client name / column entirely (it was noise on
   // every row). Shows again the moment a second client's pieces appear.
   const multiClient = new Set(pieces.map((p) => p.clientId)).size > 1
 
-  const group = (label: string, rows: MyTask[]) => rows.length > 0 && (
-    <div className={styles.group} key={label}>
-      <div className={styles.groupLabel}>{label}</div>
-      <ul className={styles.taskList}>{rows.map((task) => <TaskRow key={taskKey(task)} task={task} showClient={multiClient} />)}</ul>
-    </div>
-  )
+  // Each bucket is its OWN panel card (the client-overview pattern: many distinct cards in a
+  // two-column grid), instead of one crammed box. `emphasis` gives the priority bucket the
+  // charcoal-bordered lead treatment; its action rows already carry the yellow-pale chips.
+  const Panel = ({ label, note, rows, emphasis }:
+    { label: string; note?: string; rows: MyTask[]; emphasis?: boolean }) =>
+    rows.length > 0 ? (
+      <section className={emphasis ? `${styles.card} ${styles.hero}` : styles.card}>
+        <div className={styles.panelHead}><Eyebrow tone="grey">{label}</Eyebrow></div>
+        {note && <p className={styles.panelNote}>{note}</p>}
+        <ul className={styles.taskList}>
+          {rows.map((task) => <TaskRow key={taskKey(task)} task={task} showClient={multiClient} />)}
+        </ul>
+      </section>
+    ) : null
 
   return (
     <>
-      {/* My Tasks: the hero card (spec IA #1) */}
-      <section className={`${styles.card} ${styles.hero}`}>
-        <div className={styles.cardHead}>
+      <AdminPageHeader kicker="Agency ops" title="My tasks" display
+        intro="What needs doing, most pressing first." count={openCount} countLabel="open" />
+      {openCount === 0 && linkPending.length === 0 ? (
+        <section className={styles.card}><p className={styles.empty}>Nothing open.</p></section>
+      ) : (
+        <div className={styles.grid}>
           <div>
-            <div className={styles.cardTitle}>My tasks</div>
-            <div className={styles.cardSub}>What needs your attention, most pressing first.</div>
+            <Panel label="Actions" note="Your move, most pressing first." rows={actions} emphasis />
+            <Panel label="Waiting on Maria" rows={maria} />
+            <Panel label="Waiting on studio" rows={studio} />
           </div>
-          <span className={styles.count}><span className={styles.countPop}>{openCount}</span> open</span>
+          <aside>
+            <Panel label="Posted · link-confirm pending" rows={linkPending} />
+            {opsBuckets.map(([label, rows]) => <Panel key={label} label={`Ops · ${label}`} rows={rows} />)}
+            {completedOps.length > 0 && (
+              <section className={styles.card}>
+                <div className={styles.panelHead}><Eyebrow tone="grey">Recently completed ops</Eyebrow></div>
+                <ul className={styles.taskList}>
+                  {completedOps.map((task) => (
+                    <li key={task.id} className={styles.taskRow}>
+                      <span className={styles.taskMain}>
+                        <ClientTag name={task.clientName} show={multiClient} />
+                        <StatusPill tone="muted" label={task.category} />
+                        <span className={styles.taskTitle} title={task.title}>{task.title}</span>
+                      </span>
+                      <span className={styles.taskTrail}>
+                        <span className={styles.meta}>{task.status}{task.completedAt ? ` ${task.completedAt.slice(0, 10)}` : ''}</span>
+                        {/* completion note is separate; the original trigger note survives */}
+                        {task.triggerNote && <span className={styles.meta}>trigger: {task.triggerNote}</span>}
+                        {task.completionNote && <span className={styles.meta}>outcome: {task.completionNote}</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </aside>
         </div>
-        {openCount === 0 && linkPending.length === 0
-          ? <p className={styles.empty}>Nothing open.</p>
-          : <>
-            {group('Actions', actions)}
-            {group('Waiting on Maria', maria)}
-            {group('Waiting on studio', studio)}
-            {opsBuckets.map(([label, rows]) => group(`Ops · ${label}`, rows))}
-            {group(`Posted · link-confirm pending (${linkPending.length})`, linkPending)}
-          </>}
+      )}
+    </>
+  )
+}
 
-        {completedOps.length > 0 && (
-          <div className={styles.group}>
-            <div className={styles.groupLabel}>Recently completed ops</div>
-            <ul className={styles.taskList}>
-              {completedOps.map((task) => (
-                <li key={task.id} className={styles.taskRow}>
-                  <span className={styles.taskMain}>
-                    <ClientTag name={task.clientName} show={multiClient} />
-                    <StatusPill tone="muted" label={task.category} />
-                    <span className={styles.taskTitle} title={task.title}>{task.title}</span>
-                  </span>
-                  <span className={styles.taskTrail}>
-                    <span className={styles.meta}>{task.status}{task.completedAt ? ` ${task.completedAt.slice(0, 10)}` : ''}</span>
-                    {/* fix B: completion note is separate; the original trigger note survives */}
-                    {task.triggerNote && <span className={styles.meta}>trigger: {task.triggerNote}</span>}
-                    {task.completionNote && <span className={styles.meta}>outcome: {task.completionNote}</span>}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </section>
-
-      {/* Pieces (spec IA #2): styled table + a legend for the 9-gate strip */}
+// Pieces (spec IA #2): every piece and how far along it is, as a styled table with a legend
+// for the nine-gate strip. Its own routed page (/admin/portal/pieces).
+export function PiecesAdmin({ pieces }: { pieces: StagePiece[] }) {
+  const visiblePieces = pieces.filter((piece) => !piece.archived)
+  // Single-client board: drop the repeated client name / column (noise on every row).
+  const multiClient = new Set(pieces.map((p) => p.clientId)).size > 1
+  return (
+    <>
+      <AdminPageHeader kicker="Agency ops" title="Pieces"
+        intro="Every piece, and how far along it is. The squares track the nine steps, left to right."
+        count={visiblePieces.length} countLabel="active" />
       <section className={styles.card}>
-        <div className={styles.cardHead}>
-          <div>
-            <div className={styles.cardTitle}>Pieces</div>
-            <div className={styles.cardSub}>Every piece and how far along it is. The squares track the nine steps, left to right.</div>
-          </div>
-          <span className={styles.count}>{visiblePieces.length} active</span>
-        </div>
         <div className={styles.legend} aria-hidden="true">
           <span className={styles.legendItem}><span className={`${styles.gateCell} ${styles.gateDone}`} /> done</span>
           <span className={styles.legendItem}><span className={`${styles.gateCell} ${styles.gateOpen}`} /> open</span>
@@ -206,7 +220,9 @@ export default function GatesAdmin({ pieces, opsTasks, completedOps, todayIso }:
                 return (
                   <tr key={`${piece.clientId}:${piece.contentId}`}>
                     {multiClient && <td className={styles.cellMuted}>{piece.clientName}</td>}
-                    <td className={styles.pieceCol}>{piece.title}</td>
+                    <td className={styles.pieceCol}>
+                      <a href={`/admin/portal/pieces/${encodeURIComponent(piece.contentId)}`} className={styles.pieceLink}>{piece.title}</a>
+                    </td>
                     <td>
                       <span className={styles.stageCell}>
                         <StatusPill tone={sd.tone} label={sd.label} />

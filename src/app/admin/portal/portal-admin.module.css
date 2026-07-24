@@ -6,27 +6,25 @@
    (20) is the content, chips/meta (15-16) are secondary. Display greeting untouched.
    Display-plane only; not imported by the client shell. */
 
-.page {
-  --admin-ink: var(--dot-black);
-  --admin-muted: var(--dot-grey);
-  --admin-graphite: var(--dot-graphite);
-  --admin-line: var(--dot-hairline);
-  --admin-ground: var(--dot-cream);
-  --admin-accent: var(--dot-yellow-pale);
-  --admin-accent-strong: var(--dot-yellow);
-  --admin-danger: #b4502f;
+/* The --admin-* design tokens + page frame (padding, max-width, font) now live on the shell's
+   .main (admin-shell.module.css), so every routed page inherits them. This file styles only
+   the content inside a page: the masthead, panels, task rows, tables, forms. */
 
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 40px 40px 96px;
-  color: var(--admin-ink);
-  font-family: var(--dot-font-text);
+/* ---- page masthead (AdminPageHeader), matching the CLIENT surface header rhythm -----------
+   eyebrow kicker -> big display/section Heading -> roomy graphite intro -> optional status.
+   The generous top + the display heading are what make a page read as "designed"; without
+   them the admin looked flat next to Maria's side. */
+.pageHeader { margin-bottom: 36px; }
+.pageKicker { margin-bottom: 16px; }
+.pageIntro { margin-top: 12px; max-width: 60ch; }
+.pageStatus { margin-top: 18px; font-size: 20px; color: var(--admin-graphite); font-variant-numeric: tabular-nums; }
+.statusCount {
+  color: var(--admin-ink); font-weight: var(--dot-weight-medium);
+  /* the one bold pop: a yellow highlighter under the number (same as the client landing) */
+  background: linear-gradient(transparent 58%, var(--admin-accent-strong) 58%); padding: 0 4px;
 }
 
-.backlink { display: inline-block; margin-bottom: 20px; font-size: 15px; color: var(--admin-muted); }
-.backlink:hover { color: var(--admin-ink); }
-.pageHead { margin-bottom: 40px; }
-.pageSub { max-width: 680px; margin-top: 10px; color: var(--admin-muted); font-size: 18px; line-height: 1.55; }
+/* ---- the shared panel: cream fill, hairline border, sharp corners (client .panel) ------- */
 
 /* ---- the shared panel: cream fill, hairline border, sharp corners (client .panel) ------- */
 .card {
@@ -35,8 +33,19 @@
   padding: 24px 28px;
   margin-bottom: 26px;
 }
-.hero { border-color: var(--admin-ink); } /* My Tasks leads with a charcoal border, still flat */
-.secondary { padding: 22px 28px; }
+.hero { border-color: var(--admin-ink); } /* the priority panel leads with a charcoal border, still flat */
+
+/* Two-column card layout, same proportions as the client overview: a wider work column and a
+   narrower tracking column. Each bucket is its own panel card. Collapses to one column on mobile. */
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.panelHead { margin: 0 0 6px; }
+.panelNote { margin: 2px 0 8px; font-size: 15px; line-height: 1.5; color: var(--admin-muted); max-width: 48ch; }
+@media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
 
 /* HIERARCHY: the section heading is the biggest, boldest thing in its panel (it was smaller
    than the body, which read as no hierarchy). Description sits quiet beneath it. */
@@ -117,9 +126,23 @@
 .cellMuted { color: var(--admin-muted); }
 .cellNum { font-variant-numeric: tabular-nums; }
 .pieceCol { width: 42%; padding-right: 18px; }
+.pieceLink { color: var(--dot-black); text-decoration: none; }
+.pieceLink:hover { text-decoration: underline; text-decoration-color: var(--dot-yellow); text-underline-offset: 3px; }
 .gatesCol { width: 180px; white-space: nowrap; }
 .stageCell { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .stageDetail { color: var(--admin-muted); font-size: 15px; }
+
+/* Branded content-calendar table (spec section 8): week dividers, per-piece rows with a
+   full-width untruncated Notes sub-line, clickable titles. */
+.calDateCol { width: 76px; }
+.calDate { font-variant-numeric: tabular-nums; color: var(--admin-muted); white-space: nowrap; }
+.weekRow td { padding: 20px 2px 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--admin-muted); border-bottom: none; }
+.calRow td { border-bottom: none; padding-bottom: 4px; }
+.calRowEnd td { border-bottom: 1px solid var(--admin-line); }
+.calNoteRow td { border-bottom: 1px solid var(--admin-line); padding-top: 0; padding-bottom: 12px; }
+.calNote { color: var(--dot-graphite); font-size: 14px; line-height: 1.5; white-space: normal; max-width: 72ch; }
+.platChip { display: inline-block; font-size: 12px; color: var(--dot-graphite); border: 1px solid var(--dot-hairline); padding: 0 6px; margin-right: 4px; line-height: 1.7; }
+.notShared { margin-left: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--admin-muted); border: 1px solid var(--admin-line); padding: 1px 6px; }
 
 .legend {
   display: flex; flex-wrap: wrap; gap: 16px; align-items: center;
@@ -129,7 +152,8 @@
 .gateStrip { display: inline-flex; gap: 4px; }
 .gateCell { width: 16px; height: 16px; box-sizing: border-box; }
 .gateDone { background: var(--admin-ink); }
-.gateOpen { background: transparent; border: 1px solid var(--admin-graphite); }
+/* an open (still-to-do) step reads yellow, the actionable colour used across the portal */
+.gateOpen { background: var(--admin-accent); border: 1px solid var(--admin-accent-strong); }
 .gateNa { background: var(--admin-line); }
 .gateAbsent { background: transparent; border: 1px dashed var(--admin-line); }
 
@@ -205,7 +229,3 @@
 .controlAuto { width: auto; }
 .nowrap { white-space: nowrap; }
 .rowActions { margin-top: 0; }
-
-@media (max-width: 760px) {
-  .page { padding: 32px 20px 64px; }
-}

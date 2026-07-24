@@ -14,6 +14,9 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/',
   },
+  // Emit the manifest via metadata (not a hardcoded <link>) so the /client and /admin portal
+  // layouts can override it with their own installable-app manifests (child metadata wins).
+  manifest: '/site.webmanifest',
   icons: {
     icon: [
       { url: '/favicon.ico?v=5', type: 'image/x-icon' },
@@ -235,7 +238,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="The Dot Creative" />
-        <link rel="manifest" href="/site.webmanifest" />
         
         {/* Structured Data for Local Business */}
         <script
