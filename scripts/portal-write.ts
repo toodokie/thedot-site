@@ -41,7 +41,7 @@ const assertNoteGrammarSafe = (value: string | null, field: string) => {
 
 async function main() {
   const [command, inputPath, ...rest] = process.argv.slice(2)
-  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|invoice|idea|news-idea|idea-status|design-link|gate|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
+  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|invoice|idea|news-idea|idea-status|design-link|plan-cycle|gate|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
   const dryRun = rest.includes('--dry-run')
   const packIndex = rest.indexOf('--pack')
   const packPath = packIndex >= 0 ? rest[packIndex + 1] ?? null : null
@@ -194,6 +194,46 @@ async function main() {
       p_idea_id: requiredText(payload.ideaId, 'ideaId', 36),
       p_status: stringArray(payload.status, 'status', ['proposed','picked','dropped','became_piece']),
       p_became_content_id: becameContentId,
+      p_actor_key: actor, p_idempotency_key: idempotency }
+  } else if (command === 'plan-cycle') {
+    const cycleKey = requiredText(payload.cycleKey, 'cycleKey', 200)
+    const weekStart = requiredText(payload.weekStart, 'weekStart', 10)
+    const weekEnd = requiredText(payload.weekEnd, 'weekEnd', 10)
+    const isDate = (value: string) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+      const [y, m, d] = value.split('-').map(Number)
+      const dt = new Date(Date.UTC(y, m - 1, d))
+      return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d
+    }
+    if (!isDate(weekStart) || !isDate(weekEnd) || weekEnd < weekStart)
+      throw new Error('weekStart/weekEnd must be valid ordered YYYY-MM-DD dates')
+    const title = requiredText(payload.title, 'title', 300)
+    const directionSummary = requiredText(payload.directionSummary, 'directionSummary', 4000)
+    assertClientSafeAgencyText({ title, directionSummary })
+    if (!Array.isArray(payload.items) || payload.items.length < 1 || payload.items.length > 31)
+      throw new Error('items must be a non-empty array with at most 31 entries')
+    const items = payload.items.map((raw, index) => {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error(`items[${index}] must be an object`)
+      const item = raw as Record<string, unknown>
+      const contentId = requiredText(item.contentId, `items[${index}].contentId`, 200)
+      const itemTitle = requiredText(item.title, `items[${index}].title`, 300)
+      const format = optionalText(item.format, `items[${index}].format`, 100)
+      const pillar = optionalText(item.pillar, `items[${index}].pillar`, 100)
+      const producer = optionalText(item.producer, `items[${index}].producer`, 30)
+      if (producer !== null && !['the_dot', 'studio'].includes(producer)) throw new Error(`items[${index}].producer is invalid`)
+      const plannedDate = optionalText(item.plannedDate, `items[${index}].plannedDate`, 10)
+      if (plannedDate !== null && !isDate(plannedDate)) throw new Error(`items[${index}].plannedDate is invalid`)
+      const directionNote = optionalText(item.directionNote, `items[${index}].directionNote`, 2000)
+      const platforms = item.platforms == null ? [] : item.platforms
+      if (!Array.isArray(platforms) || platforms.length > 12 || platforms.some((p) => typeof p !== 'string' || p.length > 50))
+        throw new Error(`items[${index}].platforms is invalid`)
+      assertClientSafeAgencyText({ itemTitle, format, pillar, directionNote })
+      return { content_id: contentId, title: itemTitle, format, pillar, producer,
+        planned_date: plannedDate, direction_note: directionNote, platforms, position: index + 1 }
+    })
+    rpc = 'agency_upsert_plan_cycle'; args = { p_client_id: null,
+      p_cycle_key: cycleKey, p_week_start: weekStart, p_week_end: weekEnd,
+      p_title: title, p_direction_summary: directionSummary, p_items: items,
       p_actor_key: actor, p_idempotency_key: idempotency }
   } else if (command === 'gate') {
     // Production-gate emission (set_production_gate, migration 0022). Accepts the
