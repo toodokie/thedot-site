@@ -314,7 +314,7 @@ class Harness {
     this.results.push({ scenario: 5, name: 'version + checksum convergence', working_version: item.working_version, snapshot_count: snapshots.length, checksum: 'recomputed-equal' })
   }
 
-  async shadowScript(replacement: 'remove-pending-sync' | 'release-always' | 'remove-body-guard'): Promise<string> {
+  async shadowScript(replacement: 'remove-lock' | 'remove-pending-sync' | 'release-always' | 'remove-body-guard'): Promise<string> {
     const shadowRoot = mkdtempSync(join(tmpdir(), 'update-portal-shadow-'))
     mkdirSync(join(shadowRoot, 'scripts'), { recursive: true })
     cpSync(join(ROOT, 'src'), join(shadowRoot, 'src'), { recursive: true })
@@ -324,7 +324,10 @@ class Harness {
     const original = readFileSync(UPDATE_SCRIPT, 'utf8')
     let mutated = original
     let changed = false
-    if (replacement === 'remove-pending-sync') {
+    if (replacement === 'remove-lock') {
+      mutated = mutated.replace(/  const lock = writeMode\n    \? acquirePieceLock\(contentId, \{ dir: process\.env\.PORTAL_LOCK_DIR \?\? join\(tmpdir\(\), 'update-portal-locks'\), staleMs: LOCK_STALE_MS \}\)\n    : null/, '  const lock = null')
+      changed = mutated !== original
+    } else if (replacement === 'remove-pending-sync') {
       const corePath = join(shadowRoot, 'src/lib/portal/update-portal-core.ts')
       const core = readFileSync(corePath, 'utf8')
       const changedCore = core.replace('changed: input.bodyChanged || pendingSync || pendingRelease,', 'changed: input.bodyChanged || pendingRelease,')
@@ -343,6 +346,11 @@ class Harness {
   }
 
   async selfDoubt(): Promise<void> {
+    const lockId = 'harness-shadow-lock'; await this.seed(lockId, 'shadow seed lock', false); const lockPackA = makePack(this.packRoot, 'harness-shadow-lock-a', lockId, 'SHADOW LOCK A'); const lockPackB = makePack(this.packRoot, 'harness-shadow-lock-b', lockId, 'SHADOW LOCK B'); const shadowNoLock = await this.shadowScript('remove-lock')
+    const lockHook = join(this.canonicalRoot, '.git/hooks/pre-commit'); writeExecutable(lockHook, '#!/bin/sh\nsleep 1\n')
+    const [locklessA, locklessB] = await Promise.all([this.update(lockPackA, ['--apply'], shadowNoLock), this.update(lockPackB, ['--apply'], shadowNoLock)]); rmSync(lockHook, { force: true })
+    assert(!/holds the lock/.test(locklessA.stderr) && !/holds the lock/.test(locklessB.stderr), 'lock-removal mutation still produced the lock refusal')
+
     const syncId = 'harness-shadow-sync'; await this.seed(syncId, 'shadow seed sync', false); const syncPack = makePack(this.packRoot, 'harness-shadow-sync-pack', syncId, 'SHADOW SYNC BODY'); const shadowNoRetry = await this.shadowScript('remove-pending-sync')
     await this.installSyncFailure(syncId); const first = await this.update(syncPack, ['--apply'], shadowNoRetry); assert(first.status !== 0, 'shadow sync-failure setup unexpectedly succeeded'); await this.removeSyncFailure()
     const second = await this.update(syncPack, ['--apply'], shadowNoRetry); const syncState = await this.item(syncId); assert(second.status === 0 && syncState.working_version === 1, `retry test would not fail with pendingSync removed (status=${second.status}, working=${syncState.working_version}, stderr=${second.stderr})`)
@@ -354,7 +362,7 @@ class Harness {
     const changedId = 'harness-shadow-changed'; await this.seed(changedId, 'shadow seed changed', true); await this.beginAndSyncV2(changedId, 'SHADOW STALE BODY'); const changedPack = makePack(this.packRoot, 'harness-shadow-changed-pack', changedId, 'SHADOW NEW BODY'); const shadowNoBodyGuard = await this.shadowScript('release-always')
     const changed = await this.update(changedPack, ['--re-share', '--change-note', 'Shadow changed', '--apply', '--confirm'], shadowNoBodyGuard); const changedState = await this.item(changedId)
     assert(changed.status === 0 && changedState.client_visible_version === 2 && changedState.working_version === 2, 'Blocker-1 mutation did not produce stale-release signal')
-    this.results.push({ self_doubt: 'passed', scenario_2_revert: 'caught_pendingSync_removed', scenario_3_revert: 'caught_release_retry_removed', scenario_4_revert: 'caught_body_changed_guard_removed', uncovered: ['begin-revision failure after preflight', 'partial git index/commit corruption', 'process death between gate reopen and release', 'a live lock holder killed at every possible boundary'] })
+    this.results.push({ self_doubt: 'passed', scenario_1_revert: 'caught_lock_removed', scenario_2_revert: 'caught_pendingSync_removed', scenario_3_revert: 'caught_release_retry_removed', scenario_4_revert: 'caught_body_changed_guard_removed', uncovered: ['begin-revision failure after preflight', 'partial git index/commit corruption', 'process death between gate reopen and release', 'a live lock holder killed at every possible boundary'] })
   }
 
   async stop(): Promise<void> {
