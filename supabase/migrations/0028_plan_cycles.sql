@@ -320,7 +320,6 @@ begin
   if v_client_id is null then raise exception 'not authorized for plan cycle' using errcode='42501'; end if;
   perform public.portal_require_client_action(v_client_id,'can_decide');
   if p_revision is distinct from v_current_revision then raise exception 'stale plan cycle revision'; end if;
-  if v_status not in ('submitted','change_requested') then raise exception 'plan cycle is not open for decision'; end if;
   select * into v_existing from public.plan_cycle_decisions
     where plan_cycle_id=p_plan_cycle_id and revision=p_revision;
   if found then
@@ -329,6 +328,7 @@ begin
     end if;
     return v_existing.id;
   end if;
+  if v_status not in ('submitted','change_requested') then raise exception 'plan cycle is not open for decision'; end if;
   insert into public.plan_cycle_decisions(plan_cycle_id,client_id,revision,decision,note,decided_by)
     values(p_plan_cycle_id,v_client_id,p_revision,p_decision,v_note,v_uid) returning id into v_id;
   update public.plan_cycles set status=case when p_decision='approved' then 'approved' else 'change_requested' end,
