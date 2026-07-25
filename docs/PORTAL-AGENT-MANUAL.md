@@ -281,6 +281,13 @@ by their page.
 
 The canonical model (from `~/Kanset/CLAUDE.md` "content-to-portal flow"):
 
+**Lifecycle amendment, approved 2026-07-25:** read
+`~/Kanset/docs/superpowers/specs/2026-07-25-content-id-lifecycle.md` before changing this
+flow. A selected piece now receives its permanent `content_id` as a versionless idea-stage
+`content_item`, before a canonical file exists. The first canonical sync attaches version 1
+to that same identity. The authoring sequence below begins after selection and no longer
+defines when the piece identity is created.
+
 1. **Author** client-safe copy in `~/Kanset/portal-content/` (the private repo). The broad
    `~/Kanset/content/` pack is **never** the portal file — it's translated into a clean
    `portal-content/` file so email/invoice/PII regions stay out (the D3 classification gate reuses
