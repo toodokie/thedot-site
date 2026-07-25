@@ -11,6 +11,7 @@ import {
   reopenCopyApprovedGate,
   validateChangeNote,
 } from './update-portal-core'
+import { parseContentFile } from './frontmatter'
 
 // A realistic canonical file the live parser accepts (frontmatter + one keyed block + one internal
 // marker), used as the "existing authored" target for buildRefreshedCanonical.
@@ -227,6 +228,9 @@ describe('normalizeCopy', () => {
     expect(normalizeCopy('## Instagram caption')).toBe(normalizeCopy('Instagram caption'))
     expect(normalizeCopy('1. First\n2. Second')).toBe(normalizeCopy('- First\n- Second'))
   })
+  it('does not erase semantic punctuation that is not a Markdown wrapper', () => {
+    expect(normalizeCopy('Use foo_bar and 10%~20%')).not.toBe(normalizeCopy('Use foobar and 1020'))
+  })
 })
 
 describe('buildRefreshedCanonical', () => {
@@ -239,6 +243,15 @@ describe('buildRefreshedCanonical', () => {
     expect(result).toContain('<!-- internal -->')
     expect(result).toContain('keep this out of Supabase')            // internal section preserved
     expect(result).toContain('content_id: kanset-2026-07-where-to-start') // frontmatter preserved
+  })
+  it('accepts CRLF portal blocks and canonical version bumps', () => {
+    const crlfPack = pack().replace(/\n/g, '\r\n')
+    expect(extractPack(crlfPack, 'p.md').blockKeys).toEqual(['caption'])
+    const crlfCanonical = CANONICAL.replace(/\n/g, '\r\n')
+    const updatedBody = extractPack(crlfPack, 'p.md').clientBody.replace('Not sure where to start? Book a consultation.', 'Updated copy.')
+    const refreshed = buildRefreshedCanonical(crlfCanonical, updatedBody, 4, 'p.md')
+    expect(refreshed).toContain('version: 4')
+    expect(parseContentFile(refreshed, 'p.md').version).toBe(4)
   })
   it('throws if the canonical has no leading frontmatter', () => {
     expect(() => buildRefreshedCanonical('no frontmatter\n<!-- internal -->\n', 'x', 2, 'c.md'))

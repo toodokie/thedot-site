@@ -16,11 +16,11 @@ import { parseContentFile } from './frontmatter'
 export const CONTENT_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{1,119}$/
 
 // Matches frontmatter.ts exactly so extraction and the parser agree on block boundaries.
-const PORTAL_BLOCK_LINE = /^[ \t]*<!--\s*portal-block:([a-z0-9][a-z0-9_-]{0,63})\s*-->[ \t]*$/
+const PORTAL_BLOCK_LINE = /^[ \t]*<!--\s*portal-block:([a-z0-9][a-z0-9_-]{0,63})\s*-->[ \t]*\r?$/
 const INTERNAL_MARKER = /<!--\s*internal\s*-->/gi
 const GATE_HEADER = /<!--\s*gates:[^>]*-->/gi
 const FRONTMATTER_BLOCK = /^(---\r?\n[\s\S]*?\r?\n---\r?\n)/
-const VERSION_LINE = /^([ \t]*version:[ \t]*)\d+([ \t]*)$/gm
+const VERSION_LINE = /^([ \t]*version:[ \t]*)\d+([ \t]*)\r?$/gm
 
 export type ContentState = 'new' | 'unreleased' | 'released' | 'locked'
 
@@ -208,8 +208,16 @@ export function normalizeCopy(text: string): string {
       // Strip leading block markers (heading #, list -/*/+/1., blockquote >), possibly nested.
       let prev: string
       do { prev = l; l = l.replace(/^(?:#{1,6}\s+|[-*+]\s+|\d+\.\s+|>\s+)/, '') } while (l !== prev)
-      // Remove inline emphasis / code / strike characters (symmetric on both sides being compared).
-      l = l.replace(/[*_`~]/g, '')
+      // Remove only paired Markdown wrappers. Do not erase semantic underscores, tildes,
+      // asterisks, or backticks from ordinary copy, otherwise distinct copy can become a
+      // false no-op (for example `C++`, `foo_bar`, or a literal * qualifier).
+      l = l
+        .replace(/\*\*(.+?)\*\*/g, '$1')
+        .replace(/__(.+?)__/g, '$1')
+        .replace(/\*([^*\n]+?)\*/g, '$1')
+        .replace(/_([^_\n]+?)_/g, '$1')
+        .replace(/~~(.+?)~~/g, '$1')
+        .replace(/`([^`\n]+?)`/g, '$1')
       return l.replace(/[ \t]+/g, ' ').trim()
     })
     .filter((line) => line !== '')

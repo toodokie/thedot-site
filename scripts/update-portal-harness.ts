@@ -325,7 +325,10 @@ class Harness {
     let mutated = original
     let changed = false
     if (replacement === 'remove-lock') {
-      mutated = mutated.replace(/  const lock = writeMode\n    \? acquirePieceLock\(contentId, \{ dir: process\.env\.PORTAL_LOCK_DIR \?\? join\(tmpdir\(\), 'update-portal-locks'\), staleMs: LOCK_STALE_MS \}\)\n    : null/, '  const lock = null')
+      // Remove both the repository-global and per-piece locks from the shadow copy. The production
+      // script intentionally holds both because Git provenance is repository-global.
+      mutated = mutated.replace(/  if \(writeMode\) \{\n    rootLock = acquirePieceLock\([\s\S]*?\n  \}\n  try \{/,
+        '  if (writeMode) { /* locks removed for the race mutation */ }\n  try {')
       changed = mutated !== original
     } else if (replacement === 'remove-pending-sync') {
       const corePath = join(shadowRoot, 'src/lib/portal/update-portal-core.ts')

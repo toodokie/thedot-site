@@ -18,6 +18,7 @@ export type ScheduleRow = {
   status: ContentStatus
   client_state: ClientState
   planned_date: string | null
+  calendar_note: string | null
   schedule_state: ScheduleState
   calendar_sync_status: string | null
   calendar_sync_label: string | null
@@ -51,12 +52,16 @@ export type ScheduleRequestRow = {
   resolved_at: string | null
 }
 
-const SELECT = 'id, content_id, title, format, pillar, platforms, status, client_state, planned_date, schedule_state'
+// The dedicated calendar view is the client boundary for this surface. It exposes the released
+// snapshot plus calendar_note, and keeps this reader aligned with the column/grant contract added
+// by the piece-architecture migration. `version` is required to join the safe Google-calendar
+// projection to the exact released piece version.
+const SELECT = 'id, content_id, title, format, pillar, platforms, status, client_state, planned_date, version, calendar_note, schedule_state'
 
 export async function getSchedule(clientId: string): Promise<ScheduleRow[]> {
   const supabase = await createSupabaseServer()
   const [contentResult, calendarResult] = await Promise.all([
-    supabase.from('content_with_state').select(SELECT).eq('client_id', clientId)
+    supabase.from('content_calendar_client').select(SELECT).eq('client_id', clientId)
       .order('planned_date', { ascending: true, nullsFirst: false }).order('content_id', { ascending: true }),
     supabase.from('calendar_events_client')
       .select('content_id,content_version,event_html_link,sync_status,sync_label,event_role')
@@ -74,6 +79,7 @@ export async function getSchedule(clientId: string): Promise<ScheduleRow[]> {
     // getContentItem. parseClientState throws PortalDataError-adjacent on an unknown value.
     return { ...row, client_state: parseClientState(row.client_state),
       platforms: Array.isArray(row.platforms) ? row.platforms : [],
+      calendar_note: typeof row.calendar_note === 'string' ? row.calendar_note : null,
       calendar_sync_status: calendar?.sync_status ?? null,
       calendar_sync_label: calendar?.sync_label ?? null,
       calendar_event_link: calendar?.event_html_link ?? null }

@@ -25,7 +25,7 @@
 import { loadEnvConfig } from '@next/env'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { execFileSync } from 'node:child_process'
-import { appendFileSync, existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, readFileSync, readdirSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, isAbsolute, join, resolve } from 'node:path'
 import { parseContentFile, type ParsedContent } from '../src/lib/portal/frontmatter'
@@ -53,6 +53,7 @@ const LOCK_STALE_MS = 10 * 60 * 1000
 
 // The service-role client is untyped here (no generated Database types), matching the other portal
 // scripts. `.rpc()` is called with a variable name so it resolves the loose overload.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = SupabaseClient<any, any, any, any, any>
 const PREVIEW_RPC = 'preview_content_item_versions'
 const SYNC_RPC = 'sync_content_item_versions'
@@ -78,7 +79,12 @@ function parseArgs(argv: string[]): Flags {
     else if (arg === '--preview-only') previewOnly = true
     else if (arg === '--re-share') reShare = true
     else if (arg === '--confirm') confirm = true
-    else if (arg === '--change-note') { changeNote = argv[i + 1] ?? ''; i += 1 }
+    else if (arg === '--change-note') {
+      const candidate = argv[i + 1]
+      if (!candidate || candidate.startsWith('--')) throw new Error('--change-note requires a value')
+      changeNote = candidate
+      i += 1
+    }
     else if (arg.startsWith('--change-note=')) changeNote = arg.slice('--change-note='.length)
     else if (arg.startsWith('--')) throw new Error(`Unknown flag: ${arg}`)
     else positional.push(arg)
@@ -139,6 +145,33 @@ function assertCanonicalIdentity(parsed: ParsedContent, contentId: string): void
   }
 }
 
+// A clean Git checkout is not enough to prove that the requested filename is the unique source
+// for this piece. Parse every canonical Markdown file before a write, reject duplicate frontmatter
+// IDs, and require the requested ID to resolve to the requested real path. This closes accidental
+// cross-piece syncs caused by a stale rename or duplicate file in the canonical repo.
+function assertCanonicalRootIdentity(portalDir: string, canonicalPath: string, contentId: string): void {
+  const root = realpathSync(portalDir)
+  const target = realpathSync(canonicalPath)
+  if (!(target === root || target.startsWith(`${root}/`))) {
+    throw new Error(`canonical path escapes PORTAL_CONTENT_DIR: ${canonicalPath}`)
+  }
+  const byId = new Map<string, string>()
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    if (!entry.name.endsWith('.md')) continue
+    if (entry.isSymbolicLink() || !entry.isFile()) throw new Error(`canonical Markdown entry is not a regular file: ${entry.name}`)
+    const file = join(root, entry.name)
+    const parsed = parseContentFile(readFileSync(file, 'utf8'), entry.name)
+    const previous = byId.get(parsed.content_id)
+    if (previous && previous !== file) {
+      throw new Error(`duplicate canonical content_id "${parsed.content_id}" in ${previous} and ${file}`)
+    }
+    byId.set(parsed.content_id, file)
+  }
+  if (byId.get(contentId) !== target) {
+    throw new Error(`canonical content_id "${contentId}" does not resolve uniquely to ${canonicalPath}`)
+  }
+}
+
 function inspect(portalDir: string, mode: 'preview' | 'apply'): CanonicalContentInspection {
   return inspectCanonicalContentRoot({
     directory: portalDir, fixtureDirectory: join(process.cwd(), 'content/portal'),
@@ -183,9 +216,20 @@ async function main() {
 
   // Serialize the whole per-piece operation for write modes, and re-read every input UNDER the lock so
   // a run that waited on the lock cannot act on stale pack / canonical / DB state (Codex blocker 2).
-  const lock = writeMode
-    ? acquirePieceLock(contentId, { dir: process.env.PORTAL_LOCK_DIR ?? join(tmpdir(), 'update-portal-locks'), staleMs: LOCK_STALE_MS })
-    : null
+  const lockDir = process.env.PORTAL_LOCK_DIR ?? join(tmpdir(), 'update-portal-locks')
+  // Git is repository-global even though Supabase versioning is per piece. Hold both locks so two
+  // different pieces cannot interleave commits and invalidate the whole-directory provenance check.
+  let rootLock: { release: () => void } | null = null
+  let lock: { release: () => void } | null = null
+  if (writeMode) {
+    rootLock = acquirePieceLock('__canonical-root__', { dir: lockDir, staleMs: LOCK_STALE_MS })
+    try {
+      lock = acquirePieceLock(contentId, { dir: lockDir, staleMs: LOCK_STALE_MS })
+    } catch (error) {
+      rootLock.release()
+      throw error
+    }
+  }
   try {
     // Fresh, lock-held reads.
     let packText: string | null = null
@@ -210,6 +254,7 @@ async function main() {
       }
     }
     const canonicalExists = existsSync(canonicalPath)
+    if (canonicalExists) assertCanonicalRootIdentity(portalDir, canonicalPath, contentId)
 
     const supabase: Db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
     const { data: client, error: clientErr } = await supabase.from('clients').select('id').eq('slug', CLIENT_SLUG).single()
@@ -319,6 +364,7 @@ async function main() {
     }
   } finally {
     lock?.release()
+    rootLock?.release()
   }
 }
 
