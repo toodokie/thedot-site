@@ -47,6 +47,46 @@ export async function loadPlan(): Promise<PlanRow[]> {
   })).sort((a, b) => (b.planned_date ?? '').localeCompare(a.planned_date ?? '') || a.content_id.localeCompare(b.content_id))
 }
 
+export type PlanCycleRow = {
+  id: string; cycle_key: string; week_start: string; week_end: string; title: string
+  direction_summary: string; revision: number; status: string; submitted_at: string
+  decided_at: string | null; approved_revision: number | null
+}
+export type PlanCycleItemRow = {
+  id: string; position: number; planned_date: string | null; title: string; format: string | null
+  platforms: string[]; producer: string | null; direction_note: string | null; content_id: string
+}
+export type PlanCycleDecisionRow = { revision: number; decision: string; note: string | null; created_at: string }
+export type AdminPlanCycle = {
+  cycle: PlanCycleRow | null; items: PlanCycleItemRow[]; latestDecision: PlanCycleDecisionRow | null
+}
+
+// The current weekly plan cycle (status + items + latest client decision) for the agency Plan view.
+// Service-role read scoped to the Kanset tenant; mirrors what the client sees on their Plan tab.
+export async function loadPlanCycle(): Promise<AdminPlanCycle> {
+  const admin = createSupabaseAdmin()
+  const clientId = await kansetId(admin)
+  const c = await admin.from('plan_cycles')
+    .select('id,cycle_key,week_start,week_end,title,direction_summary,revision,status,submitted_at,decided_at,approved_revision')
+    .eq('client_id', clientId).order('week_start', { ascending: false }).order('revision', { ascending: false }).limit(1)
+  if (c.error) throw new Error(c.error.message)
+  const cycle = (c.data ?? [])[0] as PlanCycleRow | undefined
+  if (!cycle) return { cycle: null, items: [], latestDecision: null }
+  const it = await admin.from('plan_cycle_items')
+    .select('id,position,planned_date,title,format,platforms,producer,direction_note,content_id')
+    .eq('client_id', clientId).eq('plan_cycle_id', cycle.id).order('position', { ascending: true })
+  if (it.error) throw new Error(it.error.message)
+  const d = await admin.from('plan_cycle_decisions')
+    .select('revision,decision,note,created_at')
+    .eq('client_id', clientId).eq('plan_cycle_id', cycle.id).order('created_at', { ascending: false }).limit(1)
+  if (d.error) throw new Error(d.error.message)
+  return {
+    cycle,
+    items: (it.data ?? []) as PlanCycleItemRow[],
+    latestDecision: ((d.data ?? [])[0] as PlanCycleDecisionRow | undefined) ?? null,
+  }
+}
+
 export async function loadReports(): Promise<ReportRow[]> {
   const admin = createSupabaseAdmin()
   const r = await admin.from('report_snapshots')

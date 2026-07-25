@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { verifySession } from '@/lib/auth'
 import AdminPageHeader from '../AdminPageHeader'
 import StatusPill, { type PillTone } from '../StatusPill'
-import { loadPlan } from '../mirror-data'
+import { loadPlan, loadPlanCycle } from '../mirror-data'
 import styles from '../portal-admin.module.css'
 
 export const dynamic = 'force-dynamic'
@@ -14,17 +14,66 @@ function planTone(status: string): PillTone {
   if (status === 'scheduled' || status === 'approved') return 'done'
   return 'muted'
 }
+function cycleTone(status: string): PillTone {
+  return status === 'approved' ? 'done' : 'muted'
+}
 
 export default async function PortalAdminPlanPage() {
   const session = await verifySession()
   if (!session || session.role !== 'admin') redirect('/admin/login')
-  const rows = await loadPlan()
+  const [rows, plan] = await Promise.all([loadPlan(), loadPlanCycle()])
   const scheduled = rows.filter((r) => r.planned_date)
   return (
     <>
       <AdminPageHeader kicker="Agency ops" title="Plan"
-        intro="The content plan, piece by piece with its planned date. This is where the calendar direction lives, the same view Maria approves from."
+        intro="The weekly plan cycle Maria approves, plus the content plan piece by piece with its planned date."
         count={rows.length} countLabel="pieces" />
+
+      <section className={styles.card}>
+        {!plan.cycle ? (
+          <p className={styles.empty}>No plan cycle submitted yet.</p>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+              <strong>{plan.cycle.title}</strong>
+              <StatusPill tone={cycleTone(plan.cycle.status)} label={plan.cycle.status.replace('_', ' ')} />
+            </div>
+            <p className={styles.cellMuted} style={{ marginTop: 0 }}>
+              Week {plan.cycle.week_start} to {plan.cycle.week_end} · revision {plan.cycle.revision}
+              {plan.cycle.status === 'approved' && plan.cycle.approved_revision ? ` · approved rev ${plan.cycle.approved_revision}` : ''}
+            </p>
+            <p style={{ margin: '8px 0 16px' }}>{plan.cycle.direction_summary}</p>
+            {plan.items.length > 0 && (
+              <div className={styles.tableWrap}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr><th>#</th><th>Planned</th><th className={styles.pieceCol}>Piece</th><th>Format</th><th>Platforms</th><th>Direction note</th></tr>
+                  </thead>
+                  <tbody>
+                    {plan.items.map((it) => (
+                      <tr key={it.id}>
+                        <td className={styles.cellNum}>{it.position}</td>
+                        <td className={styles.cellNum}>{it.planned_date ?? <span className={styles.cellMuted}>unscheduled</span>}</td>
+                        <td className={styles.pieceCol}>{it.title}</td>
+                        <td className={styles.cellMuted}>{it.format ?? ''}</td>
+                        <td className={styles.cellMuted}>{it.platforms.join(', ')}</td>
+                        <td className={styles.cellMuted}>{it.direction_note ?? ''}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {plan.latestDecision && (
+              <p className={styles.metaLine}>
+                Client {plan.latestDecision.decision.replace('_', ' ')} (revision {plan.latestDecision.revision}) on {plan.latestDecision.created_at.slice(0, 10)}
+                {plan.latestDecision.note ? `: ${plan.latestDecision.note}` : ''}
+              </p>
+            )}
+          </>
+        )}
+      </section>
+
       <section className={styles.card}>
         {rows.length === 0
           ? <p className={styles.empty}>No planned pieces yet.</p>

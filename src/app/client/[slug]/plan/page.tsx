@@ -2,7 +2,9 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getClientSession } from '@/lib/portal/auth'
 import { getSchedule, statusAccent, belongsOnPlanSurface, type ScheduleRow } from '@/lib/portal/schedule'
+import { getCurrentPlanCycle, getPlanCycleDecisions, type PlanCycleItem } from '@/lib/portal/plan-cycle'
 import { Eyebrow, Heading, Text } from '@thedot/design-system'
+import PlanDecideForm from './PlanDecideForm'
 import styles from './plan.module.css'
 
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -28,11 +30,38 @@ function weekStartIso(iso: string): string {
   return isoOf(dt.getFullYear(), dt.getMonth() + 1, dt.getDate())
 }
 
+function fmtRange(startIso: string, endIso: string): string {
+  return `${fmtDay(startIso)} to ${fmtDay(endIso)}`
+}
+
+function CycleItem({ item }: { item: PlanCycleItem }) {
+  const meta = [item.format, ...item.platforms].filter(Boolean)
+  return (
+    <li className={styles.cycleItem}>
+      <span className={styles.cyclePos} aria-hidden="true">{item.position}</span>
+      <span className={styles.cycleItemMain}>
+        <Text as="span" size="md" tone="black">{item.title}</Text>
+        <span className={styles.cycleItemMeta}>
+          {item.planned_date && <span className={styles.chip}>{fmtDay(item.planned_date)}</span>}
+          {meta.map((m) => <span key={m} className={styles.chip}>{m}</span>)}
+        </span>
+        {item.direction_note && <span className={styles.cycleNote}><Text as="span" size="sm" tone="graphite">{item.direction_note}</Text></span>}
+      </span>
+    </li>
+  )
+}
+
 export default async function Plan({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const session = await getClientSession(slug)
   if (!session) redirect('/client/login')
   const rows = await getSchedule(session.clientId)
+
+  // The current weekly plan cycle (the direction Maria approves as a batch). A missing projection
+  // throws PortalDataError -> the route error boundary, never a silent "empty approved plan".
+  const { cycle, items: cycleItems } = await getCurrentPlanCycle(session.clientId)
+  const cycleDecisions = cycle ? await getPlanCycleDecisions(session.clientId, cycle.id) : []
+  const lastChangeNote = cycleDecisions.find((d) => d.decision === 'change_requested')?.note ?? null
 
   // The plan surface is the quiet pipeline only (audit B1): ideas and drafts still with
   // The Dot. A released-for-review piece (client_state needs_review) is already the
@@ -83,8 +112,57 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
   return (
     <div className={styles.wrap}>
       <div className={styles.eyebrow}><Eyebrow tone="grey">Kanset · Plan</Eyebrow></div>
+
+      {cycle && (
+        <section className={styles.cycleCard} aria-label={`This week's plan: ${cycle.title}`}>
+          <div className={styles.cycleHead}>
+            <Heading level={2}>{cycle.title}</Heading>
+            <span className={`${styles.statusBadge} ${
+              cycle.status === 'approved' ? styles.statusApproved
+                : cycle.status === 'change_requested' ? styles.statusChanges
+                  : styles.statusOpen}`}>
+              {cycle.status === 'approved' ? 'Approved'
+                : cycle.status === 'change_requested' ? 'Changes requested'
+                  : 'Awaiting your approval'}
+            </span>
+          </div>
+          <div className={styles.cycleMeta}>
+            <Text as="span" size="sm" tone="grey">
+              Week of {fmtRange(cycle.week_start, cycle.week_end)}{cycle.revision > 1 ? ` · Revision ${cycle.revision}` : ''}
+            </Text>
+          </div>
+          <div className={styles.cycleSummary}><Text size="md" tone="graphite">{cycle.direction_summary}</Text></div>
+
+          {cycleItems.length > 0 && (
+            <ol className={styles.cycleList}>
+              {cycleItems.map((it) => <CycleItem key={it.id} item={it} />)}
+            </ol>
+          )}
+
+          {cycle.status === 'approved' ? (
+            <p className={styles.decisionApproved} role="status">
+              You approved this plan{cycle.decided_at ? ` on ${fmtDay(cycle.decided_at)}` : ''}. We are producing these pieces now.
+            </p>
+          ) : cycle.status === 'change_requested' ? (
+            <div className={styles.decisionChanges} role="status">
+              <Text as="p" size="md" tone="black">
+                You requested changes{cycle.decided_at ? ` on ${fmtDay(cycle.decided_at)}` : ''}. The Dot is revising the plan and will resubmit it for your approval.
+              </Text>
+              {lastChangeNote && <p className={styles.decisionNote}>{lastChangeNote}</p>}
+            </div>
+          ) : session.canDecide ? (
+            <div className={styles.decisionOpen}>
+              <Text as="p" size="md" tone="black">Review the direction above, then approve it or request changes.</Text>
+              <PlanDecideForm slug={slug} cycleId={cycle.id} revision={cycle.revision} />
+            </div>
+          ) : (
+            <p className={styles.decisionMuted} role="status">This plan is awaiting approval from your account&rsquo;s decision-maker.</p>
+          )}
+        </section>
+      )}
+
       <div className={styles.head}>
-        <Heading level={2}>What we are planning next</Heading>
+        <Heading level={cycle ? 3 : 2}>What we are planning next</Heading>
       </div>
       <div className={styles.sub}>
         <Text size="lg" tone="graphite">Ideas and drafts in the pipeline, before they come to you for approval.</Text>

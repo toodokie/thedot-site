@@ -79,8 +79,83 @@
   padding: 15px 2px;
 }
 
+/* --- Weekly plan cycle (the direction batch the client approves) --- */
+.cycleCard {
+  border: 1px solid var(--dot-hairline);
+  padding: 24px;
+  margin: 0 0 40px;
+}
+.cycleHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.statusBadge {
+  flex: none;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 4px 11px;
+  border: 1px solid var(--dot-hairline);
+  white-space: nowrap;
+  line-height: 1.6;
+}
+.statusOpen { background: var(--dot-yellow); border-color: var(--dot-yellow); color: var(--dot-black); }
+.statusApproved { background: var(--dot-graphite); border-color: var(--dot-graphite); color: var(--dot-cream, #fff); }
+.statusChanges { background: transparent; border-color: var(--dot-graphite); color: var(--dot-graphite); }
+
+.cycleMeta { margin: 10px 0 0; }
+.cycleSummary { margin: 14px 0 20px; }
+
+.cycleList { list-style: none; margin: 0; padding: 0; }
+.cycleItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 0;
+  border-top: 1px solid var(--dot-hairline);
+}
+.cyclePos {
+  flex: none;
+  width: 24px;
+  text-align: right;
+  color: var(--dot-grey);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+}
+.cycleItemMain { flex: 1 1 auto; min-width: 0; }
+.cycleItemMeta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.cycleNote { display: block; margin-top: 8px; }
+
+.decisionApproved,
+.decisionMuted {
+  margin: 22px 0 0;
+  padding: 14px 16px;
+  border-left: 3px solid var(--dot-graphite);
+  background: transparent;
+}
+.decisionMuted { border-left-color: var(--dot-hairline); color: var(--dot-grey); }
+.decisionChanges {
+  margin: 22px 0 0;
+  padding: 14px 16px;
+  border-left: 3px solid var(--dot-yellow);
+}
+.decisionNote {
+  margin: 10px 0 0;
+  padding-left: 12px;
+  border-left: 1px solid var(--dot-hairline);
+  color: var(--dot-graphite);
+  font-style: italic;
+}
+.decisionOpen { margin: 22px 0 0; }
+
 @media (max-width: 760px) {
   .wrap { padding: 4px 0 64px; }
+  .cycleCard { padding: 18px 16px; }
+  .cycleHead { align-items: flex-start; }
 }
 
 @media (prefers-reduced-motion: reduce) {
