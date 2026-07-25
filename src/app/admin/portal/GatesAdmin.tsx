@@ -87,6 +87,7 @@ function TaskRow({ task, showClient }: { task: MyTask; showClient: boolean }) {
 export function stageDisplay(stage: string, label: string): { label: string; tone: PillTone; detail: string } {
   const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
   switch (stage) {
+    case 'idea': return { label: 'Idea', tone: 'open', detail: '' }
     case 'done': return { label: 'Done', tone: 'verified', detail: '' }
     case 'live': return { label: 'Live', tone: 'live', detail: '' }
     case 'posted_unverified': return { label: 'Posted', tone: 'scheduled', detail: label.replace(/^posted[,]?\s*/i, '') }

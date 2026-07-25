@@ -119,6 +119,22 @@ export function agencyProgress(piece: StagePiece): ProgressModel {
         : piece.legacy?.classification === 'legacy_unverified' ? { kind: 'legacy_unverified', label: 'Posted (legacy, not portal-verified)' }
           : null
 
+  if (!terminal && piece.workingVersion === null) {
+    return {
+      variant: 'agency',
+      terminal: null,
+      nodes: [
+        { key: 'idea-created', label: 'Idea created', state: 'done' },
+        { key: 'copy-drafted', label: 'Copy drafted', state: 'current' },
+        ...GATE_ORDER.map((key) => ({
+          key,
+          label: AGENCY_LABELS[key],
+          state: 'upcoming' as const,
+        })),
+      ],
+    }
+  }
+
   const byKey = new Map<GateKey, ResolvedGate[]>()
   for (const key of GATE_ORDER) byKey.set(key, [])
   for (const row of resolveNineGates(piece)) byKey.get(row.key)?.push(row)
@@ -128,6 +144,10 @@ export function agencyProgress(piece: StagePiece): ProgressModel {
   // Timeline placement: the first 'open' gate is CURRENT ("you are here"); later 'open'
   // gates are UPCOMING; 'done' and 'na' are skipped when finding the current node.
   let currentTaken = false
+  const authoredPrefix: StageNode[] = [
+    { key: 'idea-created', label: 'Idea created', state: 'done' },
+    { key: 'copy-drafted', label: 'Copy drafted', state: 'done' },
+  ]
   const nodes: StageNode[] = raws.map((r) => {
     let state: StageNodeState
     if (r.raw === 'done') state = 'done'
@@ -138,7 +158,7 @@ export function agencyProgress(piece: StagePiece): ProgressModel {
   })
 
   agencyExceptions(piece, nodes)
-  return { variant: 'agency', nodes, terminal }
+  return { variant: 'agency', nodes: [...authoredPrefix, ...nodes], terminal }
 }
 
 // ---- client variant -------------------------------------------------------

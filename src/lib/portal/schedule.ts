@@ -60,18 +60,30 @@ const SELECT = 'id, content_id, title, format, pillar, platforms, status, client
 
 export async function getSchedule(clientId: string): Promise<ScheduleRow[]> {
   const supabase = await createSupabaseServer()
-  const [contentResult, calendarResult] = await Promise.all([
+  const [contentResult, calendarResult, cycleResult] = await Promise.all([
     supabase.from('content_calendar_client').select(SELECT).eq('client_id', clientId)
       .order('planned_date', { ascending: true, nullsFirst: false }).order('content_id', { ascending: true }),
     supabase.from('calendar_events_client')
       .select('content_id,content_version,event_html_link,sync_status,sync_label,event_role')
       .eq('client_id', clientId).eq('event_role','editorial_plan'),
+    supabase.from('plan_cycles_client').select('id')
+      .eq('client_id', clientId)
+      .order('week_start', { ascending: false }).order('revision', { ascending: false })
+      .limit(1).maybeSingle(),
   ])
   if (contentResult.error) throw new PortalDataError(contentResult.error.message)
   if (calendarResult.error) throw new PortalDataError(calendarResult.error.message)
+  if (cycleResult.error) throw new PortalDataError(cycleResult.error.message)
+  const cycleItemsResult = cycleResult.data
+    ? await supabase.from('plan_cycle_items_client')
+      .select('content_item_id,content_id,planned_date,title,format,pillar,platforms,direction_note')
+      .eq('client_id', clientId).eq('plan_cycle_id', cycleResult.data.id)
+      .order('position', { ascending: true })
+    : { data: [], error: null }
+  if (cycleItemsResult.error) throw new PortalDataError(cycleItemsResult.error.message)
   const calendarMap = new Map((calendarResult.data ?? []).map((row) => [`${row.content_id}:${row.content_version}`,row]))
   // Normalise platforms to a real array so callers never guard against null.
-  return (contentResult.data ?? []).map((value) => {
+  const released = (contentResult.data ?? []).map((value) => {
     const row = value as unknown as Record<string, unknown>
     const calendar = calendarMap.get(`${row.id}:${row.version}`)
     // Validate client_state instead of trusting the raw DB string (Codex review 2026-07-21):
@@ -84,6 +96,29 @@ export async function getSchedule(clientId: string): Promise<ScheduleRow[]> {
       calendar_sync_label: calendar?.sync_label ?? null,
       calendar_event_link: calendar?.event_html_link ?? null }
   }) as unknown as ScheduleRow[]
+  const releasedIds = new Set(released.map((row) => row.id))
+  const ideas = (cycleItemsResult.data ?? []).flatMap((value) => {
+    if (releasedIds.has(value.content_item_id)) return []
+    return [{
+      id: value.content_item_id,
+      content_id: value.content_id,
+      title: value.title,
+      format: value.format,
+      pillar: value.pillar,
+      platforms: Array.isArray(value.platforms) ? value.platforms : [],
+      status: 'idea' as const,
+      client_state: 'with_dot' as const,
+      planned_date: value.planned_date,
+      calendar_note: value.direction_note,
+      schedule_state: 'unverified' as const,
+      calendar_sync_status: null,
+      calendar_sync_label: null,
+      calendar_event_link: null,
+    }]
+  })
+  return [...released, ...ideas].sort((a, b) =>
+    (a.planned_date ?? '9999-12-31').localeCompare(b.planned_date ?? '9999-12-31')
+      || a.content_id.localeCompare(b.content_id))
 }
 
 export async function getScheduleDetails(

@@ -2,6 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import type { CSSProperties } from 'react'
 import { getClientSession } from '@/lib/portal/auth'
 import { getContentItem } from '@/lib/portal/data'
+import { getPlanCycleItemByContentId } from '@/lib/portal/plan-cycle'
 import { routesToPiecePage } from '@/lib/portal/schedule'
 import { Eyebrow, Heading, Text, Button } from '@thedot/design-system'
 import CopyBlock from '@/app/client/[slug]/piece/[contentId]/CopyBlock'
@@ -26,7 +27,31 @@ export default async function PlanPiece({ params }: { params: Promise<{ slug: st
   const session = await getClientSession(slug)
   if (!session) redirect('/client/login')
   const item = await getContentItem(session.clientId, contentId)
-  if (!item) notFound()
+  if (!item) {
+    const planned = await getPlanCycleItemByContentId(session.clientId, contentId)
+    if (!planned) notFound()
+    return (
+      <div style={{ maxWidth: 760, margin: '0 auto', padding: '8px 0 88px' }}>
+        <Button as="a" href={`/client/${slug}/plan`} variant="ghost" size="sm">Back to plan</Button>
+        <div style={{ marginTop: 24, marginBottom: 8 }}>
+          <Eyebrow tone="grey">Idea in the pipeline</Eyebrow>
+        </div>
+        <div style={{ marginBottom: 14 }}><Heading level={3}>{planned.title}</Heading></div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 24 }}>
+          {planned.format && <span style={chip}>{planned.format}</span>}
+          {planned.pillar && <span style={chip}>{planned.pillar}</span>}
+          {planned.platforms.map((p) => <span key={p} style={chip}>{p}</span>)}
+          {planned.planned_date && <span style={chipDate}>{planned.planned_date.slice(0, 10)}</span>}
+        </div>
+        {planned.direction_note && (
+          <div style={{ marginBottom: 24 }}><Text>{planned.direction_note}</Text></div>
+        )}
+        <Text tone="grey">
+          This idea is included in the plan. Its copy has not been drafted yet.
+        </Text>
+      </div>
+    )
+  }
   // Resolve the door by STATE first (Codex review 2026-07-21): a stale Plan URL for a piece
   // that has moved on (approved, scheduled, posted) must REDIRECT to the decidable piece
   // page, not 404. Checking status before this sent every produced piece to notFound().

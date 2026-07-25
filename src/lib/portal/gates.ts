@@ -39,7 +39,8 @@ export type StagePiece = {
   pillar?: string | null
   producer?: 'the_dot' | 'studio' | null
   calendarNote?: string | null
-  workingVersion?: number
+  // NULL is a selected idea with a durable content_id but no authored snapshot yet.
+  workingVersion?: number | null
   visibleVersion?: number | null
   released?: boolean
   status: string // idea | draft | approved | scheduled | posted
@@ -214,7 +215,7 @@ export function resolveNineGates(piece: StagePiece): ResolvedGate[] {
 export type ContentStage =
   | 'done' | 'posted_unverified' | 'scheduled' | 'scheduled_partial'
   | 'approved' | 'direction_approved' | 'awaiting_decision' | 'in_production' | 'draft'
-  | 'archived' | 'legacy' | 'needs_platform_mapping'
+  | 'idea' | 'archived' | 'legacy' | 'needs_platform_mapping'
 
 export type StageResult = { stage: ContentStage; label: string }
 
@@ -239,6 +240,7 @@ export function deriveContentStage(piece: StagePiece): StageResult {
     exception.kind === 'unsupported_destination' || exception.kind === 'needs_platform_mapping')) {
     return { stage: 'needs_platform_mapping', label: 'needs platform mapping' }
   }
+  if (piece.workingVersion === null) return { stage: 'idea', label: 'idea' }
   const required = piece.platforms.filter((platform) =>
     piece.dests.find((dest) => dest.destination === platform)?.required !== false)
   const destOf = (p: string) => piece.dests.find((d) => d.destination === p)
@@ -376,6 +378,9 @@ export function deriveMyTasks(
 
   for (const piece of pieces) {
     if (piece.archived || piece.legacy) continue
+    // A selected idea is visible in the calendar and Pieces table, but authoring has
+    // not started. It must not manufacture a fact-check or production task before v1.
+    if (piece.workingVersion === null) continue
     const tenant = { clientId: piece.clientId, clientName: piece.clientName }
     const resolved = resolveNineGates(piece)
     // only gates the portal actually stores generate tasks (absent rows are unknowns,

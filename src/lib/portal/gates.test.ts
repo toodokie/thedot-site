@@ -20,7 +20,7 @@ const piece = (overrides: Partial<StagePiece> = {}): StagePiece => ({
   contentId: 'kanset-2026-07-test-piece', title: 'Test piece', status: 'draft',
   factCheck: 'confirmed', factCheckExempt: false, currentDecision: null,
   approvalSentAt: null, platforms: ['instagram', 'facebook'], archived: false,
-  gates: [], dests: [], ...overrides,
+  gates: [], dests: [], workingVersion: 1, ...overrides,
 })
 
 const dest = (destination: string, overrides: Partial<StagePiece['dests'][number]> = {}) => ({
@@ -30,6 +30,12 @@ const dest = (destination: string, overrides: Partial<StagePiece['dests'][number
 
 // Every branch of the spec 4.1 priority derivation.
 describe('deriveContentStage', () => {
+  it('0: a durable identity without version 1 is an idea', () => {
+    expect(deriveContentStage(piece({ workingVersion: null, status: 'idea' }))).toEqual({
+      stage: 'idea',
+      label: 'idea',
+    })
+  })
   it('1: done when every required destination is link-confirmed', () => {
     const result = deriveContentStage(piece({
       dests: [dest('instagram', { publicationStatus: 'live', verified: true }),
@@ -153,6 +159,9 @@ describe('deriveContentStage', () => {
 })
 
 describe('deriveMyTasks', () => {
+  it('does not manufacture production tasks for a versionless idea', () => {
+    expect(deriveMyTasks([piece({ workingVersion: null, status: 'idea' })], [], '2026-07-21')).toEqual([])
+  })
   it('surfaces the first open gate in canonical order with the open-gate count', () => {
     // platforms empty so gates 7-9 add no lines: open = design/proofed/approval + copy
     const tasks = deriveMyTasks([piece({

@@ -28,8 +28,8 @@ export type PlanCycleItem = {
   planned_date: string | null
   title: string
   format: string | null
+  pillar: string | null
   platforms: string[]
-  producer: 'the_dot' | 'studio' | null
   direction_note: string | null
   created_at: string
   updated_at: string
@@ -46,7 +46,7 @@ export type PlanCycleDecision = {
 }
 
 const cycleColumns = 'id,client_id,cycle_key,week_start,week_end,title,direction_summary,revision,status,submitted_at,decided_at,approved_revision,created_at,updated_at'
-const itemColumns = 'id,plan_cycle_id,client_id,content_item_id,content_id,position,planned_date,title,format,platforms,producer,direction_note,created_at,updated_at'
+const itemColumns = 'id,plan_cycle_id,client_id,content_item_id,content_id,position,planned_date,title,format,pillar,platforms,direction_note,created_at,updated_at'
 const decisionColumns = 'id,plan_cycle_id,client_id,revision,decision,note,created_at'
 
 /**
@@ -68,6 +68,22 @@ export async function getPlanCycleItems(clientId: string, cycleId: string): Prom
     .eq('client_id', clientId).eq('plan_cycle_id', cycleId).order('position', { ascending: true })
   if (result.error) throw new PortalDataError(`plan cycle items unavailable: ${result.error.message}`)
   return (result.data ?? []) as PlanCycleItem[]
+}
+
+export async function getPlanCycleItemByContentId(
+  clientId: string,
+  contentId: string,
+): Promise<PlanCycleItem | null> {
+  const cycles = await getPlanCycles(clientId)
+  const supabase = await createSupabaseServer()
+  for (const cycle of cycles) {
+    const result = await supabase.from('plan_cycle_items_client').select(itemColumns)
+      .eq('client_id', clientId).eq('plan_cycle_id', cycle.id)
+      .eq('content_id', contentId).maybeSingle()
+    if (result.error) throw new PortalDataError(`plan cycle item unavailable: ${result.error.message}`)
+    if (result.data) return result.data as PlanCycleItem
+  }
+  return null
 }
 
 export async function getPlanCycleDecisions(clientId: string, cycleId: string): Promise<PlanCycleDecision[]> {

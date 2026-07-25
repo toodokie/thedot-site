@@ -29,7 +29,8 @@ type Client = any
 type ItemRow = {
   id: string; client_id: string; content_id: string; status: string
   working_version: number | null; client_visible_version: number | null; archived_at: string | null
-  planned_date?: string | null
+  planned_date?: string | null; title: string; format?: string | null; pillar?: string | null
+  platforms: string[] | null
 }
 type VersionRow = {
   content_item_id: string; version: number; title: string; format?: string | null; pillar?: string | null; platforms: string[] | null
@@ -60,16 +61,23 @@ function buildPieces(
   const versionByItem = new Map<string, VersionRow>()
   for (const version of versions) {
     const item = items.find((i) => i.id === version.content_item_id)
-    if (item && version.version === (item.working_version ?? 1)) versionByItem.set(item.id, version)
+    if (item && item.working_version !== null && version.version === item.working_version) {
+      versionByItem.set(item.id, version)
+    }
   }
   return items.flatMap((item) => {
-    const workingVersion = item.working_version ?? 1
     const version = versionByItem.get(item.id)
-    if (!version) return [] // no working snapshot yet; nothing to stage
+    const workingVersion = item.working_version
+    if (!version && workingVersion !== null) return [] // corrupt pointer, fail closed
+    const title = version?.title ?? item.title
+    const format = version?.format ?? item.format ?? null
+    const pillar = version?.pillar ?? item.pillar ?? null
     // CANONICALIZE to the schedule/publication destination vocabulary (Codex round-3
     // blocker): raw frontmatter youtube_shorts/website/blog must match the youtube/
     // squarespace targets or a complete destination reads as unscheduled.
-    const rawPlatforms = Array.isArray(version.platforms) ? version.platforms : []
+    const rawPlatforms = Array.isArray(version?.platforms)
+      ? version.platforms
+      : Array.isArray(item.platforms) ? item.platforms : []
     const platforms = canonicalDestinations(rawPlatforms)
     const exceptions = rawPlatforms
       .filter((raw) => canonicalScheduleDestination(raw) === null)
@@ -79,10 +87,12 @@ function buildPieces(
     // the canonical view (created_at DESC, id DESC) so the admin can't disagree on equal
     // timestamps (Codex round-3 fix 1).
     const currentDecision = selectCurrentDecision(
-      approvals.filter((a) => a.content_id === item.id && a.content_version === workingVersion))
+      workingVersion === null ? [] : approvals.filter(
+        (a) => a.content_id === item.id && a.content_version === workingVersion))
 
     const pieceGates: ProductionGateRow[] = gates
       .filter((g) => g.content_item_id === item.id
+        && workingVersion !== null
         && (g.content_version == null || g.content_version === workingVersion))
       .map((g) => ({ gate_key: g.gate_key, state: g.state, owner_label: g.owner_label,
         occurred_at: g.occurred_at, note: g.note, na_reason: g.na_reason,
@@ -93,10 +103,10 @@ function buildPieces(
     // the match total).
     const dests: DestState[] = platforms.map((destination) => {
       const schedule = schedules.find((s) => s.content_id === item.id
-        && s.content_version === workingVersion
+        && workingVersion !== null && s.content_version === workingVersion
         && canonicalScheduleDestination(s.destination) === destination)
       const publication = publications.find((p) => p.content_id === item.id
-        && p.content_version === workingVersion
+        && workingVersion !== null && p.content_version === workingVersion
         && canonicalScheduleDestination(p.destination) === destination)
       return { destination, required: schedule?.required ?? publication?.required ?? true,
         scheduleStatus: schedule?.status ?? null,
@@ -108,21 +118,20 @@ function buildPieces(
     const approvalSent = pieceGates.find((g) => g.gate_key === 'approval_sent')
     return [{
       clientId: item.client_id, clientName: clientNames.get(item.client_id) ?? item.client_id,
-      contentId: item.content_id, title: version.title, format: version.format ?? null,
-      pillar: version.pillar ?? null, status: item.status,
-      factCheck: version.fact_check, factCheckExempt: version.fact_check_scope === 'not_applicable',
+      contentId: item.content_id, title, format, pillar, status: item.status,
+      factCheck: version?.fact_check ?? null, factCheckExempt: version?.fact_check_scope === 'not_applicable',
       factCheckValid: factCheckValid.get(item.id) ?? false,
       currentDecision,
       approvalSentAt: approvalSent?.state === 'done' ? approvalSent.occurred_at : null,
       platforms, archived: Boolean(item.archived_at), gates: pieceGates, dests,
-      producer: version.producer ?? null, calendarNote: version.calendar_note ?? null,
+      producer: version?.producer ?? null, calendarNote: version?.calendar_note ?? null,
       workingVersion, visibleVersion: item.client_visible_version, released: item.client_visible_version != null,
       exceptions, legacy: legacyItems.has(item.id) ? { classification: legacyItems.get(item.id)! } : null,
     }]
   })
 }
 
-const ITEM_COLS = 'id, client_id, content_id, status, working_version, client_visible_version, archived_at'
+const ITEM_COLS = 'id, client_id, content_id, title, format, pillar, platforms, status, working_version, client_visible_version, archived_at'
 const VERSION_COLS = 'content_item_id, version, title, format, pillar, platforms, fact_check, fact_check_scope, fact_check_ledger, fact_check_exemption, producer, calendar_note'
 const APPROVAL_COLS = 'id, content_id, content_version, state, created_at'
 const GATE_COLS = 'content_item_id, content_version, gate_key, state, owner_label, occurred_at, note, na_reason'
@@ -182,7 +191,7 @@ export async function loadAgencyStagePieces(admin: Client, clientId?: string): P
 }
 
 // One piece by content_id (for STATUS GATES block regeneration), unreleased included;
-// null when the piece has no working snapshot.
+// A versionless selected idea is returned with workingVersion = null.
 export async function loadAgencyStagePiece(admin: Client, clientId: string, contentId: string): Promise<StagePiece | null> {
   const items = await run<ItemRow>(
     admin.from('content_items').select(ITEM_COLS).eq('client_id', clientId).eq('content_id', contentId),

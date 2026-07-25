@@ -17,7 +17,7 @@ const piece = (overrides: Partial<StagePiece> = {}): StagePiece => ({
   contentId: 'kanset-2026-07-test-piece', title: 'Test piece', status: 'draft',
   factCheck: 'confirmed', factCheckExempt: false, currentDecision: null,
   approvalSentAt: null, platforms: ['instagram', 'facebook'], archived: false,
-  gates: [], dests: [], ...overrides,
+  gates: [], dests: [], workingVersion: 1, ...overrides,
 })
 
 const dest = (destination: string, overrides: Partial<StagePiece['dests'][number]> = {}) => ({
@@ -29,6 +29,12 @@ const node = (model: ReturnType<typeof agencyProgress>, key: string) =>
   model.nodes.find((n) => n.key === key)!
 
 describe('agencyProgress', () => {
+  it('starts a versionless selected piece at Idea created, then Copy drafted', () => {
+    const model = agencyProgress(piece({ workingVersion: null, status: 'idea' }))
+    expect(node(model, 'idea-created').state).toBe('done')
+    expect(node(model, 'copy-drafted').state).toBe('current')
+    expect(node(model, 'fact-check').state).toBe('upcoming')
+  })
   it('marks the first genuine open gate as current, earlier gates done, later gates upcoming', () => {
     const model = agencyProgress(piece({
       factCheck: 'confirmed', factCheckValid: true,
@@ -85,8 +91,8 @@ describe('agencyProgress', () => {
         gate('proofed', 'done'), gate('approval_sent', 'done')],
     }))
     expect(node(model, 'copy-approved').exception?.kind).toBe('changes_requested')
-    // exactly 9 nodes: per-platform detail is nested in scheduled/posted/link-confirmed
-    expect(model.nodes).toHaveLength(9)
+    // 2 lifecycle entry nodes + 9 operational gates. Per-platform detail is nested.
+    expect(model.nodes).toHaveLength(11)
   })
 
   it('overlays a failed exception on the Scheduled node when a destination reports failed', () => {

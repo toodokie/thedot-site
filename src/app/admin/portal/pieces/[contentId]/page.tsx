@@ -1,4 +1,5 @@
 import { redirect, notFound } from 'next/navigation'
+import Link from 'next/link'
 import { verifySession } from '@/lib/auth'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { loadAgencyStagePiece } from '@/lib/portal/gates-loader'
@@ -33,7 +34,7 @@ export default async function AdminPiecePage({ params }: { params: Promise<{ con
   // separately so the piece page shows the actual copy + design, not just progress.
   const itemRow = await admin.from('content_items').select('id, working_version')
     .eq('client_id', client.data.id).eq('content_id', cid).single()
-  const versionRow = itemRow.data ? await admin.from('content_item_versions')
+  const versionRow = itemRow.data?.working_version != null ? await admin.from('content_item_versions')
     .select('copy_blocks, client_body, canva_url, drive_url')
     .eq('content_item_id', itemRow.data.id).eq('version', itemRow.data.working_version).single() : null
   const content = versionRow?.data as {
@@ -55,10 +56,10 @@ export default async function AdminPiecePage({ params }: { params: Promise<{ con
   return (
     <>
       <div style={{ marginBottom: 6 }}>
-        <a href="/admin/portal/pieces"
+        <Link href="/admin/portal/pieces"
           style={{ fontFamily: 'var(--dot-font-text)', fontSize: 13, color: 'var(--dot-graphite)', textDecoration: 'none' }}>
           ← All pieces
-        </a>
+        </Link>
       </div>
 
       <AdminPageHeader kicker="Agency ops · Piece" title={piece.title} display intro={meta} />

@@ -2045,6 +2045,110 @@ async function main(): Promise<void> {
         `platforms=${JSON.stringify(canonPiece?.platforms)} tiktok=${canonNine.includes('tiktok')} client=${canonPiece?.clientName}`)
     }
 
+    console.log('\n--- 0029 selected-idea identity lifecycle ---')
+
+    {
+      const ideaContentId = `rls-plan-idea-${RUN_ID}`
+      const plan = await admin.rpc('agency_upsert_plan_cycle', {
+        p_client_id: bClientId,
+        p_cycle_key: `rls-week-${RUN_ID}`,
+        p_week_start: '2026-07-27',
+        p_week_end: '2026-07-31',
+        p_title: 'RLS next week',
+        p_direction_summary: 'A client-safe weekly direction.',
+        p_items: [{
+          content_id: ideaContentId,
+          title: 'Selected idea without copy',
+          format: 'carousel',
+          pillar: 'employer',
+          platforms: ['instagram', 'facebook'],
+          producer: 'the_dot',
+          planned_date: '2026-07-27',
+          direction_note: 'Included in the approved weekly direction.',
+          position: 1,
+        }],
+        p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-plan-create-${RUN_ID}`,
+      })
+      const identity = await admin.from('content_items')
+        .select('id,status,working_version,client_visible_version,planned_date')
+        .eq('client_id', bClientId).eq('content_id', ideaContentId).single()
+      const identityId = identity.data?.id as string | undefined
+      const snapshotsBefore = identityId
+        ? await admin.from('content_item_versions').select('id', { count: 'exact', head: true })
+          .eq('content_item_id', identityId)
+        : { count: -1, error: new Error('identity missing') }
+      const agencyPiece = identityId
+        ? await loadAgencyStagePiece(admin, bClientId, ideaContentId)
+        : null
+      check('PI1: plan submission creates one hidden versionless idea identity',
+        !plan.error && !identity.error && identity.data?.status === 'idea'
+          && identity.data?.working_version === null
+          && identity.data?.client_visible_version === null
+          && snapshotsBefore.count === 0
+          && agencyPiece?.workingVersion === null
+          && deriveMyTasks(agencyPiece ? [agencyPiece] : [], [], '2026-07-25').length === 0,
+        plan.error?.message ?? identity.error?.message
+          ?? `identity=${JSON.stringify(identity.data)} snapshots=${snapshotsBefore.count}`)
+
+      const ownPlan = await bClient.from('plan_cycle_items_client')
+        .select('content_item_id,content_id,title,pillar,planned_date')
+        .eq('content_id', ideaContentId).single()
+      const producerProbe = await bClient.from('plan_cycle_items')
+        .select('producer').eq('content_id', ideaContentId)
+      const foreignPlan = await kansetClient.from('plan_cycle_items_client')
+        .select('content_id').eq('content_id', ideaContentId)
+      const copyLeak = await bClient.from('content_with_state')
+        .select('content_id').eq('content_id', ideaContentId)
+      check('PI2: client sees only the safe plan projection; producer and copy remain hidden',
+        !ownPlan.error && ownPlan.data?.content_item_id === identityId
+          && ownPlan.data?.pillar === 'employer'
+          && !!producerProbe.error
+          && !foreignPlan.error && (foreignPlan.data ?? []).length === 0
+          && !copyLeak.error && (copyLeak.data ?? []).length === 0,
+        ownPlan.error?.message ?? producerProbe.error?.message
+          ?? foreignPlan.error?.message ?? copyLeak.error?.message ?? 'unexpected exposure')
+
+      const v1 = snapshot(
+        bClientId, ideaContentId, 1, 'Selected idea with authored copy',
+        'The first authored version.', 'caption',
+        { planned_date: '2026-07-27', pillar: 'employer',
+          platforms: ['instagram', 'facebook'], producer: 'the_dot' },
+      )
+      const preview = await admin.rpc('preview_content_item_versions', { p_items: [v1] })
+      const afterPreview = identityId
+        ? await admin.from('content_item_versions').select('id', { count: 'exact', head: true })
+          .eq('content_item_id', identityId)
+        : { count: -1, error: new Error('identity missing') }
+      check('PI3: first-pack preview reports hydration and performs zero writes',
+        !preview.error && preview.data?.[0]?.outcome === 'idea_hydrated'
+          && preview.data?.[0]?.item_id === identityId && afterPreview.count === 0,
+        preview.error?.message ?? `preview=${JSON.stringify(preview.data)} count=${afterPreview.count}`)
+
+      const hydrated = await sync([v1])
+      const hydratedItem = await admin.from('content_items')
+        .select('id,status,working_version,client_visible_version')
+        .eq('client_id', bClientId).eq('content_id', ideaContentId).single()
+      const snapshotsAfter = identityId
+        ? await admin.from('content_item_versions')
+          .select('version,content_checksum').eq('content_item_id', identityId)
+        : { data: [], error: new Error('identity missing') }
+      const retry = await sync([v1])
+      check('PI4: first sync hydrates the same UUID as v1 and exact retry converges',
+        hydrated[0]?.outcome === 'idea_hydrated'
+          && hydrated[0]?.item_id === identityId
+          && hydratedItem.data?.id === identityId
+          && hydratedItem.data?.status === 'draft'
+          && hydratedItem.data?.working_version === 1
+          && hydratedItem.data?.client_visible_version === null
+          && !snapshotsAfter.error && snapshotsAfter.data?.length === 1
+          && snapshotsAfter.data[0]?.version === 1
+          && retry[0]?.outcome === 'exact_retry'
+          && retry[0]?.item_id === identityId,
+        hydratedItem.error?.message ?? snapshotsAfter.error?.message
+          ?? `hydrate=${JSON.stringify(hydrated)} retry=${JSON.stringify(retry)}`)
+    }
+
     {
       const stop = await admin.rpc('set_portal_feature_switch', {
         p_client_id: bClientId, p_feature: 'client_mutations', p_enabled: false,
