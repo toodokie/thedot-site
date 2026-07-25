@@ -301,6 +301,19 @@ class Harness {
     this.results.push({ scenario: 4, name: 'changed pack during pending-release recovery', old_visible: 2, new_visible: 3, regression_guard: 'passed' })
   }
 
+  async scenarioVersionChecksumConvergence(): Promise<void> {
+    const id = 'harness-version-checksum'
+    await this.seed(id, 'seed convergence body', false)
+    const pack = makePack(this.packRoot, 'harness-version-checksum-pack', id, 'VERSION CHECKSUM CONVERGENCE')
+    const applied = await this.update(pack, ['--apply'])
+    assert(applied.status === 0, `version/checksum convergence apply failed: ${applied.stderr}`)
+    const item = await this.item(id)
+    const snapshots = await this.snapshots(id)
+    assert(item.working_version === 2 && snapshots.length === 2, 'version/checksum convergence did not create exactly v2')
+    await this.assertConverged(id, 'VERSION CHECKSUM CONVERGENCE')
+    this.results.push({ scenario: 5, name: 'version + checksum convergence', working_version: item.working_version, snapshot_count: snapshots.length, checksum: 'recomputed-equal' })
+  }
+
   async shadowScript(replacement: 'remove-pending-sync' | 'release-always' | 'remove-body-guard'): Promise<string> {
     const shadowRoot = mkdtempSync(join(tmpdir(), 'update-portal-shadow-'))
     mkdirSync(join(shadowRoot, 'scripts'), { recursive: true })
@@ -356,7 +369,7 @@ async function main(): Promise<void> {
   try {
     await harness.start()
     if (fullRun) {
-      await harness.scenarioRace(); await harness.scenarioSyncRetry(); await harness.scenarioReleaseRetry(); await harness.scenarioChangedPendingRelease()
+      await harness.scenarioRace(); await harness.scenarioSyncRetry(); await harness.scenarioReleaseRetry(); await harness.scenarioChangedPendingRelease(); await harness.scenarioVersionChecksumConvergence()
     }
     await harness.selfDoubt()
     console.log(JSON.stringify({ harness: 'update-portal', target: 'loopback disposable Supabase', results: harness.results }, null, 2))
