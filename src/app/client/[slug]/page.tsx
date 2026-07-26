@@ -47,6 +47,16 @@ function ContentRow({ it, slug, priority, note }: { it: ContentRowType; slug: st
   )
 }
 
+// Activity timestamps are stored in UTC. Render them in the agency/client business
+// timezone so an evening confirmation in Toronto does not appear on the next UTC day.
+function formatActivityDate(value: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Toronto',
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value))
+}
+
 export default async function Overview({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const session = await getClientSession(slug)
@@ -142,7 +152,7 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
                       </div>
                       <Text as="div" size="sm" tone="black">{a.title}</Text>
                       {a.summary && <Text as="div" size="sm" tone="graphite">{a.summary}</Text>}
-                      <time className={styles.activityDate} dateTime={a.created_at}>{a.created_at.slice(0, 10)}</time>
+                      <time className={styles.activityDate} dateTime={a.created_at}>{formatActivityDate(a.created_at)}</time>
                     </span>
                   </div>
                 ))
@@ -158,7 +168,7 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
                     <span className={styles.rowMain}>
                       <Text as="div" size="sm" tone="black">{isNew(a) && <span className={styles.newBadge}>New</span>}{a.title}</Text>
                       {a.summary && <Text as="div" size="sm" tone="graphite">{a.summary}</Text>}
-                      <time className={styles.activityDate} dateTime={a.created_at}>{a.created_at.slice(0, 10)}</time>
+                      <time className={styles.activityDate} dateTime={a.created_at}>{formatActivityDate(a.created_at)}</time>
                     </span>
                   </div>
                 ))
