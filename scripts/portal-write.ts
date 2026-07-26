@@ -41,7 +41,7 @@ const assertNoteGrammarSafe = (value: string | null, field: string) => {
 
 async function main() {
   const [command, inputPath, ...rest] = process.argv.slice(2)
-  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|invoice|idea|news-idea|idea-status|design-link|plan-cycle|gate|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
+  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|publication-confirm|invoice|idea|news-idea|idea-status|design-link|plan-cycle|gate|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
   const dryRun = rest.includes('--dry-run')
   const packIndex = rest.indexOf('--pack')
   const packPath = packIndex >= 0 ? rest[packIndex + 1] ?? null : null
@@ -55,6 +55,17 @@ async function main() {
   let rpc: string; let args: Record<string, unknown>
   let externalContentId: string | null = null
   let externalContentVersion: number | null = null
+  let publication: {
+    contentId: string
+    contentVersion: number
+    destination: string
+    liveUrl: string
+    publishedAt: string
+    capturedAt: string
+    evidenceKind: string
+    observedTitle: string | null
+    verificationNote: string | null
+  } | null = null
   if (command === 'recommendation') {
     const title = requiredText(payload.title, 'title', 300); const body = requiredText(payload.body, 'body', 8000)
     assertClientSafeAgencyText({ title, body })
@@ -100,6 +111,30 @@ async function main() {
       p_decision:stringArray(payload.decision,'decision',['approved','change_requested']),p_note:note,
       p_decision_source:stringArray(payload.decisionSource,'decisionSource',['email','call']),
       p_source_occurred_at:timestamp(payload.sourceOccurredAt,'sourceOccurredAt'),p_actor_key:actor,p_idempotency_key:idempotency}
+  } else if (command === 'publication-confirm') {
+    const liveUrl = assertReviewedHttpsUrl(payload.liveUrl)
+    const observedTitle = optionalText(payload.observedTitle, 'observedTitle', 300)
+    const verificationNote = optionalText(payload.verificationNote, 'verificationNote', 2000)
+    assertClientSafeAgencyText({ observedTitle, verificationNote })
+    publication = {
+      contentId: requiredText(payload.contentId, 'contentId', 200),
+      contentVersion: integer(payload.contentVersion, 'contentVersion', 1),
+      destination: stringArray(payload.destination, 'destination',
+        ['instagram', 'facebook', 'youtube', 'squarespace']),
+      liveUrl,
+      publishedAt: timestamp(payload.publishedAt, 'publishedAt'),
+      capturedAt: timestamp(payload.capturedAt ?? new Date().toISOString(), 'capturedAt'),
+      evidenceKind: stringArray(payload.evidenceKind ?? 'reviewed_link', 'evidenceKind',
+        ['reviewed_link', 'yt_check']),
+      observedTitle,
+      verificationNote,
+    }
+    if (publication.publishedAt > new Date().toISOString())
+      throw new Error('publishedAt cannot be in the future')
+    if (publication.capturedAt > new Date().toISOString())
+      throw new Error('capturedAt cannot be in the future')
+    rpc = 'record_publication_observation'
+    args = {}
   } else if (command === 'invoice') {
     // Mirror upsert_invoice's server validation locally so --dry-run cannot approve a payload the
     // RPC would reject. Financial fields are immutable after issuance; notes is agency-only.
@@ -288,6 +323,75 @@ async function main() {
       .eq('client_id',clientId).eq('content_id',externalContentId).single()
     if(itemError||!item) throw new Error(`content unavailable: ${itemError?.message ?? 'missing'}`)
     args.p_content_id=item.id; args.p_content_version=externalContentVersion ?? item.working_version
+  }
+  if (publication) {
+    if (!clientId) throw new Error('publication confirmation requires a client')
+    const { data: item, error: itemError } = await admin.from('content_items')
+      .select('id').eq('client_id', clientId).eq('content_id', publication.contentId).single()
+    if (itemError || !item) throw new Error(`content unavailable: ${itemError?.message ?? 'missing'}`)
+    const { data: target, error: targetError } = await admin.from('content_publication_targets')
+      .select('id,current_observation_id').eq('client_id', clientId).eq('content_id', item.id)
+      .eq('content_version', publication.contentVersion)
+      .eq('destination', publication.destination).single()
+    if (targetError || !target)
+      throw new Error(`publication target unavailable: ${targetError?.message ?? 'missing'}`)
+    const evidenceKey = `${idempotency}:evidence`
+    if (evidenceKey.length > 128) throw new Error('idempotencyKey is too long for publication evidence')
+    const { data: evidenceId, error: evidenceError } = await admin.rpc('register_publication_evidence', {
+      p_client_id: clientId,
+      p_actor_key: actor,
+      p_evidence_kind: publication.evidenceKind,
+      p_object_key: null,
+      p_evidence_url: publication.liveUrl,
+      p_attestation_note: null,
+      p_captured_at: publication.capturedAt,
+      p_sha256: null,
+      p_mime_type: null,
+      p_byte_length: null,
+      p_idempotency_key: evidenceKey,
+    })
+    if (evidenceError || !evidenceId)
+      throw new Error(`register_publication_evidence: ${evidenceError?.message ?? 'missing evidence id'}`)
+    // A command may have committed successfully even when its caller lost the response.
+    // Reusing the observation key must therefore verify and return the durable row, not
+    // pass that row back as its own superseded predecessor (which changes the DB
+    // fingerprint and turns an exact retry into observation_key_conflict).
+    const { data: existing, error: existingError } = await admin
+      .from('content_publication_observations')
+      .select('id,publication_target_id,provider_state,published_at,permalink,visibility,evidence_id,source_type,reconciliation_status,observed_title')
+      .eq('client_id', clientId).eq('observation_key', idempotency).maybeSingle()
+    if (existingError) throw new Error(`publication retry lookup: ${existingError.message}`)
+    if (existing) {
+      const same = existing.publication_target_id === target.id
+        && existing.provider_state === 'live'
+        && new Date(existing.published_at).toISOString() === publication.publishedAt
+        && existing.permalink === publication.liveUrl
+        && existing.visibility === 'public'
+        && existing.evidence_id === evidenceId
+        && existing.source_type === 'manual'
+        && existing.reconciliation_status === 'verified'
+        && (existing.observed_title ?? null) === publication.observedTitle
+      if (!same) throw new Error('publication observation key already belongs to different data')
+      console.log(`OK publication-confirm ${existing.id} (existing)`)
+      return
+    }
+    args = {
+      p_publication_target_id: target.id,
+      p_provider_state: 'live',
+      p_live_url: publication.liveUrl,
+      p_published_at: publication.publishedAt,
+      p_visibility: 'public',
+      p_evidence_id: evidenceId,
+      p_actor_key: actor,
+      p_source_type: 'manual',
+      p_reconciliation_status: 'verified',
+      p_provider_object_id: null,
+      p_observed_title: publication.observedTitle,
+      p_observed_text: null,
+      p_observation_key: idempotency,
+      p_supersedes_observation_id: target.current_observation_id,
+      p_verification_note: publication.verificationNote,
+    }
   }
   const { data,error }=await admin.rpc(rpc,args)
   if(error) throw new Error(`${rpc}: ${error.message}`)
