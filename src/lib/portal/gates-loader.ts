@@ -42,7 +42,7 @@ type ApprovalRow = { id: string; content_id: string; content_version: number; st
 type ClientRow = { id: string; name: string }
 type GateRow = ProductionGateRow & { content_item_id: string }
 type ScheduleRow = { content_id: string; content_version: number; destination: string; required: boolean; status: string; scheduled_at: string | null }
-type PublicationRow = { id: string; content_id: string; content_version: number; destination: string; required: boolean; status: string; live_url: string | null; first_verified_at: string | null }
+type PublicationRow = { id: string; content_id: string; content_version: number; destination: string; required: boolean; status: string; live_url: string | null; published_at: string | null; first_verified_at: string | null }
 type HistoricalRow = { client_id: string; publication_target_id: string; provenance: string }
 type LegacyClassification = 'legacy_verified' | 'legacy_unverified'
 type PlanCycleRow = { id: string; client_id: string; revision: number; status: string; approved_revision: number | null; submitted_at: string; updated_at: string }
@@ -135,17 +135,24 @@ function buildPieces(
       platforms, archived: Boolean(item.archived_at), gates: pieceGates, dests,
       producer: version?.producer ?? null, calendarNote: version?.calendar_note ?? null,
       workingVersion, visibleVersion: item.client_visible_version, released: item.client_visible_version != null,
+      plannedDate: item.planned_date ?? null,
+      latestPublishedAt: publications
+        .filter((publication) => publication.content_id === item.id
+          && workingVersion !== null && publication.content_version === workingVersion
+          && publication.status === 'live' && publication.published_at)
+        .map((publication) => publication.published_at as string)
+        .sort((a, b) => b.localeCompare(a))[0] ?? null,
       exceptions, legacy: legacyItems.has(item.id) ? { classification: legacyItems.get(item.id)! } : null,
     }]
   })
 }
 
-const ITEM_COLS = 'id, client_id, content_id, title, format, pillar, platforms, status, working_version, client_visible_version, archived_at'
+const ITEM_COLS = 'id, client_id, content_id, title, format, pillar, platforms, status, working_version, client_visible_version, archived_at, planned_date'
 const VERSION_COLS = 'content_item_id, version, title, format, pillar, platforms, fact_check, fact_check_scope, fact_check_ledger, fact_check_exemption, producer, calendar_note'
 const APPROVAL_COLS = 'id, content_id, content_version, state, created_at'
 const GATE_COLS = 'content_item_id, content_version, gate_key, state, owner_label, occurred_at, note, na_reason'
 const SCHEDULE_COLS = 'content_id, content_version, destination, required, status, scheduled_at'
-const PUBLICATION_COLS = 'id, content_id, content_version, destination, required, status, live_url, first_verified_at'
+const PUBLICATION_COLS = 'id, content_id, content_version, destination, required, status, live_url, published_at, first_verified_at'
 
 async function loadDependents(
   admin: Client,
@@ -269,7 +276,7 @@ export type AgencyPieceCalendarRow = StagePiece & {
 // the working snapshot, never from content_with_state, so ideas/drafts remain
 // visible to The Dot while unreleased content stays outside every client path.
 export async function loadAgencyPieceCalendar(admin: Client, clientId?: string): Promise<AgencyPieceCalendarRow[]> {
-  let query = admin.from('content_items').select(`${ITEM_COLS}, planned_date`)
+  let query = admin.from('content_items').select(ITEM_COLS)
   if (clientId) query = query.eq('client_id', clientId)
   const items = await run<ItemRow>(query, 'content_items calendar')
   if (items.length === 0) return []

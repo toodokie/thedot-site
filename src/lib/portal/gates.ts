@@ -39,6 +39,10 @@ export type StagePiece = {
   pillar?: string | null
   producer?: 'the_dot' | 'studio' | null
   calendarNote?: string | null
+  // Calendar date for drafts/ideas, and the latest confirmed publication date for
+  // pieces that have gone live. These are display-only ordering fields.
+  plannedDate?: string | null
+  latestPublishedAt?: string | null
   // NULL is a selected idea with a durable content_id but no authored snapshot yet.
   workingVersion?: number | null
   visibleVersion?: number | null

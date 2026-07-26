@@ -126,6 +126,7 @@
 .cellMuted { color: var(--admin-muted); }
 .cellNum { font-variant-numeric: tabular-nums; }
 .pieceCol { width: 42%; padding-right: 18px; }
+.dateCol { width: 112px; white-space: nowrap; }
 .pieceLink { color: var(--dot-black); text-decoration: none; }
 .pieceLink:hover { text-decoration: underline; text-decoration-color: var(--dot-yellow); text-underline-offset: 3px; }
 .gatesCol { width: 180px; white-space: nowrap; }
@@ -159,7 +160,8 @@
 
 /* ---- publication coordination (progressive disclosure) --------------------------------- */
 .pubPiece { border-top: 1px solid var(--admin-line); padding: 18px 2px; }
-.pubPieceHead { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
+.pubPieceHead { display: flex; align-items: baseline; gap: 16px; margin-bottom: 10px; }
+.pubDate { flex: none; min-width: 100px; color: var(--admin-muted); font-size: 15px; font-variant-numeric: tabular-nums; }
 .pubPieceTitle { font-size: 18px; font-weight: var(--dot-weight-demi); color: var(--admin-ink); }
 .pubVersion { color: var(--admin-muted); font-size: 15px; font-variant-numeric: tabular-nums; }
 .destRow {
@@ -207,6 +209,12 @@
 
 /* ---- secondary sections (calendar / billing / requests) -------------------------------- */
 .subCard { border: 1px solid var(--admin-line); padding: 16px 18px; margin: 14px 0; }
+.reportSectionHead, .reportPeriodHead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.reportGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.reportGrid .subCard { margin: 0; }
+.reportHistoryHead { border-top: 1px solid var(--admin-line); margin-top: 28px; padding-top: 24px; }
+.reportPeriod { margin-top: 16px; }
+@media (max-width: 760px) { .reportGrid { grid-template-columns: 1fr; } }
 .subCardWarn { border-color: var(--admin-danger); }
 .subCardTitle { font-size: 18px; font-weight: var(--dot-weight-demi); color: var(--admin-ink); margin-bottom: 5px; }
 .metaLine { color: var(--admin-graphite); font-size: 16px; font-variant-numeric: tabular-nums; margin-top: 4px; line-height: 1.55; }

@@ -98,11 +98,27 @@ export function stageDisplay(stage: string, label: string): { label: string; ton
     case 'direction_approved': return { label: 'Direction approved', tone: 'done', detail: 'still in production' }
     case 'awaiting_decision': return { label: 'Awaiting Maria', tone: 'open', detail: '' }
     case 'awaiting_idea_approval': return { label: 'Awaiting idea approval', tone: 'open', detail: '' }
+    case 'legacy': return {
+      label: 'Posted',
+      tone: label.includes('not portal-verified') ? 'muted' : 'verified',
+      detail: label.replace(/^posted\s*/i, ''),
+    }
+    case 'needs_platform_mapping': return { label: 'Needs platform mapping', tone: 'failed', detail: '' }
+    case 'archived': return { label: 'Archived', tone: 'muted', detail: '' }
     case 'publish_failed':
     case 'schedule_failed': return { label: 'Issue', tone: 'failed', detail: label }
     case 'in_production': return { label: cap(label), tone: 'muted', detail: '' } // "needs design" etc, already short
     default: return { label: 'Draft', tone: 'muted', detail: '' }
   }
+}
+
+function formatPieceDate(value: string | null | undefined): string {
+  if (!value) return 'No date'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'No date'
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(date)
 }
 
 // My tasks: the landing surface (spec IA #1). Its own routed page (/admin/portal) so it is
@@ -193,6 +209,10 @@ export function MyTasksAdmin({ pieces, opsTasks, completedOps, todayIso }: {
 // for the nine-gate strip. Its own routed page (/admin/portal/pieces).
 export function PiecesAdmin({ pieces }: { pieces: StagePiece[] }) {
   const visiblePieces = pieces.filter((piece) => !piece.archived)
+  const orderedPieces = [...visiblePieces].sort((a, b) => {
+    const date = (piece: StagePiece) => piece.latestPublishedAt ?? piece.plannedDate ?? ''
+    return date(b).localeCompare(date(a)) || a.title.localeCompare(b.title)
+  })
   // Single-client board: drop the repeated client name / column (noise on every row).
   const multiClient = new Set(pieces.map((p) => p.clientId)).size > 1
   return (
@@ -212,16 +232,17 @@ export function PiecesAdmin({ pieces }: { pieces: StagePiece[] }) {
           <table className={styles.table}>
             <thead>
               <tr>
-                {multiClient && <th>Client</th>}<th className={styles.pieceCol}>Piece</th><th>Stage</th><th className={styles.gatesCol}>Steps</th>
+                <th className={styles.dateCol}>Date</th>{multiClient && <th>Client</th>}<th className={styles.pieceCol}>Piece</th><th>Stage</th><th className={styles.gatesCol}>Steps</th>
               </tr>
             </thead>
             <tbody>
-              {visiblePieces.map((piece) => {
+              {orderedPieces.map((piece) => {
                 const stage = deriveContentStage(piece)
                 const sd = stageDisplay(stage.stage, stage.label)
                 const resolved = resolveNineGates(piece)
                 return (
                   <tr key={`${piece.clientId}:${piece.contentId}`}>
+                    <td className={`${styles.cellMuted} ${styles.cellNum}`}>{formatPieceDate(piece.latestPublishedAt ?? piece.plannedDate)}</td>
                     {multiClient && <td className={styles.cellMuted}>{piece.clientName}</td>}
                     <td className={styles.pieceCol}>
                       <a href={`/admin/portal/pieces/${encodeURIComponent(piece.contentId)}`} className={styles.pieceLink}>{piece.title}</a>

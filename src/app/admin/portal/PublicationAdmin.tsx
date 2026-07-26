@@ -13,6 +13,7 @@ export type AdminTarget = {
   contentId: string
   title: string
   version: number
+  plannedDate: string | null
   destination: string
   scheduleTargetId: string | null
   scheduleStatus: string
@@ -52,6 +53,25 @@ function destStatus(target: AdminTarget): { label: string; tone: PillTone } {
   return { label: 'not posted yet', tone: 'muted' }
 }
 
+function localDate(value: string | null): string | null {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(date)
+}
+
+function rowDate(target: AdminTarget): string | null {
+  return target.publishedAt ?? target.plannedDate
+}
+
+function actionLabel(target: AdminTarget): string {
+  if (target.publicationStatus !== 'live') return 'Confirm / correct'
+  const label = target.publicationLabel.toLowerCase()
+  return label.includes('not independently verified') ? 'Verify record' : 'Correct record'
+}
+
 export default function PublicationAdmin({ targets }: { targets: AdminTarget[] }) {
   const router = useRouter()
   const [busy, setBusy] = useState<string | null>(null)
@@ -71,7 +91,7 @@ export default function PublicationAdmin({ targets }: { targets: AdminTarget[] }
     const note = String(formData.get('note') ?? '').trim()
     const operationKey = `admin-${crypto.randomUUID()}`
     const evidenceKey = `evidence-${crypto.randomUUID()}`
-    const targetKey = `${target.contentId}:${target.destination}`
+    const targetKey = `${target.contentId}:${target.version}:${target.destination}`
     setBusy(targetKey)
     setMessage(null)
     try {
@@ -135,6 +155,12 @@ export default function PublicationAdmin({ targets }: { targets: AdminTarget[] }
     pieces.set(pieceKey, entry)
   }
 
+  const orderedPieces = [...pieces.entries()].sort(([, a], [, b]) => {
+    const latest = (rows: AdminTarget[]) => rows
+      .map(rowDate).filter((date): date is string => Boolean(date)).sort().at(-1) ?? ''
+    return latest(b.rows).localeCompare(latest(a.rows)) || a.title.localeCompare(b.title)
+  })
+
   return (
     <>
       <AdminPageHeader kicker="Agency ops" title="Publication"
@@ -144,18 +170,18 @@ export default function PublicationAdmin({ targets }: { targets: AdminTarget[] }
       {message && <p role="status" className={styles.banner}>{message}</p>}
       {targets.length === 0 && <p className={styles.empty}>Nothing to confirm yet. Pieces appear here once approved and scheduled.</p>}
 
-      {[...pieces.entries()].map(([pieceKey, piece]) => (
+      {orderedPieces.map(([pieceKey, piece]) => (
         <article key={pieceKey} className={styles.pubPiece}>
           <div className={styles.pubPieceHead}>
+            <span className={styles.pubDate}>{localDate(piece.rows.map(rowDate).filter((date): date is string => Boolean(date)).sort().at(-1) ?? null) ?? 'No date'}</span>
             <span className={styles.pubPieceTitle}>{piece.title}</span>
             <span className={styles.pubVersion}>v{piece.version}</span>
           </div>
 
           {piece.rows.map((target) => {
-            const key = `${target.contentId}:${target.destination}`
+            const key = `${target.contentId}:${target.version}:${target.destination}`
             const expanded = openForm === key
-            const publishedLabel = target.publishedAt
-              ? new Date(target.publishedAt).toISOString().slice(0, 10) : null
+            const publishedLabel = localDate(rowDate(target))
             return (
               <div key={key}>
                 <div className={styles.destRow}>
@@ -174,7 +200,7 @@ export default function PublicationAdmin({ targets }: { targets: AdminTarget[] }
                     aria-expanded={expanded}
                     onClick={() => setOpenForm(expanded ? null : key)}
                   >
-                    {expanded ? 'Close' : 'Confirm / correct'}
+                    {expanded ? 'Close' : actionLabel(target)}
                   </button>
                 </div>
 
@@ -208,7 +234,7 @@ export default function PublicationAdmin({ targets }: { targets: AdminTarget[] }
                       <div className={styles.field}>
                         <label className={styles.fieldLabel} htmlFor={`op-${key}`}>Operation</label>
                         <select id={`op-${key}`} name="operation" defaultValue="confirm_live" className={styles.select}>
-                          <option value="confirm_schedule">Confirm it's scheduled</option>
+                          <option value="confirm_schedule">Confirm it&apos;s scheduled</option>
                           <option value="schedule_failed">Scheduling failed</option>
                           <option value="confirm_live">Confirm it posted (or fix a confirmation)</option>
                           <option value="publication_failed">Posting failed</option>

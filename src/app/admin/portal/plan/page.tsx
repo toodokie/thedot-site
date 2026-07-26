@@ -54,7 +54,11 @@ export default async function PortalAdminPlanPage() {
                       <tr key={it.id}>
                         <td className={styles.cellNum}>{it.position}</td>
                         <td className={styles.cellNum}>{it.planned_date ?? <span className={styles.cellMuted}>unscheduled</span>}</td>
-                        <td className={styles.pieceCol}>{it.title}</td>
+                        <td className={styles.pieceCol}>
+                          <a className={styles.pieceLink} href={`/admin/portal/pieces/${encodeURIComponent(it.content_id)}`}>
+                            {it.title}
+                          </a>
+                        </td>
                         <td className={styles.cellMuted}>{it.format ?? ''}</td>
                         <td className={styles.cellMuted}>{it.platforms.join(', ')}</td>
                         <td className={styles.cellMuted}>{it.direction_note ?? ''}</td>
@@ -86,7 +90,11 @@ export default async function PortalAdminPlanPage() {
                 {rows.map((r) => (
                   <tr key={r.id}>
                     <td className={styles.cellNum}>{r.planned_date ?? <span className={styles.cellMuted}>unscheduled</span>}</td>
-                    <td className={styles.pieceCol}>{r.title}</td>
+                    <td className={styles.pieceCol}>
+                      <a className={styles.pieceLink} href={`/admin/portal/pieces/${encodeURIComponent(r.content_id)}`}>
+                        {r.title}
+                      </a>
+                    </td>
                     <td className={styles.cellMuted}>{r.format ?? ''}</td>
                     <td className={styles.cellMuted}>{r.platforms.join(', ')}</td>
                     <td><StatusPill tone={planTone(r.status)} label={r.status} /></td>

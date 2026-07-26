@@ -85,6 +85,13 @@ describe('AgencyMonthCalendar data', () => {
     })
   })
 
+  it('does not flatten a legacy posted piece into the Draft label', () => {
+    const days = buildAgencyCalendarDays([row({
+      legacy: { classification: 'legacy_verified' },
+    })])
+    expect(days['2026-07-27'][0].stateNote).toContain('Posted')
+  })
+
   it('uses the Toronto business date around the UTC day boundary', () => {
     expect(torontoTodayIso(new Date('2026-07-25T02:00:00Z'))).toBe('2026-07-24')
   })
