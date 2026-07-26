@@ -16,6 +16,7 @@ const piece = (overrides: Partial<StagePiece> = {}): StagePiece => ({
   clientId: 'client-kanset', clientName: 'Kanset',
   contentId: 'kanset-2026-07-test-piece', title: 'Test piece', status: 'draft',
   factCheck: 'confirmed', factCheckExempt: false, currentDecision: null,
+  ideaDecision: null, ideaDecisionSource: null, ideaDecisionNote: null,
   approvalSentAt: null, platforms: ['instagram', 'facebook'], archived: false,
   gates: [], dests: [], workingVersion: 1, ...overrides,
 })
@@ -29,11 +30,19 @@ const node = (model: ReturnType<typeof agencyProgress>, key: string) =>
   model.nodes.find((n) => n.key === key)!
 
 describe('agencyProgress', () => {
-  it('starts a versionless selected piece at Idea created, then Copy drafted', () => {
+  it('starts a versionless selected piece at Idea approval before Copy drafted', () => {
     const model = agencyProgress(piece({ workingVersion: null, status: 'idea' }))
     expect(node(model, 'idea-created').state).toBe('done')
-    expect(node(model, 'copy-drafted').state).toBe('current')
+    expect(node(model, 'idea-approved').state).toBe('current')
+    expect(node(model, 'copy-drafted').state).toBe('upcoming')
     expect(node(model, 'fact-check').state).toBe('upcoming')
+  })
+  it('moves an approved versionless idea to copy drafting', () => {
+    const model = agencyProgress(piece({
+      workingVersion: null, status: 'idea', ideaDecision: 'approved', ideaDecisionSource: 'piece',
+    }))
+    expect(node(model, 'idea-approved').state).toBe('done')
+    expect(node(model, 'copy-drafted').state).toBe('current')
   })
   it('marks the first genuine open gate as current, earlier gates done, later gates upcoming', () => {
     const model = agencyProgress(piece({

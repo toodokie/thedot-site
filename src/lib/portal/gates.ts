@@ -48,6 +48,11 @@ export type StagePiece = {
   factCheckExempt: boolean
   factCheckValid?: boolean
   currentDecision: 'approved' | 'change_requested' | null
+  // Versionless ideas have a separate decision plane. A plan-cycle approval is the
+  // batch decision; a piece decision overrides it for that cycle revision.
+  ideaDecision: 'approved' | 'change_requested' | null
+  ideaDecisionSource: 'batch' | 'piece' | null
+  ideaDecisionNote: string | null
   approvalSentAt: string | null // derived from the approval_sent gate row when done
   // platforms are CANONICAL schedule destinations (portal_schedule_destination mapping),
   // not raw frontmatter, so they match content_schedule_targets / content_publication_

@@ -19,6 +19,7 @@ const piece = (overrides: Partial<StagePiece> = {}): StagePiece => ({
   clientId: 'client-kanset', clientName: 'Kanset',
   contentId: 'kanset-2026-07-test-piece', title: 'Test piece', status: 'draft',
   factCheck: 'confirmed', factCheckExempt: false, currentDecision: null,
+  ideaDecision: null, ideaDecisionSource: null, ideaDecisionNote: null,
   approvalSentAt: null, platforms: ['instagram', 'facebook'], archived: false,
   gates: [], dests: [], workingVersion: 1, ...overrides,
 })
@@ -329,7 +330,8 @@ describe('admin input-shape contract', () => {
     title: 'Ask Kanset: moving provinces',
     status: 'draft', // unreleased piece: the loader still stages it (BLOCKER 1)
     factCheck: 'confirmed', factCheckExempt: false,
-    currentDecision: null, approvalSentAt: null,
+    currentDecision: null, ideaDecision: null, ideaDecisionSource: null,
+    ideaDecisionNote: null, approvalSentAt: null,
     platforms: ['instagram', 'facebook', 'youtube'], archived: false,
     gates: [
       gate('source_in_hand', 'done', { owner_label: 'studio', occurred_at: '2026-07-15T16:00:00Z', note: 'Set 1 Clip 3' }),

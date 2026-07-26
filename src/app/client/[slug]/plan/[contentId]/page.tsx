@@ -2,11 +2,12 @@ import { redirect, notFound } from 'next/navigation'
 import type { CSSProperties } from 'react'
 import { getClientSession } from '@/lib/portal/auth'
 import { getContentItem } from '@/lib/portal/data'
-import { getPlanCycleItemByContentId } from '@/lib/portal/plan-cycle'
+import { getIdeaDecision, getPlanCycleItemByContentId, getPlanCycles } from '@/lib/portal/plan-cycle'
 import { routesToPiecePage } from '@/lib/portal/schedule'
 import { Eyebrow, Heading, Text, Button } from '@thedot/design-system'
 import CopyBlock from '@/app/client/[slug]/piece/[contentId]/CopyBlock'
 import FactCheckEvidence from '../../FactCheckEvidence'
+import IdeaDecisionForm from '../IdeaDecisionForm'
 
 // Quiet metadata chips, matching the piece page.
 const chip: CSSProperties = {
@@ -30,6 +31,10 @@ export default async function PlanPiece({ params }: { params: Promise<{ slug: st
   if (!item) {
     const planned = await getPlanCycleItemByContentId(session.clientId, contentId)
     if (!planned) notFound()
+    const cycle = (await getPlanCycles(session.clientId)).find((candidate) => candidate.id === planned.plan_cycle_id)
+    const ideaDecision = cycle
+      ? await getIdeaDecision(session.clientId, planned.content_item_id, cycle.id, cycle.revision)
+      : null
     return (
       <div style={{ maxWidth: 760, margin: '0 auto', padding: '8px 0 88px' }}>
         <Button as="a" href={`/client/${slug}/plan`} variant="ghost" size="sm">Back to plan</Button>
@@ -46,9 +51,18 @@ export default async function PlanPiece({ params }: { params: Promise<{ slug: st
         {planned.direction_note && (
           <div style={{ marginBottom: 24 }}><Text>{planned.direction_note}</Text></div>
         )}
-        <Text tone="grey">
-          This idea is included in the plan. Its copy has not been drafted yet.
-        </Text>
+        <Text tone="grey">This idea is included in the plan. Its copy has not been drafted yet.</Text>
+        {ideaDecision?.decision === 'approved' && (
+          <Text tone="graphite">You approved this idea{ideaDecision.note ? `: ${ideaDecision.note}` : '.'}</Text>
+        )}
+        {ideaDecision?.decision === 'change_requested' && (
+          <Text tone="graphite">You requested changes{ideaDecision.note ? `: ${ideaDecision.note}` : '.'}</Text>
+        )}
+        {!ideaDecision && cycle && session.canDecide
+          && (cycle.status === 'submitted' || cycle.status === 'change_requested') && (
+          <IdeaDecisionForm slug={slug} contentItemId={planned.content_item_id}
+            planCycleId={cycle.id} revision={cycle.revision} />
+        )}
       </div>
     )
   }

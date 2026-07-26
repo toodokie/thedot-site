@@ -45,6 +45,10 @@ type ScheduleRow = { content_id: string; content_version: number; destination: s
 type PublicationRow = { id: string; content_id: string; content_version: number; destination: string; required: boolean; status: string; live_url: string | null; first_verified_at: string | null }
 type HistoricalRow = { client_id: string; publication_target_id: string; provenance: string }
 type LegacyClassification = 'legacy_verified' | 'legacy_unverified'
+type PlanCycleRow = { id: string; client_id: string; revision: number; status: string; approved_revision: number | null; updated_at: string }
+type PlanCycleItemRow = { plan_cycle_id: string; client_id: string; content_item_id: string }
+type PlanCycleDecisionRow = { plan_cycle_id: string; client_id: string; revision: number; decision: string; note: string | null; created_at: string }
+type IdeaDecisionRow = { content_item_id: string; client_id: string; plan_cycle_id: string; plan_cycle_revision: number; decision: string; note: string | null; created_at: string }
 
 async function run<T>(query: { data: unknown; error: { message: string } | null } | PromiseLike<{ data: unknown; error: { message: string } | null }>, label: string): Promise<T[]> {
   const result = await query
@@ -56,6 +60,7 @@ function buildPieces(
   items: ItemRow[], versions: VersionRow[], approvals: ApprovalRow[],
   gates: GateRow[], schedules: ScheduleRow[], publications: PublicationRow[],
   clientNames: Map<string, string>, factCheckValid: Map<string, boolean>,
+  ideaDecisions: Map<string, { decision: 'approved' | 'change_requested'; source: 'batch' | 'piece'; note: string | null }>,
   legacyItems: Map<string, LegacyClassification>,
 ): StagePiece[] {
   const versionByItem = new Map<string, VersionRow>()
@@ -122,6 +127,9 @@ function buildPieces(
       factCheck: version?.fact_check ?? null, factCheckExempt: version?.fact_check_scope === 'not_applicable',
       factCheckValid: factCheckValid.get(item.id) ?? false,
       currentDecision,
+      ideaDecision: ideaDecisions.get(item.id)?.decision ?? null,
+      ideaDecisionSource: ideaDecisions.get(item.id)?.source ?? null,
+      ideaDecisionNote: ideaDecisions.get(item.id)?.note ?? null,
       approvalSentAt: approvalSent?.state === 'done' ? approvalSent.occurred_at : null,
       platforms, archived: Boolean(item.archived_at), gates: pieceGates, dests,
       producer: version?.producer ?? null, calendarNote: version?.calendar_note ?? null,
@@ -138,7 +146,13 @@ const GATE_COLS = 'content_item_id, content_version, gate_key, state, owner_labe
 const SCHEDULE_COLS = 'content_id, content_version, destination, required, status, scheduled_at'
 const PUBLICATION_COLS = 'id, content_id, content_version, destination, required, status, live_url, first_verified_at'
 
-async function loadDependents(admin: Client, itemIds: string[], clientIds: string[], workingVersions: Map<string, number | null>) {
+async function loadDependents(
+  admin: Client,
+  items: ItemRow[],
+  itemIds: string[],
+  clientIds: string[],
+  workingVersions: Map<string, number | null>,
+) {
   const [versions, approvals, gates, schedules, publications, clients, historical] = await Promise.all([
     run<VersionRow>(admin.from('content_item_versions').select(VERSION_COLS).in('content_item_id', itemIds), 'content_item_versions'),
     run<ApprovalRow>(admin.from('approvals').select(APPROVAL_COLS).in('content_id', itemIds), 'approvals'),
@@ -173,7 +187,42 @@ async function loadDependents(admin: Client, itemIds: string[], clientIds: strin
     // If destinations disagree, preserve the conservative unverified state.
     if (legacyItems.get(itemId) !== 'legacy_unverified') legacyItems.set(itemId, classification)
   }
-  return [versions, approvals, gates, schedules, publications, clients, factCheckValid, legacyItems] as const
+  const [cycles, cycleItems, cycleDecisions, pieceDecisions] = await Promise.all([
+    run<PlanCycleRow>(admin.from('plan_cycles').select('id,client_id,revision,status,approved_revision,updated_at').in('client_id', clientIds), 'plan_cycles'),
+    run<PlanCycleItemRow>(admin.from('plan_cycle_items').select('plan_cycle_id,client_id,content_item_id').in('content_item_id', itemIds), 'plan_cycle_items'),
+    run<PlanCycleDecisionRow>(admin.from('plan_cycle_decisions').select('plan_cycle_id,client_id,revision,decision,note,created_at').in('client_id', clientIds), 'plan_cycle_decisions'),
+    run<IdeaDecisionRow>(admin.from('content_idea_decisions').select('content_item_id,client_id,plan_cycle_id,plan_cycle_revision,decision,note,created_at').in('content_item_id', itemIds), 'content_idea_decisions'),
+  ])
+  const cyclesById = new Map(cycles.map((cycle) => [cycle.id, cycle]))
+  const currentCycleForItem = new Map<string, PlanCycleRow>()
+  for (const item of cycleItems) {
+    const cycle = cyclesById.get(item.plan_cycle_id)
+    if (!cycle) continue
+    const previous = currentCycleForItem.get(item.content_item_id)
+    if (!previous || cycle.updated_at > previous.updated_at) currentCycleForItem.set(item.content_item_id, cycle)
+  }
+  const ideaDecisions = new Map<string, { decision: 'approved' | 'change_requested'; source: 'batch' | 'piece'; note: string | null }>()
+  for (const item of items) {
+    const cycle = currentCycleForItem.get(item.id)
+    if (!cycle) continue
+    const piece = pieceDecisions
+      .filter((decision) => decision.content_item_id === item.id
+        && decision.plan_cycle_id === cycle.id
+        && decision.plan_cycle_revision === cycle.revision)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
+    if (piece && (piece.decision === 'approved' || piece.decision === 'change_requested')) {
+      ideaDecisions.set(item.id, { decision: piece.decision, source: 'piece', note: piece.note })
+      continue
+    }
+    const batch = cycleDecisions.find((decision) => decision.plan_cycle_id === cycle.id
+      && decision.revision === cycle.revision)
+    if (batch && (batch.decision === 'approved' || batch.decision === 'change_requested')) {
+      ideaDecisions.set(item.id, { decision: batch.decision, source: 'batch', note: batch.note })
+    } else if (cycle.status === 'approved' && cycle.approved_revision === cycle.revision) {
+      ideaDecisions.set(item.id, { decision: 'approved', source: 'batch', note: null })
+    }
+  }
+  return [versions, approvals, gates, schedules, publications, clients, factCheckValid, ideaDecisions, legacyItems] as const
 }
 
 // All pieces for a client (or every client when clientId is omitted), unreleased included.
@@ -183,11 +232,11 @@ export async function loadAgencyStagePieces(admin: Client, clientId?: string): P
   const items = await run<ItemRow>(query, 'content_items')
   if (items.length === 0) return []
   const clientIds = [...new Set(items.map((i) => i.client_id))]
-  const [versions, approvals, gates, schedules, publications, clients, factCheckValid, legacyItems] =
-    await loadDependents(admin, items.map((i) => i.id), clientIds,
+  const [versions, approvals, gates, schedules, publications, clients, factCheckValid, ideaDecisions, legacyItems] =
+    await loadDependents(admin, items, items.map((i) => i.id), clientIds,
       new Map(items.map((item) => [item.id, item.working_version])))
   const clientNames = new Map(clients.map((c) => [c.id, c.name]))
-  return buildPieces(items, versions, approvals, gates, schedules, publications, clientNames, factCheckValid, legacyItems)
+  return buildPieces(items, versions, approvals, gates, schedules, publications, clientNames, factCheckValid, ideaDecisions, legacyItems)
 }
 
 // One piece by content_id (for STATUS GATES block regeneration), unreleased included;
@@ -197,11 +246,11 @@ export async function loadAgencyStagePiece(admin: Client, clientId: string, cont
     admin.from('content_items').select(ITEM_COLS).eq('client_id', clientId).eq('content_id', contentId),
     'content_items')
   if (items.length === 0) return null
-  const [versions, approvals, gates, schedules, publications, clients, factCheckValid, legacyItems] =
-    await loadDependents(admin, [items[0].id], [items[0].client_id],
+  const [versions, approvals, gates, schedules, publications, clients, factCheckValid, ideaDecisions, legacyItems] =
+    await loadDependents(admin, [items[0]], [items[0].id], [items[0].client_id],
       new Map([[items[0].id, items[0].working_version]]))
   const clientNames = new Map(clients.map((c) => [c.id, c.name]))
-  return buildPieces([items[0]], versions, approvals, gates, schedules, publications, clientNames, factCheckValid, legacyItems)[0] ?? null
+  return buildPieces([items[0]], versions, approvals, gates, schedules, publications, clientNames, factCheckValid, ideaDecisions, legacyItems)[0] ?? null
 }
 
 export type AgencyPieceCalendarRow = StagePiece & {

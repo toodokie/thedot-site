@@ -120,12 +120,15 @@ export function agencyProgress(piece: StagePiece): ProgressModel {
           : null
 
   if (!terminal && piece.workingVersion === null) {
+    const ideaApproved = piece.ideaDecision === 'approved'
     return {
       variant: 'agency',
       terminal: null,
       nodes: [
         { key: 'idea-created', label: 'Idea created', state: 'done' },
-        { key: 'copy-drafted', label: 'Copy drafted', state: 'current' },
+        { key: 'idea-approved', label: 'Idea approved', state: ideaApproved ? 'done' : 'current',
+          note: piece.ideaDecision === 'change_requested' ? 'changes requested' : piece.ideaDecisionSource === 'batch' ? 'approved in plan' : null },
+        { key: 'copy-drafted', label: 'Copy drafted', state: ideaApproved ? 'current' : 'upcoming' },
         ...GATE_ORDER.map((key) => ({
           key,
           label: AGENCY_LABELS[key],

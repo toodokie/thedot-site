@@ -45,9 +45,21 @@ export type PlanCycleDecision = {
   created_at: string
 }
 
+export type IdeaDecision = {
+  id: string
+  client_id: string
+  content_item_id: string
+  plan_cycle_id: string
+  plan_cycle_revision: number
+  decision: 'approved' | 'change_requested'
+  note: string | null
+  created_at: string
+}
+
 const cycleColumns = 'id,client_id,cycle_key,week_start,week_end,title,direction_summary,revision,status,submitted_at,decided_at,approved_revision,created_at,updated_at'
 const itemColumns = 'id,plan_cycle_id,client_id,content_item_id,content_id,position,planned_date,title,format,pillar,platforms,direction_note,created_at,updated_at'
 const decisionColumns = 'id,plan_cycle_id,client_id,revision,decision,note,created_at'
+const ideaDecisionColumns = 'id,client_id,content_item_id,plan_cycle_id,plan_cycle_revision,decision,note,created_at'
 
 /**
  * Reads the client-safe plan projection under the caller's RLS session.
@@ -92,6 +104,21 @@ export async function getPlanCycleDecisions(clientId: string, cycleId: string): 
     .eq('client_id', clientId).eq('plan_cycle_id', cycleId).order('created_at', { ascending: false })
   if (result.error) throw new PortalDataError(`plan cycle decisions unavailable: ${result.error.message}`)
   return (result.data ?? []) as PlanCycleDecision[]
+}
+
+export async function getIdeaDecision(
+  clientId: string,
+  contentItemId: string,
+  cycleId: string,
+  revision: number,
+): Promise<IdeaDecision | null> {
+  const supabase = await createSupabaseServer()
+  const result = await supabase.from('content_idea_decisions').select(ideaDecisionColumns)
+    .eq('client_id', clientId).eq('content_item_id', contentItemId)
+    .eq('plan_cycle_id', cycleId).eq('plan_cycle_revision', revision)
+    .maybeSingle()
+  if (result.error) throw new PortalDataError(`idea decision unavailable: ${result.error.message}`)
+  return result.data as IdeaDecision | null
 }
 
 export async function getCurrentPlanCycle(clientId: string): Promise<{ cycle: PlanCycle | null; items: PlanCycleItem[] }> {
