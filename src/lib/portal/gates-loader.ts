@@ -45,7 +45,7 @@ type ScheduleRow = { content_id: string; content_version: number; destination: s
 type PublicationRow = { id: string; content_id: string; content_version: number; destination: string; required: boolean; status: string; live_url: string | null; first_verified_at: string | null }
 type HistoricalRow = { client_id: string; publication_target_id: string; provenance: string }
 type LegacyClassification = 'legacy_verified' | 'legacy_unverified'
-type PlanCycleRow = { id: string; client_id: string; revision: number; status: string; approved_revision: number | null; updated_at: string }
+type PlanCycleRow = { id: string; client_id: string; revision: number; status: string; approved_revision: number | null; submitted_at: string; updated_at: string }
 type PlanCycleItemRow = { plan_cycle_id: string; client_id: string; content_item_id: string }
 type PlanCycleDecisionRow = { plan_cycle_id: string; client_id: string; revision: number; decision: string; note: string | null; created_at: string }
 type IdeaDecisionRow = { content_item_id: string; client_id: string; plan_cycle_id: string; plan_cycle_revision: number; decision: string; note: string | null; created_at: string }
@@ -60,7 +60,7 @@ function buildPieces(
   items: ItemRow[], versions: VersionRow[], approvals: ApprovalRow[],
   gates: GateRow[], schedules: ScheduleRow[], publications: PublicationRow[],
   clientNames: Map<string, string>, factCheckValid: Map<string, boolean>,
-  ideaDecisions: Map<string, { decision: 'approved' | 'change_requested'; source: 'batch' | 'piece'; note: string | null }>,
+  ideaDecisions: Map<string, { decision: 'approved' | 'change_requested' | null; source: 'batch' | 'piece' | null; note: string | null; sentAt: string | null }>,
   legacyItems: Map<string, LegacyClassification>,
 ): StagePiece[] {
   const versionByItem = new Map<string, VersionRow>()
@@ -130,6 +130,7 @@ function buildPieces(
       ideaDecision: ideaDecisions.get(item.id)?.decision ?? null,
       ideaDecisionSource: ideaDecisions.get(item.id)?.source ?? null,
       ideaDecisionNote: ideaDecisions.get(item.id)?.note ?? null,
+      ideaApprovalSentAt: ideaDecisions.get(item.id)?.sentAt ?? null,
       approvalSentAt: approvalSent?.state === 'done' ? approvalSent.occurred_at : null,
       platforms, archived: Boolean(item.archived_at), gates: pieceGates, dests,
       producer: version?.producer ?? null, calendarNote: version?.calendar_note ?? null,
@@ -188,7 +189,7 @@ async function loadDependents(
     if (legacyItems.get(itemId) !== 'legacy_unverified') legacyItems.set(itemId, classification)
   }
   const [cycles, cycleItems, cycleDecisions, pieceDecisions] = await Promise.all([
-    run<PlanCycleRow>(admin.from('plan_cycles').select('id,client_id,revision,status,approved_revision,updated_at').in('client_id', clientIds), 'plan_cycles'),
+    run<PlanCycleRow>(admin.from('plan_cycles').select('id,client_id,revision,status,approved_revision,submitted_at,updated_at').in('client_id', clientIds), 'plan_cycles'),
     run<PlanCycleItemRow>(admin.from('plan_cycle_items').select('plan_cycle_id,client_id,content_item_id').in('content_item_id', itemIds), 'plan_cycle_items'),
     run<PlanCycleDecisionRow>(admin.from('plan_cycle_decisions').select('plan_cycle_id,client_id,revision,decision,note,created_at').in('client_id', clientIds), 'plan_cycle_decisions'),
     run<IdeaDecisionRow>(admin.from('content_idea_decisions').select('content_item_id,client_id,plan_cycle_id,plan_cycle_revision,decision,note,created_at').in('content_item_id', itemIds), 'content_idea_decisions'),
@@ -201,25 +202,30 @@ async function loadDependents(
     const previous = currentCycleForItem.get(item.content_item_id)
     if (!previous || cycle.updated_at > previous.updated_at) currentCycleForItem.set(item.content_item_id, cycle)
   }
-  const ideaDecisions = new Map<string, { decision: 'approved' | 'change_requested'; source: 'batch' | 'piece'; note: string | null }>()
+  const ideaDecisions = new Map<string, { decision: 'approved' | 'change_requested' | null; source: 'batch' | 'piece' | null; note: string | null; sentAt: string | null }>()
   for (const item of items) {
     const cycle = currentCycleForItem.get(item.id)
     if (!cycle) continue
+    const sentAt = cycle.submitted_at ?? null
     const piece = pieceDecisions
       .filter((decision) => decision.content_item_id === item.id
         && decision.plan_cycle_id === cycle.id
         && decision.plan_cycle_revision === cycle.revision)
       .sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
     if (piece && (piece.decision === 'approved' || piece.decision === 'change_requested')) {
-      ideaDecisions.set(item.id, { decision: piece.decision, source: 'piece', note: piece.note })
+      ideaDecisions.set(item.id, { decision: piece.decision, source: 'piece', note: piece.note, sentAt })
       continue
     }
     const batch = cycleDecisions.find((decision) => decision.plan_cycle_id === cycle.id
       && decision.revision === cycle.revision)
     if (batch && (batch.decision === 'approved' || batch.decision === 'change_requested')) {
-      ideaDecisions.set(item.id, { decision: batch.decision, source: 'batch', note: batch.note })
+      ideaDecisions.set(item.id, { decision: batch.decision, source: 'batch', note: batch.note, sentAt })
     } else if (cycle.status === 'approved' && cycle.approved_revision === cycle.revision) {
-      ideaDecisions.set(item.id, { decision: 'approved', source: 'batch', note: null })
+      ideaDecisions.set(item.id, { decision: 'approved', source: 'batch', note: null, sentAt })
+    } else {
+      // A submitted cycle with no decision still needs to be represented so the
+      // agency bar can show “Idea sent” and keep “Idea approved” open.
+      ideaDecisions.set(item.id, { decision: null, source: null, note: null, sentAt })
     }
   }
   return [versions, approvals, gates, schedules, publications, clients, factCheckValid, ideaDecisions, legacyItems] as const

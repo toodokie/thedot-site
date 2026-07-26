@@ -24,6 +24,7 @@ function row(overrides: Partial<AgencyPieceCalendarRow> = {}): AgencyPieceCalend
     ideaDecision: null,
     ideaDecisionSource: null,
     ideaDecisionNote: null,
+    ideaApprovalSentAt: null,
     approvalSentAt: null,
     platforms: ['instagram'],
     archived: false,

@@ -53,8 +53,8 @@ export const AGENCY_LABELS: Record<GateKey, string> = {
   'source-in-hand': 'Studio cut',
   'design-built': 'Design',
   'proofed': 'Proof',
-  'approval-sent': 'Sent to Maria',
-  'copy-approved': 'Approved',
+  'approval-sent': 'Final copy + design sent',
+  'copy-approved': 'Final copy + design approved',
   'scheduled': 'Scheduled',
   'posted': 'Posted',
   'link-confirmed': 'Link confirmed',
@@ -121,14 +121,16 @@ export function agencyProgress(piece: StagePiece): ProgressModel {
 
   if (!terminal && piece.workingVersion === null) {
     const ideaApproved = piece.ideaDecision === 'approved'
+    const ideaSent = piece.ideaApprovalSentAt !== null
     return {
       variant: 'agency',
       terminal: null,
       nodes: [
         { key: 'idea-created', label: 'Idea created', state: 'done' },
-        { key: 'idea-approved', label: 'Idea approved', state: ideaApproved ? 'done' : 'current',
+        { key: 'copy-drafted', label: 'Copy drafted', state: 'current' },
+        { key: 'idea-approval-sent', label: 'Idea sent to Maria', state: ideaSent ? 'done' : 'upcoming' },
+        { key: 'idea-approved', label: 'Idea approved', state: ideaApproved ? 'done' : ideaSent ? 'current' : 'upcoming',
           note: piece.ideaDecision === 'change_requested' ? 'changes requested' : piece.ideaDecisionSource === 'batch' ? 'approved in plan' : null },
-        { key: 'copy-drafted', label: 'Copy drafted', state: ideaApproved ? 'current' : 'upcoming' },
         ...GATE_ORDER.map((key) => ({
           key,
           label: AGENCY_LABELS[key],
@@ -146,11 +148,27 @@ export function agencyProgress(piece: StagePiece): ProgressModel {
 
   // Timeline placement: the first 'open' gate is CURRENT ("you are here"); later 'open'
   // gates are UPCOMING; 'done' and 'na' are skipped when finding the current node.
-  let currentTaken = false
-  const authoredPrefix: StageNode[] = [
+  const ideaSent = piece.ideaApprovalSentAt !== null
+  const ideaApproved = piece.ideaDecision === 'approved'
+  const ideaCycleActive = ideaSent || piece.ideaDecision !== null
+  const ideaNodes: StageNode[] = [
     { key: 'idea-created', label: 'Idea created', state: 'done' },
     { key: 'copy-drafted', label: 'Copy drafted', state: 'done' },
+    { key: 'idea-approval-sent', label: 'Idea sent to Maria', state: ideaSent ? 'done' : 'upcoming' },
+    { key: 'idea-approved', label: 'Idea approved', state: ideaApproved ? 'done' : 'current',
+      note: piece.ideaDecision === 'change_requested' ? 'changes requested' : piece.ideaDecisionSource === 'batch' ? 'approved in plan' : null },
   ]
+
+  // The first approval cycle gates the production/final-approval sequence. Keep
+  // already recorded done/NA evidence visible, but never present the final Maria
+  // approval as the current obligation while the idea is still unresolved.
+  let currentTaken = ideaCycleActive && !ideaApproved
+  const authoredPrefix: StageNode[] = ideaCycleActive
+    ? ideaNodes
+    : [
+      { key: 'idea-created', label: 'Idea created', state: 'done' },
+      { key: 'copy-drafted', label: 'Copy drafted', state: 'done' },
+    ]
   const nodes: StageNode[] = raws.map((r) => {
     let state: StageNodeState
     if (r.raw === 'done') state = 'done'

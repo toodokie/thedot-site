@@ -20,7 +20,7 @@ const piece = (overrides: Partial<StagePiece> = {}): StagePiece => ({
   contentId: 'kanset-2026-07-test-piece', title: 'Test piece', status: 'draft',
   factCheck: 'confirmed', factCheckExempt: false, currentDecision: null,
   ideaDecision: null, ideaDecisionSource: null, ideaDecisionNote: null,
-  approvalSentAt: null, platforms: ['instagram', 'facebook'], archived: false,
+  approvalSentAt: null, ideaApprovalSentAt: null, platforms: ['instagram', 'facebook'], archived: false,
   gates: [], dests: [], workingVersion: 1, ...overrides,
 })
 
@@ -31,6 +31,12 @@ const dest = (destination: string, overrides: Partial<StagePiece['dests'][number
 
 // Every branch of the spec 4.1 priority derivation.
 describe('deriveContentStage', () => {
+  it('keeps a hydrated submitted idea in the idea-approval stage', () => {
+    expect(deriveContentStage(piece({
+      ideaApprovalSentAt: '2026-07-26T12:00:00Z', factCheckValid: true,
+      currentDecision: null,
+    }))).toEqual({ stage: 'awaiting_idea_approval', label: 'awaiting idea approval' })
+  })
   it('0: a durable identity without version 1 is an idea', () => {
     expect(deriveContentStage(piece({ workingVersion: null, status: 'idea' }))).toEqual({
       stage: 'idea',
@@ -162,6 +168,14 @@ describe('deriveContentStage', () => {
 describe('deriveMyTasks', () => {
   it('does not manufacture production tasks for a versionless idea', () => {
     expect(deriveMyTasks([piece({ workingVersion: null, status: 'idea' })], [], '2026-07-21')).toEqual([])
+  })
+  it('routes a hydrated submitted idea to idea approval, not final copy approval', () => {
+    const tasks = deriveMyTasks([piece({
+      ideaApprovalSentAt: '2026-07-26T12:00:00Z',
+      gates: [gate('source_in_hand', 'done'), gate('design_built', 'done'), gate('proofed', 'done'), gate('approval_sent', 'done')],
+    })], [], '2026-07-26')
+    expect(tasks).toHaveLength(1)
+    expect(tasks[0]).toMatchObject({ kind: 'action', gate: 'idea-approved' })
   })
   it('surfaces the first open gate in canonical order with the open-gate count', () => {
     // platforms empty so gates 7-9 add no lines: open = design/proofed/approval + copy
@@ -331,7 +345,7 @@ describe('admin input-shape contract', () => {
     status: 'draft', // unreleased piece: the loader still stages it (BLOCKER 1)
     factCheck: 'confirmed', factCheckExempt: false,
     currentDecision: null, ideaDecision: null, ideaDecisionSource: null,
-    ideaDecisionNote: null, approvalSentAt: null,
+    ideaDecisionNote: null, ideaApprovalSentAt: null, approvalSentAt: null,
     platforms: ['instagram', 'facebook', 'youtube'], archived: false,
     gates: [
       gate('source_in_hand', 'done', { owner_label: 'studio', occurred_at: '2026-07-15T16:00:00Z', note: 'Set 1 Clip 3' }),

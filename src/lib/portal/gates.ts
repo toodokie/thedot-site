@@ -53,6 +53,10 @@ export type StagePiece = {
   ideaDecision: 'approved' | 'change_requested' | null
   ideaDecisionSource: 'batch' | 'piece' | null
   ideaDecisionNote: string | null
+  // The current plan-cycle submission timestamp. This is separate from the
+  // version-bound approval_sent gate: it is the first approval cycle for the
+  // idea + initial copy direction.
+  ideaApprovalSentAt: string | null
   approvalSentAt: string | null // derived from the approval_sent gate row when done
   // platforms are CANONICAL schedule destinations (portal_schedule_destination mapping),
   // not raw frontmatter, so they match content_schedule_targets / content_publication_
@@ -219,7 +223,7 @@ export function resolveNineGates(piece: StagePiece): ResolvedGate[] {
 
 export type ContentStage =
   | 'done' | 'posted_unverified' | 'scheduled' | 'scheduled_partial'
-  | 'approved' | 'direction_approved' | 'awaiting_decision' | 'in_production' | 'draft'
+  | 'approved' | 'direction_approved' | 'awaiting_decision' | 'awaiting_idea_approval' | 'in_production' | 'draft'
   | 'idea' | 'archived' | 'legacy' | 'needs_platform_mapping'
 
 export type StageResult = { stage: ContentStage; label: string }
@@ -279,6 +283,12 @@ export function deriveContentStage(piece: StagePiece): StageResult {
     return { stage: 'scheduled_partial', label: `scheduled (${listDests(scheduled)}); ${listDests(pending)} pending` }
   }
 
+  // A submitted plan cycle is a separate client decision. It must be resolved
+  // before the version-bound final approval can describe the piece as approved.
+  if (piece.ideaApprovalSentAt !== null && piece.ideaDecision !== 'approved') {
+    return { stage: 'awaiting_idea_approval', label: 'awaiting idea approval' }
+  }
+
   const design = productionGate(piece, 'design_built')
   const proofed = productionGate(piece, 'proofed')
   const approvalSent = productionGate(piece, 'approval_sent')
@@ -324,7 +334,7 @@ export function deriveContentStage(piece: StagePiece): StageResult {
 // (Codex round-4 fix 2). An ops task with a null client_id is agency-global: its
 // clientName is 'Agency'. Piece-derived tasks also carry clientId for composite keys.
 export type MyTask =
-  | { kind: 'action'; clientId: string; clientName: string; contentId: string; title: string; gate: GateKey; dest: string | null; moreOpen: number }
+  | { kind: 'action'; clientId: string; clientName: string; contentId: string; title: string; gate: GateKey | 'idea-approved'; dest: string | null; moreOpen: number }
   // posted everywhere required, only link-confirmation outstanding: bookkeeping, not
   // production work, so it renders in a quiet "link-confirm pending" group instead of
   // flooding Actions (many imported/legacy pieces sit here honestly unverified).
@@ -387,6 +397,13 @@ export function deriveMyTasks(
     // not started. It must not manufacture a fact-check or production task before v1.
     if (piece.workingVersion === null) continue
     const tenant = { clientId: piece.clientId, clientName: piece.clientName }
+    // A submitted plan cycle is a distinct approval surface. It must win over the
+    // later version-bound copy approval, even when the pack has already been synced.
+    if (piece.ideaApprovalSentAt !== null && piece.ideaDecision !== 'approved') {
+      tasks.push({ kind: 'action', ...tenant, contentId: piece.contentId, title: piece.title,
+        gate: 'idea-approved', dest: null, moreOpen: 0 })
+      continue
+    }
     const resolved = resolveNineGates(piece)
     // only gates the portal actually stores generate tasks (absent rows are unknowns,
     // not obligations: a podcast episode must not show "needs source" forever)

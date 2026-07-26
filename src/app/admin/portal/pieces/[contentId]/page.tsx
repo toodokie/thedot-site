@@ -109,21 +109,26 @@ export default async function AdminPiecePage({ params }: { params: Promise<{ con
       <section className={styles.card}>
         <div className={styles.panelHead}><Eyebrow tone="grey">Step detail</Eyebrow></div>
         <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-          {piece.workingVersion === null && (
-            <li style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '6px 0',
-              borderBottom: '1px solid var(--dot-hairline)', fontFamily: 'var(--dot-font-text)', fontSize: 13 }}>
-              <span style={{ color: 'var(--dot-black)' }}>Idea approved</span>
-              <span style={{ color: 'var(--dot-grey)', textAlign: 'right' }}>
-                {piece.ideaDecision ?? 'open'} · maria{piece.ideaDecisionSource ? ` · ${piece.ideaDecisionSource}` : ''}
-              </span>
-            </li>
-          )}
+          <li style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '6px 0',
+            borderBottom: '1px solid var(--dot-hairline)', fontFamily: 'var(--dot-font-text)', fontSize: 13 }}>
+            <span style={{ color: 'var(--dot-black)' }}>Idea sent to Maria</span>
+            <span style={{ color: 'var(--dot-grey)', textAlign: 'right' }}>
+              {piece.ideaApprovalSentAt ? `done · ${piece.ideaApprovalSentAt.slice(0, 10)}` : 'not tracked'}
+            </span>
+          </li>
+          <li style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '6px 0',
+            borderBottom: '1px solid var(--dot-hairline)', fontFamily: 'var(--dot-font-text)', fontSize: 13 }}>
+            <span style={{ color: 'var(--dot-black)' }}>Idea approved</span>
+            <span style={{ color: 'var(--dot-grey)', textAlign: 'right' }}>
+              {piece.ideaDecision ?? 'open'} · maria{piece.ideaDecisionSource ? ` · ${piece.ideaDecisionSource}` : ''}
+            </span>
+          </li>
           {gates.map((gate, i) => (
             <li key={`${gate.key}-${gate.dest ?? i}`}
               style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '6px 0',
                 borderBottom: '1px solid var(--dot-hairline)', fontFamily: 'var(--dot-font-text)', fontSize: 13 }}>
               <span style={{ color: 'var(--dot-black)' }}>
-                {gate.key === 'copy-approved' && piece.workingVersion === null ? 'Copy approved' : AGENCY_LABELS[gate.key]}{gate.dest ? `: ${gate.dest}` : ''}
+                {AGENCY_LABELS[gate.key]}{gate.dest ? `: ${gate.dest}` : ''}
               </span>
               <span style={{ color: 'var(--dot-grey)', textAlign: 'right' }}>
                 {gate.present ? gate.state : 'not tracked'}

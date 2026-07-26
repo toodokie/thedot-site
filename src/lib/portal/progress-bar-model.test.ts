@@ -17,7 +17,7 @@ const piece = (overrides: Partial<StagePiece> = {}): StagePiece => ({
   contentId: 'kanset-2026-07-test-piece', title: 'Test piece', status: 'draft',
   factCheck: 'confirmed', factCheckExempt: false, currentDecision: null,
   ideaDecision: null, ideaDecisionSource: null, ideaDecisionNote: null,
-  approvalSentAt: null, platforms: ['instagram', 'facebook'], archived: false,
+  approvalSentAt: null, ideaApprovalSentAt: null, platforms: ['instagram', 'facebook'], archived: false,
   gates: [], dests: [], workingVersion: 1, ...overrides,
 })
 
@@ -30,11 +30,12 @@ const node = (model: ReturnType<typeof agencyProgress>, key: string) =>
   model.nodes.find((n) => n.key === key)!
 
 describe('agencyProgress', () => {
-  it('starts a versionless selected piece at Idea approval before Copy drafted', () => {
+  it('starts a versionless selected piece at Copy drafted before its first approval cycle', () => {
     const model = agencyProgress(piece({ workingVersion: null, status: 'idea' }))
     expect(node(model, 'idea-created').state).toBe('done')
-    expect(node(model, 'idea-approved').state).toBe('current')
-    expect(node(model, 'copy-drafted').state).toBe('upcoming')
+    expect(node(model, 'copy-drafted').state).toBe('current')
+    expect(node(model, 'idea-approval-sent').state).toBe('upcoming')
+    expect(node(model, 'idea-approved').state).toBe('upcoming')
     expect(node(model, 'fact-check').state).toBe('upcoming')
   })
   it('moves an approved versionless idea to copy drafting', () => {
@@ -55,6 +56,29 @@ describe('agencyProgress', () => {
     // only ONE current node
     expect(model.nodes.filter((n) => n.state === 'current')).toHaveLength(1)
     expect(node(model, 'copy-approved').state).toBe('upcoming')
+  })
+
+  it('holds production and final approval behind an unresolved idea approval', () => {
+    const model = agencyProgress(piece({
+      ideaApprovalSentAt: '2026-07-26T12:00:00Z', factCheckValid: true,
+      gates: [gate('source_in_hand', 'done'), gate('design_built', 'done'), gate('proofed', 'done')],
+    }))
+    expect(node(model, 'idea-approval-sent').state).toBe('done')
+    expect(node(model, 'idea-approved').state).toBe('current')
+    expect(node(model, 'copy-approved').state).toBe('upcoming')
+    expect(model.nodes.filter((n) => n.state === 'current')).toHaveLength(1)
+  })
+
+  it('shows final copy and design approval separately after idea approval', () => {
+    const model = agencyProgress(piece({
+      ideaDecision: 'approved', ideaDecisionSource: 'piece',
+      ideaApprovalSentAt: '2026-07-26T12:00:00Z', factCheckValid: true,
+      gates: [gate('source_in_hand', 'done'), gate('design_built', 'done'), gate('proofed', 'done'), gate('approval_sent', 'done')],
+    }))
+    expect(node(model, 'idea-approved').state).toBe('done')
+    expect(node(model, 'approval-sent').label).toBe('Final copy + design sent')
+    expect(node(model, 'copy-approved').label).toBe('Final copy + design approved')
+    expect(node(model, 'copy-approved').state).toBe('current')
   })
 
   it('renders an absent production gate as na (untracked), never as current or blocked', () => {
