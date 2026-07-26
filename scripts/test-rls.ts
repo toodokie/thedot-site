@@ -319,6 +319,47 @@ async function main(): Promise<void> {
         ?? viewerDecision.error?.message ?? viewerPlan.error?.message
         ?? viewerReschedule.error?.message ?? 'unexpected capability')
 
+    {
+      const externalId = `rls-external-${RUN_ID}`
+      const externalSync = await sync([
+        snapshot(bClientId, externalId, 1, 'Externally approved piece', 'Approved by email.', 'caption'),
+      ])
+      const externalItemId = externalSync[0]?.item_id
+      if (!externalItemId) throw new Error('external-decision test sync returned no item')
+      const ready = await admin.rpc('mark_content_ready', {
+        p_content_id: externalItemId,
+        p_content_version: 1,
+      })
+      const recorded = await admin.rpc('record_external_decision', {
+        p_client_id: bClientId,
+        p_content_id: externalItemId,
+        p_content_version: 1,
+        p_contact_auth_user_id: bViewerUserId,
+        p_decision: 'approved',
+        p_note: 'Approved in the client email thread.',
+        p_decision_source: 'email',
+        p_source_occurred_at: '2026-07-24T16:00:00Z',
+        p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-external-decision-${RUN_ID}`,
+      })
+      const externalView = await bClient.from('content_with_state')
+        .select('current_decision,client_state,status').eq('id', externalItemId).single()
+      const access = await admin.rpc('list_portal_access')
+      const viewerAccess = ((access.data ?? []) as Array<{
+        client_id: string
+        auth_user_id: string
+        can_decide: boolean
+      }>).find((row) => row.client_id === bClientId && row.auth_user_id === bViewerUserId)
+      check('A2b: service records a member email decision without transferring can_decide',
+        !ready.error && !recorded.error && !externalView.error && !access.error
+          && externalView.data?.current_decision === 'approved'
+          && externalView.data?.client_state === 'approved'
+          && externalView.data?.status === 'approved'
+          && viewerAccess?.can_decide === false,
+        ready.error?.message ?? recorded.error?.message ?? externalView.error?.message
+          ?? access.error?.message ?? JSON.stringify({ view: externalView.data, viewerAccess }))
+    }
+
     console.log('\n--- Slice 1 release/RLS assertions ---')
 
     const security = await admin.rpc('assert_portal_slice1_security')
