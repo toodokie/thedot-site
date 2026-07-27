@@ -1,9 +1,12 @@
-// Parent-level loading UI: covers the [slug] layout's auth lookup (the segment's own loading.tsx
-// does not cover its layout). role/aria-live announce the loading state to assistive tech.
+import styles from './loading.module.css'
+
+// Parent-level loading UI covers the [slug] layout's auth lookup. The fixed surface also keeps
+// slow data reads from exposing a half-rendered page underneath.
 export default function PortalLoading() {
   return (
-    <main role="status" aria-live="polite" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--background)', color: '#68665f', fontFamily: "'futura-pt', Arial, sans-serif" }}>
-      Loading…
-    </main>
+    <div className={styles.overlay} role="status" aria-live="polite" aria-label="Loading">
+      <span className={styles.spinner} aria-hidden="true" />
+      <span className={styles.text}>Loading</span>
+    </div>
   )
 }

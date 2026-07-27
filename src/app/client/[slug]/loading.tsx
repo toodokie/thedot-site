@@ -1,3 +1,10 @@
+import styles from '../loading.module.css'
+
 export default function PortalLoading() {
-  return <main style={{ minHeight: '60vh', display: 'grid', placeItems: 'center', color: 'var(--dim-grey)', fontFamily: "'futura-pt', Arial, sans-serif" }}>Loading…</main>
+  return (
+    <div className={styles.overlay} role="status" aria-live="polite" aria-label="Loading">
+      <span className={styles.spinner} aria-hidden="true" />
+      <span className={styles.text}>Loading</span>
+    </div>
+  )
 }

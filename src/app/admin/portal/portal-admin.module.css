@@ -33,6 +33,34 @@
   padding: 24px 28px;
   margin-bottom: 26px;
 }
+.loadingOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--admin-ground);
+  color: var(--admin-ink);
+}
+.loadingSpinner {
+  width: 30px;
+  height: 30px;
+  border: 2px solid var(--admin-line);
+  border-top-color: var(--admin-ink);
+  border-radius: 50%;
+  animation: portal-loading-spin 1.2s linear infinite;
+}
+.loadingText {
+  color: var(--admin-muted);
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+@keyframes portal-loading-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .loadingSpinner { animation: none; } }
 .hero { border-color: var(--admin-ink); } /* the priority panel leads with a charcoal border, still flat */
 
 /* Two-column card layout, same proportions as the client overview: a wider work column and a
@@ -212,6 +240,25 @@
 .reportSectionHead, .reportPeriodHead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .reportGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .reportGrid .subCard { margin: 0; }
+.reportCard { height: 100%; box-sizing: border-box; }
+.reportCardHead { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--admin-line); padding-bottom: 14px; margin-bottom: 16px; }
+.reportPlatformBar { width: 6px; height: 24px; flex: none; background: var(--admin-accent-strong); }
+.reportPlatform { display: flex; flex-direction: column; gap: 3px; }
+.reportPlatformName { font-family: var(--dot-font-display); font-size: 20px; font-weight: var(--dot-weight-demi); color: var(--admin-ink); }
+.reportWindow { color: var(--admin-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.reportMetrics { display: grid; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 10px; }
+.reportMetric { min-width: 0; padding: 12px; background: var(--dot-cream); border: 1px solid var(--admin-line); }
+.reportMetricLabel { display: block; color: var(--admin-muted); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px; }
+.reportMetricValue { display: block; color: var(--admin-ink); font-family: var(--dot-font-display); font-size: 24px; font-variant-numeric: tabular-nums; }
+.reportMetricPrev { display: block; color: var(--admin-muted); font-size: 12px; margin-top: 3px; font-variant-numeric: tabular-nums; }
+.reportList { margin-top: 16px; }
+.reportListTitle { color: var(--admin-muted); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px; }
+.reportListRow { display: flex; align-items: baseline; gap: 10px; border-top: 1px solid var(--admin-line); padding: 8px 0; }
+.reportListLabel { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--admin-ink); }
+.reportListLabel a { color: inherit; text-decoration: underline; text-decoration-color: var(--admin-accent-strong); text-underline-offset: 3px; }
+.reportListMetric { color: var(--admin-graphite); font-size: 14px; font-variant-numeric: tabular-nums; }
+.reportSummary { border-top: 1px solid var(--admin-line); margin-top: 16px; padding-top: 14px; color: var(--admin-graphite); font-size: 16px; line-height: 1.55; }
+.reportEmpty { margin: 0; color: var(--admin-muted); font-size: 15px; }
 .reportHistoryHead { border-top: 1px solid var(--admin-line); margin-top: 28px; padding-top: 24px; }
 .reportPeriod { margin-top: 16px; }
 @media (max-width: 760px) { .reportGrid { grid-template-columns: 1fr; } }
