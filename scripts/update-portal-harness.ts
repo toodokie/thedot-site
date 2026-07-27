@@ -1,345 +1,409 @@
-// Disposable integration harness for the update-portal write path.
-//
-// This script is deliberately local-only. It resets the local Supabase database, creates a
-// throwaway canonical Git checkout, drives the real update-portal CLI, and proves the recovery
-// states that unit tests cannot exercise. It never reads PORTAL_CONTENT_DIR and refuses hosted
-// Supabase URLs.
-import { createClient } from '@supabase/supabase-js'
-import { execFileSync, spawn } from 'node:child_process'
+/** Disposable Supabase integration harness for update-portal.
+ *
+ * The harness creates a loopback-only Supabase project, synthetic canonical Git checkout, and
+ * one-shot database failure conditions. It never reads or writes the real portal-content checkout.
+ * Run: npx tsx scripts/update-portal-harness.ts [--keep]
+ */
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { spawn, execFileSync, type ChildProcess } from 'node:child_process'
+import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import { parseContentFile } from '../src/lib/portal/frontmatter'
+import { clientBodyRegion } from '../src/lib/portal/update-portal-core'
 
-type Env = NodeJS.ProcessEnv & {
-  NEXT_PUBLIC_SUPABASE_URL: string
-  SUPABASE_SERVICE_ROLE_KEY: string
-  PORTAL_CONTENT_DIR: string
-  PORTAL_CONTENT_EXPECTED_REMOTE: string
-  PORTAL_LOCK_DIR: string
-  PORTAL_PENDING_DIR: string
+type Db = SupabaseClient<any, any, any, any, any>
+type Env = NodeJS.ProcessEnv
+type PieceState = { id: string; working_version: number; client_visible_version: number | null; revision_in_progress: boolean; status: string }
+type Snapshot = { version: number; client_body: string; content_checksum: string; copy_blocks: unknown }
+type ChildResult = { status: number | null; stdout: string; stderr: string }
+
+const ROOT = resolve(process.cwd())
+const EXPECTED_REMOTE = 'https://github.com/toodokie/kanset-portal-content.git'
+const TSX = join(ROOT, 'node_modules/.bin/tsx')
+const UPDATE_SCRIPT = join(ROOT, 'scripts/update-portal.ts')
+const KEEP = process.argv.includes('--keep')
+
+function assert(condition: unknown, message: string): asserts condition {
+  if (!condition) throw new Error(`ASSERTION FAILED: ${message}`)
 }
-
-type Snapshot = {
-  version: number
-  client_body: string
-  content_checksum: string
+function git(cwd: string, args: string[]): string {
+  return execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
 }
-
-const ROOT = mkdtempSync(join(tmpdir(), 'update-portal-harness-'))
-const CANONICAL = join(ROOT, 'canonical')
-const REMOTE = 'https://github.com/harness/portal-content.git'
-const PACKS = join(ROOT, 'packs')
-const LOCKS = join(ROOT, 'locks')
-const SQL = join(ROOT, 'harness.sql')
-mkdirSync(CANONICAL, { recursive: true })
-mkdirSync(PACKS, { recursive: true })
-
-function command(file: string, args: string[], env?: NodeJS.ProcessEnv, cwd = process.cwd()): string {
-  return execFileSync(file, args, { cwd, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+function sqlQuote(value: string): string { return `'${value.replaceAll("'", "''")}'` }
+function sleep(ms: number): Promise<void> { return new Promise((r) => setTimeout(r, ms)) }
+function writeExecutable(path: string, body: string): void { writeFileSync(path, body); chmodSync(path, 0o755) }
+function run(command: string, args: string[], cwd = ROOT): string {
+  return execFileSync(command, args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 50 * 1024 * 1024 }).trim()
 }
-
-function parseStatusEnv(): Record<string, string> {
-  const raw = command('supabase', ['status', '-o', 'env'])
-  const values: Record<string, string> = {}
-  for (const line of raw.split('\n')) {
-    const match = /^([A-Z_]+)=(.*)$/.exec(line.trim())
-    if (match) values[match[1]] = match[2].startsWith('"') ? JSON.parse(match[2]) as string : match[2]
+function jsonFromCli(output: string): any {
+  const start = output.indexOf('{')
+  if (start < 0) throw new Error(`SQL query returned no JSON: ${output}`)
+  return JSON.parse(output.slice(start))
+}
+function spawnUpdate(pack: string, env: Env, args: string[] = [], script = UPDATE_SCRIPT): Promise<ChildResult> {
+  return new Promise((resolveResult) => {
+    const child: ChildProcess = spawn(TSX, [script, pack, ...args], { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] })
+    let stdout = ''; let stderr = ''
+    child.stdout?.on('data', (x) => { stdout += String(x) })
+    child.stderr?.on('data', (x) => { stderr += String(x) })
+    child.on('close', (status) => resolveResult({ status, stdout, stderr }))
+    child.on('error', (error) => resolveResult({ status: 1, stdout, stderr: `${stderr}${error.message}` }))
+  })
+}
+async function waitFor(path: string, timeoutMs = 5000): Promise<void> {
+  const started = Date.now()
+  while (!existsSync(path)) {
+    if (Date.now() - started > timeoutMs) throw new Error(`Timed out waiting for ${path}`)
+    await sleep(10)
   }
-  if (!values.API_URL || !values.SERVICE_ROLE_KEY) throw new Error('local Supabase status did not return API_URL/SERVICE_ROLE_KEY')
-  const host = new URL(values.API_URL).hostname
-  if (!['127.0.0.1', 'localhost', '::1'].includes(host)) throw new Error(`refusing non-loopback Supabase host ${host}`)
-  return values
 }
 
-function git(args: string[]): string {
-  return command('git', ['-C', CANONICAL, ...args])
-}
-
-function commitCanonical(): string {
-  git(['add', '--', '.'])
-  git(['commit', '-m', `harness ${randomUUID()}`])
-  return git(['rev-parse', 'HEAD'])
-}
-
-function canonical(version: number, body: string, factCheck: 'confirmed' | 'needs-confirm' = 'confirmed'): string {
+function canonicalText(id: string, body: string, version: number, factCheck = 'confirmed'): string {
   return `---
 portal_kind: content
-content_id: ${currentId}
+content_id: ${id}
 client: kanset
-title: "Harness ${currentId}"
-format: carousel
-platforms: [instagram]
-scheduled_date: null
-status: draft
+title: Synthetic harness ${id}
+producer: the_dot
 version: ${version}
+status: draft
+format: social
+pillar: test
+platforms: [instagram]
 fact_check: ${factCheck}
 fact_check_scope: not_applicable
-fact_check_exemption: "Synthetic harness copy with no factual or regulatory claim."
+fact_check_exemption: Synthetic disposable integration fixture only.
 fact_check_ledger: []
 ---
 <!-- portal-block:caption -->
 ## Caption
 ${body}
-
 <!-- internal -->
-Harness-only internal note.
+Synthetic harness internal note.
 `
 }
-
-function pack(id: string, body: string): string {
-  return `<!-- gates: id=${id} content_id=${id} date=2026-07-27 -->
+function packText(packId: string, contentId: string, body: string): string {
+  return `<!-- gates: id=${packId} content_id=${contentId} date=2026-07-25 -->
 ## STATUS GATES
-- [x] fact-check @anastasia [2026-07-27] | synthetic harness
-- [x] copy-approved @maria [2026-07-27] | synthetic harness
+- [x] fact-check | owner=Harness | date=2026-07-25
+- [x] copy-approved | owner=Harness | date=2026-07-25
 
 <!-- portal-block:caption -->
 ## Caption
 ${body}
-
 <!-- internal -->
-Harness-only pack note.
+Synthetic harness internal note.
 `
 }
-
-let currentId = ''
-
-function writeCanonical(id: string, version: number, body: string, factCheck: 'confirmed' | 'needs-confirm' = 'confirmed') {
-  currentId = id
-  writeFileSync(join(CANONICAL, `${id}.md`), canonical(version, body, factCheck))
+function createRepo(root: string, id: string, body: string): void {
+  mkdirSync(root, { recursive: true })
+  if (!existsSync(join(root, '.git'))) {
+    run('git', ['init', '-q', '-b', 'main'], root)
+    run('git', ['config', 'user.email', 'harness@example.invalid'], root)
+    run('git', ['config', 'user.name', 'Update Portal Harness'], root)
+    run('git', ['remote', 'add', 'origin', EXPECTED_REMOTE], root)
+  }
+  writeFileSync(join(root, `${id}.md`), canonicalText(id, body, 1))
+  run('git', ['add', '--', `${id}.md`], root)
+  run('git', ['commit', '-q', '-m', `seed ${id}`], root)
 }
-
-function writePack(id: string, body: string, name = 'pack') {
-  const dir = join(PACKS, name)
-  mkdirSync(dir, { recursive: true })
-  const path = join(dir, `${id}.md`)
-  writeFileSync(path, pack(id, body))
+function commitCanonical(root: string, id: string, raw: string, message: string): void {
+  writeFileSync(join(root, `${id}.md`), raw)
+  run('git', ['add', '--', `${id}.md`], root)
+  run('git', ['commit', '-q', '-m', message], root)
+}
+function makePack(root: string, packId: string, contentId: string, body: string): string {
+  const path = join(root, `${packId}.md`)
+  writeFileSync(path, packText(packId, contentId, body))
   return path
 }
-
-function envFor(local: Record<string, string>): Env {
+function rowFromParsed(parsed: ReturnType<typeof parseContentFile>, clientId: string, sourceCommitSha: string | null) {
   return {
-    ...process.env,
-    NEXT_PUBLIC_SUPABASE_URL: local.API_URL,
-    SUPABASE_SERVICE_ROLE_KEY: local.SERVICE_ROLE_KEY,
-    PORTAL_CONTENT_DIR: CANONICAL,
-    PORTAL_CONTENT_EXPECTED_REMOTE: REMOTE,
-    PORTAL_LOCK_DIR: LOCKS,
-    PORTAL_PENDING_DIR: join(ROOT, 'pending'),
-  } as Env
-}
-
-function runUpdate(env: Env, path: string, flags: string[] = []): Promise<{ code: number; output: string }> {
-  return new Promise((resolve) => {
-    const child = spawn('npx', ['tsx', 'scripts/update-portal.ts', path, ...flags], {
-      cwd: process.cwd(), env, stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    let output = ''
-    child.stdout.on('data', (chunk) => { output += chunk.toString() })
-    child.stderr.on('data', (chunk) => { output += chunk.toString() })
-    child.on('close', (code) => resolve({ code: code ?? 1, output }))
-  })
-}
-
-function adminFor(local: Record<string, string>) {
-  return createClient(local.API_URL, local.SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
-}
-
-async function clientId(admin: ReturnType<typeof adminFor>): Promise<string> {
-  const { data, error } = await admin.from('clients').select('id').eq('slug', 'kanset').single()
-  if (error || !data) throw new Error(`Kanset client lookup failed: ${error?.message ?? 'missing'}`)
-  return data.id
-}
-
-async function syncInitial(admin: ReturnType<typeof adminFor>, id: string, release: boolean): Promise<void> {
-  currentId = id
-  const raw = readFileSync(join(CANONICAL, `${id}.md`), 'utf8')
-  const parsed = parseContentFile(raw, `${id}.md`)
-  const cid = await clientId(admin)
-  const { data, error } = await admin.rpc('sync_content_item_versions', {
-    p_items: [{
-      client_id: cid, content_id: parsed.content_id, title: parsed.title, format: parsed.format,
-      pillar: parsed.pillar, platforms: parsed.platforms, planned_date: parsed.scheduled_date,
-      canva_url: parsed.canva_url, drive_url: parsed.drive_url, version: parsed.version,
-      fact_check: parsed.fact_check, fact_check_scope: parsed.fact_check_scope,
-      fact_check_exemption: parsed.fact_check_exemption, fact_check_ledger: parsed.fact_check_ledger,
-      client_body: parsed.client_body, copy_blocks: parsed.copy_blocks, source_path: `${id}.md`,
-    }],
-  })
-  if (error || !data) throw new Error(`initial sync failed: ${error?.message ?? 'missing result'}`)
-  if (release) {
-    const item = await admin.from('content_items').select('id').eq('client_id', cid).eq('content_id', id).single()
-    if (item.error || !item.data) throw new Error(`initial item lookup failed: ${item.error?.message ?? 'missing'}`)
-    const ready = await admin.rpc('mark_content_ready', { p_content_id: item.data.id, p_content_version: 1 })
-    if (ready.error) throw new Error(`initial release failed: ${ready.error.message}`)
+    content_id: parsed.content_id, client_id: clientId, title: parsed.title, producer: parsed.producer,
+    calendar_note: parsed.calendar_note, format: parsed.format, pillar: parsed.pillar, platforms: parsed.platforms,
+    planned_date: parsed.scheduled_date, canva_url: parsed.canva_url, drive_url: parsed.drive_url, version: parsed.version,
+    fact_check: parsed.fact_check, fact_check_scope: parsed.fact_check_scope, fact_check_exemption: parsed.fact_check_exemption,
+    fact_check_ledger: parsed.fact_check_ledger, client_body: parsed.client_body, copy_blocks: parsed.copy_blocks,
+    source_path: parsed.source_path, source_commit_sha: sourceCommitSha,
   }
 }
-
-async function state(admin: ReturnType<typeof adminFor>, id: string): Promise<{ working_version: number; client_visible_version: number | null; revision_in_progress: boolean }> {
-  const cid = await clientId(admin)
-  const { data, error } = await admin.from('content_items').select('working_version,client_visible_version,revision_in_progress').eq('client_id', cid).eq('content_id', id).single()
-  if (error || !data) throw new Error(`state lookup failed: ${error?.message ?? 'missing'}`)
-  return data
+function createStackConfig(stackRoot: string): void {
+  const supabaseRoot = join(stackRoot, 'supabase')
+  mkdirSync(supabaseRoot, { recursive: true })
+  cpSync(join(ROOT, 'supabase/config.toml'), join(supabaseRoot, 'config.toml'))
+  cpSync(join(ROOT, 'supabase/migrations'), join(supabaseRoot, 'migrations'), { recursive: true })
+  writeFileSync(join(supabaseRoot, 'seed.sql'), '')
+  const base = 55000 + Math.floor(Math.random() * 700)
+  let config = readFileSync(join(supabaseRoot, 'config.toml'), 'utf8')
+  config = config.replace('project_id = "thedot-site"', `project_id = "update-portal-harness-${process.pid}"`)
+  for (const [from, to] of [['54321', `${base + 1}`], ['54322', `${base + 2}`], ['54320', `${base}`], ['54329', `${base + 9}`], ['54323', `${base + 3}`], ['54324', `${base + 4}`], ['54325', `${base + 5}`], ['54326', `${base + 6}`], ['54327', `${base + 7}`]]) config = config.replace(`port = ${from}`, `port = ${to}`)
+  writeFileSync(join(supabaseRoot, 'config.toml'), config)
 }
 
-async function snapshot(admin: ReturnType<typeof adminFor>, id: string, version: number): Promise<Snapshot> {
-  const cid = await clientId(admin)
-  const { data, error } = await admin.from('content_item_versions').select('version,client_body,content_checksum').eq('client_id', cid).eq('version', version)
-    .eq('source_path', `${id}.md`).single()
-  if (error || !data) throw new Error(`snapshot lookup failed: ${error?.message ?? 'missing'}`)
-  return data
-}
+class Harness {
+  readonly stackRoot = mkdtempSync(join(tmpdir(), 'update-portal-stack-'))
+  readonly canonicalRoot = mkdtempSync(join(tmpdir(), 'update-portal-canonical-'))
+  readonly packRoot = mkdtempSync(join(tmpdir(), 'update-portal-packs-'))
+  readonly lockRoot = mkdtempSync(join(tmpdir(), 'update-portal-locks-'))
+  readonly pendingRoot = mkdtempSync(join(tmpdir(), 'update-portal-pending-'))
+  readonly keep: boolean
+  readonly results: Record<string, unknown>[] = []
+  env!: Env; db!: Db; clientId!: string; stackStarted = false
+  constructor(keep: boolean) { this.keep = keep }
 
-function assert(condition: unknown, message: string): asserts condition {
-  if (!condition) throw new Error(`ASSERTION FAILED: ${message}`)
-}
-
-function waitFor(path: string, timeoutMs = 3000): Promise<void> {
-  const started = Date.now()
-  return new Promise((resolve, reject) => {
-    const tick = () => {
-      if (existsSync(path)) return resolve()
-      if (Date.now() - started > timeoutMs) return reject(new Error(`timed out waiting for ${path}`))
-      setTimeout(tick, 20)
+  async start(): Promise<void> {
+    createStackConfig(this.stackRoot)
+    run('supabase', ['start', '--workdir', this.stackRoot, '--output', 'json', '--exclude', 'analytics,vector,imgproxy,studio,storage,edge-runtime'])
+    this.stackStarted = true
+    await sleep(3000)
+    try {
+      run('supabase', ['db', 'reset', '--workdir', this.stackRoot, '--local', '--no-seed', '--yes'])
+    } catch (firstError) {
+      // Docker can report the freshly recreated database container before its health check has
+      // settled. Retry once after a bounded wait, still on this disposable project only.
+      await sleep(5000)
+      try { run('supabase', ['db', 'reset', '--workdir', this.stackRoot, '--local', '--no-seed', '--yes']) }
+      catch { throw firstError }
     }
-    tick()
-  })
-}
-
-function sql(text: string): void {
-  writeFileSync(SQL, text)
-  command('supabase', ['db', 'query', '--local', '--file', SQL])
-}
-
-function checksumFromDatabase(id: string, version: number): string {
-  const escaped = id.replaceAll("'", "''")
-  const output = command('supabase', ['db', 'query', '--local', '-o', 'json',
-    `select public.portal_content_checksum(title, format, pillar, platforms, canva_url, drive_url, fact_check, fact_check_scope, fact_check_exemption, fact_check_ledger, client_body, copy_blocks, producer, calendar_note) as checksum from public.content_item_versions where source_path = '${escaped}.md' and version = ${version}`,
-  ])
-  const parsed = JSON.parse(output) as { rows?: Array<{ checksum?: string }> }
-  const checksum = parsed.rows?.[0]?.checksum
-  if (!checksum) throw new Error(`database checksum unavailable for ${id} v${version}`)
-  return checksum
-}
-
-async function main() {
-  const local = parseStatusEnv()
-  command('supabase', ['db', 'reset', '--local', '--no-seed', '--yes'])
-  command('npx', ['tsx', 'scripts/seed-rls-local.ts'], envFor(local))
-  git(['init', '-b', 'main'])
-  git(['config', 'user.email', 'harness@example.invalid'])
-  git(['config', 'user.name', 'Portal harness'])
-  git(['remote', 'add', 'origin', REMOTE])
-  const admin = adminFor(local)
-  const env = envFor(local)
-
-  // Scenario 1: the root/piece lock rejects the second live writer, and the winner's canonical
-  // body is exactly the DB working snapshot.
-  currentId = 'harness-race'
-  writeCanonical(currentId, 1, 'Initial race body.')
-  commitCanonical()
-  await syncInitial(admin, currentId, false)
-  sql(`create or replace function public.harness_slow_sync() returns trigger language plpgsql as $$ begin if new.source_path = 'harness-race.md' then perform pg_catalog.pg_sleep(2); end if; return new; end; $$`)
-  sql('create trigger harness_slow_sync before insert on public.content_item_versions for each row execute function public.harness_slow_sync()')
-  const raceA = writePack(currentId, 'Race body A.', 'race-a')
-  const raceB = writePack(currentId, 'Race body B.', 'race-b')
-  const first = runUpdate(env, raceA, ['--apply'])
-  await waitFor(join(LOCKS, '__canonical-root__.lock'))
-  const second = runUpdate(env, raceB, ['--apply'])
-  const [raceOne, raceTwo] = await Promise.all([first, second])
-  sql('drop trigger if exists harness_slow_sync on public.content_item_versions')
-  sql('drop function if exists public.harness_slow_sync()')
-  assert([raceOne.code, raceTwo.code].includes(0), 'race has no winning writer')
-  assert([raceOne.code, raceTwo.code].some((code) => code !== 0), 'race did not reject the contending writer')
-  const raceState = await state(admin, currentId)
-  const raceSnapshot = await snapshot(admin, currentId, raceState.working_version)
-  const raceCanonical = parseContentFile(readFileSync(join(CANONICAL, `${currentId}.md`), 'utf8'), `${currentId}.md`)
-  assert(raceCanonical.client_body === raceSnapshot.client_body, 'race canonical and DB bodies diverged')
-  console.log('PASS 1: differing-body race serialized and converged')
-
-  // Scenario 2: commit succeeds but sync fails, then the exact same apply retries the pending
-  // canonical version instead of reporting a false no-op.
-  currentId = 'harness-sync-fail'
-  writeCanonical(currentId, 1, 'Initial sync-failure body.')
-  commitCanonical()
-  await syncInitial(admin, currentId, false)
-  const syncPack = writePack(currentId, 'Committed before sync failure.')
-  sql(`create or replace function public.harness_fail_sync() returns trigger language plpgsql as $$ begin if new.source_path = 'harness-sync-fail.md' then raise exception 'harness harnessed sync failure'; end if; return new; end; $$`)
-  sql('create trigger harness_fail_sync before insert on public.content_item_versions for each row execute function public.harness_fail_sync()')
-  const failedSync = await runUpdate(env, syncPack, ['--apply'])
-  assert(failedSync.code !== 0 && failedSync.output.includes('sync failed'), 'sync-failure scenario did not fail at sync')
-  const stranded = await state(admin, currentId)
-  assert(stranded.working_version === 1, 'sync failure advanced the DB unexpectedly')
-  assert(parseContentFile(readFileSync(join(CANONICAL, `${currentId}.md`), 'utf8'), `${currentId}.md`).version === 2, 'commit was not retained after sync failure')
-  sql('drop trigger if exists harness_fail_sync on public.content_item_versions')
-  sql('drop function if exists public.harness_fail_sync()')
-  const retriedSync = await runUpdate(env, syncPack, ['--apply'])
-  assert(retriedSync.code === 0, `sync retry failed: ${retriedSync.output}`)
-  assert((await state(admin, currentId)).working_version === 2, 'sync retry did not land v2')
-  console.log('PASS 2: commit-then-sync-fail recovered without a false no-op')
-
-  // Scenario 3: sync advances the working version but release fails, then the unchanged retry
-  // releases that exact working version without creating v3.
-  currentId = 'harness-release-fail'
-  writeCanonical(currentId, 1, 'Initial release-failure body.')
-  commitCanonical()
-  await syncInitial(admin, currentId, true)
-  const releasePack = writePack(currentId, 'Release failure body.')
-  sql(`create or replace function public.harness_fail_release() returns trigger language plpgsql as $$ begin if new.content_id = 'harness-release-fail' and new.client_visible_version = 2 and old.client_visible_version = 1 then raise exception 'harness transient release failure'; end if; return new; end; $$`)
-  sql('create trigger harness_fail_release before update on public.content_items for each row execute function public.harness_fail_release()')
-  const failedRelease = await runUpdate(env, releasePack, ['--re-share', '--change-note', 'Harness release retry', '--apply', '--confirm'])
-  assert(failedRelease.code !== 0 && failedRelease.output.includes('mark_content_ready'), 'release-failure scenario did not fail at release')
-  const pending = await state(admin, currentId)
-  assert(pending.working_version === 2 && pending.client_visible_version === 1, 'release failure did not preserve old visible version')
-  sql('drop trigger if exists harness_fail_release on public.content_items')
-  sql('drop function if exists public.harness_fail_release()')
-  const retriedRelease = await runUpdate(env, releasePack, ['--re-share', '--change-note', 'Harness release retry', '--apply', '--confirm'])
-  assert(retriedRelease.code === 0, `release retry failed: ${retriedRelease.output}`)
-  const recovered = await state(admin, currentId)
-  assert(recovered.working_version === 2 && recovered.client_visible_version === 2, 'release retry did not release v2')
-  console.log('PASS 3: sync-then-release-fail recovered by releasing the existing working version')
-
-  // Scenario 4: a changed pack during a stranded release must create and release a new version,
-  // never publish the stale stranded body.
-  currentId = 'harness-stale-release'
-  writeCanonical(currentId, 1, 'Initial stale-release body.')
-  commitCanonical()
-  await syncInitial(admin, currentId, true)
-  const stalePack = writePack(currentId, 'Stale stranded body.')
-  sql(`create or replace function public.harness_fail_stale_release() returns trigger language plpgsql as $$ begin if new.content_id = 'harness-stale-release' and new.client_visible_version = 2 and old.client_visible_version = 1 then raise exception 'harness transient release failure'; end if; return new; end; $$`)
-  sql('create trigger harness_fail_stale_release before update on public.content_items for each row execute function public.harness_fail_stale_release()')
-  const staleFailure = await runUpdate(env, stalePack, ['--re-share', '--change-note', 'Harness changed pack', '--apply', '--confirm'])
-  assert(staleFailure.code !== 0, 'stale-release setup did not strand a release')
-  sql('drop trigger if exists harness_fail_stale_release on public.content_items')
-  sql('drop function if exists public.harness_fail_stale_release()')
-  const changedPack = writePack(currentId, 'New body after the stranded release.', 'stale-changed')
-  const changed = await runUpdate(env, changedPack, ['--re-share', '--change-note', 'Harness changed pack', '--apply', '--confirm'])
-  assert(changed.code === 0, `changed stranded release failed: ${changed.output}`)
-  const changedState = await state(admin, currentId)
-  assert(changedState.working_version === 3 && changedState.client_visible_version === 3, 'changed stranded release did not produce v3')
-  const changedSnapshot = await snapshot(admin, currentId, 3)
-  assert(changedSnapshot.client_body.includes('New body after the stranded release.'), 'stale v2 body was released')
-  console.log('PASS 4: changed pending release never published stale content')
-
-  // Scenario 5: every final canonical file converges to its DB version and checksum. The checksum
-  // is read from the database-generated snapshot, while body/version equality proves the file that
-  // produced it is the one now represented by the working/released record.
-  for (const id of ['harness-race', 'harness-sync-fail', 'harness-release-fail', 'harness-stale-release']) {
-    const current = await state(admin, id)
-    const snap = await snapshot(admin, id, current.working_version)
-    const parsed = parseContentFile(readFileSync(join(CANONICAL, `${id}.md`), 'utf8'), `${id}.md`)
-    assert(parsed.version === snap.version, `${id}: file version ${parsed.version} != DB ${snap.version}`)
-    assert(parsed.client_body === snap.client_body, `${id}: file body != DB snapshot body`)
-    assert(/^[0-9a-f]{64}$/.test(snap.content_checksum), `${id}: invalid DB checksum`)
-    assert(checksumFromDatabase(id, current.working_version) === snap.content_checksum, `${id}: checksum function does not reproduce snapshot checksum`)
+    const output = run('supabase', ['status', '--workdir', this.stackRoot, '--output', 'env'])
+    const status: Record<string, string> = {}
+    for (const line of output.split('\n')) { const m = /^([A-Z0-9_]+)="(.*)"$/.exec(line.trim()); if (m) status[m[1]] = m[2] }
+    assert(status.API_URL && status.SERVICE_ROLE_KEY, 'disposable Supabase credentials missing')
+    assert(['127.0.0.1', 'localhost', '::1'].includes(new URL(status.API_URL).hostname), 'Supabase URL is not loopback')
+    this.env = { ...process.env, NEXT_PUBLIC_SUPABASE_URL: status.API_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY: status.ANON_KEY, SUPABASE_SERVICE_ROLE_KEY: status.SERVICE_ROLE_KEY, PORTAL_CONTENT_DIR: this.canonicalRoot, PORTAL_CONTENT_EXPECTED_REMOTE: EXPECTED_REMOTE, PORTAL_LOCK_DIR: this.lockRoot, PORTAL_PENDING_DIR: this.pendingRoot }
+    this.db = createClient(status.API_URL, status.SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
+    const { data, error } = await this.db.from('clients').select('id').eq('slug', 'kanset').single()
+    if (error || !data) throw new Error(`Kanset seed missing: ${error?.message ?? 'no client'}`)
+    this.clientId = data.id
+    await this.setSwitches(true)
   }
-  console.log('PASS 5: canonical version/body/checksum records converge')
-  console.log(`UPDATE_PORTAL_HARNESS_GREEN ${ROOT}`)
+
+  sql(query: string): any {
+    const output = run('supabase', ['db', 'query', '--workdir', this.stackRoot, '--local', query, '--output', 'json'])
+    try { return jsonFromCli(output) } catch { return null }
+  }
+  async setSwitches(enabled: boolean): Promise<void> {
+    for (const scope of [null, this.clientId]) {
+      const { error } = await this.db.rpc('set_portal_feature_switch', {
+        p_client_id: scope, p_feature: 'agency_mutations', p_enabled: enabled,
+        p_reason: `Disposable update-portal harness ${enabled ? 'enabled' : 'disabled'}`,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `harness-switch-${randomUUID()}`,
+      })
+      if (error) throw new Error(`set agency_mutations=${enabled}: ${error.message}`)
+    }
+    for (const feature of ['client_portal_launch', 'client_mutations', 'repository_worker']) {
+      for (const scope of [null, this.clientId]) {
+        const { error } = await this.db.rpc('set_portal_feature_switch', {
+          p_client_id: scope, p_feature: feature, p_enabled: true,
+          p_reason: 'Disposable update-portal harness', p_actor_key: 'thedot-admin',
+          p_idempotency_key: `harness-${feature}-${randomUUID()}`,
+        })
+        if (error) throw new Error(`set ${feature}: ${error.message}`)
+      }
+    }
+  }
+  async seed(id: string, body: string, released: boolean): Promise<void> {
+    createRepo(this.canonicalRoot, id, body)
+    const parsed = parseContentFile(readFileSync(join(this.canonicalRoot, `${id}.md`), 'utf8'), `${id}.md`)
+    const { data, error } = await this.db.rpc('sync_content_item_versions', { p_items: [rowFromParsed(parsed, this.clientId, git(this.canonicalRoot, ['rev-parse', 'HEAD']))] })
+    if (error || !data) throw new Error(`seed sync ${id}: ${error?.message ?? 'no result'}`)
+    if (released) {
+      const item = await this.item(id)
+      const ready = await this.db.rpc('mark_content_ready', { p_content_id: item.id, p_content_version: 1 })
+      if (ready.error) throw new Error(`seed release ${id}: ${ready.error.message}`)
+    }
+  }
+  async item(id: string): Promise<PieceState & { id: string }> {
+    const { data, error } = await this.db.from('content_items').select('id, working_version, client_visible_version, revision_in_progress, status').eq('client_id', this.clientId).eq('content_id', id).single()
+    if (error || !data) throw new Error(`read item ${id}: ${error?.message ?? 'missing'}`)
+    return data
+  }
+  async snapshots(id: string): Promise<Snapshot[]> {
+    const item = await this.item(id)
+    const { data, error } = await this.db.from('content_item_versions').select('version, client_body, content_checksum, copy_blocks').eq('content_item_id', item.id).eq('client_id', this.clientId).order('version')
+    if (error || !data) throw new Error(`read snapshots ${id}: ${error?.message ?? 'missing'}`)
+    return data
+  }
+  baseEnv(): Env { return { ...this.env, PORTAL_CONTENT_DIR: this.canonicalRoot } }
+  update(pack: string, args: string[] = [], script = UPDATE_SCRIPT): Promise<ChildResult> { return spawnUpdate(pack, this.baseEnv(), args, script) }
+  mark(id: string): string { const path = join(this.pendingRoot, id); writeFileSync(path, 'pending'); return path }
+  async installSyncFailure(id: string): Promise<void> {
+    this.sql(`create or replace function public.harness_fail_sync_once() returns trigger language plpgsql as $$ begin if new.source_path = ${sqlQuote(`${id}.md`)} and new.version = 2 then raise exception 'harness sync failure for ${id}'; end if; return new; end $$;`)
+    this.sql('drop trigger if exists harness_fail_sync_once on public.content_item_versions')
+    this.sql('create trigger harness_fail_sync_once before insert on public.content_item_versions for each row execute function public.harness_fail_sync_once()')
+  }
+  async removeSyncFailure(): Promise<void> { this.sql('drop trigger if exists harness_fail_sync_once on public.content_item_versions'); this.sql('drop function if exists public.harness_fail_sync_once()') }
+  async installReleaseFailure(id: string): Promise<void> {
+    const item = await this.item(id)
+    this.sql(`create or replace function public.harness_disable_release_after_sync() returns trigger language plpgsql security definer set search_path = public as $$ begin if new.id = ${sqlQuote(item.id)}::uuid and new.working_version > old.working_version then update public.portal_feature_switches set enabled = false, reason = 'Harness forced release failure' where feature = 'agency_mutations'; end if; return new; end $$;`)
+    this.sql('drop trigger if exists harness_disable_release_after_sync on public.content_items')
+    this.sql('create trigger harness_disable_release_after_sync after update of working_version on public.content_items for each row execute function public.harness_disable_release_after_sync()')
+  }
+  async removeReleaseFailure(): Promise<void> { this.sql('drop trigger if exists harness_disable_release_after_sync on public.content_items'); this.sql('drop function if exists public.harness_disable_release_after_sync()') }
+  async beginAndSyncV2(id: string, body: string): Promise<void> {
+    const item = await this.item(id)
+    const begin = await this.db.rpc('begin_content_revision', { p_content_id: item.id, p_content_version: 1 })
+    if (begin.error) throw new Error(`begin revision ${id}: ${begin.error.message}`)
+    const raw = readFileSync(join(this.canonicalRoot, `${id}.md`), 'utf8')
+    const revised = raw.replace('version: 1', 'version: 2').replace(/## Caption\n[\s\S]*?\n<!-- internal -->/, `## Caption\n${body}\n<!-- internal -->`)
+    commitCanonical(this.canonicalRoot, id, revised, `seed stranded ${id} v2`)
+    const parsed = parseContentFile(revised, `${id}.md`)
+    const synced = await this.db.rpc('sync_content_item_versions', { p_items: [rowFromParsed(parsed, this.clientId, git(this.canonicalRoot, ['rev-parse', 'HEAD']))] })
+    if (synced.error) throw new Error(`seed stranded sync ${id}: ${synced.error.message}`)
+  }
+  async assertConverged(id: string, expectedBody?: string): Promise<void> {
+    const item = await this.item(id); const snapshots = await this.snapshots(id); const latest = snapshots.at(-1)
+    assert(latest, `${id} has no snapshot`)
+    const raw = readFileSync(join(this.canonicalRoot, `${id}.md`), 'utf8'); const parsed = parseContentFile(raw, `${id}.md`)
+    assert(parsed.version === item.working_version, `${id}: canonical v${parsed.version} != working v${item.working_version}`)
+    assert(latest.version === parsed.version, `${id}: latest snapshot v${latest.version} != canonical v${parsed.version}`)
+    assert(latest.client_body === parsed.client_body, `${id}: DB body != canonical parsed body`)
+    if (expectedBody) assert(clientBodyRegion(raw, `${id}.md`).clientBody.includes(expectedBody), `${id}: canonical body missing expected text`)
+    const check = this.sql(`select version, content_checksum, public.portal_content_checksum(title,format,pillar,platforms,canva_url,drive_url,fact_check,fact_check_scope,fact_check_exemption,fact_check_ledger,client_body,copy_blocks,producer,calendar_note) as recomputed, content_checksum = public.portal_content_checksum(title,format,pillar,platforms,canva_url,drive_url,fact_check,fact_check_scope,fact_check_exemption,fact_check_ledger,client_body,copy_blocks,producer,calendar_note) as checksum_ok from public.content_item_versions where content_item_id = ${sqlQuote(item.id)}::uuid and version = ${item.working_version}`)
+    assert(check.rows?.[0]?.checksum_ok === true || check.rows?.[0]?.checksum_ok === 't' || check.rows?.[0]?.checksum_ok === 'true', `${id}: DB checksum does not recompute (${JSON.stringify(check.rows?.[0])})`)
+  }
+
+  async scenarioRace(): Promise<void> {
+    const id = 'harness-race'; await this.seed(id, 'seed race body', false)
+    const a = makePack(this.packRoot, 'harness-race-a', id, 'RACE BODY A'); const b = makePack(this.packRoot, 'harness-race-b', id, 'RACE BODY B')
+    const hook = join(this.canonicalRoot, '.git/hooks/pre-commit'); writeExecutable(hook, '#!/bin/sh\nsleep 1\n')
+    const firstPromise = this.update(a, ['--apply']); await waitFor(join(this.lockRoot, `${id}.lock`)); const secondPromise = this.update(b, ['--apply'])
+    const [first, second] = await Promise.all([firstPromise, secondPromise]); rmSync(hook, { force: true })
+    assert(first.status === 0, `race winner failed: ${first.stderr}`); assert(second.status !== 0 && /holds the lock/.test(second.stderr), 'race loser did not fail on the piece lock')
+    assert((await this.item(id)).working_version === 2, 'race produced more than one version'); await this.assertConverged(id, 'RACE BODY A')
+    this.results.push({ scenario: 1, name: 'two-process differing-body race', winner: 'A', loser: 'lock-refused' })
+  }
+  async scenarioSyncRetry(): Promise<void> {
+    const id = 'harness-sync-retry'; await this.seed(id, 'seed sync body', false); const pack = makePack(this.packRoot, 'harness-sync-retry-pack', id, 'SYNC RETRY BODY'); const marker = this.mark(id)
+    await this.installSyncFailure(id); const failed = await this.update(pack, ['--apply'])
+    assert(failed.status !== 0 && /sync failed/.test(failed.stderr), 'sync failure trigger did not fire')
+    assert((await this.item(id)).working_version === 1, 'failed sync changed DB'); assert(parseContentFile(readFileSync(join(this.canonicalRoot, `${id}.md`), 'utf8'), `${id}.md`).version === 2, 'failed sync did not leave canonical v2'); assert(existsSync(marker), 'failed sync cleared pending marker')
+    await this.removeSyncFailure(); const retried = await this.update(pack, ['--apply']); assert(retried.status === 0, `sync retry failed: ${retried.stderr}`)
+    assert((await this.item(id)).working_version === 2, 'sync retry did not advance working version'); assert(!existsSync(marker), 'successful retry retained pending marker'); await this.assertConverged(id, 'SYNC RETRY BODY')
+    this.results.push({ scenario: 2, name: 'commit-ok / sync-fail / rerun', first_failure: true, retry: true })
+  }
+  async scenarioReleaseRetry(): Promise<void> {
+    const id = 'harness-release-retry'; await this.seed(id, 'seed release body', true); const pack = makePack(this.packRoot, 'harness-release-retry-pack', id, 'RELEASE RETRY BODY'); const marker = this.mark(id)
+    await this.installReleaseFailure(id); const failed = await this.update(pack, ['--re-share', '--change-note', 'Synthetic retry', '--apply', '--confirm'])
+    assert(failed.status !== 0 && /ready|agency_mutations|release/i.test(failed.stderr), 'release failure trigger did not fire')
+    const stranded = await this.item(id); assert(stranded.working_version === 2 && stranded.client_visible_version === 1 && stranded.revision_in_progress, 'release failure did not leave safe stranded draft'); assert((await this.snapshots(id)).length === 2, 'release failure changed snapshot count unexpectedly'); assert(existsSync(marker), 'release failure cleared pending marker')
+    await this.removeReleaseFailure(); await this.setSwitches(true); const retried = await this.update(pack, ['--re-share', '--change-note', 'Synthetic retry', '--apply', '--confirm']); assert(retried.status === 0, `release retry failed: ${retried.stderr}`)
+    const released = await this.item(id); assert(released.working_version === 2 && released.client_visible_version === 2 && !released.revision_in_progress, 'release retry did not release existing working version'); assert((await this.snapshots(id)).length === 2, 'release retry synced a third version'); assert(!existsSync(marker), 'successful release retry retained pending marker'); await this.assertConverged(id, 'RELEASE RETRY BODY')
+    this.results.push({ scenario: 3, name: 'sync-ok / release-fail / rerun', first_failure: true, release_retry_without_resync: true })
+  }
+  async scenarioChangedPendingRelease(): Promise<void> {
+    const id = 'harness-changed-pending'; await this.seed(id, 'seed pending body', true); await this.beginAndSyncV2(id, 'STRANDED OLD BODY')
+    const pack = makePack(this.packRoot, 'harness-changed-pending-pack', id, 'NEW BODY AFTER STRANDED RELEASE'); const result = await this.update(pack, ['--re-share', '--change-note', 'New body', '--apply', '--confirm'])
+    assert(result.status === 0, `changed pending-release apply failed: ${result.stderr}`); const item = await this.item(id); assert(item.working_version === 3 && item.client_visible_version === 3, 'changed pending release did not sync/release new version')
+    const snapshots = await this.snapshots(id); assert(snapshots.length === 3, 'changed pending release did not create v3'); assert(snapshots[1].client_body.includes('STRANDED OLD BODY'), 'v2 stale body was not preserved'); assert(snapshots[2].client_body.includes('NEW BODY AFTER STRANDED RELEASE'), 'v3 new body was not persisted'); await this.assertConverged(id, 'NEW BODY AFTER STRANDED RELEASE')
+    this.results.push({ scenario: 4, name: 'changed pack during pending-release recovery', old_visible: 2, new_visible: 3, regression_guard: 'passed' })
+  }
+
+  async scenarioVersionChecksumConvergence(): Promise<void> {
+    const id = 'harness-version-checksum'
+    await this.seed(id, 'seed convergence body', false)
+    const pack = makePack(this.packRoot, 'harness-version-checksum-pack', id, 'VERSION CHECKSUM CONVERGENCE')
+    const applied = await this.update(pack, ['--apply'])
+    assert(applied.status === 0, `version/checksum convergence apply failed: ${applied.stderr}`)
+    const item = await this.item(id)
+    const snapshots = await this.snapshots(id)
+    assert(item.working_version === 2 && snapshots.length === 2, 'version/checksum convergence did not create exactly v2')
+    await this.assertConverged(id, 'VERSION CHECKSUM CONVERGENCE')
+    this.results.push({ scenario: 5, name: 'version + checksum convergence', working_version: item.working_version, snapshot_count: snapshots.length, checksum: 'recomputed-equal' })
+  }
+
+  async scenarioCreateFromAuthoredCanonical(): Promise<void> {
+    const id = 'harness-create-authored-canonical'
+    // This is the production failure case: the canonical file has already been authored and
+    // committed, but the portal identity does not exist yet. The CLI must take the normal sync
+    // path and let sync_content_item_versions create v1, rather than returning guidance-only.
+    createRepo(this.canonicalRoot, id, 'FIRST AUTHORING BODY')
+    const pack = makePack(this.packRoot, 'harness-create-authored-canonical-pack', id, 'FIRST AUTHORING BODY')
+    const applied = await this.update(pack, ['--apply'])
+    assert(applied.status === 0, `authored-canonical create failed: ${applied.stderr}`)
+    const item = await this.item(id)
+    assert(item.working_version === 1 && item.client_visible_version === null, 'authored-canonical create did not insert an unreleased v1')
+    const snapshots = await this.snapshots(id)
+    assert(snapshots.length === 1 && snapshots[0].client_body.includes('FIRST AUTHORING BODY'), 'authored-canonical create did not persist v1 body')
+    await this.assertConverged(id, 'FIRST AUTHORING BODY')
+    this.results.push({ scenario: 6, name: 'new DB identity from authored canonical', inserted_version: 1, released: false })
+  }
+
+  async shadowScript(replacement: 'remove-lock' | 'remove-pending-sync' | 'release-always' | 'remove-body-guard'): Promise<string> {
+    const shadowRoot = mkdtempSync(join(tmpdir(), 'update-portal-shadow-'))
+    mkdirSync(join(shadowRoot, 'scripts'), { recursive: true })
+    cpSync(join(ROOT, 'src'), join(shadowRoot, 'src'), { recursive: true })
+    // Keep package resolution identical to the frozen checkout while the shadow source lives in
+    // a disposable directory. No production files are changed by these mutation runs.
+    symlinkSync(join(ROOT, 'node_modules'), join(shadowRoot, 'node_modules'), 'dir')
+    const original = readFileSync(UPDATE_SCRIPT, 'utf8')
+    let mutated = original
+    let changed = false
+    if (replacement === 'remove-lock') {
+      // Remove both the repository-global and per-piece locks from the shadow copy. The production
+      // script intentionally holds both because Git provenance is repository-global.
+      mutated = mutated.replace(/  if \(writeMode\) \{\n    rootLock = acquirePieceLock\([\s\S]*?\n  \}\n  try \{/,
+        '  if (writeMode) { /* locks removed for the race mutation */ }\n  try {')
+      changed = mutated !== original
+    } else if (replacement === 'remove-pending-sync') {
+      const corePath = join(shadowRoot, 'src/lib/portal/update-portal-core.ts')
+      const core = readFileSync(corePath, 'utf8')
+      const changedCore = core.replace('changed: input.bodyChanged || pendingSync || pendingRelease,', 'changed: input.bodyChanged || pendingRelease,')
+      assert(changedCore !== core, 'pendingSync self-doubt mutation did not match frozen core')
+      writeFileSync(corePath, changedCore)
+      changed = true
+    } else if (replacement === 'release-always') {
+      mutated = mutated.replace('const releaseRetry = ctx.pendingRelease && !ctx.bodyChanged\n    && ctx.canonicalVersion === ctx.workingVersion && ctx.revisionInProgress', 'const releaseRetry = ctx.pendingRelease\n    && ctx.canonicalVersion === ctx.workingVersion && ctx.revisionInProgress')
+      changed = mutated !== original
+    } else {
+      mutated = mutated.replace('const releaseRetry = ctx.pendingRelease && !ctx.bodyChanged\n    && ctx.canonicalVersion === ctx.workingVersion && ctx.revisionInProgress', 'const releaseRetry = false')
+      changed = mutated !== original
+    }
+    assert(changed, `self-doubt mutation ${replacement} did not match frozen source`)
+    const script = join(shadowRoot, 'scripts/update-portal.ts'); writeFileSync(script, mutated); return script
+  }
+
+  async selfDoubt(): Promise<void> {
+    const lockId = 'harness-shadow-lock'; await this.seed(lockId, 'shadow seed lock', false); const lockPackA = makePack(this.packRoot, 'harness-shadow-lock-a', lockId, 'SHADOW LOCK A'); const lockPackB = makePack(this.packRoot, 'harness-shadow-lock-b', lockId, 'SHADOW LOCK B'); const shadowNoLock = await this.shadowScript('remove-lock')
+    const lockHook = join(this.canonicalRoot, '.git/hooks/pre-commit'); writeExecutable(lockHook, '#!/bin/sh\nsleep 1\n')
+    const [locklessA, locklessB] = await Promise.all([this.update(lockPackA, ['--apply'], shadowNoLock), this.update(lockPackB, ['--apply'], shadowNoLock)]); rmSync(lockHook, { force: true })
+    assert(!/holds the lock/.test(locklessA.stderr) && !/holds the lock/.test(locklessB.stderr), 'lock-removal mutation still produced the lock refusal')
+
+    const syncId = 'harness-shadow-sync'; await this.seed(syncId, 'shadow seed sync', false); const syncPack = makePack(this.packRoot, 'harness-shadow-sync-pack', syncId, 'SHADOW SYNC BODY'); const shadowNoRetry = await this.shadowScript('remove-pending-sync')
+    await this.installSyncFailure(syncId); const first = await this.update(syncPack, ['--apply'], shadowNoRetry); assert(first.status !== 0, 'shadow sync-failure setup unexpectedly succeeded'); await this.removeSyncFailure()
+    const second = await this.update(syncPack, ['--apply'], shadowNoRetry); const syncState = await this.item(syncId); assert(second.status === 0 && syncState.working_version === 1, `retry test would not fail with pendingSync removed (status=${second.status}, working=${syncState.working_version}, stderr=${second.stderr})`)
+
+    const releaseId = 'harness-shadow-release'; await this.seed(releaseId, 'shadow seed release', true); const releasePack = makePack(this.packRoot, 'harness-shadow-release-pack', releaseId, 'SHADOW RELEASE BODY'); const shadowNoReleaseRetry = await this.shadowScript('remove-body-guard')
+    await this.installReleaseFailure(releaseId); const releaseFirst = await this.update(releasePack, ['--re-share', '--change-note', 'Shadow retry', '--apply', '--confirm'], shadowNoReleaseRetry); assert(releaseFirst.status !== 0, 'shadow release-failure setup unexpectedly succeeded'); await this.removeReleaseFailure(); await this.setSwitches(true)
+    const releaseSecond = await this.update(releasePack, ['--re-share', '--change-note', 'Shadow retry', '--apply', '--confirm'], shadowNoReleaseRetry); const releaseState = await this.item(releaseId); assert(releaseSecond.status === 0 && releaseState.working_version === 3, 'release retry test would not detect a removed retry path')
+
+    const changedId = 'harness-shadow-changed'; await this.seed(changedId, 'shadow seed changed', true); await this.beginAndSyncV2(changedId, 'SHADOW STALE BODY'); const changedPack = makePack(this.packRoot, 'harness-shadow-changed-pack', changedId, 'SHADOW NEW BODY'); const shadowNoBodyGuard = await this.shadowScript('release-always')
+    const changed = await this.update(changedPack, ['--re-share', '--change-note', 'Shadow changed', '--apply', '--confirm'], shadowNoBodyGuard); const changedState = await this.item(changedId)
+    assert(changed.status === 0 && changedState.client_visible_version === 2 && changedState.working_version === 2, 'Blocker-1 mutation did not produce stale-release signal')
+    this.results.push({ self_doubt: 'passed', scenario_1_revert: 'caught_lock_removed', scenario_2_revert: 'caught_pendingSync_removed', scenario_3_revert: 'caught_release_retry_removed', scenario_4_revert: 'caught_body_changed_guard_removed', uncovered: ['begin-revision failure after preflight', 'partial git index/commit corruption', 'process death between gate reopen and release', 'a live lock holder killed at every possible boundary'] })
+  }
+
+  async stop(): Promise<void> {
+    if (this.stackStarted && !this.keep) { try { run('supabase', ['stop', '--workdir', this.stackRoot, '--no-backup']) } catch { /* cleanup best effort */ } }
+    if (!this.keep) for (const path of [this.stackRoot, this.canonicalRoot, this.packRoot, this.lockRoot, this.pendingRoot]) rmSync(path, { recursive: true, force: true })
+  }
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.stack ?? error.message : error)
-  try { rmSync(ROOT, { recursive: true, force: true }) } catch { /* best effort */ }
-  process.exitCode = 1
-})
+async function main(): Promise<void> {
+  const harness = new Harness(KEEP)
+  const fullRun = !process.argv.includes('--self-doubt-only')
+  try {
+    await harness.start()
+    if (fullRun) {
+      await harness.scenarioRace(); await harness.scenarioSyncRetry(); await harness.scenarioReleaseRetry(); await harness.scenarioChangedPendingRelease(); await harness.scenarioVersionChecksumConvergence(); await harness.scenarioCreateFromAuthoredCanonical()
+    }
+    await harness.selfDoubt()
+    console.log(JSON.stringify({ harness: 'update-portal', target: 'loopback disposable Supabase', results: harness.results }, null, 2))
+    console.log(fullRun
+      ? 'GO: all five required scenarios and behavioral self-doubt checks passed on the disposable target.'
+      : 'SELF-DOUBT GO: all mutation-based regression checks passed on the disposable target.')
+  } finally { await harness.stop() }
+}
+main().catch((error) => { console.error(error instanceof Error ? error.stack ?? error.message : error); process.exitCode = 1 })
