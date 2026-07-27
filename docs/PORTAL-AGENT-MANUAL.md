@@ -379,7 +379,8 @@ The 22-post history is already imported.
 
 - **Google Calendar (`0010`, Slice 5):** `calendar_integrations`, event mappings, `calendar_sync_state`,
   conflicts, unmapped events. OAuth for the durable The Dot owner of the "Kanset Social" calendar;
-  Maria as reader. Etag-guarded outbound, watch/incremental inbound, conflict resolution. Worker:
+  Maria as calendar manager (`owner` ACL role, **Make changes and manage sharing**). Etag-guarded
+  outbound, watch/incremental inbound, conflict resolution. Worker:
   `src/lib/portal/google-calendar-worker.ts`, cron at `/api/cron/portal-calendar`, webhook at
   `/api/portal/google-calendar/webhook`. Admin UI: `CalendarAdmin.tsx`. Runbook:
   `docs/portal-google-calendar-runbook.md`. **A calendar change can nudge a planned date but never

@@ -262,12 +262,12 @@ async function checkAcl(job: Job) {
     googleJson<{ accessRole: string }>(accessToken, `/users/me/calendarList/${id}`),
     googleJson<{ items?: Array<{ scope?: { type?: string; value?: string }; role?: string }> }>(accessToken, `/calendars/${id}/acl`),
   ])
-  const reader = process.env.GOOGLE_CALENDAR_CLIENT_READER_EMAIL?.toLowerCase()
-  if (!reader) throw new Error('GOOGLE_CALENDAR_CLIENT_READER_EMAIL is not configured')
+  const collaborator = process.env.GOOGLE_CALENDAR_CLIENT_READER_EMAIL?.toLowerCase()
+  if (!collaborator) throw new Error('GOOGLE_CALENDAR_CLIENT_READER_EMAIL is not configured')
   const hasPublicAcl = (acl.items ?? []).some((rule) => rule.scope?.type === 'default' && rule.role !== 'none')
-  const hasReader = (acl.items ?? []).some((rule) => rule.scope?.type === 'user'
-    && rule.scope.value?.toLowerCase() === reader && rule.role === 'reader')
-  const healthy = ['owner','writer'].includes(entry.accessRole) && !hasPublicAcl && hasReader
+  const hasManager = (acl.items ?? []).some((rule) => rule.scope?.type === 'user'
+    && rule.scope.value?.toLowerCase() === collaborator && rule.role === 'owner')
+  const healthy = ['owner','writer'].includes(entry.accessRole) && !hasPublicAcl && hasManager
   await admin.from('calendar_sync_state').update({ health: healthy ? 'healthy' : 'acl_drift',
     last_error: healthy ? null : 'Calendar ACL or integration role drift requires review',
     updated_at: new Date().toISOString() }).eq('integration_id', job.integration_id)

@@ -10,8 +10,9 @@ A calendar event or elapsed event time is never provider proof.
 - `GOOGLE_CALENDAR_CLIENT_ID` / `GOOGLE_CALENDAR_CLIENT_SECRET`: dedicated OAuth web client.
 - `GOOGLE_CALENDAR_TOKEN_ENCRYPTION_KEY`: 32 random bytes encoded as base64. Keep old key material
   during a deliberate credential rotation until stored credentials have been re-encrypted.
-- `GOOGLE_CALENDAR_CLIENT_READER_EMAIL`: Maria's exact Google account email. ACL health fails until
-  this account has calendar-level `reader` access.
+- `GOOGLE_CALENDAR_CLIENT_READER_EMAIL`: Maria's exact Google account email. The environment name is
+  retained for compatibility. ACL health requires her approved `owner` role, shown in Google Calendar
+  as **Make changes and manage sharing**.
 - `CRON_SECRET`: high-entropy Vercel cron bearer secret.
 - Existing portal Supabase service-role and hardened admin-session variables.
 
@@ -26,7 +27,8 @@ owner/writer of the existing calendar. Do not recreate the calendar under a serv
 2. In `/admin/portal`, enter the tenant and the exact existing Calendar ID, then complete OAuth.
 3. Confirm the integration account is the intended durable owner/writer and the timezone is
    `America/Toronto`.
-4. Share the calendar with Maria as `reader`; ensure no public/default ACL exists.
+4. Share the calendar with Maria as `owner` (**Make changes and manage sharing**); ensure no
+   public/default ACL exists.
 5. Run reconciliation. Review every unmapped existing event and link it to the exact portal piece, or
    deliberately ignore it. Never infer a match from title, description, organizer, or attendee.
 6. Resolve every conflict/unmapped event, confirm a terminal incremental sync token and active watch,
@@ -39,7 +41,8 @@ owner/writer of the existing calendar. Do not recreate the calendar under a serv
 
 - `reauth_required`: reconnect through the admin OAuth flow. The old encrypted credential is replaced;
   no client data becomes readable while disconnected.
-- `acl_drift`: restore durable owner/writer access, Maria `reader`, and remove public/default sharing.
+- `acl_drift`: restore durable integration owner/writer access, Maria `owner`, and remove public/default
+  sharing.
 - `calendar_missing`: confirm ownership/transfer and the exact Calendar ID before reconnecting. Do not
   silently create a replacement calendar.
 - expired/dropped watch: run reconciliation. Renewal deliberately overlaps channels for 30 minutes,
