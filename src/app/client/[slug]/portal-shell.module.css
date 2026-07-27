@@ -16,7 +16,7 @@
 .topbar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 20px;
   padding: 12px 20px;
   background: var(--dot-cream);
   border-bottom: 1px solid var(--dot-hairline);
@@ -35,7 +35,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-left: auto;
+  margin-left: 0;
   font-size: 12px;
   color: var(--dot-grey);
   white-space: nowrap;
@@ -155,7 +155,7 @@
   .brand {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 20px;
     padding: 0 8px 26px;
   }
 
