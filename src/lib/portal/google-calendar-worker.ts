@@ -209,7 +209,11 @@ async function syncEvents(job: Job, forceFull = false) {
       }
       throw error
     }
-    for (const event of page.items ?? []) await applyInboundEvent(job.integration_id, event)
+    const items = page.items ?? []
+    for (let offset = 0; offset < items.length; offset += 20) {
+      await Promise.all(items.slice(offset, offset + 20)
+        .map((event) => applyInboundEvent(job.integration_id, event)))
+    }
     pageToken = page.nextPageToken
     nextSyncToken = page.nextSyncToken ?? nextSyncToken
   } while (pageToken)
