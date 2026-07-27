@@ -388,8 +388,13 @@ The 22-post history is already imported.
   currency, status paid|unpaid|void, `document_url`). RPCs `attach_invoice_document`, set-status.
   Client sees Date/Amount/Status/Document; **no hours, no rates, no fee math** (D2 / the
   client-pricing-dollars-only rule). Admin UI: `BillingAdmin.tsx`. Invoice #0137 is seeded.
-- **Notifications (`0015`):** `activity_log` is the **single mutation funnel** — the only RPC that
-  writes activity; alerts derive from it. Consumer: `scripts/portal-notification-consumer.ts`.
+- **Notifications (`0015`, decision inbox `0034`):** `activity_log` is the **single mutation funnel**
+  — the only RPC that writes activity; alerts derive from it. `record_content_idea_decision` and
+  plan-cycle decisions also emit durable `portal_inbox_events`, including a migration backfill for
+  decisions recorded before `0034`, so `npm run portal-inbox -- list kanset` cannot miss an idea or
+  batch-plan approval. Email is drained by `scripts/portal-notification-consumer.ts` or the hourly
+  `/api/cron/portal-notifications` route. Production needs `AGENCY_EMAIL`, SMTP settings, and
+  `CRON_SECRET`; missing `AGENCY_EMAIL` returns a failing health response and leaves rows pending.
 - **Projections (`0016`):** `projection_outbox` drains to Notion via
   `scripts/portal-projection-consumer.ts` + `src/lib/portal/notion-projection*.ts`. **No dual writes:**
   integrations call one shared surface (`portal-write` / `portal-inbox`), never independent

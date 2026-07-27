@@ -72,6 +72,13 @@ type SyncResult = {
   client_visible_version: number | null
 }
 
+type PortalInboxRow = {
+  event_type: string
+  object_type: string
+  object_id: string | null
+  payload: { decision?: string }
+}
+
 function snapshot(
   clientId: string,
   contentId: string,
@@ -2199,6 +2206,82 @@ async function main(): Promise<void> {
           && retry[0]?.item_id === identityId,
         hydratedItem.error?.message ?? snapshotsAfter.error?.message
           ?? `hydrate=${JSON.stringify(hydrated)} retry=${JSON.stringify(retry)}`)
+
+      const planInboxConsumer = `rls-plan-inbox-${RUN_ID}`
+      const planInboxBefore = await admin.rpc('read_portal_inbox', {
+        p_consumer_key: planInboxConsumer, p_client_id: bClientId, p_limit: 500,
+      })
+      const planDecision = await bClient.rpc('record_plan_cycle_decision', {
+        p_plan_cycle_id: plan.data, p_revision: 1, p_decision: 'approved', p_note: null,
+      })
+      const planInboxAfter = await admin.rpc('read_portal_inbox', {
+        p_consumer_key: planInboxConsumer, p_client_id: bClientId, p_limit: 500,
+      })
+      const planInboxRow = (planInboxAfter.data ?? []).find((row: PortalInboxRow) =>
+        row.event_type === 'plan_cycle_approved' && row.object_id === plan.data)
+      const planRetry = await bClient.rpc('record_plan_cycle_decision', {
+        p_plan_cycle_id: plan.data, p_revision: 1, p_decision: 'approved', p_note: null,
+      })
+      const planInboxRetry = await admin.rpc('read_portal_inbox', {
+        p_consumer_key: planInboxConsumer, p_client_id: bClientId, p_limit: 500,
+      })
+      const planMatches = (planInboxRetry.data ?? []).filter((row: PortalInboxRow) =>
+        row.event_type === 'plan_cycle_approved' && row.object_id === plan.data)
+      check('PI5: batch idea approval creates an agent inbox event',
+        !planDecision.error && !planInboxBefore.error && !planInboxAfter.error
+          && !(planInboxBefore.data ?? []).some((row: PortalInboxRow) => row.event_type === 'plan_cycle_approved' && row.object_id === plan.data)
+          && planInboxRow?.object_type === 'plan_cycle'
+          && planInboxRow?.payload?.decision === 'approved'
+          && !planRetry.error && !planInboxRetry.error && planMatches.length === 1,
+        planDecision.error?.message ?? planInboxBefore.error?.message ?? planInboxAfter.error?.message
+          ?? planRetry.error?.message ?? planInboxRetry.error?.message
+          ?? `before=${planInboxBefore.data?.length ?? 0} after=${planInboxAfter.data?.length ?? 0} retry=${planMatches.length}`)
+
+      const piecePlan = await admin.rpc('agency_upsert_plan_cycle', {
+        p_client_id: bClientId,
+        p_cycle_key: `rls-piece-week-${RUN_ID}`,
+        p_week_start: '2026-08-03', p_week_end: '2026-08-07',
+        p_title: 'RLS piece approval', p_direction_summary: 'A second approval surface.',
+        p_items: [{
+          content_id: ideaContentId, title: 'Selected idea with authored copy', format: 'carousel',
+          pillar: 'employer', platforms: ['instagram'], producer: 'the_dot',
+          planned_date: '2026-08-03', direction_note: 'Approve this piece.', position: 1,
+        }],
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-piece-plan-${RUN_ID}`,
+      })
+      const ideaInboxConsumer = `rls-idea-inbox-${RUN_ID}`
+      const ideaInboxBefore = await admin.rpc('read_portal_inbox', {
+        p_consumer_key: ideaInboxConsumer, p_client_id: bClientId, p_limit: 500,
+      })
+      const ideaDecision = piecePlan.data
+        ? await bClient.rpc('record_content_idea_decision', {
+          p_content_item_id: identityId, p_plan_cycle_id: piecePlan.data,
+          p_plan_cycle_revision: 1, p_decision: 'approved', p_note: null,
+        })
+        : { data: null, error: new Error('piece plan missing') }
+      const ideaInboxAfter = await admin.rpc('read_portal_inbox', {
+        p_consumer_key: ideaInboxConsumer, p_client_id: bClientId, p_limit: 500,
+      })
+      const ideaInboxRow = (ideaInboxAfter.data ?? []).find((row: PortalInboxRow) =>
+        row.event_type === 'idea_approved' && row.object_id === identityId)
+      const ideaRetry = await bClient.rpc('record_content_idea_decision', {
+        p_content_item_id: identityId, p_plan_cycle_id: piecePlan.data,
+        p_plan_cycle_revision: 1, p_decision: 'approved', p_note: null,
+      })
+      const ideaInboxRetry = await admin.rpc('read_portal_inbox', {
+        p_consumer_key: ideaInboxConsumer, p_client_id: bClientId, p_limit: 500,
+      })
+      const ideaMatches = (ideaInboxRetry.data ?? []).filter((row: PortalInboxRow) =>
+        row.event_type === 'idea_approved' && row.object_id === identityId)
+      check('PI6: per-piece idea approval creates an agent inbox event',
+        !ideaDecision.error && !ideaInboxBefore.error && !ideaInboxAfter.error
+          && !(ideaInboxBefore.data ?? []).some((row: PortalInboxRow) => row.event_type === 'idea_approved' && row.object_id === identityId)
+          && ideaInboxRow?.object_type === 'content_idea'
+          && ideaInboxRow?.payload?.decision === 'approved'
+          && !ideaRetry.error && !ideaInboxRetry.error && ideaMatches.length === 1,
+        ideaDecision.error?.message ?? ideaInboxBefore.error?.message ?? ideaInboxAfter.error?.message
+          ?? ideaRetry.error?.message ?? ideaInboxRetry.error?.message
+          ?? `before=${ideaInboxBefore.data?.length ?? 0} after=${ideaInboxAfter.data?.length ?? 0} retry=${ideaMatches.length}`)
     }
 
     {

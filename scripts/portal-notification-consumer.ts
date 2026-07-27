@@ -5,7 +5,7 @@
 // in the decision/comment server actions are removed so email flows through this consumer alone.
 import { loadEnvConfig } from '@next/env'
 import { createClient } from '@supabase/supabase-js'
-import { sendPortalNotificationEmail } from '../src/lib/portal/notify'
+import { drainPortalNotifications } from '../src/lib/portal/notification-worker'
 
 loadEnvConfig(process.cwd())
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -18,15 +18,6 @@ const AGENCY_EMAIL = process.env.AGENCY_EMAIL ?? null
 const BATCH = 20
 const CLAIM_SECONDS = 120
 const MAX_ATTEMPTS = 6
-
-type Row = {
-  id: string
-  claim_token: number
-  recipient_kind: 'client' | 'agency'
-  subject: string
-  body: string
-  related_url: string | null
-}
 
 async function listBacklog(): Promise<void> {
   const { data, error } = await admin
@@ -54,45 +45,17 @@ async function drainOnce(dryRun: boolean): Promise<number> {
     return 0
   }
 
-  // Durability guard: if there is no destination configured we must NOT claim-and-succeed (that
-  // silently drops alerts). Leave rows pending and surface the misconfiguration loudly.
-  if (!AGENCY_EMAIL) {
-    console.warn('AGENCY_EMAIL not configured; leaving email notifications PENDING (not dropped). Set AGENCY_EMAIL to deliver.')
-    return 0
-  }
-
-  const { data: batch, error } = await admin.rpc('claim_notification_batch', {
-    p_worker: WORKER,
-    p_limit: BATCH,
-    p_claim_seconds: CLAIM_SECONDS,
+  const result = await drainPortalNotifications(admin, {
+    agencyEmail: AGENCY_EMAIL,
+    worker: WORKER,
+    limit: BATCH,
+    claimSeconds: CLAIM_SECONDS,
+    maxAttempts: MAX_ATTEMPTS,
   })
-  if (error) throw new Error(`claim: ${error.message}`)
-  const rows = (batch ?? []) as Row[]
-
-  for (const row of rows) {
-    try {
-      // v1: the 0015 trigger only ever enqueues agency-recipient email rows, so AGENCY_EMAIL (checked
-      // before claiming) is the sole destination.
-      await sendPortalNotificationEmail({
-        to: AGENCY_EMAIL,
-        subject: row.subject,
-        bodyText: row.body,
-        url: row.related_url,
-      })
-      const { error: markErr } = await admin.rpc('mark_notification_succeeded', { p_id: row.id, p_claim_token: row.claim_token })
-      if (markErr) console.error(`mark_notification_succeeded failed for ${row.id}: ${markErr.message} (email sent; lease may have expired)`)
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e)
-      const { error: failErr } = await admin.rpc('mark_notification_failed', {
-        p_id: row.id,
-        p_claim_token: row.claim_token,
-        p_error: message,
-        p_max_attempts: MAX_ATTEMPTS,
-      })
-      if (failErr) console.error(`mark_notification_failed failed for ${row.id}: ${failErr.message}`)
-    }
+  if (result.skipped) {
+    throw new Error(`${result.reason}; leaving email notifications PENDING (not dropped).`)
   }
-  return rows.length
+  return result.claimed
 }
 
 async function main(): Promise<void> {
