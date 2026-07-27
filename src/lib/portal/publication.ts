@@ -36,3 +36,30 @@ export async function getPublicationDetails(
   if (error) throw new PortalDataError(error.message)
   return (data ?? []) as PublicationTargetRow[]
 }
+
+// The overview only needs a small recent window. Keep this query on the client-safe
+// publication projection so the browser never receives internal evidence fields.
+export async function getRecentPublishedContentIds(
+  clientId: string,
+  limit = 5,
+): Promise<string[]> {
+  const supabase = await createSupabaseServer()
+  const { data, error } = await supabase
+    .from('content_publication_targets_client')
+    .select('content_id,published_at')
+    .eq('client_id', clientId)
+    .eq('status', 'live')
+    .not('published_at', 'is', null)
+    .order('published_at', { ascending: false })
+    .limit(100)
+  if (error) throw new PortalDataError(error.message)
+  const ids: string[] = []
+  const seen = new Set<string>()
+  for (const row of data ?? []) {
+    if (typeof row.content_id !== 'string' || seen.has(row.content_id)) continue
+    seen.add(row.content_id)
+    ids.push(row.content_id)
+    if (ids.length >= limit) break
+  }
+  return ids
+}

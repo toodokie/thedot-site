@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { getClientSession } from '@/lib/portal/auth'
 import { redirect } from 'next/navigation'
 import { getContent, getActivity, type ContentRow as ContentRowType } from '@/lib/portal/data'
+import { getRecentPublishedContentIds } from '@/lib/portal/publication'
+import { getCurrentPlanCycle } from '@/lib/portal/plan-cycle'
 import { clientStateLabel } from '@/lib/portal/state'
 import { getLastSeen } from '@/lib/portal/seen'
 import MarkSeen from './MarkSeen'
@@ -62,8 +64,9 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
   const session = await getClientSession(slug)
   if (!session) redirect('/client/login')
 
-  const [items, activity, lastSeen] = await Promise.all([
+  const [items, activity, lastSeen, recentPublishedIds, currentPlan] = await Promise.all([
     getContent(session.clientId), getActivity(session.clientId), getLastSeen(session.clientId),
+    getRecentPublishedContentIds(session.clientId), getCurrentPlanCycle(session.clientId),
   ])
   // "new since your last visit": an event the OTHER party logged after you were last here.
   const isNew = (a: { created_at: string; actor_name: string }) =>
@@ -76,7 +79,19 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
   // history (which can never reach 'live' under 0009's manual+verified rule) would be
   // invisible on the landing page. The per-target verification labels on each piece page
   // carry the honest nuance; the row note flags the partial case. Display only.
-  const published = items.filter((i) => i.state === 'live' || i.state === 'partially_live')
+  const publishedItems = items.filter((i) => i.state === 'live' || i.state === 'partially_live')
+  const publishedById = new Map(publishedItems.map((item) => [item.content_id, item]))
+  const recentPublished = recentPublishedIds.flatMap((contentId) => {
+    const item = publishedById.get(contentId)
+    return item ? [item] : []
+  })
+  // Legacy rows may have no published_at on the client projection. Fill the small window
+  // deterministically by planned date, never fall back to dumping the whole history.
+  const published = [...recentPublished,
+    ...publishedItems
+      .filter((item) => !recentPublishedIds.includes(item.content_id))
+      .sort((a, b) => (b.planned_date ?? '').localeCompare(a.planned_date ?? '')),
+  ].slice(0, 5)
   // Catch-all so no piece can vanish from the landing page (Codex review 2026-07-21): the
   // schedule/publish transitional + failure states (partially_scheduled, reschedule_pending,
   // cancel_pending, schedule_failed, publish_failed) had no bucket and were only reachable
@@ -86,6 +101,8 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
   const inProgress = items.filter((i) => !BUCKETED_STATES.has(i.state))
   const communication = activity.filter((a) => a.event_type === 'meeting_email_note_added')
   const firstName = session.name ? session.name.split(' ')[0] : ''
+  const planWaiting = currentPlan.cycle?.status === 'submitted' || currentPlan.cycle?.status === 'change_requested'
+  const approvalCount = needs.length + (planWaiting ? 1 : 0)
 
   return (
     <div className={styles.wrap}>
@@ -95,9 +112,9 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
         </div>
         <div className={styles.status}>
           <Text size="lg" tone="graphite">
-            {needs.length === 0
+            {approvalCount === 0
               ? "You're all caught up."
-              : <><span className={styles.statusCount}>{needs.length}</span> waiting for you.</>}
+              : <><span className={styles.statusCount}>{approvalCount}</span> waiting for you.</>}
           </Text>
         </div>
 
@@ -105,9 +122,22 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
           <div>
             <Panel
               label="Waiting on approval"
-              note="Fact-checked (Confirmed) is our gate; Approve is yours."
+              note={planWaiting
+                ? needs.length > 0
+                  ? 'Your content plan and released pieces are ready for your approval.'
+                  : 'Your content plan is ready for your approval.'
+                : 'Fact-checked (Confirmed) is our gate; Approve is yours.'}
             >
-              {needs.length === 0 ? (
+              {planWaiting && currentPlan.cycle && (
+                <Link className={styles.row} href={`/client/${encodeURIComponent(slug)}/plan`}>
+                  <span className={styles.marker}><Dot fill="yellow" size={8} /></span>
+                  <span className={styles.rowMain}>
+                    <Text as="span" size="md" tone="black">{currentPlan.cycle.title}</Text>
+                    <span className={styles.chipRow}><span className={styles.chip}>content plan</span></span>
+                  </span>
+                </Link>
+              )}
+              {needs.length === 0 && !planWaiting ? (
                 <div className={styles.emptyRow}><Text size="md" tone="graphite">Nothing is waiting on your approval right now.</Text></div>
               ) : (
                 needs.map((it) => <ContentRow key={it.id} it={it} slug={slug} priority />)

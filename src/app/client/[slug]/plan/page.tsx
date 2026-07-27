@@ -34,19 +34,21 @@ function fmtRange(startIso: string, endIso: string): string {
   return `${fmtDay(startIso)} to ${fmtDay(endIso)}`
 }
 
-function CycleItem({ item }: { item: PlanCycleItem }) {
+function CycleItem({ item, slug }: { item: PlanCycleItem; slug: string }) {
   const meta = [item.format, ...item.platforms].filter(Boolean)
   return (
     <li className={styles.cycleItem}>
-      <span className={styles.cyclePos} aria-hidden="true">{item.position}</span>
-      <span className={styles.cycleItemMain}>
-        <Text as="span" size="md" tone="black">{item.title}</Text>
-        <span className={styles.cycleItemMeta}>
-          {item.planned_date && <span className={styles.chip}>{fmtDay(item.planned_date)}</span>}
-          {meta.map((m) => <span key={m} className={styles.chip}>{m}</span>)}
+      <Link href={`/client/${encodeURIComponent(slug)}/plan/${encodeURIComponent(item.content_id)}`} className={styles.cycleItemLink}>
+        <span className={styles.cyclePos} aria-hidden="true">{item.position}</span>
+        <span className={styles.cycleItemMain}>
+          <Text as="span" size="md" tone="black">{item.title}</Text>
+          <span className={styles.cycleItemMeta}>
+            {item.planned_date && <span className={styles.chip}>{fmtDay(item.planned_date)}</span>}
+            {meta.map((m) => <span key={m} className={styles.chip}>{m}</span>)}
+          </span>
+          {item.direction_note && <span className={styles.cycleNote}><Text as="span" size="sm" tone="graphite">{item.direction_note}</Text></span>}
         </span>
-        {item.direction_note && <span className={styles.cycleNote}><Text as="span" size="sm" tone="graphite">{item.direction_note}</Text></span>}
-      </span>
+      </Link>
     </li>
   )
 }
@@ -135,7 +137,7 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
 
           {cycleItems.length > 0 && (
             <ol className={styles.cycleList}>
-              {cycleItems.map((it) => <CycleItem key={it.id} item={it} />)}
+              {cycleItems.map((it) => <CycleItem key={it.id} item={it} slug={slug} />)}
             </ol>
           )}
 
