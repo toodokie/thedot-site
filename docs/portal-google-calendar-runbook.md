@@ -17,7 +17,7 @@ A calendar event or elapsed event time is never provider proof.
 
 Google OAuth redirect URI must be exactly
 `<PORTAL_PUBLIC_ORIGIN>/api/admin/portal/calendar/oauth/callback`. The consent screen requires only
-identity plus Calendar events, calendar-list read, and ACL read scopes. Authorize the durable The Dot
+identity plus Calendar events, calendar-list read, calendar metadata read, and ACL read scopes. Authorize the durable The Dot
 owner/writer of the existing calendar. Do not recreate the calendar under a service account.
 
 ## Connect and launch
