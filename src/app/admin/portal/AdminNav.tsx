@@ -20,6 +20,7 @@ const ITEMS = [
   { label: 'Library', seg: 'library' },
   { label: 'Billing', seg: 'billing' },
   { label: 'Requests', seg: 'requests' },
+  { label: 'Comments', seg: 'comments' },
 ]
 
 export default function AdminNav({ seat }: { seat?: React.ReactNode }) {

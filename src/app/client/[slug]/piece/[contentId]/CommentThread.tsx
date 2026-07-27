@@ -17,14 +17,18 @@ const quoteBox = {
 
 export default function CommentThread({
   slug, contentId, comments, canComment,
+  designLinks,
 }: {
   slug: string
   contentId: string
   comments: CommentRow[]
   canComment: boolean
+  designLinks?: Array<{ label: string; url: string }>
 }) {
   const [state, action] = useActionState(async (_p: { error?: string }, fd: FormData) => addComment(fd), {})
   const [quote, setQuote] = useState<{ text: string; blockKey: string } | null>(null)
+  const [targetKind, setTargetKind] = useState<'copy' | 'design'>('copy')
+  const [targetUrl, setTargetUrl] = useState<string | null>(null)
   const [selection, setSelection] = useState<{ text: string; blockKey: string } | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const prevCount = useRef(comments.length)
@@ -34,6 +38,8 @@ export default function CommentThread({
     if (comments.length > prevCount.current) {
       formRef.current?.reset()
       setQuote(null)
+      setTargetKind('copy')
+      setTargetUrl(null)
     }
     prevCount.current = comments.length
   }, [comments.length])
@@ -70,7 +76,11 @@ export default function CommentThread({
               borderTop: '1px solid var(--dot-hairline)', padding: '14px 0',
               ...(isAgency ? { borderLeft: '2px solid var(--dot-yellow)', paddingLeft: 14, marginLeft: 12 } : {}),
             }}>
-              {c.quoted_text && <div style={quoteBox}><Text size="md" tone="graphite">{c.quoted_text}</Text></div>}
+              {c.target_kind === 'design' && <div style={{ ...quoteBox, borderLeftColor: 'var(--dot-black)' }}>
+                <Text size="sm" tone="graphite">Design feedback</Text>
+                {c.target_url && <a href={c.target_url} target="_blank" rel="noreferrer" style={{ display: 'block', marginTop: 4, color: 'var(--dot-black)' }}>Open the referenced design</a>}
+              </div>}
+              {c.target_kind !== 'design' && c.quoted_text && <div style={quoteBox}><Text size="md" tone="graphite">{c.quoted_text}</Text></div>}
               {isAgency ? (
                 <>
                   <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--dot-graphite)', marginBottom: 3 }}>{c.author_name}</div>
@@ -91,11 +101,30 @@ export default function CommentThread({
         </div>
       )}
 
+      {canComment && designLinks && designLinks.length > 0 && (
+        <div style={{ marginTop: 10 }}>
+          <Text size="sm" tone="grey">Leave feedback on a linked design</Text>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+            {designLinks.map((link) => <Button key={link.url} as="button" variant="ghost" size="sm"
+              onClick={() => { setTargetKind('design'); setTargetUrl(link.url); setQuote(null) }}>
+              Comment on {link.label}
+            </Button>)}
+          </div>
+        </div>
+      )}
+
       {canComment ? <form ref={formRef} action={action} style={{ marginTop: 16, borderTop: '1px solid var(--dot-hairline)', paddingTop: 16 }}>
         <input type="hidden" name="slug" value={slug} />
         <input type="hidden" name="contentId" value={contentId} />
         <input type="hidden" name="quotedText" value={quote?.text ?? ''} />
         <input type="hidden" name="copyBlockKey" value={quote?.blockKey ?? ''} />
+        <input type="hidden" name="targetKind" value={targetKind} />
+        <input type="hidden" name="designUrl" value={targetKind === 'design' ? (targetUrl ?? '') : ''} />
+        {targetKind === 'design' && <div style={{ ...quoteBox, borderLeftColor: 'var(--dot-black)' }}>
+          <Text size="sm" tone="graphite">Commenting on the selected design</Text>
+          {targetUrl && <a href={targetUrl} target="_blank" rel="noreferrer" style={{ display: 'block', marginTop: 4, color: 'var(--dot-black)' }}>Open it</a>}
+          <button type="button" onClick={() => { setTargetKind('copy'); setTargetUrl(null) }} style={{ marginLeft: 10, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dot-graphite)', fontSize: 12 }}>switch to copy</button>
+        </div>}
         {quote && (
           <div style={{ ...quoteBox, display: 'flex', justifyContent: 'space-between', gap: 12 }}>
             <Text size="md" tone="graphite">{quote.text}</Text>

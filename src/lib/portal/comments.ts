@@ -9,11 +9,13 @@ export type CommentRow = {
   author_name: string
   body: string
   quoted_text: string | null
+  target_kind: 'copy' | 'design'
+  target_url: string | null
   resolved: boolean
   created_at: string
 }
 
-const SELECT = 'id, content_version, copy_block_key, author_type, author_name, body, quoted_text, resolved, created_at'
+const SELECT = 'id, content_version, copy_block_key, author_type, author_name, body, quoted_text, target_kind, target_url, resolved, created_at'
 
 // Reads the comment thread for one piece. `authenticated` has column SELECT and RLS scopes reads to
 // the caller's own client, but we also filter by client_id explicitly (defence in depth). Any query

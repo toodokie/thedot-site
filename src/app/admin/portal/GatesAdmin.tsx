@@ -4,6 +4,7 @@ import { GATE_ORDER, resolveNineGates, deriveContentStage, deriveMyTasks,
   type StagePiece, type OpsTaskRow, type MyTask, type CompletedOpsTask } from '@/lib/portal/gates'
 import StatusPill, { type PillTone } from './StatusPill'
 import AdminPageHeader from './AdminPageHeader'
+import type { AdminComment } from './data'
 import styles from './portal-admin.module.css'
 
 // Agency-only surface (gate-system spec sections 4 + 6.8): My Tasks + the per-piece gate
@@ -128,10 +129,11 @@ function formatPieceDate(value: string | null | undefined): string {
 
 // My tasks: the landing surface (spec IA #1). Its own routed page (/admin/portal) so it is
 // never buried under the rest of the ops board.
-export function MyTasksAdmin({ pieces, opsTasks, completedOps, todayIso }: {
+export function MyTasksAdmin({ pieces, opsTasks, completedOps, openComments, todayIso }: {
   pieces: StagePiece[]
   opsTasks: OpsTaskRow[]
   completedOps: CompletedOpsTask[]
+  openComments: AdminComment[]
   todayIso: string
 }) {
   const tasks = deriveMyTasks(pieces, opsTasks, todayIso)
@@ -168,7 +170,7 @@ export function MyTasksAdmin({ pieces, opsTasks, completedOps, todayIso }: {
   return (
     <>
       <AdminPageHeader kicker="Agency ops" title="My tasks" display
-        intro="What needs doing, most pressing first." count={openCount} countLabel="open" />
+        intro="What needs doing, most pressing first." count={openCount + openComments.length} countLabel="open" />
       {openCount === 0 && linkPending.length === 0 ? (
         <section className={styles.card}><p className={styles.empty}>Nothing open.</p></section>
       ) : (
@@ -179,6 +181,26 @@ export function MyTasksAdmin({ pieces, opsTasks, completedOps, todayIso }: {
             <Panel label="Waiting on studio" rows={studio} />
           </div>
           <aside>
+            {openComments.length > 0 && (
+              <section className={styles.card}>
+                <div className={styles.panelHead}><Eyebrow tone="grey">Comments needing reply</Eyebrow></div>
+                <p className={styles.panelNote}>Client feedback is retained here until you handle it.</p>
+                <ul className={styles.taskList}>
+                  {openComments.slice(0, 10).map((comment) => (
+                    <li key={`comment:${comment.id}`} className={styles.taskRow}>
+                      <span className={styles.taskMain}>
+                        <a href={`/admin/portal/pieces/${encodeURIComponent(comment.contentId)}`} className={styles.pieceLink}>
+                          {comment.title}
+                        </a>
+                        <span className={styles.meta}>{comment.targetKind === 'design' ? 'design' : 'copy'} · {comment.clientName}</span>
+                      </span>
+                      <span className={styles.taskTrail}><span className={styles.meta}>{comment.createdAt.slice(0, 10)}</span></span>
+                    </li>
+                  ))}
+                </ul>
+                {openComments.length > 10 && <a href="/admin/portal/comments" className={styles.moreLink}>Open all {openComments.length} comments</a>}
+              </section>
+            )}
             <Panel label="Posted · link-confirm pending" rows={linkPending} />
             {opsBuckets.map(([label, rows]) => <Panel key={label} label={`Ops · ${label}`} rows={rows} />)}
             {completedOps.length > 0 && (

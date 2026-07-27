@@ -7,6 +7,63 @@ import type { CalendarConflictAdmin, CalendarIntegrationAdmin, UnmappedCalendarE
 import type { AdminInvoice } from './BillingAdmin'
 import type { AdminContentRequest } from './RequestAdmin'
 
+export type AdminComment = {
+  id: string
+  clientId: string
+  clientName: string
+  contentUuid: string
+  contentId: string
+  title: string
+  contentVersion: number
+  copyBlockKey: string | null
+  targetKind: 'copy' | 'design'
+  targetUrl: string | null
+  authorType: string
+  authorName: string
+  body: string
+  quotedText: string | null
+  resolved: boolean
+  createdAt: string
+}
+
+export async function loadAdminComments(): Promise<AdminComment[]> {
+  const admin = createSupabaseAdmin()
+  const [clients, comments, items, versions] = await Promise.all([
+    admin.from('clients').select('id,name'),
+    admin.from('comments').select('id,client_id,content_id,content_version,copy_block_key,target_kind,target_url,author_type,author_name,body,quoted_text,resolved,created_at')
+      .order('resolved', { ascending: true }).order('created_at', { ascending: false }),
+    admin.from('content_items').select('id,client_id,content_id'),
+    admin.from('content_item_versions').select('content_item_id,client_id,version,title'),
+  ])
+  const failure = clients.error ?? comments.error ?? items.error ?? versions.error
+  if (failure) throw new Error(`Portal admin comments unavailable: ${failure.message}`)
+  const clientNames = new Map((clients.data ?? []).map((row) => [row.id, row.name]))
+  const itemMap = new Map((items.data ?? []).map((row) => [
+    `${row.client_id}:${row.id}`, { contentId: row.content_id },
+  ]))
+  const titleMap = new Map((versions.data ?? []).map((row) => [
+    `${row.client_id}:${row.content_item_id}:${row.version}`, row.title,
+  ]))
+  return (comments.data ?? []).map((row) => ({
+    id: row.id,
+    clientId: row.client_id,
+    clientName: clientNames.get(row.client_id) ?? 'Unknown client',
+    contentUuid: row.content_id,
+    contentId: itemMap.get(`${row.client_id}:${row.content_id}`)?.contentId ?? row.content_id,
+    title: titleMap.get(`${row.client_id}:${row.content_id}:${row.content_version}`) ?? 'Untitled piece',
+    contentVersion: row.content_version,
+    copyBlockKey: row.copy_block_key,
+    targetKind: row.target_kind === 'design' ? 'design' : 'copy',
+    targetUrl: row.target_url,
+    authorType: row.author_type,
+    authorName: row.author_name,
+    body: row.body,
+    quotedText: row.quoted_text,
+    resolved: row.resolved,
+    createdAt: row.created_at,
+  }))
+}
+
 // Per-surface data loaders for the admin ops portal. Each routed page calls only the loader
 // it needs, so no page pays for another surface's queries. The transforms here are lifted
 // verbatim from the old single-page fetch (behaviour-preserving); only the split is new.
@@ -26,7 +83,8 @@ function opsClientNamer(clientMap: Map<string, { name: string }>) {
 
 // ---- My tasks (hero): stage pieces + ops tasks + recently-completed ops ----
 export async function loadMyTasksData(): Promise<{
-  pieces: StagePiece[]; opsTasks: OpsTaskRow[]; completedOps: CompletedOpsTask[]; todayIso: string
+  pieces: StagePiece[]; opsTasks: OpsTaskRow[]; completedOps: CompletedOpsTask[];
+  openComments: AdminComment[]; todayIso: string
 }> {
   const admin = createSupabaseAdmin()
   const [clients, opsTasks, completedOpsRows] = await Promise.all([
@@ -40,6 +98,7 @@ export async function loadMyTasksData(): Promise<{
   const clientMap = new Map((clients.data ?? []).map((client) => [client.id, client]))
   const opsClientName = opsClientNamer(clientMap)
   const pieces = await loadAgencyStagePieces(admin)
+  const openComments = (await loadAdminComments()).filter((comment) => !comment.resolved)
   const adminOpsTasks: OpsTaskRow[] = (opsTasks.data ?? []).map((task) => ({
     id: task.id, clientId: task.client_id, clientName: opsClientName(task.client_id),
     title: task.title, category: task.category, due_date: task.due_date,
@@ -50,7 +109,7 @@ export async function loadMyTasksData(): Promise<{
     title: task.title, category: task.category, status: task.status,
     triggerNote: task.trigger_note, completionNote: task.completion_note, completedAt: task.completed_at,
   }))
-  return { pieces, opsTasks: adminOpsTasks, completedOps, todayIso: torontoToday() }
+  return { pieces, opsTasks: adminOpsTasks, completedOps, openComments, todayIso: torontoToday() }
 }
 
 // ---- Pieces: the per-piece gate strip. loadAgencyStagePieces runs its own service-role

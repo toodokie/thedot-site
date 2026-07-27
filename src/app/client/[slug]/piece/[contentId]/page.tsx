@@ -115,7 +115,11 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
         : <Text tone="grey">This piece is waiting for the primary decision-maker.</Text>)}
 
       <CommentThread slug={slug} contentId={item.content_id} comments={comments}
-        canComment={session.canComment} />
+        canComment={session.canComment}
+        designLinks={[
+          item.canva_url && /^https:\/\//i.test(item.canva_url) ? { label: 'Canva', url: item.canva_url } : null,
+          item.drive_url && /^https:\/\//i.test(item.drive_url) ? { label: 'Google Drive', url: item.drive_url } : null,
+        ].filter((link): link is { label: string; url: string } => Boolean(link))} />
 
       {session.canSubmitRequests
         && !requests.some((request) => request.request_type === 'archive'

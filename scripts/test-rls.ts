@@ -1086,6 +1086,41 @@ async function main(): Promise<void> {
         anonSchedule.error?.message ?? 'NO ERROR')
     }
 
+    {
+      const links = await admin.rpc('set_content_design_links', {
+        p_client_id: bClientId, p_content_id: B_CONTENT_ID,
+        p_canva_url: 'https://www.canva.com/design/RLSCOMMENT/view',
+        p_drive_url: 'https://drive.google.com/file/d/RLSCOMMENT/view',
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const canva = await bClient.rpc('add_design_comment', {
+        p_content_id: bItemId, p_body: 'Canva needs a stronger opening frame.',
+        p_design_url: 'https://www.canva.com/design/RLSCOMMENT/view',
+      })
+      const drive = await bClient.rpc('add_design_comment', {
+        p_content_id: bItemId, p_body: 'Drive proof needs the final export attached.',
+        p_design_url: 'https://drive.google.com/file/d/RLSCOMMENT/view',
+      })
+      const designRows = await bClient.from('comments')
+        .select('target_kind,target_url,body').eq('content_id', bItemId).eq('target_kind', 'design')
+      const cross = await bClient.rpc('add_design_comment', {
+        p_content_id: kansetItemId, p_body: 'cross tenant design comment',
+        p_design_url: 'https://www.canva.com/design/RLSCOMMENT/view',
+      })
+      check('C15: client can comment on both released design links through the RPC',
+        !links.error && !canva.error && !drive.error && !designRows.error
+          && (designRows.data ?? []).length === 2
+          && (designRows.data ?? []).every((row) => row.target_kind === 'design'),
+        links.error?.message ?? canva.error?.message ?? drive.error?.message
+          ?? designRows.error?.message ?? JSON.stringify(designRows.data))
+      check('C16: design comments retain the exact safe target URLs',
+        (designRows.data ?? []).some((row) => row.target_url === 'https://www.canva.com/design/RLSCOMMENT/view')
+          && (designRows.data ?? []).some((row) => row.target_url === 'https://drive.google.com/file/d/RLSCOMMENT/view'),
+        JSON.stringify(designRows.data))
+      check('C17: design comment RPC remains tenant-scoped', !!cross.error,
+        cross.error?.message ?? 'NO ERROR')
+    }
+
     console.log('\n--- Slice 5 Google Calendar coordination ---')
 
     {
