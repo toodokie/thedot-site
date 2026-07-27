@@ -1605,6 +1605,16 @@ async function main(): Promise<void> {
           p_actor_key: 'thedot-admin', p_idempotency_key: `rls-news-cross-${RUN_ID}`,
         })
         : { data: null, error: agencyIdea.error }
+      const promotionInbox = newsIdea.data
+        ? await admin.rpc('read_portal_inbox', {
+          p_consumer_key: `rls-promotion-consumer-${RUN_ID}`, p_client_id: bClientId, p_limit: 500,
+        }).then((result) => ({
+          data: (result.data as Array<Record<string, unknown>> | null)?.find(
+            (row) => row.event_key === `agency:idea-promoted:${newsIdea.data}:${B_CONTENT_ID}`,
+          ) ?? null,
+          error: result.error,
+        }))
+        : { data: null, error: newsIdea.error }
       check('AS19: news ingest is curated, idempotent, provenance-private, tenant-safe, and promotable',
         !newsIdea.error && !newsRetry.error && newsRetry.data === newsIdea.data
           && !!newsUnverified.error && !!newsClient.error
@@ -1615,6 +1625,11 @@ async function main(): Promise<void> {
           && !promote.error && !promoteRetry.error
           && promoteRetry.data?.id === promote.data?.id
           && promoteRetry.data?.status === promote.data?.status
+          && !promotionInbox.error
+          && promotionInbox.data?.event_type === 'idea_promoted'
+          && promotionInbox.data?.object_type === 'content_idea'
+          && promotionInbox.data?.object_id === newsIdea.data
+          && (promotionInbox.data?.payload as { content_id?: string } | null)?.content_id === B_CONTENT_ID
           && !!promoteCrossTenant.error,
         JSON.stringify({
           add: newsIdea.error?.message, retry: newsRetry.error?.message,
@@ -1622,6 +1637,7 @@ async function main(): Promise<void> {
           row: newsRow.error?.message, shape: newsClientShape.error?.message,
           promote: promote.error?.message, retryPromote: promoteRetry.error?.message,
           cross: promoteCrossTenant.error?.message,
+          inbox: promotionInbox.error?.message,
           status: newsRow.data?.status, source: newsRow.data?.source_type,
           retryId: promoteRetry.data?.id, promoteId: promote.data?.id,
         }))

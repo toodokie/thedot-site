@@ -58,6 +58,7 @@
   gap: 12px;
 }
 .cardTitle { flex: 1 1 auto; min-width: 0; }
+.cardTitleLink { color: inherit; text-decoration-color: var(--dot-yellow); text-underline-offset: 4px; }
 .cardTools { flex: none; }
 
 .cardBody {

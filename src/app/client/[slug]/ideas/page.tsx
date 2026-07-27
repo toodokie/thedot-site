@@ -15,8 +15,8 @@ export default async function IdeasPage({ params }: { params: Promise<{ slug: st
   return (
     <div className={styles.wrap}>
       <div className={styles.head}>
-        <Eyebrow tone="grey">Kanset · Ideas</Eyebrow>
-        <div className={styles.title}><Heading level={2} variant="section">Idea board</Heading></div>
+        <Eyebrow tone="grey">Kanset · Idea inbox</Eyebrow>
+        <div className={styles.title}><Heading level={2} variant="section">Idea inbox</Heading></div>
         <Text size="md" tone="graphite">
           Drop a post idea, a question, a story worth telling, anything you want us to shape into content.
           We pick it up from here.

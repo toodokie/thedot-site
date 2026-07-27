@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { verifySession } from '@/lib/auth'
 import AdminPageHeader from '../AdminPageHeader'
 import StatusPill from '../StatusPill'
@@ -13,8 +14,8 @@ export default async function PortalAdminIdeasPage() {
   const ideas = await loadIdeas()
   return (
     <>
-      <AdminPageHeader kicker="Agency ops" title="Ideas"
-        intro="The shared idea board, exactly what Maria sees. Candidate topics before they become planned pieces."
+      <AdminPageHeader kicker="Agency ops" title="Idea inbox"
+        intro="Raw ideas before they become planned pieces. Promoted ideas link to their piece."
         count={ideas.length} countLabel="ideas" />
       <section className={styles.card}>
         {ideas.length === 0
@@ -22,7 +23,11 @@ export default async function PortalAdminIdeasPage() {
           : ideas.map((idea) => (
             <article key={idea.id} className={styles.subCard}>
               <div className={styles.pubPieceHead}>
-                <span className={styles.subCardTitle}>{idea.title}</span>
+                {idea.became_content_id ? (
+                  <Link className={styles.subCardTitle} href={`/admin/portal/pieces/${encodeURIComponent(idea.became_content_id)}`}>
+                    {idea.title}
+                  </Link>
+                ) : <span className={styles.subCardTitle}>{idea.title}</span>}
                 <StatusPill tone="muted" label={idea.status} />
               </div>
               {idea.body && <p className={styles.metaLine}>{idea.body}</p>}

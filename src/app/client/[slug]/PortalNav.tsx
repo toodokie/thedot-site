@@ -16,7 +16,7 @@ const ITEMS = [
   { label: 'Overview', seg: '' },
   { label: 'Calendar', seg: 'calendar' },
   { label: 'Plan', seg: 'plan' },
-  { label: 'Ideas', seg: 'ideas' },
+  { label: 'Idea inbox', seg: 'ideas' },
   { label: 'Reports', seg: 'reports' },
   { label: 'Requests', seg: 'requests' },
   { label: 'Strategy', seg: 'strategy' },

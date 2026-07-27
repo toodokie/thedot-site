@@ -392,7 +392,10 @@ The 22-post history is already imported.
   — the only RPC that writes activity; alerts derive from it. `record_content_idea_decision` and
   plan-cycle decisions also emit durable `portal_inbox_events`, including a migration backfill for
   decisions recorded before `0034`, so `npm run portal-inbox -- list kanset` cannot miss an idea or
-  batch-plan approval. Email is drained by `scripts/portal-notification-consumer.ts` or the hourly
+  batch-plan approval. Idea inbox promotion (`set_idea_status(..., 'became_piece', ...)`) emits an
+  `idea_promoted` agency inbox event after `0035`; agents should consume it with
+  `npm run portal-inbox -- list kanset`, inspect it with `show`, and acknowledge it after locating
+  or authoring the canonical Markdown pack. Email is drained by `scripts/portal-notification-consumer.ts` or the hourly
   `/api/cron/portal-notifications` route. Production needs `AGENCY_EMAIL`, SMTP settings, and
   `CRON_SECRET`; missing `AGENCY_EMAIL` returns a failing health response and leaves rows pending.
 - **Projections (`0016`):** `projection_outbox` drains to Notion via

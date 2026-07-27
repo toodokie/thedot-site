@@ -1,6 +1,7 @@
 'use client'
 import { useActionState, useEffect, useRef, useState } from 'react'
 import { useFormStatus } from 'react-dom'
+import Link from 'next/link'
 import { Eyebrow, Text, Button, Input, Textarea } from '@thedot/design-system'
 import { addIdea, editIdea } from '../idea-actions'
 import type { IdeaRow } from '@/lib/portal/ideas'
@@ -67,7 +68,11 @@ function IdeaCard({ slug, idea, canSubmit }: { slug: string; idea: IdeaRow; canS
     <div className={styles.card}>
       <div className={styles.cardHead}>
         <div className={styles.cardTitle}>
-          <Text as="div" size="md" tone="black"><strong>{idea.title}</strong></Text>
+          {idea.became_content_id ? (
+            <Link href={`/client/${encodeURIComponent(slug)}/plan/${encodeURIComponent(idea.became_content_id)}`} className={styles.cardTitleLink}>
+              <Text as="span" size="md" tone="black"><strong>{idea.title}</strong></Text>
+            </Link>
+          ) : <Text as="div" size="md" tone="black"><strong>{idea.title}</strong></Text>}
         </div>
         {canSubmit && <div className={styles.cardTools}>
           <Button as="button" type="button" variant="ghost" size="sm" onClick={() => setEditing(true)}>Edit</Button>

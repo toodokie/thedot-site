@@ -6,7 +6,7 @@ import { loadAgencyPieceCalendar } from '@/lib/portal/gates-loader'
 // Kanset tenant) so the agency view shows exactly what the client's own getX(clientId) getters show,
 // without touching those RLS getters. Read-only; management (add idea, edit plan) is layered later.
 
-export type IdeaRow = { id: string; author_type: string; author_name: string; title: string; body: string | null; status: string; created_at: string; updated_at: string }
+export type IdeaRow = { id: string; author_type: string; author_name: string; title: string; body: string | null; status: string; became_content_id: string | null; created_at: string; updated_at: string }
 export type PlanRow = { id: string; content_id: string; title: string; format: string | null; pillar: string | null; platforms: string[]; status: string; planned_date: string | null; client_slug?: string; not_shared?: boolean; producer?: string | null; calendar_note?: string | null }
 export type ReportRow = { id: string; period: string; period_start: string; period_end: string; platform: string; schema_version: number; metrics: Record<string, unknown>; summary: string | null }
 export type RecRow = { id: string; title: string; body: string; category: string; platform: string | null; status: string; created_at: string }
@@ -21,7 +21,7 @@ async function kansetId(admin: ReturnType<typeof createSupabaseAdmin>): Promise<
 export async function loadIdeas(): Promise<IdeaRow[]> {
   const admin = createSupabaseAdmin()
   const r = await admin.from('content_ideas')
-    .select('id,author_type,author_name,title,body,status,created_at,updated_at')
+    .select('id,author_type,author_name,title,body,status,became_content_id,created_at,updated_at')
     .eq('client_id', await kansetId(admin)).neq('status', 'archived')
     .order('created_at', { ascending: false })
   if (r.error) throw new Error(r.error.message)

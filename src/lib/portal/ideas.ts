@@ -8,11 +8,12 @@ export type IdeaRow = {
   title: string
   body: string | null
   status: string
+  became_content_id: string | null
   created_at: string
   updated_at: string
 }
 
-const SELECT = 'id, author_type, author_name, title, body, status, created_at, updated_at'
+const SELECT = 'id, author_type, author_name, title, body, status, became_content_id, created_at, updated_at'
 
 // Reads the idea board for one client. `authenticated` has column SELECT and RLS scopes reads to the
 // caller's own client, but we also filter by client_id explicitly (defence in depth). Newest first.

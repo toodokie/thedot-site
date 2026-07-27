@@ -59,6 +59,16 @@ Plan-cycle gates (plan-drafted/sent/approved) have NO portal entity today. Ideas
 - Ideas status remap to logged/triaged/slotted/parked/declined/promoted + promoted-piece linkage
   (idea -> piece back-reference exists as source_idea_id already); a parked/declined ruling is
   never re-asked (enforce in UI + assistant index).
+- The portal distinguishes the raw **Idea inbox** (`content_ideas`) from planned piece identities
+  (`content_items.status = 'idea'`). Promotion is an audited agency action, not an implicit sync
+  side effect: resolve or create the tenant-scoped `content_id`, author the client-safe canonical
+  Markdown pack with that same id, commit it to the private canonical repo, then hydrate the
+  versionless identity through the normal sync and release gates. `became_content_id` links the
+  inbox submission to the piece and is terminal once set.
+- Promotion emits one idempotent `idea_promoted` agency inbox event containing the idea UUID,
+  tenant, content_id, title, and provenance. Agents consume it with `portal-inbox list/show` and
+  acknowledge it after the canonical pack is created or located. Activity history alone is not a
+  work queue, and client-decision inbox events do not cover agency promotion.
 - The change-note rule rendered in the portal ask (a change note field on release/re-release when
   a seen version changed materially).
 

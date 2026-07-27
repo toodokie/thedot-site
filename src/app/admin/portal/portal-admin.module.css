@@ -264,6 +264,7 @@
 @media (max-width: 760px) { .reportGrid { grid-template-columns: 1fr; } }
 .subCardWarn { border-color: var(--admin-danger); }
 .subCardTitle { font-size: 18px; font-weight: var(--dot-weight-demi); color: var(--admin-ink); margin-bottom: 5px; }
+.subCardTitle[href] { text-decoration-color: var(--admin-accent-strong); text-underline-offset: 3px; }
 .metaLine { color: var(--admin-graphite); font-size: 16px; font-variant-numeric: tabular-nums; margin-top: 4px; line-height: 1.55; }
 .errorText { color: var(--admin-danger); font-size: 15px; margin-top: 5px; }
 .codeId { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; color: var(--admin-muted); }
