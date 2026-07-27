@@ -4,6 +4,7 @@ import AdminPageHeader from '../AdminPageHeader'
 import StatusPill, { type PillTone } from '../StatusPill'
 import { loadPlan, loadPlanCycle } from '../mirror-data'
 import styles from '../portal-admin.module.css'
+import PlanDateControl from './PlanDateControl'
 
 export const dynamic = 'force-dynamic'
 
@@ -53,7 +54,9 @@ export default async function PortalAdminPlanPage() {
                     {plan.items.map((it) => (
                       <tr key={it.id}>
                         <td className={styles.cellNum}>{it.position}</td>
-                        <td className={styles.cellNum}>{it.planned_date ?? <span className={styles.cellMuted}>unscheduled</span>}</td>
+                        <td className={styles.cellNum}>
+                          <PlanDateControl clientSlug="kanset" contentId={it.content_id} initialDate={it.planned_date} />
+                        </td>
                         <td className={styles.pieceCol}>
                           <a className={styles.pieceLink} href={`/admin/portal/pieces/${encodeURIComponent(it.content_id)}`}>
                             {it.title}

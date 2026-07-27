@@ -29,6 +29,15 @@ const timestamp = (value: unknown, field: string) => {
   if (!Number.isFinite(Date.parse(text))) throw new Error(`${field} must be an ISO timestamp`)
   return new Date(text).toISOString()
 }
+const calendarDate = (value: unknown, field: string) => {
+  const text = requiredText(value, field, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) throw new Error(`${field} must be a YYYY-MM-DD date`)
+  const [year, month, day] = text.split('-').map(Number)
+  const dt = new Date(Date.UTC(year, month - 1, day))
+  if (dt.getUTCFullYear() !== year || dt.getUTCMonth() !== month - 1 || dt.getUTCDate() !== day)
+    throw new Error(`${field} must be a real calendar date`)
+  return text
+}
 // Mirror of the DB's portal_note_grammar_safe (fix C): gate/completion notes render into
 // the STATUS GATES markdown, so reject control chars/newlines and the reserved grammar
 // delimiters (| @ and the '- [' checkbox) before the RPC does.
@@ -41,7 +50,7 @@ const assertNoteGrammarSafe = (value: string | null, field: string) => {
 
 async function main() {
   const [command, inputPath, ...rest] = process.argv.slice(2)
-  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|publication-confirm|invoice|idea|news-idea|idea-status|design-link|plan-cycle|gate|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
+  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|publication-confirm|invoice|idea|news-idea|idea-status|design-link|plan-cycle|plan-date|gate|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
   const dryRun = rest.includes('--dry-run')
   const packIndex = rest.indexOf('--pack')
   const packPath = packIndex >= 0 ? rest[packIndex + 1] ?? null : null
@@ -269,6 +278,15 @@ async function main() {
     rpc = 'agency_upsert_plan_cycle'; args = { p_client_id: null,
       p_cycle_key: cycleKey, p_week_start: weekStart, p_week_end: weekEnd,
       p_title: title, p_direction_summary: directionSummary, p_items: items,
+      p_actor_key: actor, p_idempotency_key: idempotency }
+  } else if (command === 'plan-date') {
+    if (!('plannedDate' in payload)) throw new Error('plan-date requires plannedDate (use null to unschedule)')
+    const plannedDate = payload.plannedDate === null ? null : calendarDate(payload.plannedDate, 'plannedDate')
+    const note = optionalText(payload.note, 'note', 2000)
+    assertClientSafeAgencyText({ note })
+    rpc = 'agency_set_content_plan_date'; args = { p_client_id: null,
+      p_content_id: requiredText(payload.contentId, 'contentId', 200),
+      p_planned_date: plannedDate, p_note: note,
       p_actor_key: actor, p_idempotency_key: idempotency }
   } else if (command === 'gate') {
     // Production-gate emission (set_production_gate, migration 0022). Accepts the

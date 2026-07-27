@@ -847,6 +847,35 @@ async function main(): Promise<void> {
       })
       check('T14: plan idempotency key rejects a changed date', !!staleKey.error,
         staleKey.error?.message ?? 'NO ERROR')
+
+      const agencyBefore = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
+      const agencyArgs = {
+        p_client_id: bClientId,
+        p_content_id: 'rls-plan-only',
+        p_planned_date: '2027-07-22',
+        p_note: 'Moved by The Dot for the next weekly plan.',
+        p_actor_key: 'thedot-admin',
+        p_idempotency_key: `agency-plan-${RUN_ID}`,
+      }
+      const agencyFirst = await admin.rpc('agency_set_content_plan_date', agencyArgs)
+      const agencyRetry = await admin.rpc('agency_set_content_plan_date', agencyArgs)
+      const agencyAfter = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
+      const agencyRow = await bClient.from('content_with_state')
+        .select('planned_date').eq('id', planItemId).single()
+      const agencyAnon = await anonClient.rpc('agency_set_content_plan_date', {
+        ...agencyArgs, p_planned_date: '2027-07-23', p_idempotency_key: `agency-anon-${RUN_ID}`,
+      })
+      check('T15: agency plan-date writer updates the canonical date and is idempotent',
+        !agencyFirst.error && !agencyRetry.error
+        && agencyFirst.data?.outcome === 'updated'
+        && agencyRetry.data?.outcome === 'updated'
+        && !agencyRow.error && agencyRow.data?.planned_date === '2027-07-22'
+        && !agencyBefore.error && !agencyAfter.error
+        && (agencyAfter.count ?? 0) - (agencyBefore.count ?? 0) === 1,
+      agencyFirst.error?.message ?? agencyRetry.error?.message ?? agencyRow.error?.message
+        ?? JSON.stringify({ first: agencyFirst.data, retry: agencyRetry.data, row: agencyRow.data }))
+      check('T16: agency plan-date RPC is not callable by anon', !!agencyAnon.error,
+        agencyAnon.error?.message ?? 'NO ERROR')
     }
 
     {
