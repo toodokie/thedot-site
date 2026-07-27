@@ -56,6 +56,13 @@ export type IdeaDecision = {
   created_at: string
 }
 
+export type ContentAvailability =
+  | 'released'
+  | 'no_copy'
+  | 'pending_fact_check'
+  | 'pending_release'
+  | 'not_available'
+
 const cycleColumns = 'id,client_id,cycle_key,week_start,week_end,title,direction_summary,revision,status,submitted_at,decided_at,approved_revision,created_at,updated_at'
 const itemColumns = 'id,plan_cycle_id,client_id,content_item_id,content_id,position,planned_date,title,format,pillar,platforms,direction_note,created_at,updated_at'
 const decisionColumns = 'id,plan_cycle_id,client_id,revision,decision,note,created_at'
@@ -119,6 +126,27 @@ export async function getIdeaDecision(
     .maybeSingle()
   if (result.error) throw new PortalDataError(`idea decision unavailable: ${result.error.message}`)
   return result.data as IdeaDecision | null
+}
+
+/**
+ * Returns only the client-safe reason a planned identity has no released copy.
+ * The RPC never returns working content or internal release metadata.
+ */
+export async function getContentAvailability(
+  clientId: string,
+  contentId: string,
+): Promise<ContentAvailability> {
+  const supabase = await createSupabaseServer()
+  const result = await supabase.rpc('get_client_content_availability', {
+    p_client_id: clientId,
+    p_content_id: contentId,
+  })
+  if (result.error) throw new PortalDataError(`content availability unavailable: ${result.error.message}`)
+  const value = result.data as ContentAvailability
+  if (!['released', 'no_copy', 'pending_fact_check', 'pending_release', 'not_available'].includes(value)) {
+    throw new PortalDataError('content availability returned an invalid state')
+  }
+  return value
 }
 
 export async function getCurrentPlanCycle(clientId: string): Promise<{ cycle: PlanCycle | null; items: PlanCycleItem[] }> {

@@ -283,6 +283,17 @@ async function main(): Promise<void> {
     const bViewerClient = clientForToken(bViewerToken)
     const anonClient = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false } })
 
+    const releasedAvailability = await kansetClient.rpc('get_client_content_availability', {
+      p_client_id: kansetClientId, p_content_id: foreignContentId,
+    })
+    const crossAvailability = await bClient.rpc('get_client_content_availability', {
+      p_client_id: kansetClientId, p_content_id: foreignContentId,
+    })
+    check('AV1: client availability reports released only for its own tenant',
+      !releasedAvailability.error && releasedAvailability.data === 'released'
+        && !crossAvailability.error && crossAvailability.data === 'not_available',
+      `own=${releasedAvailability.error?.message ?? releasedAvailability.data} cross=${crossAvailability.error?.message ?? crossAvailability.data}`)
+
     const activeSession = await bClient.rpc('portal_client_session', { p_slug: B_SLUG })
     check('A1: enabled launch resolves only the caller membership and capabilities',
       !activeSession.error && activeSession.data?.length === 1

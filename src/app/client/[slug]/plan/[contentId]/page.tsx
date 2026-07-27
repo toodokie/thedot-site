@@ -2,7 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import type { CSSProperties } from 'react'
 import { getClientSession } from '@/lib/portal/auth'
 import { getContentItem } from '@/lib/portal/data'
-import { getIdeaDecision, getPlanCycleItemByContentId, getPlanCycles } from '@/lib/portal/plan-cycle'
+import { getContentAvailability, getIdeaDecision, getPlanCycleItemByContentId, getPlanCycles } from '@/lib/portal/plan-cycle'
 import { routesToPiecePage } from '@/lib/portal/schedule'
 import { Eyebrow, Heading, Text, Button } from '@thedot/design-system'
 import CopyBlock from '@/app/client/[slug]/piece/[contentId]/CopyBlock'
@@ -31,6 +31,7 @@ export default async function PlanPiece({ params }: { params: Promise<{ slug: st
   if (!item) {
     const planned = await getPlanCycleItemByContentId(session.clientId, contentId)
     if (!planned) notFound()
+    const availability = await getContentAvailability(session.clientId, contentId)
     const cycle = (await getPlanCycles(session.clientId)).find((candidate) => candidate.id === planned.plan_cycle_id)
     const ideaDecision = cycle
       ? await getIdeaDecision(session.clientId, planned.content_item_id, cycle.id, cycle.revision)
@@ -51,7 +52,18 @@ export default async function PlanPiece({ params }: { params: Promise<{ slug: st
         {planned.direction_note && (
           <div style={{ marginBottom: 24 }}><Text>{planned.direction_note}</Text></div>
         )}
-        <Text tone="grey">This idea is included in the plan. Its copy has not been drafted yet.</Text>
+        {availability === 'no_copy' && (
+          <Text tone="grey">This idea is included in the plan, but copy has not been drafted yet.</Text>
+        )}
+        {availability === 'pending_fact_check' && (
+          <Text tone="grey">Copy is being prepared. We will show it here after fact-checking is complete.</Text>
+        )}
+        {availability === 'pending_release' && (
+          <Text tone="grey">Copy is prepared and is awaiting final release checks before it can be shared.</Text>
+        )}
+        {(availability === 'not_available' || availability === 'released') && (
+          <Text tone="grey">This piece is not available for client viewing yet.</Text>
+        )}
         {ideaDecision?.decision === 'approved' && (
           <Text tone="graphite">You approved this idea{ideaDecision.note ? `: ${ideaDecision.note}` : '.'}</Text>
         )}

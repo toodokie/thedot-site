@@ -295,10 +295,16 @@ defines when the piece identity is created.
 2. **Sync** into Supabase: `npm run sync-content` (`scripts/sync-content-to-supabase.ts`). Always
    `--dry-run` first (zero writes) — the content-safety gate (`src/lib/portal/content-safety.ts`)
    blocks any file carrying email/phone/dollar-invoice/intake patterns outside the billing surface.
+   Sync creates or updates an agency working snapshot only. The client-facing view cannot read
+   that snapshot, so do not describe it as ready for Maria or ask her to approve it yet.
 3. **Release** a confirmed piece: `mark_content_ready` (only when the fact-check ledger is
    release-valid — `portal_fact_check_ledger_release_valid`). Versions are immutable snapshots;
    the **first verified-live version is permanently frozen** — corrections are a new linked version,
    never a rewrite (`portal_enforce_publication_lock`).
+   This is the visibility boundary: Maria sees the copy only after this command succeeds and
+   advances `client_visible_version`. For a brand-only piece with no factual claim, close the
+   gate explicitly with `fact_check: confirmed`, `fact_check_scope: not_applicable`, a short
+   `fact_check_exemption`, and `fact_check_ledger: []`; it still needs the same release command.
 4. **Two approval gates, both in the portal:** (a) the **plan direction**, then (b) **each post**.
    Until launch, approvals are recorded from Maria's documented email decisions via
    `record_external_decision(...)` (evidence ledger:
