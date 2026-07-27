@@ -339,6 +339,18 @@ async function main() {
         return
 
       case 'create':
+        // Once the canonical file has been authored and committed, the same create
+        // action becomes the first sync. The initial guidance-only pass is only for
+        // the genuinely missing-file case. The sync RPC owns creation of the new
+        // content_items identity and inserts v1 as an unreleased working snapshot.
+        if (canonicalExists) {
+          if (extractedBody === null) {
+            throw new Error(`canonical ${canonicalPath} exists, but a pack file is required to create its first portal snapshot`)
+          }
+          await runSync({ supabase, clientId: client.id, portalDir, canonicalPath, canonicalName, contentId,
+            extractedBody, newVersion: plan.newVersion, apply: flags.apply, report })
+          return
+        }
         // New piece. Per §14.2 (Option A) the canonical frontmatter — incl. the structured
         // fact_check_ledger — is AUTHORED, not generated. We do not print the body (Codex SF9: no
         // unscreened copy in logs); we only report the block keys.
