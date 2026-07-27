@@ -22,6 +22,20 @@ const SUPABASE_URL = rawUrl
 const ANON_KEY = rawAnon
 const SERVICE_KEY = rawService
 
+// This suite creates tenants, users, content, approvals, comments, schedules, and other
+// dependent rows. Refuse a non-loopback project by default so a production .env.local cannot
+// turn a verification run into a destructive data write. A deliberately named override is
+// available only for an explicitly disposable staging project.
+const supabaseHost = new URL(SUPABASE_URL).hostname
+if (!['127.0.0.1', 'localhost', '::1'].includes(supabaseHost)
+    && process.env.PORTAL_RLS_ALLOW_REMOTE !== 'I_UNDERSTAND_THIS_MUTATES_DISPOSABLE_DB') {
+  throw new Error(
+    `Refusing RLS test against non-loopback Supabase host ${supabaseHost}. `
+      + 'Use a local stack or set PORTAL_RLS_ALLOW_REMOTE=I_UNDERSTAND_THIS_MUTATES_DISPOSABLE_DB '
+      + 'only for a disposable staging database.',
+  )
+}
+
 const RUN_ID = randomUUID().slice(0, 8)
 const B_SLUG = `rls-test-${RUN_ID}`
 const B_EMAIL = `rls-test-${RUN_ID}@example.com`
