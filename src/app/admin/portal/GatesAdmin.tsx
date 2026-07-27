@@ -50,6 +50,9 @@ const STEP_NAMES = ['Idea sent to Maria', 'Idea approved', 'Fact-check', 'Studio
 // the RIGHT, inline so it sits right beside the title (never stranded far away).
 function TaskRow({ task, showClient }: { task: MyTask; showClient: boolean }) {
   const title = 'title' in task ? task.title : ''
+  const pieceHref = task.kind === 'ops'
+    ? null
+    : `/admin/portal/pieces/${encodeURIComponent(task.contentId)}`
   let trail: ReactNode = null
   let lead: ReactNode = null
   if (task.kind === 'action') {
@@ -75,7 +78,9 @@ function TaskRow({ task, showClient }: { task: MyTask; showClient: boolean }) {
       <span className={styles.taskMain}>
         <ClientTag name={task.clientName} show={showClient} />
         {lead}
-        <span className={styles.taskTitle} title={title}>{title}</span>
+        {pieceHref
+          ? <a className={`${styles.taskTitle} ${styles.pieceLink}`} href={pieceHref} title={title}>{title}</a>
+          : <span className={styles.taskTitle} title={title}>{title}</span>}
       </span>
       <span className={styles.taskTrail}>{trail}</span>
     </li>
