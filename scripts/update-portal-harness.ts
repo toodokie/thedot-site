@@ -314,6 +314,23 @@ class Harness {
     this.results.push({ scenario: 5, name: 'version + checksum convergence', working_version: item.working_version, snapshot_count: snapshots.length, checksum: 'recomputed-equal' })
   }
 
+  async scenarioCreateFromAuthoredCanonical(): Promise<void> {
+    const id = 'harness-create-authored-canonical'
+    // This is the production failure case: the canonical file has already been authored and
+    // committed, but the portal identity does not exist yet. The CLI must take the normal sync
+    // path and let sync_content_item_versions create v1, rather than returning guidance-only.
+    createRepo(this.canonicalRoot, id, 'FIRST AUTHORING BODY')
+    const pack = makePack(this.packRoot, 'harness-create-authored-canonical-pack', id, 'FIRST AUTHORING BODY')
+    const applied = await this.update(pack, ['--apply'])
+    assert(applied.status === 0, `authored-canonical create failed: ${applied.stderr}`)
+    const item = await this.item(id)
+    assert(item.working_version === 1 && item.client_visible_version === null, 'authored-canonical create did not insert an unreleased v1')
+    const snapshots = await this.snapshots(id)
+    assert(snapshots.length === 1 && snapshots[0].client_body.includes('FIRST AUTHORING BODY'), 'authored-canonical create did not persist v1 body')
+    await this.assertConverged(id, 'FIRST AUTHORING BODY')
+    this.results.push({ scenario: 6, name: 'new DB identity from authored canonical', inserted_version: 1, released: false })
+  }
+
   async shadowScript(replacement: 'remove-lock' | 'remove-pending-sync' | 'release-always' | 'remove-body-guard'): Promise<string> {
     const shadowRoot = mkdtempSync(join(tmpdir(), 'update-portal-shadow-'))
     mkdirSync(join(shadowRoot, 'scripts'), { recursive: true })
@@ -380,7 +397,7 @@ async function main(): Promise<void> {
   try {
     await harness.start()
     if (fullRun) {
-      await harness.scenarioRace(); await harness.scenarioSyncRetry(); await harness.scenarioReleaseRetry(); await harness.scenarioChangedPendingRelease(); await harness.scenarioVersionChecksumConvergence()
+      await harness.scenarioRace(); await harness.scenarioSyncRetry(); await harness.scenarioReleaseRetry(); await harness.scenarioChangedPendingRelease(); await harness.scenarioVersionChecksumConvergence(); await harness.scenarioCreateFromAuthoredCanonical()
     }
     await harness.selfDoubt()
     console.log(JSON.stringify({ harness: 'update-portal', target: 'loopback disposable Supabase', results: harness.results }, null, 2))
