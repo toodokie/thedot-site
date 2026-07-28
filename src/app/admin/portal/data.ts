@@ -26,6 +26,24 @@ export type AdminComment = {
   createdAt: string
 }
 
+type CopyBlock = { key: string; label: string | null; body: string }
+
+function asText(value: unknown): string | null {
+  return typeof value === 'string' ? value : null
+}
+
+function parseCopyBlocks(value: unknown): CopyBlock[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return []
+    const row = entry as Record<string, unknown>
+    const key = asText(row.key)
+    const body = asText(row.body)
+    if (!key || body === null) return []
+    return [{ key, body, label: asText(row.label) }]
+  })
+}
+
 export async function loadAdminComments(): Promise<AdminComment[]> {
   const admin = createSupabaseAdmin()
   const [clients, comments, items, versions] = await Promise.all([
@@ -259,26 +277,34 @@ export async function loadRequests(): Promise<AdminContentRequest[]> {
   const admin = createSupabaseAdmin()
   const [clients, content, contentRequests] = await Promise.all([
     admin.from('clients').select('id,name,slug').order('name'),
-    admin.from('content_with_state').select('id,client_id,content_id,title,version').order('planned_date'),
+    admin.from('content_item_versions').select('content_item_id,client_id,version,title,copy_blocks'),
     admin.rpc('list_content_change_requests', { p_client_id: null }),
   ])
   const failure = clients.error ?? content.error ?? contentRequests.error
   if (failure) throw new Error(`Portal admin data unavailable: ${failure.message}`)
   const clientMap = new Map((clients.data ?? []).map((client) => [client.id, client]))
-  const contentMap = new Map((content.data ?? []).map((item) => [`${item.client_id}:${item.id}:${item.version}`, item]))
+  const contentMap = new Map((content.data ?? []).map((item) => [
+    `${item.client_id}:${item.content_item_id}:${item.version}`, item,
+  ]))
   const requestRows = (contentRequests.data ?? []) as Array<{
     id: string; client_id: string; content_id: string | null; request_type: string; status: string
     requester_name: string; created_at: string; base_version: number | null
     payload: Record<string, unknown>; resolution_note: string | null
   }>
   return requestRows.map((request) => {
-    const item = request.content_id
-      ? [...contentMap.entries()].find(([key]) => key.startsWith(`${request.client_id}:${request.content_id}:`))?.[1]
+    const item = request.content_id && request.base_version !== null
+      ? contentMap.get(`${request.client_id}:${request.content_id}:${request.base_version}`)
       : null
+    const blockKey = asText(request.payload.block_key)
+    const block = blockKey ? parseCopyBlocks(item?.copy_blocks).find((candidate) => candidate.key === blockKey) : null
+    const proposedText = asText(request.payload.proposed_text)
     return { id: request.id, clientName: clientMap.get(request.client_id)?.name ?? 'Unknown client',
       requestType: request.request_type, status: request.status, requesterName: request.requester_name,
       createdAt: request.created_at, baseVersion: request.base_version,
       title: item?.title ?? (typeof request.payload.title === 'string' ? request.payload.title : 'Content request'),
-      resolutionNote: request.resolution_note }
+      resolutionNote: request.resolution_note,
+      edit: request.request_type === 'edit' && proposedText !== null
+        ? { blockKey, blockLabel: block?.label ?? null, originalText: block?.body ?? null, proposedText }
+        : null }
   })
 }

@@ -283,6 +283,14 @@
 .metaLine { color: var(--admin-graphite); font-size: 16px; font-variant-numeric: tabular-nums; margin-top: 4px; line-height: 1.55; }
 .errorText { color: var(--admin-danger); font-size: 15px; margin-top: 5px; }
 .codeId { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; color: var(--admin-muted); }
+.editReview { margin-top: 18px; border-top: 1px solid var(--admin-line); padding-top: 14px; }
+.editReview summary { cursor: pointer; color: var(--admin-ink); font-size: 17px; font-weight: var(--dot-weight-demi); }
+.editReviewHint { margin: 8px 0 14px; color: var(--admin-muted); font-size: 15px; line-height: 1.5; }
+.editReviewGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.editReviewLabel { margin: 0 0 7px; color: var(--admin-muted); font-size: 13px; font-weight: var(--dot-weight-medium); letter-spacing: 0.06em; text-transform: uppercase; }
+.editReviewText { box-sizing: border-box; width: 100%; min-height: 96px; margin: 0; padding: 12px; overflow-wrap: anywhere; white-space: pre-wrap; font: inherit; font-size: 15px; line-height: 1.5; color: var(--admin-ink); background: var(--admin-ground); border: 1px solid var(--admin-line); }
+.editReviewMissing { margin: 0; padding: 12px; color: var(--admin-muted); font-size: 15px; line-height: 1.5; border: 1px solid var(--admin-line); }
+@media (max-width: 760px) { .editReviewGrid { grid-template-columns: 1fr; } }
 .statusMsg { font-size: 17px; color: var(--admin-graphite); margin-top: 12px; }
 .inlineForm { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; }

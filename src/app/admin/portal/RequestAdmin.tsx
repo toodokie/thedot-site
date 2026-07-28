@@ -8,6 +8,9 @@ import AdminPageHeader from './AdminPageHeader'
 export type AdminContentRequest = {
   id: string; clientName: string; requestType: string; status: string; requesterName: string
   createdAt: string; title: string; baseVersion: number | null; resolutionNote: string | null
+  edit: {
+    blockKey: string | null; blockLabel: string | null; originalText: string | null; proposedText: string
+  } | null
 }
 
 // Request status -> pill tone (presentation only; the raw status string is unchanged upstream).
@@ -48,12 +51,27 @@ export default function RequestAdmin({ requests }: { requests: AdminContentReque
           <StatusPill tone={requestTone(request.status)} label={request.status} />
         </div>
         <div className={styles.metaLine}>{request.clientName} · {request.requestType} · {request.requesterName} · {request.createdAt.slice(0, 10)}{request.baseVersion ? ` · v${request.baseVersion}` : ''}</div>
+        {request.edit && <details className={styles.editReview} open>
+          <summary>Review edit to {request.edit.blockLabel ?? request.edit.blockKey ?? 'copy block'}</summary>
+          <p className={styles.editReviewHint}>Maria’s proposed replacement is shown beside the text she reviewed.</p>
+          <div className={styles.editReviewGrid}>
+            <section>
+              <h3 className={styles.editReviewLabel}>Current text{request.baseVersion ? `, v${request.baseVersion}` : ''}</h3>
+              {request.edit.originalText !== null
+                ? <pre className={styles.editReviewText}>{request.edit.originalText}</pre>
+                : <p className={styles.editReviewMissing}>The original block is unavailable, so reconcile this request carefully.</p>}
+            </section>
+            <section>
+              <h3 className={styles.editReviewLabel}>Maria’s proposed text</h3>
+              <pre className={styles.editReviewText}>{request.edit.proposedText}</pre>
+            </section>
+          </div>
+        </details>}
         {request.resolutionNote && <p className={styles.metaLine}>{request.resolutionNote}</p>}
         {['pending', 'applying'].includes(request.status) && <div className={styles.actions}>
           <button type="button" className={`${styles.btn} ${styles.btnDanger}`} disabled={busy === request.id} onClick={() => resolve(request.id, 'rejected')}>Reject</button>
           <button type="button" className={styles.btn} disabled={busy === request.id} onClick={() => resolve(request.id, 'conflicted')}>Mark conflict</button>
         </div>}
-        <div className={styles.codeId}>{request.id}</div>
       </article>)}
     </div>}
     </section>
