@@ -40,10 +40,19 @@ export default async function AdminPiecePage({ params }: { params: Promise<{ con
   const content = versionRow?.data as {
     copy_blocks: unknown; client_body: string | null; canva_url: string | null; drive_url: string | null
   } | null | undefined
+  // Design links are ITEM-LEVEL (migration 0020, content_design_links), not on the version
+  // row and not in canonical frontmatter. Read the item-level override first; fall back to
+  // any version columns for older data.
+  const designRow = itemRow.data?.id ? await admin.from('content_design_links')
+    .select('canva_url, drive_url')
+    .eq('client_id', client.data.id).eq('content_item_id', itemRow.data.id).maybeSingle() : null
+  const designLink = designRow?.data as { canva_url: string | null; drive_url: string | null } | null | undefined
   const blocks = Array.isArray(content?.copy_blocks)
     ? content!.copy_blocks as Array<{ key: string | null; label: string; body: string }> : []
-  const canva = content?.canva_url && /^https:\/\//i.test(content.canva_url) ? content.canva_url : null
-  const drive = content?.drive_url && /^https:\/\//i.test(content.drive_url) ? content.drive_url : null
+  const canvaRaw = designLink?.canva_url ?? content?.canva_url ?? null
+  const driveRaw = designLink?.drive_url ?? content?.drive_url ?? null
+  const canva = canvaRaw && /^https:\/\//i.test(canvaRaw) ? canvaRaw : null
+  const drive = driveRaw && /^https:\/\//i.test(driveRaw) ? driveRaw : null
 
   const model = agencyProgress(piece)
   const gates = resolveNineGates(piece)
