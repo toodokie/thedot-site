@@ -2416,6 +2416,92 @@ async function main(): Promise<void> {
         ideaDecision.error?.message ?? ideaInboxBefore.error?.message ?? ideaInboxAfter.error?.message
           ?? ideaRetry.error?.message ?? ideaInboxRetry.error?.message
           ?? `before=${ideaInboxBefore.data?.length ?? 0} after=${ideaInboxAfter.data?.length ?? 0} retry=${ideaMatches.length}`)
+
+      // 0039: an agency can record a real out-of-band cycle approval, but the client
+      // decider and email/call provenance are durable and immutable. The existing 0034
+      // trigger, not the RPC, owns the one inbox event.
+      const agencyCycle = await admin.rpc('agency_upsert_plan_cycle', {
+        p_client_id: bClientId,
+        p_cycle_key: `rls-agency-decision-${RUN_ID}`,
+        p_week_start: '2026-08-10', p_week_end: '2026-08-14',
+        p_title: 'RLS agency-recorded decision',
+        p_direction_summary: 'A real email decision is recorded with durable provenance.',
+        p_items: [{
+          content_id: B_CONTENT_ID, title: 'Visible main v1', format: 'caption',
+          pillar: 'employer', platforms: ['instagram'], producer: 'the_dot',
+          planned_date: '2026-08-10', direction_note: 'Agency decision recorder fixture.', position: 1,
+        }],
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-agency-cycle-${RUN_ID}`,
+      })
+      const sourceOccurredAt = new Date(Date.now() - 60_000).toISOString()
+      const decisionArgs = {
+        p_client_id: bClientId, p_plan_cycle_id: agencyCycle.data, p_revision: 1,
+        p_contact_auth_user_id: bUserId, p_decision: 'approved', p_note: null,
+        p_decision_source: 'email', p_source_occurred_at: sourceOccurredAt,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-agency-decision-${RUN_ID}`,
+      }
+      const agencyDecision = agencyCycle.data
+        ? await admin.rpc('agency_record_plan_cycle_decision', decisionArgs)
+        : { data: null, error: new Error('agency plan missing') }
+      const agencyDecisionId = (agencyDecision.data as { id?: string } | null)?.id
+      const agencyProvenance = agencyDecisionId
+        ? await admin.from('plan_cycle_decision_provenance')
+          .select('plan_cycle_decision_id,decision_source,source_occurred_at,recorded_by')
+          .eq('plan_cycle_decision_id', agencyDecisionId).single()
+        : { data: null, error: new Error('agency decision missing') }
+      const agencyCycleRow = agencyCycle.data
+        ? await admin.from('plan_cycles').select('status,approved_revision').eq('id', agencyCycle.data).single()
+        : { data: null, error: new Error('agency plan missing') }
+      const agencyInboxConsumer = `rls-agency-cycle-inbox-${RUN_ID}`
+      const agencyInbox = agencyCycle.data
+        ? await admin.rpc('read_portal_inbox', {
+          p_consumer_key: agencyInboxConsumer, p_client_id: bClientId, p_limit: 500,
+        })
+        : { data: [], error: new Error('agency plan missing') }
+      const agencyExactRetry = agencyCycle.data
+        ? await admin.rpc('agency_record_plan_cycle_decision', decisionArgs)
+        : { data: null, error: new Error('agency plan missing') }
+      const agencyInboxRetry = agencyCycle.data
+        ? await admin.rpc('read_portal_inbox', {
+          p_consumer_key: agencyInboxConsumer, p_client_id: bClientId, p_limit: 500,
+        })
+        : { data: [], error: new Error('agency plan missing') }
+      const changedContact = agencyCycle.data
+        ? await admin.rpc('agency_record_plan_cycle_decision', {
+          ...decisionArgs, p_contact_auth_user_id: bViewerUserId,
+          p_idempotency_key: `rls-agency-other-contact-${RUN_ID}`,
+        })
+        : { data: null, error: new Error('agency plan missing') }
+      const changedProvenance = agencyCycle.data
+        ? await admin.rpc('agency_record_plan_cycle_decision', {
+          ...decisionArgs, p_decision_source: 'call',
+          p_idempotency_key: `rls-agency-other-source-${RUN_ID}`,
+        })
+        : { data: null, error: new Error('agency plan missing') }
+      const clientProvenanceRead = await bClient.from('plan_cycle_decision_provenance')
+        .select('plan_cycle_decision_id').eq('plan_cycle_decision_id', agencyDecisionId ?? '')
+      const directProvenanceWrite = await admin.from('plan_cycle_decision_provenance').insert({
+        plan_cycle_decision_id: agencyDecisionId,
+        decision_source: 'email', source_occurred_at: sourceOccurredAt,
+        recorded_by: '00000000-0000-0000-0000-000000000000',
+      })
+      check('PCD1: agency cycle decisions persist provenance, keep one trigger-owned inbox event, and reject identity/provenance rewrites',
+        !agencyDecision.error && !agencyProvenance.error
+          && agencyProvenance.data?.decision_source === 'email'
+          && new Date(agencyProvenance.data?.source_occurred_at ?? '').toISOString() === sourceOccurredAt
+          && !agencyCycleRow.error && agencyCycleRow.data?.status === 'approved'
+          && agencyCycleRow.data?.approved_revision === 1
+          && !agencyInbox.error && (agencyInbox.data ?? []).filter((row: PortalInboxRow) =>
+            row.event_type === 'plan_cycle_approved' && row.object_id === agencyCycle.data).length === 1
+          && !agencyExactRetry.error && !agencyInboxRetry.error && (agencyInboxRetry.data ?? []).filter((row: PortalInboxRow) =>
+            row.event_type === 'plan_cycle_approved' && row.object_id === agencyCycle.data).length === 1
+          && !!changedContact.error && !!changedProvenance.error
+          && !!clientProvenanceRead.error && !!directProvenanceWrite.error,
+        agencyDecision.error?.message ?? agencyProvenance.error?.message ?? agencyCycleRow.error?.message
+          ?? agencyInbox.error?.message ?? agencyExactRetry.error?.message ?? agencyInboxRetry.error?.message
+          ?? changedContact.error?.message ?? changedProvenance.error?.message
+          ?? clientProvenanceRead.error?.message ?? directProvenanceWrite.error?.message
+          ?? 'unexpected agency plan-cycle provenance result')
     }
 
     {

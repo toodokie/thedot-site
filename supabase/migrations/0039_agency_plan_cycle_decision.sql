@@ -42,6 +42,21 @@ alter function public.assert_portal_security() rename to assert_portal_slice32_s
 revoke all on function public.assert_portal_slice32_security() from public, anon, authenticated;
 grant execute on function public.assert_portal_slice32_security() to service_role;
 
+-- The plan-cycle decision row records the client actor and immutable decision. External
+-- provenance belongs in its own agency-only relation: a receipt stores only a hash, so it
+-- cannot later prove the email/call source or the time Maria actually made the decision.
+create table public.plan_cycle_decision_provenance (
+  plan_cycle_decision_id uuid primary key
+    references public.plan_cycle_decisions(id) on delete cascade,
+  decision_source text not null check (decision_source in ('email', 'call')),
+  source_occurred_at timestamptz not null,
+  recorded_by uuid not null references public.agency_actors(id),
+  created_at timestamptz not null default pg_catalog.now()
+);
+alter table public.plan_cycle_decision_provenance enable row level security;
+revoke all on table public.plan_cycle_decision_provenance from public, anon, authenticated, service_role;
+grant select on table public.plan_cycle_decision_provenance to service_role;
+
 create or replace function public.agency_record_plan_cycle_decision(
   p_client_id uuid,
   p_plan_cycle_id uuid,
@@ -60,6 +75,7 @@ declare
   v_cycle public.plan_cycles%rowtype;
   v_existing_receipt public.portal_command_receipts%rowtype;
   v_existing_decision public.plan_cycle_decisions%rowtype;
+  v_existing_provenance public.plan_cycle_decision_provenance%rowtype;
   v_fingerprint text;
   v_note text := nullif(pg_catalog.btrim(p_note), '');
   v_new_status text := case when p_decision = 'approved' then 'approved' else 'change_requested' end;
@@ -108,9 +124,10 @@ begin
   -- idempotency: advisory lock + receipt replay, keyed by (client, idempotency_key)
   v_fingerprint := pg_catalog.encode(extensions.digest(pg_catalog.convert_to(
     pg_catalog.jsonb_build_object(
-      'plan_cycle_id', p_plan_cycle_id, 'revision', p_revision,
+      'client_id', p_client_id, 'plan_cycle_id', p_plan_cycle_id, 'revision', p_revision,
       'contact', p_contact_auth_user_id, 'decision', p_decision, 'note', v_note,
-      'source', p_decision_source, 'occurred_at', p_source_occurred_at
+      'source', p_decision_source, 'occurred_at', p_source_occurred_at,
+      'actor', p_actor_key
     )::text, 'UTF8'), 'sha256'), 'hex');
   perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
     'agency-plan-cycle-decision:' || p_client_id::text || ':' || p_idempotency_key, 0));
@@ -135,7 +152,18 @@ begin
   select * into v_existing_decision from public.plan_cycle_decisions
     where plan_cycle_id = p_plan_cycle_id and revision = p_revision;
   if found then
-    if v_existing_decision.decision <> p_decision or v_existing_decision.note is distinct from v_note then
+    -- A retry is exact only if it names the same client decider and the same durable
+    -- external provenance. An interactive decision has no agency provenance and must
+    -- never be retroactively claimed as an agency-recorded email/call decision.
+    select * into v_existing_provenance from public.plan_cycle_decision_provenance
+      where plan_cycle_decision_id = v_existing_decision.id;
+    if not found
+       or v_existing_decision.decision <> p_decision
+       or v_existing_decision.note is distinct from v_note
+       or v_existing_decision.decided_by is distinct from p_contact_auth_user_id
+       or v_existing_provenance.decision_source is distinct from p_decision_source
+       or v_existing_provenance.source_occurred_at is distinct from p_source_occurred_at
+       or v_existing_provenance.recorded_by is distinct from v_actor.id then
       raise exception 'plan cycle revision already decided';
     end if;
     v_decision_id := v_existing_decision.id;
@@ -147,6 +175,11 @@ begin
     insert into public.plan_cycle_decisions(plan_cycle_id, client_id, revision, decision, note, decided_by)
       values (p_plan_cycle_id, p_client_id, p_revision, p_decision, v_note, p_contact_auth_user_id)
       returning id into v_decision_id;
+    insert into public.plan_cycle_decision_provenance(
+      plan_cycle_decision_id, decision_source, source_occurred_at, recorded_by
+    ) values (
+      v_decision_id, p_decision_source, p_source_occurred_at, v_actor.id
+    );
     update public.plan_cycles
       set status = v_new_status,
           approved_revision = case when p_decision = 'approved' then p_revision else null end,
@@ -187,11 +220,15 @@ begin
   if v_def is null or v_def not ilike '%security definer%'
      or v_def not ilike '%portal_command_receipts%'
      or v_def not ilike '%plan_cycle_decisions%'
+     or v_def not ilike '%plan_cycle_decision_provenance%'
      or v_def not ilike '%portal_feature_enabled%'
      or v_def not ilike '%portal_client_summary_shape_valid%'
      or v_def not ilike '%activity_log%'
      or v_def not ilike '%client_users%' then
     raise exception 'agency plan-cycle decision writer is incomplete';
+  end if;
+  if v_def ilike '%portal_inbox_events%' then
+    raise exception 'agency plan-cycle decision writer must not directly enqueue inbox events';
   end if;
   if not exists (
     select 1 from pg_catalog.pg_proc p
@@ -204,6 +241,19 @@ begin
      or pg_catalog.has_function_privilege('authenticated','public.agency_record_plan_cycle_decision(uuid,uuid,integer,uuid,text,text,text,timestamptz,text,text)','EXECUTE')
      or not pg_catalog.has_function_privilege('service_role','public.agency_record_plan_cycle_decision(uuid,uuid,integer,uuid,text,text,text,timestamptz,text,text)','EXECUTE') then
     raise exception 'unsafe agency plan-cycle decision writer privileges';
+  end if;
+  if not exists (
+    select 1 from pg_catalog.pg_class c
+    where c.oid = 'public.plan_cycle_decision_provenance'::pg_catalog.regclass
+      and c.relrowsecurity
+  )
+     or pg_catalog.has_table_privilege('anon', 'public.plan_cycle_decision_provenance', 'SELECT')
+     or pg_catalog.has_table_privilege('authenticated', 'public.plan_cycle_decision_provenance', 'SELECT')
+     or not pg_catalog.has_table_privilege('service_role', 'public.plan_cycle_decision_provenance', 'SELECT')
+     or pg_catalog.has_table_privilege('service_role', 'public.plan_cycle_decision_provenance', 'INSERT')
+     or pg_catalog.has_table_privilege('service_role', 'public.plan_cycle_decision_provenance', 'UPDATE')
+     or pg_catalog.has_table_privilege('service_role', 'public.plan_cycle_decision_provenance', 'DELETE') then
+    raise exception 'plan-cycle decision provenance grants are unsafe';
   end if;
 end;
 $$;
