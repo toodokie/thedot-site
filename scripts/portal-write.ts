@@ -50,7 +50,7 @@ const assertNoteGrammarSafe = (value: string | null, field: string) => {
 
 async function main() {
   const [command, inputPath, ...rest] = process.argv.slice(2)
-  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|publication-confirm|invoice|idea|news-idea|idea-status|design-link|plan-cycle|plan-date|gate|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
+  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|publication-confirm|invoice|idea|news-idea|idea-status|design-link|plan-cycle|plan-cycle-decision|plan-date|gate|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
   const dryRun = rest.includes('--dry-run')
   const packIndex = rest.indexOf('--pack')
   const packPath = packIndex >= 0 ? rest[packIndex + 1] ?? null : null
@@ -278,6 +278,21 @@ async function main() {
     rpc = 'agency_upsert_plan_cycle'; args = { p_client_id: null,
       p_cycle_key: cycleKey, p_week_start: weekStart, p_week_end: weekEnd,
       p_title: title, p_direction_summary: directionSummary, p_items: items,
+      p_actor_key: actor, p_idempotency_key: idempotency }
+  } else if (command === 'plan-cycle-decision') {
+    // Agency-recorded plan-cycle decision (0039). Records a real client approval/change made
+    // out of band (email/call) so idea approval can be cleared agency-side. Attributed to the
+    // client decider (contactAuthUserId); service-role only; gated on agency_mutations.
+    const note = optionalText(payload.note, 'note', 2000)
+    assertClientSafeAgencyText({ note })
+    rpc = 'agency_record_plan_cycle_decision'; args = { p_client_id: null,
+      p_plan_cycle_id: requiredText(payload.planCycleId, 'planCycleId', 36),
+      p_revision: integer(payload.revision, 'revision', 1),
+      p_contact_auth_user_id: requiredText(payload.contactAuthUserId, 'contactAuthUserId', 36),
+      p_decision: stringArray(payload.decision, 'decision', ['approved', 'change_requested']),
+      p_note: note,
+      p_decision_source: stringArray(payload.decisionSource, 'decisionSource', ['email', 'call']),
+      p_source_occurred_at: timestamp(payload.sourceOccurredAt, 'sourceOccurredAt'),
       p_actor_key: actor, p_idempotency_key: idempotency }
   } else if (command === 'plan-date') {
     if (!('plannedDate' in payload)) throw new Error('plan-date requires plannedDate (use null to unschedule)')
