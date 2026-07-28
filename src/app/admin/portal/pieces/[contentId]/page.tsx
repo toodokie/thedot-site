@@ -12,6 +12,9 @@ import styles from '../../portal-admin.module.css'
 
 export const dynamic = 'force-dynamic'
 
+// Copy is authored in markdown; the ops view must never show a raw asterisk.
+function stripMd(s: string): string { return s.replace(/\*/g, '') }
+
 // Admin piece page (spec 2026-07-23 section 9): read + operate, NOT authoring. Leads
 // with the full progress bar in place of a flat status. Content authoring stays in the
 // canonical CLI pen; this page surfaces where the piece stands and its step detail.
@@ -98,12 +101,12 @@ export default async function AdminPiecePage({ params }: { params: Promise<{ con
               {b.label && <div style={{ fontFamily: 'var(--dot-font-text)', fontSize: 12,
                 textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--dot-graphite)', marginBottom: 6 }}>{b.label}</div>}
               <div style={{ fontFamily: 'var(--dot-font-text)', fontSize: 15, lineHeight: 1.55,
-                color: 'var(--dot-black)', whiteSpace: 'pre-wrap', maxWidth: '65ch' }}>{b.body}</div>
+                color: 'var(--dot-black)', whiteSpace: 'pre-wrap', maxWidth: '65ch' }}>{stripMd(b.body)}</div>
             </div>
           ))
         ) : content?.client_body ? (
           <div style={{ fontFamily: 'var(--dot-font-text)', fontSize: 15, lineHeight: 1.55,
-            color: 'var(--dot-black)', whiteSpace: 'pre-wrap', maxWidth: '65ch' }}>{content.client_body}</div>
+            color: 'var(--dot-black)', whiteSpace: 'pre-wrap', maxWidth: '65ch' }}>{stripMd(content.client_body)}</div>
         ) : (
           <Text tone="grey">No copy synced for this version yet.</Text>
         )}
