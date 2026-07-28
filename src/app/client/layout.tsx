@@ -5,7 +5,8 @@
 // Because the marketing site does not render through this layout, the design-system CSS scopes
 // itself to /client pages and never touches the main site.
 import '@thedot/design-system/styles.css'
+import PortalPwaRegistration from '@/components/PortalPwaRegistration'
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>
+  return <><PortalPwaRegistration />{children}</>
 }

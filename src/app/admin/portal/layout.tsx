@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import { verifySession } from '@/lib/auth'
 import AdminNav from './AdminNav'
 import styles from './admin-shell.module.css'
+import PortalPwaRegistration from '@/components/PortalPwaRegistration'
 // The @thedot/design-system --dot-* tokens (:root) + fonts. The admin route did NOT pull the
 // design-system stylesheet (unlike the client portal), so every --admin-*: var(--dot-*) resolved
 // to empty and all borders/backgrounds/accents silently dropped. This import guarantees the tokens
@@ -27,6 +28,7 @@ export default async function PortalAdminLayout({ children }: { children: React.
   const seat = <span className={styles.seat}>Agency ops</span>
   return (
     <div className={styles.shell}>
+      <PortalPwaRegistration />
       <AdminNav seat={seat} />
       <div className={styles.content}>
         <header className={styles.topbar}>

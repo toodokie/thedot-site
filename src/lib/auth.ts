@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import bcrypt from 'bcryptjs';
+import { cache } from 'react';
 
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || '';
 const ADMIN_ISSUER = 'thedot-site';
@@ -52,7 +53,10 @@ export async function createSession(userId: string = 'admin') {
   return session;
 }
 
-export async function verifySession(): Promise<SessionPayload | null> {
+// The portal layout and each Ops page both guard the request. React cache keeps the
+// cookie read and JWT verification request-scoped, avoiding duplicate auth work without
+// persisting a session across requests.
+export const verifySession = cache(async function verifySession(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
   const cookie = cookieStore.get('session')?.value;
 
@@ -80,7 +84,7 @@ export async function verifySession(): Promise<SessionPayload | null> {
   } catch {
     return null;
   }
-}
+});
 
 export async function deleteSession() {
   const cookieStore = await cookies();

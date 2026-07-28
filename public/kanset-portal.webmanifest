@@ -1,6 +1,7 @@
 {
   "name": "Kanset Portal",
   "short_name": "Kanset",
+  "id": "/client/kanset",
   "description": "Your Kanset content workspace, by The Dot Creative.",
   "start_url": "/client/kanset",
   "scope": "/client",
@@ -8,8 +9,8 @@
   "background_color": "#faf9f6",
   "theme_color": "#daff00",
   "icons": [
-    { "src": "/favicon.png?v=5", "sizes": "256x256", "type": "image/png", "purpose": "any" },
-    { "src": "/favicon.png?v=5", "sizes": "256x256", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/portal-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/portal-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
     { "src": "/apple-touch-icon.png?v=5", "sizes": "180x180", "type": "image/png", "purpose": "any" }
   ]
 }
