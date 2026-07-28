@@ -6,6 +6,7 @@ type NotificationRow = {
   id: string
   claim_token: number
   recipient_kind: 'agency' | 'client'
+  recipient_email: string | null
   subject: string
   body: string
   related_url: string | null
@@ -20,7 +21,7 @@ export type NotificationDrainResult = {
 }
 
 /**
- * Drain one bounded batch of agency email notifications. The database RPCs own leasing,
+ * Drain one bounded batch of agency and client email notifications. The database RPCs own leasing,
  * fencing, retry backoff, and abandonment. This function is shared by the Vercel cron route
  * and the local/ops CLI so there is only one delivery implementation.
  */
@@ -35,9 +36,6 @@ export async function drainPortalNotifications(
   } = {},
 ): Promise<NotificationDrainResult> {
   const agencyEmail = options.agencyEmail ?? process.env.AGENCY_EMAIL ?? null
-  if (!agencyEmail) {
-    return { claimed: 0, delivered: 0, failed: 0, skipped: true, reason: 'AGENCY_EMAIL is not configured' }
-  }
 
   const limit = Math.min(Math.max(Math.trunc(options.limit ?? 20), 1), 100)
   const claimSeconds = Math.min(Math.max(Math.trunc(options.claimSeconds ?? 120), 30), 900)
@@ -55,8 +53,16 @@ export async function drainPortalNotifications(
   let failed = 0
   for (const row of rows) {
     try {
+      const recipient = row.recipient_kind === 'client' ? row.recipient_email : agencyEmail
+      if (!recipient) {
+        throw new Error(
+          row.recipient_kind === 'client'
+            ? 'client notification has no resolved recipient'
+            : 'AGENCY_EMAIL is not configured',
+        )
+      }
       await sendPortalNotificationEmail({
-        to: agencyEmail,
+        to: recipient,
         subject: row.subject,
         bodyText: row.body,
         url: row.related_url,

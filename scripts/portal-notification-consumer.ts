@@ -1,5 +1,5 @@
 // Durable notification consumer. Drains channel='email' rows from notification_outbox via the fenced
-// claim/complete RPCs and sends them (agency-only in v1). In-app rows are NOT drained here; the portal
+// claim/complete RPCs and sends them to the agency or the tenant's resolved primary decider. In-app rows are NOT drained here; the portal
 // reads them under RLS and marks them seen. Run `--once` from cron, `--dry-run` to preview, `--list`
 // for the backlog. This is the durable path; at deploy cutover the inline best-effort notify.ts calls
 // in the decision/comment server actions are removed so email flows through this consumer alone.

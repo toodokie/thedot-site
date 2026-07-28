@@ -1344,6 +1344,46 @@ async function main(): Promise<void> {
     }
 
     {
+      // 0038 client alerts: the switch enables one tenant-resolved email row for agency activity,
+      // while the recipient address remains unavailable to an authenticated client JWT.
+      for (const [scope, key] of [
+        [null, `rls-global-client-alerts-${RUN_ID}`],
+        [bClientId, `rls-tenant-client-alerts-${RUN_ID}`],
+      ] as const) {
+        const enabled = await admin.rpc('set_portal_feature_switch', {
+          p_client_id: scope,
+          p_feature: 'client_alerts',
+          p_enabled: true,
+          p_reason: 'Disposable RLS integration test',
+          p_actor_key: 'thedot-admin',
+          p_idempotency_key: key,
+        })
+        if (enabled.error) throw new Error(`enable client alerts: ${enabled.error.message}`)
+      }
+      const alertBody = `client-email-alert-${RUN_ID}`
+      const reply = await admin.rpc('add_agency_comment', {
+        p_content_id: bItemId,
+        p_body: alertBody,
+        p_author_name: 'The Dot',
+      })
+      const rows = await admin.from('notification_outbox')
+        .select('recipient_kind,channel,recipient_email,body,status')
+        .eq('client_id', bClientId)
+        .eq('body', alertBody)
+      const clientEmailRows = (rows.data ?? []).filter((row) => row.recipient_kind === 'client' && row.channel === 'email')
+      const clientInAppRows = (rows.data ?? []).filter((row) => row.recipient_kind === 'client' && row.channel === 'in_app')
+      const deniedRecipient = await bClient.from('notification_outbox').select('recipient_email').eq('body', alertBody)
+      check('N5: enabled client alerts resolve the primary decider and preserve in-app delivery',
+        !reply.error && !rows.error && clientEmailRows.length === 1
+          && clientEmailRows[0].recipient_email === B_EMAIL
+          && clientEmailRows[0].status === 'pending'
+          && clientInAppRows.length === 1,
+        reply.error?.message ?? rows.error?.message ?? JSON.stringify(rows.data))
+      check('N6: authenticated client cannot read recipient email', !!deniedRecipient.error,
+        deniedRecipient.error?.message ?? 'recipient_email was readable')
+    }
+
+    {
       // 0016 projection consumer RPCs are service-role only; a client JWT must be denied every one.
       const pClaim = await bClient.rpc('claim_projection_batch', { p_worker: 'x', p_limit: 1, p_claim_seconds: 60 })
       const pSucc = await bClient.rpc('mark_projection_succeeded', { p_id: '00000000-0000-0000-0000-000000000000', p_claim_token: 1 })

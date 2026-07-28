@@ -20,7 +20,8 @@ function safeHttpsUrl(raw: string | null | undefined): string | null {
 
 // Durable path: sends one queued notification_outbox email. This THROWS on failure so the fenced
 // consumer marks the row failed and retries with backoff. Only the notification consumer calls it.
-// In v1 email is agency-only (enforced by the 0015 trigger). Supersedes the former best-effort
+// Recipient resolution is done in the database: agency rows use AGENCY_EMAIL and client rows carry
+// a tenant-resolved primary-decider address. Supersedes the former best-effort
 // notifyDecision/notifyComment helpers: alerts now flow through the outbox + consumer, not inline.
 export async function sendPortalNotificationEmail(opts: {
   to: string
