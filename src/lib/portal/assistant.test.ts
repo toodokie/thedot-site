@@ -5,6 +5,7 @@ import {
   composePublicInput,
   computeCostCents,
   deriveSafetyIdentifier,
+  extractVerifiedInlineCitations,
   hmacHex,
   type RetrievedChunk,
   type TranscriptTurn,
@@ -116,5 +117,38 @@ describe('public input composition', () => {
     expect(composed).toContain('<client_question>')
     expect(composed).not.toContain('<this>')
     expect(composed).not.toContain('retrieved_portal_documents')
+  })
+})
+
+describe('source-backed inline web citations', () => {
+  const official =
+    'https://www.canada.ca/en/employment-social-development/services/foreign-workers.html'
+
+  it('accepts a Markdown link returned by the same web-search call', () => {
+    const text = `The fee is published here. ([Canada.ca](${official}))`
+    expect(extractVerifiedInlineCitations(text, [official])).toEqual([
+      expect.objectContaining({
+        url: official,
+        title: 'Canada.ca',
+        startIndex: text.indexOf('[Canada.ca]'),
+      }),
+    ])
+  })
+
+  it('matches the OpenAI tracking parameter canonically', () => {
+    const text = `The fee is published here. ([Canada.ca](${official}?utm_source=openai))`
+    expect(extractVerifiedInlineCitations(text, [official])).toHaveLength(1)
+  })
+
+  it('rejects an allowed-domain link that was not returned by web search', () => {
+    const other = 'https://www.canada.ca/en/immigration-refugees-citizenship.html'
+    const text = `The fee is published here. ([Canada.ca](${other}))`
+    expect(extractVerifiedInlineCitations(text, [official])).toEqual([])
+  })
+
+  it('rejects an off-list link even if it appears in the source array', () => {
+    const untrusted = 'https://example.com/immigration'
+    const text = `The fee is published here. ([Source](${untrusted}))`
+    expect(extractVerifiedInlineCitations(text, [untrusted])).toEqual([])
   })
 })

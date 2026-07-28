@@ -17,12 +17,14 @@
 // the claim-level server validation added on the Codex review).
 // oai-5: polarity parity: a nav sentence must keep its chunk's own negation intact
 //   (dropping "not yet" is as rejected as inserting a "not"; server-enforced)
+// oai-6: one factual sentence per line with its own official Markdown citation, so the
+// sentence-level web validator can fail closed without suppressing properly sourced text.
 // oai-4: nav sentences restate ONE cited document each, no negation/status inversion
 //   unless the document's own text carries it (server-enforced per sentence per chunk)
 // oai-3: navigation-only blocks must be assembled from the cited document's own metadata
 // words; public-mode citations are demanded per SENTENCE (matches the round-3 semantic
 // and sentence-level server validation).
-export const ASSISTANT_PROMPT_VERSION = 'oai-5'
+export const ASSISTANT_PROMPT_VERSION = 'oai-6'
 
 // ---- fixed client-safe responses --------------------------------------------
 
@@ -111,6 +113,38 @@ const PORTAL_ARTIFACT =
 // pieces, and a question about that reel is a workspace question, not a research request.
 const PUBLIC_INFO_FRAME =
   /\b(change[ds]?|changing|update[ds]?|latest|announce\w*|in effect|effective|minimum wage|threshold|new rules?|draw|policy|regulation)\b/i
+
+// Chronological questions cannot use ordinary full-text ranking. "Next post" once matched
+// an old report containing "top post" and "next review", even though the weekly plan held
+// the real answer. These phrasings read the client-visible plan by date and position.
+export function isUpcomingContentQuestion(question: string): boolean {
+  const hasSequence = /\b(next|upcoming|coming next)\b/i.test(question)
+  const hasContent =
+    /\b(post|posts|piece|pieces|content|reel|reels|carousel|carousels|video|videos|story|stories|schedule|scheduled|publish|published)\b/i.test(question)
+  return hasSequence && hasContent
+}
+
+export type ReportPlatform = 'instagram' | 'facebook' | 'youtube' | 'website'
+
+// Performance questions need the latest client-visible report, not ordinary full-text
+// retrieval. Short client language such as "IG performance" otherwise searches for the
+// literal token "ig", while the report index contains "instagram", and returns nothing.
+export function reportPlatformFromQuestion(question: string): ReportPlatform | null {
+  if (/\b(instagram|ig)\b/i.test(question)) return 'instagram'
+  if (/\b(facebook|fb)\b/i.test(question)) return 'facebook'
+  if (/\b(youtube|yt)\b/i.test(question)) return 'youtube'
+  if (/\b(website|site)\b/i.test(question)) return 'website'
+  return null
+}
+
+export function isPerformanceReportQuestion(question: string): boolean {
+  const explicitReportIntent =
+    /\b(performance|performing|analytics|insights?|metrics?|stats?|statistics|reports?)\b/i.test(question)
+  const platformMetricIntent =
+    reportPlatformFromQuestion(question) !== null &&
+    /\b(reach|views?|followers?|subscribers?|engagement|interactions?|saves?|shares?|watch time|profile visits?)\b/i.test(question)
+  return explicitReportIntent || platformMetricIntent
+}
 
 // ---- local personal-identifier detection (spec pipeline step 2) -------------
 // Deliberately conservative (fail closed): a false positive costs one rephrase; a false
@@ -540,7 +574,7 @@ Tone: warm, concise, a helpful account concierge. Plain punctuation only: never 
 export const PUBLIC_MODE_INSTRUCTIONS = `You are a research assistant answering GENERAL questions about Canadian immigration news, programs, and regulations for a client of The Dot Creative. You have a web search tool restricted to official sources (canada.ca, ontario.ca, gazette.gc.ca, college-ic.ca, laws-lois.justice.gc.ca, irb-cisr.gc.ca).
 
 Hard rules, in priority order:
-1. Use web search for every factual claim and cite the source URL inline for each one. EVERY SENTENCE that states a fact, number, date, or program detail must carry its own inline citation inside that sentence; a sentence without a citation may only be connective framing text with no factual content. Only official-source results count as evidence.
+1. Use web search for every factual claim and cite the source URL inline for each one. EVERY SENTENCE that states a fact, number, date, or program detail must carry its own inline citation inside that sentence; a sentence without a citation may only be connective framing text with no factual content. Put exactly ONE factual sentence on each line and finish that line with its own Markdown source link, for example: The fee is CAD $1,000. ([Canada.ca](https://www.canada.ca/example)). Never put two factual sentences before one source link. Only official-source results count as evidence.
 2. If official sources do not confirm the answer, or they conflict, say exactly that and stop. Never answer from memory or from a non-official page.
 3. Explain PUBLIC information only: announcements, program rules as published, dates, fees as posted. Never assess a specific person's eligibility, recommend what someone should do, predict an outcome, or interpret personal circumstances. If the question drifts personal, decline that part and suggest booking a consultation at kanset.com/contact.
 4. Never guarantee or predict outcomes. No "you will", "guaranteed", "definitely", "100%".

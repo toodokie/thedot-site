@@ -1,6 +1,8 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
+import type { AssistantHistoryTurn } from './assistant-history'
 import styles from './assistant.module.css'
 
 // Chat panel for the Client Work Assistant. Talks to /api/client/[slug]/assistant.
@@ -8,9 +10,9 @@ import styles from './assistant.module.css'
 //   { sections, notices }        validated answer sections (portal and/or web)
 //   { refused, message }         fixed client-safe refusal
 //   { error }                    client-safe error
-// This component renders exactly what the server validated, keeps the conversation in
-// PAGE MEMORY ONLY (cleared on refresh/logout, resent as untrusted context), and renders
-// every web citation as a visible, clickable official-source link.
+// This component renders exactly what the server validated. The widget may provide a
+// browser-only history callback; nothing in this component writes conversation text to
+// the portal database. Every restored turn is resent as untrusted context.
 
 type PortalCitation = { chunkId: string; title: string; route: string }
 type PortalSection = {
@@ -35,6 +37,11 @@ type Turn =
     }
 
 const MAX_QUESTION_CHARS = 2000
+const STARTER_QUESTIONS = [
+  'What is the current LMIA processing fee?',
+  'What did the OINP announce most recently?',
+  'When does my next scheduled post go out?',
+] as const
 
 function turnToPlainText(turn: Turn): string {
   if (turn.role === 'user') return turn.text
@@ -161,16 +168,58 @@ function ReportControl({ slug, runIds }: { slug: string; runIds: string[] }) {
   )
 }
 
-export default function AssistantChat({ slug }: { slug: string }) {
-  const [turns, setTurns] = useState<Turn[]>([])
+export default function AssistantChat({
+  slug,
+  embedded = false,
+  active = false,
+  initialTurns = [],
+  onConversationChange,
+}: {
+  slug: string
+  embedded?: boolean
+  active?: boolean
+  initialTurns?: AssistantHistoryTurn[]
+  onConversationChange?: (turns: AssistantHistoryTurn[]) => void
+}) {
+  const [turns, setTurns] = useState<Turn[]>(() => initialTurns.map((turn) =>
+    turn.role === 'user'
+      ? { role: 'user', text: turn.text }
+      : { role: 'assistant', sections: [], notices: [], text: turn.text }))
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const mountedRef = useRef(false)
 
   useEffect(() => {
     const node = scrollRef.current
     if (node) node.scrollTop = node.scrollHeight
   }, [turns])
+
+  useEffect(() => {
+    const input = inputRef.current
+    if (!input) return
+    input.style.height = 'auto'
+    input.style.height = `${Math.min(input.scrollHeight, 120)}px`
+  }, [draft])
+
+  useEffect(() => {
+    if (!active) return
+    const frame = window.requestAnimationFrame(() => inputRef.current?.focus())
+    return () => window.cancelAnimationFrame(frame)
+  }, [active])
+
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true
+      return
+    }
+    onConversationChange?.(turns.flatMap((turn) => {
+      if (turn.role === 'assistant' && turn.pending) return []
+      const text = turnToPlainText(turn)
+      return text ? [{ role: turn.role, text }] : []
+    }))
+  }, [turns, onConversationChange])
 
   const replaceLastAssistant = (turn: Partial<Turn> & { role: 'assistant' }) => {
     setTurns((prev) => {
@@ -185,8 +234,8 @@ export default function AssistantChat({ slug }: { slug: string }) {
     })
   }
 
-  async function send() {
-    const question = draft.trim()
+  async function send(questionOverride?: string) {
+    const question = (questionOverride ?? draft).trim()
     if (!question || busy) return
     setBusy(true)
     setDraft('')
@@ -242,15 +291,38 @@ export default function AssistantChat({ slug }: { slug: string }) {
   const base = `/client/${slug}`
 
   return (
-    <div>
+    <div className={embedded ? styles.embeddedChat : undefined}>
       <div className={styles.panel}>
         <div className={styles.transcript} ref={scrollRef} aria-live="polite">
           {turns.length === 0 ? (
-            <p className={styles.empty}>
-              Ask about your content, schedule, reports, library, or invoices, or about
-              public immigration news from official sources. For example: &ldquo;When does
-              my next reel go out?&rdquo;
-            </p>
+            <div className={styles.empty}>
+              <Image
+                className={styles.emptyAvatar}
+                src="/images/kanset-assistant-avatar.png"
+                alt=""
+                width={80}
+                height={80}
+                priority
+              />
+              <p className={styles.emptyTitle}>How can I help?</p>
+              <p className={styles.emptyCopy}>
+                Ask about your portal or research current immigration information from
+                official sources.
+              </p>
+              <div className={styles.starterGrid} aria-label="Suggested questions">
+                {STARTER_QUESTIONS.map((question) => (
+                  <button
+                    key={question}
+                    type="button"
+                    className={styles.starterButton}
+                    disabled={busy}
+                    onClick={() => void send(question)}
+                  >
+                    {question}
+                  </button>
+                ))}
+              </div>
+            </div>
           ) : (
             turns.map((turn, index) => {
               if (turn.role === 'user') {
@@ -262,86 +334,94 @@ export default function AssistantChat({ slug }: { slug: string }) {
               }
               const showLabels = turn.sections.length > 1
               return (
-                <div
-                  key={index}
-                  className={`${styles.turn} ${styles.turnAssistant}${turn.error ? ` ${styles.turnError}` : ''}`}
-                >
-                  {turn.sections.map((section, sectionIndex) => (
-                    <div key={sectionIndex} className={styles.section}>
-                      {(showLabels || section.kind === 'web') && (
-                        <p className={styles.sectionLabel}>
-                          {section.kind === 'portal'
-                            ? 'Your portal'
-                            : 'Public immigration information (official sources)'}
-                        </p>
-                      )}
-                      {section.kind === 'portal' ? (
-                        <>
-                          {section.blocks.map((block, blockIndex) => (
-                            <div key={blockIndex} className={styles.block}>
-                              <span>{block.text}</span>
-                              {block.citations.length > 0 && (
-                                <span className={styles.citationRow}>
-                                  {block.citations.map((citation, citationIndex) => (
-                                    <Link
-                                      key={citationIndex}
-                                      className={styles.citationChip}
-                                      href={`${base}/${citation.route}`}
-                                    >
-                                      {citation.title}
-                                    </Link>
-                                  ))}
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                          {section.suggestedRoutes.length > 0 && (
-                            <p className={styles.sources}>
-                              See:{' '}
-                              {section.suggestedRoutes.map((route, routeIndex) => (
-                                <Link
-                                  key={routeIndex}
-                                  className={styles.citationChip}
-                                  href={`${base}/${route.route}`}
-                                >
-                                  {route.title}
-                                </Link>
-                              ))}
-                            </p>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <div className={styles.block}>{renderWebText(section)}</div>
-                          <div className={styles.sources}>
-                            Sources:{' '}
-                            {uniqueSources(section.citations).map((source, sourceIndex) => (
-                              <a
-                                key={sourceIndex}
-                                className={styles.citationChip}
-                                href={source.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                {source.title}
-                              </a>
+                <div key={index} className={styles.assistantRow}>
+                  <Image
+                    className={styles.turnAvatar}
+                    src="/images/kanset-assistant-avatar.png"
+                    alt=""
+                    width={36}
+                    height={36}
+                  />
+                  <div
+                    className={`${styles.turn} ${styles.turnAssistant}${turn.error ? ` ${styles.turnError}` : ''}`}
+                  >
+                    {turn.sections.map((section, sectionIndex) => (
+                      <div key={sectionIndex} className={styles.section}>
+                        {(showLabels || section.kind === 'web') && (
+                          <p className={styles.sectionLabel}>
+                            {section.kind === 'portal'
+                              ? 'Your portal'
+                              : 'Public immigration information (official sources)'}
+                          </p>
+                        )}
+                        {section.kind === 'portal' ? (
+                          <>
+                            {section.blocks.map((block, blockIndex) => (
+                              <div key={blockIndex} className={styles.block}>
+                                <span>{block.text}</span>
+                                {block.citations.length > 0 && (
+                                  <span className={styles.citationRow}>
+                                    {block.citations.map((citation, citationIndex) => (
+                                      <Link
+                                        key={citationIndex}
+                                        className={styles.citationChip}
+                                        href={`${base}/${citation.route}`}
+                                      >
+                                        {citation.title}
+                                      </Link>
+                                    ))}
+                                  </span>
+                                )}
+                              </div>
                             ))}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  ))}
-                  {turn.notices.map((notice, noticeIndex) => (
-                    <p key={noticeIndex} className={styles.notice}>{notice}</p>
-                  ))}
-                  {turn.text && <span>{turn.text}</span>}
-                  {turn.pending ? <span className={styles.pendingDot}> ...</span> : null}
-                  {!turn.pending && (
-                    <ReportControl
-                      slug={slug}
-                      runIds={turn.sections.map((section) => section.runId)}
-                    />
-                  )}
+                            {section.suggestedRoutes.length > 0 && (
+                              <p className={styles.sources}>
+                                See:{' '}
+                                {section.suggestedRoutes.map((route, routeIndex) => (
+                                  <Link
+                                    key={routeIndex}
+                                    className={styles.citationChip}
+                                    href={`${base}/${route.route}`}
+                                  >
+                                    {route.title}
+                                  </Link>
+                                ))}
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <div className={styles.block}>{renderWebText(section)}</div>
+                            <div className={styles.sources}>
+                              Sources:{' '}
+                              {uniqueSources(section.citations).map((source, sourceIndex) => (
+                                <a
+                                  key={sourceIndex}
+                                  className={styles.citationChip}
+                                  href={source.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  {source.title}
+                                </a>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                    {turn.notices.map((notice, noticeIndex) => (
+                      <p key={noticeIndex} className={styles.notice}>{notice}</p>
+                    ))}
+                    {turn.text && <span>{turn.text}</span>}
+                    {turn.pending ? <span className={styles.pendingDot}> ...</span> : null}
+                    {!turn.pending && (
+                      <ReportControl
+                        slug={slug}
+                        runIds={turn.sections.map((section) => section.runId)}
+                      />
+                    )}
+                  </div>
                 </div>
               )
             })
@@ -354,34 +434,62 @@ export default function AssistantChat({ slug }: { slug: string }) {
             void send()
           }}
         >
-          <textarea
-            className={styles.input}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value.slice(0, MAX_QUESTION_CHARS))}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault()
-                void send()
-              }
-            }}
-            placeholder="Ask about your account or public immigration news..."
-            rows={2}
-            disabled={busy}
-            aria-label="Your question"
-          />
-          <button className={styles.send} type="submit" disabled={busy || !draft.trim()}>
-            {busy ? 'Thinking' : 'Ask'}
-          </button>
+          <div className={styles.composerBox}>
+            <textarea
+              ref={inputRef}
+              className={styles.input}
+              value={draft}
+              onChange={(event) => setDraft(event.target.value.slice(0, MAX_QUESTION_CHARS))}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault()
+                  void send()
+                }
+              }}
+              placeholder="Message Kanset Assistant"
+              rows={1}
+              disabled={busy}
+              aria-label="Your question"
+            />
+            <div className={styles.composerFooter}>
+              <span className={styles.composerHint}>
+                Enter to send · Shift+Enter for a new line
+              </span>
+              {draft.length > 1600 && (
+                <span className={styles.characterCount}>
+                  {draft.length}/{MAX_QUESTION_CHARS}
+                </span>
+              )}
+              <button
+                className={styles.send}
+                type="submit"
+                disabled={busy || !draft.trim()}
+                aria-label={busy ? 'Assistant is thinking' : 'Send message'}
+                title={busy ? 'Assistant is thinking' : 'Send message'}
+              >
+                <span aria-hidden="true">{busy ? '…' : '↑'}</span>
+              </button>
+            </div>
+          </div>
         </form>
       </div>
       <p className={styles.disclaimer}>
-        The assistant answers questions about your account with The Dot, and general
-        immigration questions from official public sources only. It cannot give immigration
-        or case-specific advice; for anything about eligibility or an application, please
-        book a consultation with the Kanset team. Never enter personal case data here
-        (names, application or ID numbers, birth dates, contact details): automated
-        detection is a safety net, not a guarantee. Conversations are not saved; refreshing
-        the page clears them.
+        {embedded ? (
+          <>
+            Official public information and portal help only. Do not enter personal case
+            data. Up to three chats are saved only in this browser; manage them in History.
+          </>
+        ) : (
+          <>
+            The assistant answers questions about your account with The Dot, and general
+            immigration questions from official public sources only. It cannot give immigration
+            or case-specific advice; for anything about eligibility or an application, please
+            book a consultation with the Kanset team. Never enter personal case data here
+            (names, application or ID numbers, birth dates, contact details): automated
+            detection is a safety net, not a guarantee. Conversations are not saved; refreshing
+            the page clears them.
+          </>
+        )}
       </p>
     </div>
   )

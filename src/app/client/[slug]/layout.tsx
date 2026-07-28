@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import { getClientSession } from '@/lib/portal/auth'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import PortalNav from './PortalNav'
+import AssistantWidget from './assistant/AssistantWidget'
 import styles from './portal-shell.module.css'
 
 // Private workspace: a real tab title instead of the marketing site's, and never indexed.
@@ -58,6 +59,9 @@ export default async function ClientWorkspaceLayout(
         </header>
         <main className={styles.main}>{children}</main>
       </div>
+      {assistantAvailable && (
+        <AssistantWidget slug={session.clientSlug} storageScope={session.userId} />
+      )}
     </div>
   )
 }

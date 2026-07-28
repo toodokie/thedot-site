@@ -3,12 +3,44 @@ import {
   classifyAssistantRequest,
   detectPersonalIdentifiers,
   isAllowedCitationUrl,
+  isPerformanceReportQuestion,
+  isUpcomingContentQuestion,
+  reportPlatformFromQuestion,
   validateAssistantOutput,
   validatePortalAnswer,
   validateWebClaimCitations,
   PORTAL_MODE_INSTRUCTIONS,
   PUBLIC_MODE_INSTRUCTIONS,
 } from './assistant-guardrails'
+
+describe('upcoming-content retrieval intent', () => {
+  it('recognizes natural next-post questions', () => {
+    expect(isUpcomingContentQuestion("what's the next post about?")).toBe(true)
+    expect(isUpcomingContentQuestion('When does my next scheduled post go out?')).toBe(true)
+    expect(isUpcomingContentQuestion('Which reel is coming next?')).toBe(true)
+    expect(isUpcomingContentQuestion('Show me the upcoming content.')).toBe(true)
+  })
+
+  it('leaves ordinary keyword searches alone', () => {
+    expect(isUpcomingContentQuestion('Show me my scheduled posts')).toBe(false)
+    expect(isUpcomingContentQuestion('What did the last report say about reels?')).toBe(false)
+    expect(isUpcomingContentQuestion('What is next?')).toBe(false)
+  })
+})
+
+describe('performance-report retrieval intent', () => {
+  it('recognizes concise client language and common platform aliases', () => {
+    expect(isPerformanceReportQuestion("how's my IG performance?")).toBe(true)
+    expect(reportPlatformFromQuestion("how's my IG performance?")).toBe('instagram')
+    expect(reportPlatformFromQuestion('Show me the latest FB analytics')).toBe('facebook')
+    expect(reportPlatformFromQuestion('How is YouTube performing?')).toBe('youtube')
+  })
+
+  it('does not redirect unrelated portal questions to reports', () => {
+    expect(isPerformanceReportQuestion("What's the next post about?")).toBe(false)
+    expect(isPerformanceReportQuestion("What's on my latest invoice?")).toBe(false)
+  })
+})
 
 describe('inbound mode classifier', () => {
   it('refuses blatant case-specific immigration-advice questions', () => {
@@ -502,5 +534,7 @@ describe('mode instructions', () => {
     expect(PUBLIC_MODE_INSTRUCTIONS).toMatch(/official/i)
     expect(PUBLIC_MODE_INSTRUCTIONS).toMatch(/Never answer from memory/)
     expect(PUBLIC_MODE_INSTRUCTIONS).toMatch(/Never guarantee/)
+    expect(PUBLIC_MODE_INSTRUCTIONS).toMatch(/exactly ONE factual sentence on each line/)
+    expect(PUBLIC_MODE_INSTRUCTIONS).toMatch(/Never put two factual sentences before one source link/)
   })
 })

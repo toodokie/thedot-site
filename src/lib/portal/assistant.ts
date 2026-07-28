@@ -286,12 +286,40 @@ export async function runPortalMode(options: {
 
 export type WebCitation = { url: string; title: string; startIndex: number; endIndex: number }
 
+export type PublicModeDiagnostics = {
+  responseStatus: string
+  incompleteReason: string | null
+  outputTypes: string[]
+  webSearchCalls: number
+  sourceCount: number
+  annotationCount: number
+  annotationShapes: string[]
+  sourceBackedInlineCitationCount: number
+}
+
 export type PublicModeOutcome =
-  | { kind: 'answered'; text: string; citations: WebCitation[]; usage: GatewayUsage }
-  | { kind: 'no_grounding'; usage: GatewayUsage }
+  | {
+      kind: 'answered'
+      text: string
+      citations: WebCitation[]
+      usage: GatewayUsage
+      diagnostics: PublicModeDiagnostics
+    }
+  | {
+      kind: 'no_grounding'
+      usage: GatewayUsage
+      diagnostics: PublicModeDiagnostics
+      withheldText: string
+    }
   // withheldText is server-side evidence for eval/review logging; the route NEVER
   // renders any part of a rejected output to the client.
-  | { kind: 'rejected_output'; reason: string; usage: GatewayUsage; withheldText?: string }
+  | {
+      kind: 'rejected_output'
+      reason: string
+      usage: GatewayUsage
+      diagnostics?: PublicModeDiagnostics
+      withheldText?: string
+    }
 
 type OutputTextContent = {
   type?: string
@@ -303,6 +331,53 @@ type OutputTextContent = {
     start_index?: number
     end_index?: number
   }>
+}
+
+function canonicalOfficialUrl(rawUrl: string): string | null {
+  if (!isAllowedCitationUrl(rawUrl)) return null
+  try {
+    const url = new URL(rawUrl)
+    url.hash = ''
+    if (url.searchParams.get('utm_source') === 'openai') {
+      url.searchParams.delete('utm_source')
+    }
+    url.searchParams.sort()
+    if (url.pathname !== '/') url.pathname = url.pathname.replace(/\/+$/, '')
+    return url.toString()
+  } catch {
+    return null
+  }
+}
+
+// Responses normally supplies structured url_citation annotations. Some valid hosted
+// web-search answers instead contain ordinary Markdown links with no annotation. Those
+// links are accepted only when the canonical official URL also appears in the sources
+// returned by the same web-search call. A model-generated or off-list URL cannot pass.
+export function extractVerifiedInlineCitations(
+  text: string,
+  sourceUrls: readonly string[],
+): WebCitation[] {
+  const verifiedSources = new Set(
+    sourceUrls
+      .map(canonicalOfficialUrl)
+      .filter((url): url is string => url !== null),
+  )
+  const citations: WebCitation[] = []
+  const markdownLink = /\[([^\]\n]+)\]\((https:\/\/[^)\s]+)\)/g
+  for (const match of text.matchAll(markdownLink)) {
+    const title = match[1]
+    const url = match[2]
+    const canonical = canonicalOfficialUrl(url)
+    if (!canonical || !verifiedSources.has(canonical)) continue
+    const startIndex = match.index ?? 0
+    citations.push({
+      url,
+      title,
+      startIndex,
+      endIndex: startIndex + match[0].length,
+    })
+  }
+  return citations
 }
 
 export async function runPublicMode(options: {
@@ -334,6 +409,24 @@ export async function runPublicMode(options: {
 
   const output = (response.output ?? []) as unknown as Array<Record<string, unknown>>
   const webSearchCalls = output.filter((item) => item.type === 'web_search_call').length
+  const sourceUrls = output.flatMap((item) => {
+    if (item.type !== 'web_search_call') return []
+    const action = item.action as {
+      type?: string
+      url?: unknown
+      sources?: Array<{ url?: unknown }>
+    } | undefined
+    const urls = (action?.sources ?? []).flatMap((source) =>
+      typeof source.url === 'string' ? [source.url] : [],
+    )
+    if (
+      (action?.type === 'open_page' || action?.type === 'find_in_page') &&
+      typeof action.url === 'string'
+    ) {
+      urls.push(action.url)
+    }
+    return urls
+  })
   const usage: GatewayUsage = {
     inputTokens: response.usage?.input_tokens ?? 0,
     outputTokens: response.usage?.output_tokens ?? 0,
@@ -344,9 +437,36 @@ export async function runPublicMode(options: {
     ),
     latencyMs: Date.now() - startedAt,
   }
+  const diagnosticBase = {
+    responseStatus: response.status ?? 'unknown',
+    incompleteReason: response.incomplete_details?.reason ?? null,
+    outputTypes: output.map((item) => typeof item.type === 'string' ? item.type : 'unknown'),
+    webSearchCalls,
+    sourceCount: sourceUrls.length,
+    annotationCount: output.reduce((count, item) => {
+      if (item.type !== 'message') return count
+      return count + ((item.content ?? []) as OutputTextContent[]).reduce(
+        (contentCount, content) => contentCount + (content.annotations?.length ?? 0),
+        0,
+      )
+    }, 0),
+    annotationShapes: Array.from(new Set(output.flatMap((item) => {
+      if (item.type !== 'message') return []
+      return ((item.content ?? []) as OutputTextContent[]).flatMap((content) =>
+        (content.annotations ?? []).map((annotation) =>
+          Object.keys(annotation).sort().join(','),
+        ),
+      )
+    }))),
+  }
 
   if (response.status !== 'completed') {
-    return { kind: 'rejected_output', reason: `status_${response.status ?? 'unknown'}`, usage }
+    return {
+      kind: 'rejected_output',
+      reason: `status_${response.status ?? 'unknown'}`,
+      usage,
+      diagnostics: { ...diagnosticBase, sourceBackedInlineCitationCount: 0 },
+    }
   }
 
   let text = ''
@@ -368,23 +488,35 @@ export async function runPublicMode(options: {
       }
     }
   }
-
-  if (!text.trim()) return { kind: 'rejected_output', reason: 'empty_output', usage }
-  if (!validateAssistantOutput(text).ok) {
-    return { kind: 'rejected_output', reason: 'guarantee_language', usage }
+  const annotatedCitationKeys = new Set(
+    citations.map((citation) => `${canonicalOfficialUrl(citation.url)}:${citation.startIndex}`),
+  )
+  const sourceBackedInlineCitations = extractVerifiedInlineCitations(text, sourceUrls).filter(
+    (citation) =>
+      !annotatedCitationKeys.has(`${canonicalOfficialUrl(citation.url)}:${citation.startIndex}`),
+  )
+  citations.push(...sourceBackedInlineCitations)
+  const diagnostics: PublicModeDiagnostics = {
+    ...diagnosticBase,
+    sourceBackedInlineCitationCount: sourceBackedInlineCitations.length,
   }
-  // Spec step 8: material web output requires URL citation annotations; every citation
-  // host must parse as HTTPS on the exact server allow-list; and no un-cited URL may ride
-  // along in the text. Missing/invalid grounding is said honestly, not answered.
-  if (citations.length === 0) return { kind: 'no_grounding', usage }
+
+  if (!text.trim()) return { kind: 'rejected_output', reason: 'empty_output', usage, diagnostics }
+  if (!validateAssistantOutput(text).ok) {
+    return { kind: 'rejected_output', reason: 'guarantee_language', usage, diagnostics }
+  }
+  // Spec step 8: material web output requires a structured URL annotation or a same-call,
+  // source-backed inline URL. Every citation host must parse as HTTPS on the exact server
+  // allow-list, and no un-cited URL may ride along in the text.
+  if (citations.length === 0) return { kind: 'no_grounding', usage, diagnostics, withheldText: text }
   for (const citation of citations) {
     if (!isAllowedCitationUrl(citation.url)) {
-      return { kind: 'rejected_output', reason: 'citation_domain_rejected', usage }
+      return { kind: 'rejected_output', reason: 'citation_domain_rejected', usage, diagnostics }
     }
   }
   for (const match of text.match(/https?:\/\/[^\s)\]>"']+/g) ?? []) {
     if (!isAllowedCitationUrl(match.replace(/[.,;:]+$/, ''))) {
-      return { kind: 'rejected_output', reason: 'unapproved_url_in_text', usage }
+      return { kind: 'rejected_output', reason: 'unapproved_url_in_text', usage, diagnostics }
     }
   }
   // Claim-level coverage (Codex blocker): every factual paragraph must intersect a
@@ -395,8 +527,9 @@ export async function runPublicMode(options: {
       kind: 'rejected_output',
       reason: claimCheck.reason ?? 'uncited_factual_paragraph',
       usage,
+      diagnostics,
       withheldText: text,
     }
   }
-  return { kind: 'answered', text, citations, usage }
+  return { kind: 'answered', text, citations, usage, diagnostics }
 }

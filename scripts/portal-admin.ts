@@ -77,7 +77,15 @@ function parseCapabilities(value = ''): Set<string> {
   return caps
 }
 
-async function provision(slug: string, email: string, name: string, capabilityList = '') {
+const ASSISTANT_DISABLE_CONFIRMATION = 'CONFIRM_ASSISTANT_DISABLE'
+
+async function provision(
+  slug: string,
+  email: string,
+  name: string,
+  capabilityList = '',
+  disableConfirmation = '',
+) {
   const client = await clientBySlug(slug)
 
   let user = await findAuthUser(email)
@@ -88,6 +96,25 @@ async function provision(slug: string, email: string, name: string, capabilityLi
   }
   console.log('auth user:', { id: user.id, email: user.email })
   const caps = parseCapabilities(capabilityList)
+  const { data: accessRows, error: accessError } = await admin.rpc('list_portal_access')
+  if (accessError) throw new Error(`list_portal_access: ${accessError.message}`)
+  const current = (accessRows as Array<{
+    client_id?: string
+    auth_user_id?: string
+    can_use_assistant?: boolean
+  }> | null)?.find(
+    (row) => row.client_id === client.id && row.auth_user_id === user.id,
+  )
+  if (
+    current?.can_use_assistant === true &&
+    !caps.has('assistant') &&
+    disableConfirmation !== ASSISTANT_DISABLE_CONFIRMATION
+  ) {
+    throw new Error(
+      'refusing to remove live assistant access without the final argument ' +
+      ASSISTANT_DISABLE_CONFIRMATION,
+    )
+  }
 
   const { data: membershipId, error } = await admin.rpc('upsert_portal_membership', {
     p_client_id: client.id,
@@ -139,8 +166,24 @@ async function transferDecider(slug: string, fromEmail: string, toEmail: string,
   console.log('primary decision-maker transferred:', data)
 }
 
-async function setSwitch(scope: string, feature: string, enabledText: string, reason: string) {
+async function setSwitch(
+  scope: string,
+  feature: string,
+  enabledText: string,
+  reason: string,
+  disableConfirmation = '',
+) {
   if (!['on', 'off'].includes(enabledText)) throw new Error('switch value must be on or off')
+  if (
+    feature === 'assistant' &&
+    enabledText === 'off' &&
+    disableConfirmation !== ASSISTANT_DISABLE_CONFIRMATION
+  ) {
+    throw new Error(
+      'refusing to disable the live assistant without the final argument ' +
+      ASSISTANT_DISABLE_CONFIRMATION,
+    )
+  }
   const clientId = scope === 'global' ? null : (await clientBySlug(scope)).id
   const { data, error } = await admin.rpc('set_portal_feature_switch', {
     p_client_id: clientId,
@@ -346,11 +389,14 @@ async function reply(slug: string, contentId: string, body: string, authorName: 
 async function main() {
   const [action, email, name] = process.argv.slice(2)
   if (action === 'provision') {
-    const [, slug, memberEmail, memberName, capabilities] = process.argv.slice(2)
+    const [, slug, memberEmail, memberName, capabilities, disableConfirmation] = process.argv.slice(2)
     if (!slug || !memberEmail || !memberName) {
-      throw new Error('usage: portal-admin.ts provision <slug> <email> "<name>" [decide,comment,requests,schedule,assistant]')
+      throw new Error(
+        'usage: portal-admin.ts provision <slug> <email> "<name>" ' +
+        '[decide,comment,requests,schedule,assistant] [CONFIRM_ASSISTANT_DISABLE]',
+      )
     }
-    await provision(slug, memberEmail, memberName, capabilities)
+    await provision(slug, memberEmail, memberName, capabilities, disableConfirmation)
     return
   }
   if (action === 'offboard') {
@@ -370,11 +416,14 @@ async function main() {
     return
   }
   if (action === 'switch') {
-    const [, scope, feature, enabled, reason] = process.argv.slice(2)
+    const [, scope, feature, enabled, reason, disableConfirmation] = process.argv.slice(2)
     if (!scope || !feature || !enabled || !reason) {
-      throw new Error('usage: portal-admin.ts switch <global|client-slug> <feature> <on|off> "<reason>"')
+      throw new Error(
+        'usage: portal-admin.ts switch <global|client-slug> <feature> <on|off> "<reason>" ' +
+        '[CONFIRM_ASSISTANT_DISABLE]',
+      )
     }
-    await setSwitch(scope, feature, enabled, reason)
+    await setSwitch(scope, feature, enabled, reason, disableConfirmation)
     return
   }
   if (action === 'access-log') {

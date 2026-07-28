@@ -11,6 +11,9 @@ import {
   NO_WEB_GROUNDING_MESSAGE,
   WITHHELD_MESSAGE,
   ASSISTANT_PROMPT_VERSION,
+  isPerformanceReportQuestion,
+  isUpcomingContentQuestion,
+  reportPlatformFromQuestion,
 } from '@/lib/portal/assistant-guardrails'
 import {
   ASSISTANT_MODEL,
@@ -336,17 +339,133 @@ export async function POST(
 
   // ---- portal path ----------------------------------------------------------
   if (classification.mode === 'portal_workspace' || classification.mode === 'mixed') {
-    // Tenant-scoped safe retrieval under the caller's own JWT (membership-derived).
-    const search = await supabase.rpc('portal_assistant_search', {
-      p_client_id: clientId,
-      p_query: question,
-    })
-    if (search.error) {
-      console.error('assistant search failed:', search.error.message)
-      await logRun({ clientId, userId, mode: 'portal_workspace', queryHmac, outcome: 'error' })
-      return json({ error: 'Something went wrong. Please try again.' }, 500)
+    let chunks: RetrievedChunk[]
+    if (isUpcomingContentQuestion(question)) {
+      // Chronology is not a keyword-search problem. Read the same client-visible weekly
+      // plan used by the Plan surface, under the caller's own JWT and RLS, then preserve
+      // its date + position order for the model. Only the client-facing planning snapshot
+      // enters the prompt.
+      const today = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Toronto',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date())
+      const cycle = await supabase
+        .from('plan_cycles_client')
+        .select('id,title,week_start,week_end,revision')
+        .eq('client_id', clientId)
+        .gte('week_end', today)
+        .order('week_start', { ascending: true })
+        .order('revision', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (cycle.error) {
+        console.error('assistant upcoming-plan lookup failed:', cycle.error.message)
+        await logRun({ clientId, userId, mode: 'portal_workspace', queryHmac, outcome: 'error' })
+        return json({ error: 'Something went wrong. Please try again.' }, 500)
+      }
+      const cycleData = cycle.data
+      if (!cycleData) {
+        chunks = []
+      } else {
+        const items = await supabase
+          .from('plan_cycle_items_client')
+          .select('id,content_id,position,planned_date,title,format,platforms,direction_note')
+          .eq('client_id', clientId)
+          .eq('plan_cycle_id', cycleData.id)
+          .gte('planned_date', today)
+          .order('planned_date', { ascending: true })
+          .order('position', { ascending: true })
+          .limit(8)
+        if (items.error) {
+          console.error('assistant upcoming-plan items lookup failed:', items.error.message)
+          await logRun({ clientId, userId, mode: 'portal_workspace', queryHmac, outcome: 'error' })
+          return json({ error: 'Something went wrong. Please try again.' }, 500)
+        }
+        chunks = (items.data ?? []).map((item) => {
+          const fields = [
+            `Upcoming plan item: ${item.title}`,
+            `Plan: ${cycleData.title}`,
+            `Next plan order: position ${item.position}`,
+            item.planned_date ? `Planned date: ${item.planned_date}` : null,
+            item.format ? `Format: ${item.format}` : null,
+            Array.isArray(item.platforms) && item.platforms.length > 0
+              ? `Platforms: ${item.platforms.join(', ')}`
+              : null,
+            item.direction_note ? `Direction: ${item.direction_note}` : null,
+          ].filter((field): field is string => field !== null)
+          return {
+            chunk_id: item.id,
+            document_id: cycleData.id,
+            source_type: 'plan_item',
+            title: item.title,
+            related_route: `plan/${item.content_id}`,
+            answer_eligibility: 'navigation_only',
+            excerpt: fields.join('. ').slice(0, 700) + '.',
+            rank: 1000 - item.position,
+          }
+        })
+      }
+    } else if (isPerformanceReportQuestion(question)) {
+      // "IG performance" is a report lookup, not a literal keyword search. Read the same
+      // schema-v1 client-visible snapshots as the Reports page under the caller's JWT/RLS,
+      // then keep only the latest snapshot for the requested platform (or each platform).
+      const platform = reportPlatformFromQuestion(question)
+      let reportQuery = supabase
+        .from('report_snapshots')
+        .select('id,period,period_start,period_end,platform,summary,metrics,updated_at')
+        .eq('client_id', clientId)
+        .gte('schema_version', 1)
+        .order('period_start', { ascending: false })
+        .order('updated_at', { ascending: false })
+      if (platform) reportQuery = reportQuery.eq('platform', platform)
+      const reports = await reportQuery.limit(platform ? 1 : 16)
+      if (reports.error) {
+        console.error('assistant performance-report lookup failed:', reports.error.message)
+        await logRun({ clientId, userId, mode: 'portal_workspace', queryHmac, outcome: 'error' })
+        return json({ error: 'Something went wrong. Please try again.' }, 500)
+      }
+
+      const latest = platform
+        ? (reports.data ?? []).slice(0, 1)
+        : (reports.data ?? []).filter((row, index, rows) =>
+            rows.findIndex((candidate) => candidate.platform === row.platform) === index)
+      chunks = latest.map((row, index) => {
+        const summary = typeof row.summary === 'string' ? row.summary : ''
+        const metrics = row.metrics && typeof row.metrics === 'object'
+          ? JSON.stringify(row.metrics)
+          : '{}'
+        const excerpt = [
+          `Latest ${row.platform} performance report`,
+          `Period: ${row.period_start} to ${row.period_end}`,
+          summary ? `Summary: ${summary}` : null,
+          `Metrics: ${metrics}`,
+        ].filter((field): field is string => field !== null).join('. ')
+        return {
+          chunk_id: row.id,
+          document_id: row.id,
+          source_type: 'report',
+          title: `Performance report ${row.period} (${row.platform})`,
+          related_route: 'reports',
+          answer_eligibility: 'grounded_answer',
+          excerpt: excerpt.slice(0, 700),
+          rank: 1000 - index,
+        }
+      })
+    } else {
+      // General tenant-scoped safe retrieval under the caller's own JWT.
+      const search = await supabase.rpc('portal_assistant_search', {
+        p_client_id: clientId,
+        p_query: question,
+      })
+      if (search.error) {
+        console.error('assistant search failed:', search.error.message)
+        await logRun({ clientId, userId, mode: 'portal_workspace', queryHmac, outcome: 'error' })
+        return json({ error: 'Something went wrong. Please try again.' }, 500)
+      }
+      chunks = (search.data ?? []) as RetrievedChunk[]
     }
-    const chunks = (search.data ?? []) as RetrievedChunk[]
 
     if (chunks.length === 0) {
       // fixed no-grounding result WITHOUT an OpenAI generation (spec step 4)
