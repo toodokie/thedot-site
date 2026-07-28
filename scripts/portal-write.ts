@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { readFile, writeFile } from 'node:fs/promises'
 import { renderStatusGatesBlock } from '../src/lib/portal/gates'
 import { loadAgencyStagePiece } from '../src/lib/portal/gates-loader'
+import { patchStatusGatesBlock } from '../src/lib/portal/status-gates-pack'
 import {
   assertClientSafeAgencyText, assertReportMetrics, assertReviewedHttpsUrl,
   optionalText, requiredText, sha256,
@@ -50,7 +51,7 @@ const assertNoteGrammarSafe = (value: string | null, field: string) => {
 
 async function main() {
   const [command, inputPath, ...rest] = process.argv.slice(2)
-  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|publication-confirm|invoice|idea|news-idea|idea-status|design-link|plan-cycle|plan-cycle-decision|plan-date|gate|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
+  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|plan-cycle|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
   const dryRun = rest.includes('--dry-run')
   const packIndex = rest.indexOf('--pack')
   const packPath = packIndex >= 0 ? rest[packIndex + 1] ?? null : null
@@ -60,7 +61,9 @@ async function main() {
     || command === 'ops-task-complete' || command === 'idea-status'
   const slug = slugOptional ? null : requiredText(payload.clientSlug, 'clientSlug', 100)
   const actor = requiredText(payload.actorKey ?? 'thedot-admin', 'actorKey', 64)
-  const idempotency = requiredText(payload.idempotencyKey, 'idempotencyKey', 200)
+  // status-gates only regenerates the local canonical pack from the portal's already
+  // committed state. It invokes no writer, so a command receipt would be misleading.
+  const idempotency = command === 'status-gates' ? '' : requiredText(payload.idempotencyKey, 'idempotencyKey', 200)
   let rpc: string; let args: Record<string, unknown>
   let externalContentId: string | null = null
   let externalContentVersion: number | null = null
@@ -75,6 +78,15 @@ async function main() {
     observedTitle: string | null
     verificationNote: string | null
   } | null = null
+  let scheduleConfirmation: {
+    contentId: string
+    contentVersion: number
+    destination: string
+    scheduledAt: string
+    externalUrl: string | null
+    externalId: string | null
+  } | null = null
+  let statusGatesContentId: string | null = null
   if (command === 'recommendation') {
     const title = requiredText(payload.title, 'title', 300); const body = requiredText(payload.body, 'body', 8000)
     assertClientSafeAgencyText({ title, body })
@@ -143,6 +155,28 @@ async function main() {
     if (publication.capturedAt > new Date().toISOString())
       throw new Error('capturedAt cannot be in the future')
     rpc = 'record_publication_observation'
+    args = {}
+  } else if (command === 'schedule-confirm') {
+    const externalUrl = payload.externalUrl == null ? null : assertReviewedHttpsUrl(payload.externalUrl)
+    const externalId = optionalText(payload.externalId, 'externalId', 500)
+    if (externalId !== null && !/^[A-Za-z0-9._:-]+$/.test(externalId)) {
+      throw new Error('externalId contains unsupported characters')
+    }
+    scheduleConfirmation = {
+      contentId: requiredText(payload.contentId, 'contentId', 200),
+      contentVersion: integer(payload.contentVersion, 'contentVersion', 1),
+      destination: stringArray(payload.destination, 'destination',
+        ['instagram', 'facebook', 'youtube', 'squarespace']),
+      scheduledAt: timestamp(payload.scheduledAt, 'scheduledAt'),
+      externalUrl,
+      externalId,
+    }
+    rpc = 'confirm_schedule_target'
+    args = {}
+  } else if (command === 'status-gates') {
+    if (!packPath) throw new Error('status-gates requires --pack <canonical-piece-pack.md>')
+    statusGatesContentId = requiredText(payload.contentId, 'contentId', 200)
+    rpc = 'status-gates'
     args = {}
   } else if (command === 'invoice') {
     // Mirror upsert_invoice's server validation locally so --dry-run cannot approve a payload the
@@ -351,6 +385,11 @@ async function main() {
     clientId = client.id
     if ('p_client_id' in args) args.p_client_id = clientId
   }
+  if (statusGatesContentId) {
+    if (!clientId) throw new Error('status-gates requires a client')
+    await emitStatusGatesBlock(clientId, statusGatesContentId, packPath)
+    return
+  }
   if(externalContentId){
     const {data:item,error:itemError}=await admin.from('content_items').select('id,working_version')
       .eq('client_id',clientId).eq('content_id',externalContentId).single()
@@ -426,6 +465,38 @@ async function main() {
       p_verification_note: publication.verificationNote,
     }
   }
+  if (scheduleConfirmation) {
+    if (!clientId) throw new Error('schedule confirmation requires a client')
+    const { data: item, error: itemError } = await admin.from('content_items')
+      .select('id,status,client_visible_version,revision_in_progress')
+      .eq('client_id', clientId).eq('content_id', scheduleConfirmation.contentId).single()
+    if (itemError || !item) throw new Error(`content unavailable: ${itemError?.message ?? 'missing'}`)
+    // Targets are created by the approved-decision writer. Do not create them here:
+    // that would let a CLI user turn an unapproved release into a scheduled promise.
+    if (item.status !== 'approved' && item.status !== 'scheduled') {
+      throw new Error('schedule target unavailable: record the real copy approval before confirming a schedule')
+    }
+    if (item.revision_in_progress || item.client_visible_version !== scheduleConfirmation.contentVersion) {
+      throw new Error('schedule target unavailable: requested version is not the current approved release')
+    }
+    const { data: target, error: targetError } = await admin.from('content_schedule_targets')
+      .select('id').eq('client_id', clientId).eq('content_id', item.id)
+      .eq('content_version', scheduleConfirmation.contentVersion)
+      .eq('destination', scheduleConfirmation.destination).maybeSingle()
+    if (targetError) throw new Error(`schedule target lookup: ${targetError.message}`)
+    if (!target) {
+      throw new Error('schedule target unavailable: approved content has no target for this destination')
+    }
+    args = {
+      p_schedule_target_id: target.id,
+      p_scheduled_at: scheduleConfirmation.scheduledAt,
+      p_external_url: scheduleConfirmation.externalUrl,
+      p_external_id: scheduleConfirmation.externalId,
+      p_evidence_id: null,
+      p_actor_key: actor,
+      p_idempotency_key: idempotency,
+    }
+  }
   const { data,error }=await admin.rpc(rpc,args)
   if(error) throw new Error(`${rpc}: ${error.message}`)
   console.log(`OK ${command} ${String(data)}`)
@@ -465,42 +536,18 @@ async function emitStatusGatesBlock(clientId: string, contentId: string, packPat
 
 // Strip the client + date prefix so a pack block written under an old id form still
 // matches; used only as the fallback when there is no exact content_id match.
-function normalizeGateId(id: string): string {
-  return id.replace(/^kanset-/, '').replace(/^\d{4}-\d{2}(-\d{2})?-/, '')
-}
-
-type PatchResult = { patched: true } | { patched: false; reason: 'not_found' | 'ambiguous' }
-
 // Patch the ONE block for this content_id. An EXACT id match wins outright (post-cutover
 // blocks carry the bare content_id), UNLESS two blocks carry the same exact id, which is
 // as ambiguous as a shared normalized suffix and refuses (Codex round-4 fix 1). Only when
 // there is no exact match do we fall back to the date/client-stripped normalized suffix,
 // and if TWO blocks share that suffix we REFUSE too. A wrong-block patch is a silent data
 // error. The pack's own header line is preserved (packs suffix it, e.g. "(decoder reel)").
-async function patchPackBlock(packPath: string, contentId: string, block: string): Promise<PatchResult> {
+async function patchPackBlock(packPath: string, contentId: string, block: string) {
   let source: string
   try { source = await readFile(packPath, 'utf8') } catch { return { patched: false, reason: 'not_found' } }
-  const pattern = /(## STATUS GATES[^\n]*\n)<!-- gates: id=([^ ]+) date=[^>]*-->\n((?:- \[[^\]]\][^\n]*\n?)*)/g
-  const matches = [...source.matchAll(pattern)].map((m) => ({
-    full: m[0], header: m[1], id: m[2], index: m.index ?? 0,
-  }))
-  const target = normalizeGateId(contentId)
-  const exact = matches.filter((m) => m.id === contentId)
-  let chosen: (typeof matches)[number] | undefined
-  if (exact.length > 1) {
-    return { patched: false, reason: 'ambiguous' } // duplicate exact ids: refuse, don't guess
-  } else if (exact.length === 1) {
-    chosen = exact[0]
-  } else {
-    const normalized = matches.filter((m) => normalizeGateId(m.id) === target)
-    if (normalized.length > 1) return { patched: false, reason: 'ambiguous' }
-    chosen = normalized[0]
-  }
-  if (!chosen) return { patched: false, reason: 'not_found' }
-  const [, ...generated] = block.split('\n') // drop the generic header, keep the pack's
-  const replacement = chosen.header + generated.join('\n') + '\n'
-  const output = source.slice(0, chosen.index) + replacement + source.slice(chosen.index + chosen.full.length)
-  await writeFile(packPath, output, 'utf8')
+  const result = patchStatusGatesBlock(source, contentId, block)
+  if (!result.patched) return result
+  await writeFile(packPath, result.output, 'utf8')
   return { patched: true }
 }
 main().catch((error)=>{ console.error(`FAILED: ${error?.message ?? error}`); process.exit(1) })
