@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { Eyebrow, Heading, Text } from '@thedot/design-system'
 import { getClientSession } from '@/lib/portal/auth'
 import { getContent } from '@/lib/portal/data'
-import { getContentRequests } from '@/lib/portal/requests'
+import { getContentRequestMessages, getContentRequests } from '@/lib/portal/requests'
 import NewContentRequestForm from './NewContentRequestForm'
 import RequestHistory from './RequestHistory'
 import styles from './requests.module.css'
@@ -15,6 +15,7 @@ export default async function RequestsPage({ params }: { params: Promise<{ slug:
   const [requests, content] = await Promise.all([
     getContentRequests(session.clientId), getContent(session.clientId),
   ])
+  const messages = await getContentRequestMessages(session.clientId, requests.map((request) => request.id))
   return <main className={styles.wrap}>
     <Eyebrow tone="grey">Content requests</Eyebrow>
     <Heading level={1}>Ask for what you need.</Heading>
@@ -30,7 +31,8 @@ export default async function RequestsPage({ params }: { params: Promise<{ slug:
       </section>
       <section aria-labelledby="request-history-heading">
         <div id="request-history-heading"><Heading level={3}>Request history</Heading></div>
-        <RequestHistory slug={slug} requests={requests} content={content} />
+        <RequestHistory slug={slug} requests={requests} messages={messages} content={content}
+          canReply={session.canSubmitRequests} />
       </section>
     </div>
   </main>

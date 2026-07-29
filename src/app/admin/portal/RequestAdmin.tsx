@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import styles from './portal-admin.module.css'
 import StatusPill, { type PillTone } from './StatusPill'
@@ -11,17 +12,61 @@ export type AdminContentRequest = {
   edit: {
     blockKey: string | null; blockLabel: string | null; originalText: string | null; proposedText: string
   } | null
+  messages: Array<{ id: string; authorType: 'client' | 'anastasia'; authorName: string; body: string; createdAt: string }>
 }
 
 // Request status -> pill tone (presentation only; the raw status string is unchanged upstream).
 function requestTone(status: string): PillTone {
   if (status === 'applied') return 'verified'
+  if (status === 'answered') return 'muted'
   if (status === 'rejected' || status === 'conflicted') return 'failed'
   if (status === 'pending' || status === 'applying') return 'pending'
   return 'muted'
 }
 
+function RequestReplyForm({ request }: { request: AdminContentRequest }) {
+  const router = useRouter()
+  const [body, setBody] = useState('')
+  const [close, setClose] = useState(false)
+  const [state, setState] = useState<{ kind: 'idle' | 'sending' | 'sent' | 'error'; message?: string }>({ kind: 'idle' })
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const trimmed = body.trim()
+    if (!trimmed) return
+    setState({ kind: 'sending' })
+    try {
+      const response = await fetch('/api/admin/portal/requests', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'reply', requestId: request.id, body: trimmed, close,
+          idempotencyKey: crypto.randomUUID() }),
+      })
+      const payload = await response.json() as { error?: string }
+      if (!response.ok) throw new Error(payload.error ?? 'Could not post the reply.')
+      setBody('')
+      setState({ kind: 'sent', message: close ? 'Reply posted and request answered.' : 'Reply posted.' })
+      router.refresh()
+    } catch (error) {
+      setState({ kind: 'error', message: error instanceof Error ? error.message : 'Could not post the reply.' })
+    }
+  }
+  return <form onSubmit={submit} className={styles.requestReplyForm}>
+    <label className={styles.fieldLabel} htmlFor={`request-reply-${request.id}`}>Reply to Maria</label>
+    <textarea id={`request-reply-${request.id}`} value={body}
+      onChange={(event) => setBody(event.target.value.slice(0, 4000))} rows={2} maxLength={4000}
+      className={styles.commentReplyInput} placeholder="Reply in the portal" />
+    {request.status === 'pending' && <label className={styles.requestCloseLabel}>
+      <input type="checkbox" checked={close} onChange={(event) => setClose(event.target.checked)} />
+      Answer and close, no copy change required
+    </label>}
+    <div className={styles.commentReplyActions}>
+      {state.message && <span className={state.kind === 'error' ? styles.commentError : styles.commentSuccess} role="status">{state.message}</span>}
+      <button type="submit" className={styles.disclose} disabled={state.kind === 'sending' || !body.trim()}>{state.kind === 'sending' ? 'Posting…' : 'Reply'}</button>
+    </div>
+  </form>
+}
+
 export default function RequestAdmin({ requests }: { requests: AdminContentRequest[] }) {
+  const router = useRouter()
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   async function resolve(id: string, status: 'rejected' | 'conflicted') {
@@ -35,13 +80,14 @@ export default function RequestAdmin({ requests }: { requests: AdminContentReque
       })
       const body = await response.json() as { error?: string }
       if (!response.ok) throw new Error(body.error ?? 'Request resolution failed')
-      setMessage('Request updated. Refresh to see the reconciled status.')
+      setMessage('Request updated.')
+      router.refresh()
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Request resolution failed') }
     finally { setBusy(null) }
   }
   return <>
     <AdminPageHeader kicker="Agency ops" title="Change requests"
-      intro="Requests Maria sends from her portal. Decline or flag a conflict here; the actual edit happens in the content workflow, not this browser." />
+      intro="Requests Maria sends from her portal. Answer questions here. For a proposed edit, reply with the plan, then prepare the canonical revision in the content workflow before re-sharing it with Maria." />
     <section className={styles.card}>
     {message && <p className={styles.statusMsg} role="status">{message}</p>}
     {!requests.length ? <p className={styles.empty}>No change requests from Maria right now.</p> : <div>
@@ -67,7 +113,15 @@ export default function RequestAdmin({ requests }: { requests: AdminContentReque
             </section>
           </div>
         </details>}
+        {request.messages.length > 0 && <section className={styles.requestConversation} aria-label="Request conversation">
+          {request.messages.map((message) => <div key={message.id}
+            className={message.authorType === 'anastasia' ? styles.requestAgencyMessage : styles.requestClientMessage}>
+            <span>{message.authorName}</span>
+            <p>{message.body}</p>
+          </div>)}
+        </section>}
         {request.resolutionNote && <p className={styles.metaLine}>{request.resolutionNote}</p>}
+        {['pending', 'applying', 'prepared'].includes(request.status) && <RequestReplyForm request={request} />}
         {['pending', 'applying'].includes(request.status) && <div className={styles.actions}>
           <button type="button" className={`${styles.btn} ${styles.btnDanger}`} disabled={busy === request.id} onClick={() => resolve(request.id, 'rejected')}>Reject</button>
           <button type="button" className={styles.btn} disabled={busy === request.id} onClick={() => resolve(request.id, 'conflicted')}>Mark conflict</button>

@@ -2,11 +2,13 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Eyebrow, Text } from '@thedot/design-system'
+import { useRouter } from 'next/navigation'
+import { Eyebrow } from '@thedot/design-system'
 import type { AdminComment } from './data'
 import styles from './portal-admin.module.css'
 
 function ReplyForm({ comment }: { comment: AdminComment }) {
+  const router = useRouter()
   const [body, setBody] = useState('')
   const [state, setState] = useState<{ kind: 'idle' | 'sending' | 'sent' | 'error'; message?: string }>({ kind: 'idle' })
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -19,10 +21,8 @@ function ReplyForm({ comment }: { comment: AdminComment }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contentId: comment.contentUuid,
+          commentId: comment.id,
           body: trimmed,
-          copyBlockKey: comment.copyBlockKey,
-          quotedText: comment.quotedText,
           idempotencyKey: crypto.randomUUID(),
         }),
       })
@@ -30,6 +30,7 @@ function ReplyForm({ comment }: { comment: AdminComment }) {
       if (!response.ok) throw new Error(payload.error || 'Could not send reply.')
       setBody('')
       setState({ kind: 'sent', message: 'Reply posted.' })
+      router.refresh()
     } catch (error) {
       setState({ kind: 'error', message: error instanceof Error ? error.message : 'Could not send reply.' })
     }
@@ -60,7 +61,13 @@ export default function CommentInbox({ comments }: { comments: AdminComment[] })
         {comment.targetUrl && <a href={comment.targetUrl} target="_blank" rel="noreferrer" className={styles.destLink}>Open referenced design</a>}
         {comment.quotedText && <blockquote className={styles.commentQuote}>{comment.quotedText}</blockquote>}
         <p className={styles.commentBody}>{comment.body}</p>
-        <ReplyForm comment={comment} />
+        {comment.replyBody && <div className={styles.commentAgencyReply}>
+          <span>{comment.replyAuthorName ?? 'The Dot'} replied</span>
+          <p>{comment.replyBody}</p>
+        </div>}
+        {comment.resolved
+          ? <p className={styles.commentSuccess}>Answered in the client thread.</p>
+          : <ReplyForm comment={comment} />}
       </li>)}
     </ul>}
   </section>

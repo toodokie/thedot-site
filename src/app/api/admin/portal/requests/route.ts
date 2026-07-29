@@ -8,7 +8,26 @@ export async function POST(request: Request) {
     await requireAdminSession()
     assertSameOriginRequest(request)
     const body = await request.json() as {
-      requestId?: string; status?: string; reason?: string; idempotencyKey?: string
+      action?: 'resolve' | 'reply'
+      requestId?: string; status?: string; reason?: string; body?: string; close?: boolean; idempotencyKey?: string
+    }
+    if (body.action === 'reply') {
+      const reply = body.body?.trim()
+      if (!body.requestId?.match(/^[0-9a-f-]{36}$/i)
+          || !reply || reply.length > 4000 || typeof body.close !== 'boolean'
+          || !body.idempotencyKey?.match(/^[0-9a-f-]{36}$/i)) {
+        return NextResponse.json({ error: 'Invalid request reply.' }, { status: 400 })
+      }
+      const admin = createSupabaseAdmin()
+      const { data, error } = await admin.rpc('reply_to_content_request', {
+        p_request_id: body.requestId,
+        p_body: reply,
+        p_close: body.close,
+        p_actor_key: 'thedot-admin',
+        p_idempotency_key: body.idempotencyKey,
+      })
+      if (error) throw new Error(error.message)
+      return NextResponse.json({ result: data }, { headers: { 'Cache-Control': 'private, no-store' } })
     }
     if (!body.requestId?.match(/^[0-9a-f-]{36}$/i)
         || !['rejected', 'conflicted'].includes(body.status ?? '')

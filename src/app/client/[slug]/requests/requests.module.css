@@ -19,4 +19,10 @@
 .meta { margin-top: 10px; color: var(--dot-grey); font: 400 12px/1.5 var(--dot-font-text); }
 .pieceForm { margin: 20px 0; border: 1px solid var(--dot-hairline); background: var(--dot-cream); padding: 16px 18px; }
 .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.conversation { margin-top: 14px; border-top: 1px solid var(--dot-hairline); padding-top: 12px; }
+.messageList { display: grid; gap: 8px; }
+.clientMessage, .agencyMessage { padding: 9px 11px; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--dot-cream); }
+.agencyMessage { border-left: 2px solid var(--dot-yellow); background: #fffde9; }
+.replyForm { display: grid; gap: 8px; margin-top: 12px; }
+.replyForm .textarea { min-height: 72px; }
 @media (max-width: 760px) { .wrap { padding: 28px 18px 88px; } .grid { grid-template-columns: 1fr; } .checks { grid-template-columns: 1fr; } }

@@ -24,6 +24,9 @@ export type AdminComment = {
   quotedText: string | null
   resolved: boolean
   createdAt: string
+  replyBody: string | null
+  replyAuthorName: string | null
+  replyCreatedAt: string | null
 }
 
 type CopyBlock = { key: string; label: string | null; body: string }
@@ -48,8 +51,8 @@ export async function loadAdminComments(): Promise<AdminComment[]> {
   const admin = createSupabaseAdmin()
   const [clients, comments, items, versions] = await Promise.all([
     admin.from('clients').select('id,name'),
-    admin.from('comments').select('id,client_id,content_id,content_version,copy_block_key,target_kind,target_url,author_type,author_name,body,quoted_text,resolved,created_at')
-      .order('resolved', { ascending: true }).order('created_at', { ascending: false }),
+    admin.from('comments').select('id,client_id,content_id,content_version,copy_block_key,target_kind,target_url,reply_to_comment_id,author_type,author_name,body,quoted_text,resolved,created_at')
+      .order('created_at', { ascending: false }),
     admin.from('content_items').select('id,client_id,content_id'),
     admin.from('content_item_versions').select('content_item_id,client_id,version,title'),
   ])
@@ -62,7 +65,12 @@ export async function loadAdminComments(): Promise<AdminComment[]> {
   const titleMap = new Map((versions.data ?? []).map((row) => [
     `${row.client_id}:${row.content_item_id}:${row.version}`, row.title,
   ]))
-  return (comments.data ?? []).map((row) => ({
+  const replyMap = new Map((comments.data ?? [])
+    .filter((row) => row.author_type !== 'client' && row.reply_to_comment_id)
+    .map((row) => [row.reply_to_comment_id, row]))
+  return (comments.data ?? []).filter((row) => row.author_type === 'client').map((row) => {
+    const reply = replyMap.get(row.id)
+    return {
     id: row.id,
     clientId: row.client_id,
     clientName: clientNames.get(row.client_id) ?? 'Unknown client',
@@ -79,7 +87,10 @@ export async function loadAdminComments(): Promise<AdminComment[]> {
     quotedText: row.quoted_text,
     resolved: row.resolved,
     createdAt: row.created_at,
-  }))
+    replyBody: reply?.body ?? null,
+    replyAuthorName: reply?.author_name ?? null,
+    replyCreatedAt: reply?.created_at ?? null,
+  }})
 }
 
 // Per-surface data loaders for the admin ops portal. Each routed page calls only the loader
@@ -275,12 +286,14 @@ export async function loadInvoices(): Promise<AdminInvoice[]> {
 // ---- Requests: Maria's change requests, with the referenced piece title resolved ----
 export async function loadRequests(): Promise<AdminContentRequest[]> {
   const admin = createSupabaseAdmin()
-  const [clients, content, contentRequests] = await Promise.all([
+  const [clients, content, contentRequests, messages] = await Promise.all([
     admin.from('clients').select('id,name,slug').order('name'),
     admin.from('content_item_versions').select('content_item_id,client_id,version,title,copy_blocks'),
     admin.rpc('list_content_change_requests', { p_client_id: null }),
+    admin.from('content_change_request_messages').select('id,request_id,author_type,author_name,body,created_at')
+      .order('created_at', { ascending: true }).order('id', { ascending: true }),
   ])
-  const failure = clients.error ?? content.error ?? contentRequests.error
+  const failure = clients.error ?? content.error ?? contentRequests.error ?? messages.error
   if (failure) throw new Error(`Portal admin data unavailable: ${failure.message}`)
   const clientMap = new Map((clients.data ?? []).map((client) => [client.id, client]))
   const contentMap = new Map((content.data ?? []).map((item) => [
@@ -291,6 +304,17 @@ export async function loadRequests(): Promise<AdminContentRequest[]> {
     requester_name: string; created_at: string; base_version: number | null
     payload: Record<string, unknown>; resolution_note: string | null
   }>
+  const messagesByRequest = new Map<string, Array<{
+    id: string; authorType: 'client' | 'anastasia'; authorName: string; body: string; createdAt: string
+  }>>()
+  for (const message of messages.data ?? []) {
+    if ((message.author_type !== 'client' && message.author_type !== 'anastasia')
+        || !message.request_id || !message.id || !message.author_name || !message.body || !message.created_at) continue
+    const thread = messagesByRequest.get(message.request_id) ?? []
+    thread.push({ id: message.id, authorType: message.author_type, authorName: message.author_name,
+      body: message.body, createdAt: message.created_at })
+    messagesByRequest.set(message.request_id, thread)
+  }
   return requestRows.map((request) => {
     const item = request.content_id && request.base_version !== null
       ? contentMap.get(`${request.client_id}:${request.content_id}:${request.base_version}`)
@@ -305,6 +329,7 @@ export async function loadRequests(): Promise<AdminContentRequest[]> {
       resolutionNote: request.resolution_note,
       edit: request.request_type === 'edit' && proposedText !== null
         ? { blockKey, blockLabel: block?.label ?? null, originalText: block?.body ?? null, proposedText }
-        : null }
+        : null,
+      messages: messagesByRequest.get(request.id) ?? [] }
   })
 }

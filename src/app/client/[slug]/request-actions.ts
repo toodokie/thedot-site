@@ -73,6 +73,32 @@ export async function suggestContentEdit(
   return { success: 'Edit suggestion received. The released copy has not changed yet.' }
 }
 
+export async function replyToContentRequest(
+  _previous: RequestActionState,
+  formData: FormData,
+): Promise<RequestActionState> {
+  const context = await requestContext(formData)
+  const requestId = textField(formData, 'requestId')
+  const body = (textField(formData, 'body') ?? '').trim()
+  const idempotencyKey = textField(formData, 'idempotencyKey')
+  if (!context || !requestId || !validKey(requestId) || !validKey(idempotencyKey)) {
+    return { error: 'This form expired. Please reload and try again.' }
+  }
+  if (!context.session.canSubmitRequests) return { error: 'Your account cannot reply to content requests.' }
+  if (!body || body.length > 4000) return { error: 'Write a reply of no more than 4,000 characters.' }
+  const supabase = await createSupabaseServer()
+  const { data, error } = await supabase.rpc('reply_to_content_request_as_client', {
+    p_request_id: requestId,
+    p_body: body,
+    p_idempotency_key: idempotencyKey,
+  })
+  if (error) return { error: 'Could not send the reply. Please reload and try again.' }
+  if (responseOutcome(data) === 'rate_limited') return { error: 'Too many replies were sent. Please try again in an hour.' }
+  revalidatePath(`/client/${context.slug}`)
+  revalidatePath(`/client/${context.slug}/requests`)
+  return { success: 'Reply sent to The Dot.' }
+}
+
 export async function requestNewContent(
   _previous: RequestActionState,
   formData: FormData,

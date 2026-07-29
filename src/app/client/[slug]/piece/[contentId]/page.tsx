@@ -13,7 +13,7 @@ import { getScheduleDetails } from '@/lib/portal/schedule'
 import SchedulePanel from './SchedulePanel'
 import { getPublicationDetails } from '@/lib/portal/publication'
 import PublicationPanel from './PublicationPanel'
-import { getContentRequests } from '@/lib/portal/requests'
+import { getContentRequestMessages, getContentRequests } from '@/lib/portal/requests'
 import RequestHistory from '../../requests/RequestHistory'
 import RemovalRequestForm from './RemovalRequestForm'
 import ProgressBar from '@/components/portal/ProgressBar'
@@ -40,6 +40,9 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
     getPublicationDetails(session.clientId, item.id, item.version),
     getContentRequests(session.clientId, item.id),
   ])
+  const requestMessages = await getContentRequestMessages(
+    session.clientId, requests.map((request) => request.id),
+  )
 
   const progress = clientProgress({
     clientState: item.state,
@@ -91,7 +94,8 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
 
       {requests.length > 0 && <section style={{ marginBottom: 28 }}>
         <Heading level={3}>Requests for this piece</Heading>
-        <RequestHistory slug={slug} requests={requests} content={[item]} />
+        <RequestHistory slug={slug} requests={requests} messages={requestMessages} content={[item]}
+          canReply={session.canSubmitRequests} />
       </section>}
 
       <FactCheckEvidence item={item} />

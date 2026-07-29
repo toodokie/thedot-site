@@ -90,7 +90,8 @@ type PortalInboxRow = {
   event_type: string
   object_type: string
   object_id: string | null
-  payload: { decision?: string }
+  payload: { decision?: string; comment_id?: string }
+  requires_reconciliation: boolean
 }
 
 function snapshot(
@@ -697,6 +698,82 @@ async function main(): Promise<void> {
         archiveStart.error?.message ?? archiveApply.error?.message ?? JSON.stringify({ archived: archived.data, request: archivedRequest.data }))
     }
 
+    console.log('\n--- Slice 34 client-request conversations ---')
+
+    {
+      const request = await bClient.rpc('request_content_edit', {
+        p_content_id: bRequestItemId, p_content_version: 2, p_block_key: 'caption',
+        p_proposed_text: 'Conversation request body v3', p_idempotency_key: randomUUID(),
+      })
+      const requestId = (request.data as { id?: string } | null)?.id
+      if (!requestId) throw new Error(`conversation request missing: ${request.error?.message ?? 'no id'}`)
+      const clientKey = randomUUID()
+      const clientReply = await bClient.rpc('reply_to_content_request_as_client', {
+        p_request_id: requestId, p_body: 'Could we keep the longer caption as the reviewed version?',
+        p_idempotency_key: clientKey,
+      })
+      const clientRetry = await bClient.rpc('reply_to_content_request_as_client', {
+        p_request_id: requestId, p_body: 'Could we keep the longer caption as the reviewed version?',
+        p_idempotency_key: clientKey,
+      })
+      const directMessage = await bClient.from('content_change_request_messages').insert({
+        client_id: bClientId, request_id: requestId, author_type: 'client', author_name: 'forged',
+        body: 'forged direct write', idempotency_key: randomUUID(), message_fingerprint: '0'.repeat(64),
+      })
+      const crossReply = await kansetClient.rpc('reply_to_content_request_as_client', {
+        p_request_id: requestId, p_body: 'cross tenant reply', p_idempotency_key: randomUUID(),
+      })
+      const agencyKey = randomUUID()
+      const agencyReply = await admin.rpc('reply_to_content_request', {
+        p_request_id: requestId, p_body: 'Yes. We will use one primary caption for review and adapt the other platform versions.',
+        p_close: true, p_actor_key: 'thedot-admin', p_idempotency_key: agencyKey,
+      })
+      const agencyRetry = await admin.rpc('reply_to_content_request', {
+        p_request_id: requestId, p_body: 'Yes. We will use one primary caption for review and adapt the other platform versions.',
+        p_close: true, p_actor_key: 'thedot-admin', p_idempotency_key: agencyKey,
+      })
+      const requestRow = await bClient.from('content_change_requests_client')
+        .select('status,resolution_note').eq('id', requestId).single()
+      const thread = await bClient.from('content_change_request_messages')
+        .select('author_type,body').eq('request_id', requestId).order('created_at')
+      const crossRead = await kansetClient.from('content_change_request_messages')
+        .select('id').eq('request_id', requestId)
+      const browserAgencyRpc = await bClient.rpc('reply_to_content_request', {
+        p_request_id: requestId, p_body: 'forged agency reply', p_close: true,
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      check('R11: client request reply is idempotent and direct message writes are denied',
+        !clientReply.error && !clientRetry.error && !!directMessage.error,
+        clientReply.error?.message ?? clientRetry.error?.message ?? directMessage.error?.message ?? 'NO ERROR')
+      check('R12: agency can answer a request without pretending the copy was applied',
+        !agencyReply.error && !agencyRetry.error && requestRow.data?.status === 'answered'
+          && requestRow.data?.resolution_note === 'Answered in the portal. No copy change was requested.',
+        agencyReply.error?.message ?? agencyRetry.error?.message ?? requestRow.error?.message ?? JSON.stringify(requestRow.data))
+      check('R13: request thread stays tenant-scoped and agency writer is browser-denied',
+        !thread.error && (thread.data ?? []).length === 2
+          && thread.data?.[0]?.author_type === 'client' && thread.data?.[1]?.author_type === 'anastasia'
+          && !crossRead.error && (crossRead.data ?? []).length === 0 && !!crossReply.error && !!browserAgencyRpc.error,
+        thread.error?.message ?? crossRead.error?.message ?? crossReply.error?.message
+          ?? browserAgencyRpc.error?.message ?? JSON.stringify(thread.data))
+      const reopened = await bClient.rpc('reply_to_content_request_as_client', {
+        p_request_id: requestId, p_body: 'Thank you. One more clarification, please.', p_idempotency_key: randomUUID(),
+      })
+      const reopenedRow = await bClient.from('content_change_requests_client').select('status,resolution_note')
+        .eq('id', requestId).single()
+      const inboxRows = await admin.rpc('read_portal_inbox', {
+        p_consumer_key: `rls-request-reply-${RUN_ID}`, p_client_id: bClientId, p_limit: 500,
+      })
+      const requestReplyEvents: PortalInboxRow[] = (inboxRows.data ?? []).filter((row: PortalInboxRow) =>
+        row.event_type === 'request_replied' && row.object_id === requestId,
+      )
+      check('R14: a client follow-up reopens an answered request for the agency',
+        !reopened.error && reopenedRow.data?.status === 'pending' && reopenedRow.data?.resolution_note === null
+          && !inboxRows.error && requestReplyEvents.length === 2
+          && requestReplyEvents.every((row) => row.requires_reconciliation === true),
+        reopened.error?.message ?? reopenedRow.error?.message ?? inboxRows.error?.message
+          ?? JSON.stringify({ request: reopenedRow.data, inbox: requestReplyEvents }))
+    }
+
     console.log('\n--- Slice 3 scheduling/rescheduling ---')
 
     {
@@ -1030,8 +1107,10 @@ async function main(): Promise<void> {
 
     console.log('\n--- Version-bound comments ---')
 
+    let plainCommentId: string | null = null
     {
       const plain = await bClient.rpc('add_comment', { p_content_id: bItemId, p_body: 'plain comment' })
+      plainCommentId = typeof plain.data === 'string' ? plain.data : null
       check('C1: unquoted comment succeeds through compatibility signature', !plain.error, plain.error?.message ?? 'ok')
       const quoted = await bClient.rpc('add_comment', {
         p_content_id: bItemId,
@@ -1077,22 +1156,51 @@ async function main(): Promise<void> {
     }
 
     {
+      const parentCommentId = plainCommentId
+      if (!parentCommentId) throw new Error('plain comment id missing')
+      const replyKey = randomUUID()
       const before = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
-      const reply = await admin.rpc('add_agency_comment', {
-        p_content_id: bItemId,
+      const reply = await admin.rpc('add_agency_comment_reply', {
+        p_parent_comment_id: parentCommentId,
         p_body: 'Dot reply to B',
-        p_author_name: 'The Dot',
+        p_actor_key: 'thedot-admin',
+        p_idempotency_key: replyKey,
+      })
+      const retry = await admin.rpc('add_agency_comment_reply', {
+        p_parent_comment_id: parentCommentId,
+        p_body: 'Dot reply to B',
+        p_actor_key: 'thedot-admin',
+        p_idempotency_key: replyKey,
       })
       const after = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
-      const thread = await bClient.from('comments').select('author_type, body, content_version')
+      const thread = await bClient.from('comments').select('author_type, body, content_version, reply_to_comment_id')
+      const parent = await bClient.from('comments').select('resolved').eq('id', parentCommentId).single()
+      const commentInbox = await admin.rpc('read_portal_inbox', {
+        p_consumer_key: `rls-comment-inbox-${RUN_ID}`, p_client_id: bClientId, p_limit: 500,
+      })
+      const commentInboxRow = (commentInbox.data ?? []).find((row: PortalInboxRow) =>
+        row.event_type === 'comment_added' && row.object_type === 'comment' && row.object_id === parentCommentId,
+      )
       check('C8: agency reply RPC succeeds atomically', !reply.error, reply.error?.message ?? 'ok')
-      check('C9: agency reply adds exactly one activity event', !before.error && !after.error
+      check('C9: exact agency reply retry creates one activity event', !retry.error && !before.error && !after.error
         && (after.count ?? 0) - (before.count ?? 0) === 1,
       `before=${before.count} after=${after.count}`)
-      check('C10: client sees agency reply on released version', !thread.error
+      check('C10: client sees a parent-linked reply and the original becomes answered', !thread.error && !parent.error
         && (thread.data ?? []).some((row) => row.author_type === 'anastasia'
-          && row.body === 'Dot reply to B' && row.content_version === 1),
-      thread.error?.message ?? `rows=${thread.data?.length ?? 0}`)
+          && row.body === 'Dot reply to B' && row.content_version === 1
+          && row.reply_to_comment_id === parentCommentId)
+        && parent.data?.resolved === true,
+      thread.error?.message ?? parent.error?.message ?? `rows=${thread.data?.length ?? 0}`)
+      const browserReply = await bClient.rpc('add_agency_comment_reply', {
+        p_parent_comment_id: parentCommentId, p_body: 'forged browser reply',
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      check('C11: browser cannot invoke the agency comment-reply writer', !!browserReply.error,
+        browserReply.error?.message ?? 'NO ERROR')
+      check('C12: client comment creates one durable reconciliation inbox event', !commentInbox.error
+        && commentInboxRow?.payload?.comment_id === parentCommentId
+        && commentInboxRow.requires_reconciliation === true,
+      commentInbox.error?.message ?? JSON.stringify(commentInboxRow))
     }
 
     {
@@ -1107,11 +1215,11 @@ async function main(): Promise<void> {
         p_utc_offset_minutes: -240,
         p_idempotency_key: `anon-${RUN_ID}`,
       })
-      check('C11: anon cannot read released portal content', !!anonRead.error || (anonRead.data ?? []).length === 0,
+      check('C13: anon cannot read released portal content', !!anonRead.error || (anonRead.data ?? []).length === 0,
         anonRead.error?.message ?? `rows=${anonRead.data?.length ?? 0}`)
-      check('C12: anon cannot call client comment RPC', !!anonComment.error, anonComment.error?.message ?? 'NO ERROR')
-      check('C13: anon cannot call service sync RPC', !!anonSync.error, anonSync.error?.message ?? 'NO ERROR')
-      check('C14: anon cannot call scheduling writers', !!anonSchedule.error,
+      check('C14: anon cannot call client comment RPC', !!anonComment.error, anonComment.error?.message ?? 'NO ERROR')
+      check('C15: anon cannot call service sync RPC', !!anonSync.error, anonSync.error?.message ?? 'NO ERROR')
+      check('C16: anon cannot call scheduling writers', !!anonSchedule.error,
         anonSchedule.error?.message ?? 'NO ERROR')
     }
 
@@ -1136,17 +1244,17 @@ async function main(): Promise<void> {
         p_content_id: kansetItemId, p_body: 'cross tenant design comment',
         p_design_url: 'https://www.canva.com/design/RLSCOMMENT/view',
       })
-      check('C15: client can comment on both released design links through the RPC',
+      check('C17: client can comment on both released design links through the RPC',
         !links.error && !canva.error && !drive.error && !designRows.error
           && (designRows.data ?? []).length === 2
           && (designRows.data ?? []).every((row) => row.target_kind === 'design'),
         links.error?.message ?? canva.error?.message ?? drive.error?.message
           ?? designRows.error?.message ?? JSON.stringify(designRows.data))
-      check('C16: design comments retain the exact safe target URLs',
+      check('C18: design comments retain the exact safe target URLs',
         (designRows.data ?? []).some((row) => row.target_url === 'https://www.canva.com/design/RLSCOMMENT/view')
           && (designRows.data ?? []).some((row) => row.target_url === 'https://drive.google.com/file/d/RLSCOMMENT/view'),
         JSON.stringify(designRows.data))
-      check('C17: design comment RPC remains tenant-scoped', !!cross.error,
+      check('C19: design comment RPC remains tenant-scoped', !!cross.error,
         cross.error?.message ?? 'NO ERROR')
     }
 

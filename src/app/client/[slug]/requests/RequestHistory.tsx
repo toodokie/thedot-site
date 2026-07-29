@@ -1,15 +1,16 @@
 import Link from 'next/link'
 import { Text } from '@thedot/design-system'
 import type { ContentRow } from '@/lib/portal/data'
-import { clientRequestLabel, type ContentRequestRow } from '@/lib/portal/requests'
+import { clientRequestLabel, type ContentRequestMessage, type ContentRequestRow } from '@/lib/portal/requests'
+import RequestConversation from './RequestConversation'
 import styles from './requests.module.css'
 
 function stringValue(payload: Record<string, unknown>, key: string): string | null {
   return typeof payload[key] === 'string' ? payload[key] as string : null
 }
 
-export default function RequestHistory({ slug, requests, content }: {
-  slug: string; requests: ContentRequestRow[]; content: ContentRow[]
+export default function RequestHistory({ slug, requests, messages, content, canReply }: {
+  slug: string; requests: ContentRequestRow[]; messages: ContentRequestMessage[]; content: ContentRow[]; canReply: boolean
 }) {
   const byUuid = new Map(content.map((item) => [item.id, item]))
   if (!requests.length) return <Text tone="grey">No content requests yet.</Text>
@@ -26,6 +27,7 @@ export default function RequestHistory({ slug, requests, content }: {
       const original = blockKey ? item?.copy_blocks.find((block) => block.key === blockKey)?.body : null
       const brief = request.request_type === 'create' ? stringValue(request.payload, 'brief') : null
       const reason = request.request_type === 'archive' ? stringValue(request.payload, 'reason') : null
+      const conversation = messages.filter((message) => message.request_id === request.id)
       return <article className={styles.card} key={request.id}>
         <div className={styles.cardHead}>
           <div>
@@ -41,6 +43,8 @@ export default function RequestHistory({ slug, requests, content }: {
         {request.resolution_note && <div className={styles.copy}><Text as="div" size="sm">{request.resolution_note}</Text></div>}
         {request.status === 'applied' && request.canonical_content_key &&
           <p><Link href={`/client/${encodeURIComponent(slug)}/piece/${encodeURIComponent(request.canonical_content_key)}`}>Open the resulting piece</Link></p>}
+        <RequestConversation slug={slug} requestId={request.id} messages={conversation}
+          canReply={canReply && ['pending', 'answered'].includes(request.status)} />
         <div className={styles.meta}>
           Submitted by {request.requester_name} · <time dateTime={request.created_at}>{request.created_at.slice(0, 10)}</time>
           {request.base_version ? ` · based on v${request.base_version}` : ''}

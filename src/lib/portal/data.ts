@@ -9,6 +9,7 @@ export type ContentRow = {
   platforms: string[]; status: ContentStatus; planned_date: string | null; schedule_state: ScheduleState
   publication_state: PublicationState
   canva_url: string | null
+  drive_url: string | null
   client_body: string | null; fact_check: string | null; version: number; current_decision: string | null
   fact_check_scope: FactCheckScope; fact_check_exemption: string | null
   fact_check_ledger: FactCheckLedgerEntry[]
@@ -31,7 +32,7 @@ export type ActivityRow = {
   actor_type: string; actor_name: string; created_at: string
 }
 
-const SELECT = 'id, content_id, title, format, pillar, platforms, status, planned_date, schedule_state, publication_state, canva_url, client_body, copy_blocks, fact_check, fact_check_scope, fact_check_exemption, fact_check_ledger, version, current_decision, client_state'
+const SELECT = 'id, content_id, title, format, pillar, platforms, status, planned_date, schedule_state, publication_state, canva_url, drive_url, client_body, copy_blocks, fact_check, fact_check_scope, fact_check_exemption, fact_check_ledger, version, current_decision, client_state'
 
 function mapContentRow(value: unknown): ContentRow {
   if (!value || typeof value !== 'object') throw new PortalDataError('Invalid content row')

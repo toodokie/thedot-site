@@ -3,7 +3,16 @@ import { PortalDataError } from './data'
 
 export type ContentRequestStatus =
   | 'pending' | 'applying' | 'prepared' | 'applied'
-  | 'conflicted' | 'rejected' | 'superseded'
+  | 'answered' | 'conflicted' | 'rejected' | 'superseded'
+
+export type ContentRequestMessage = {
+  id: string
+  request_id: string
+  author_type: 'client' | 'anastasia'
+  author_name: string
+  body: string
+  created_at: string
+}
 
 export type ContentRequestRow = {
   id: string
@@ -26,6 +35,7 @@ export type ContentRequestRow = {
 const SELECT = 'id, client_id, content_id, request_type, base_version, payload, status, requester_name, created_at, updated_at, reconciled_at, reconciled_by, canonical_version, resolution_note, canonical_content_key'
 const STATUSES = new Set<ContentRequestStatus>([
   'pending', 'applying', 'prepared', 'applied', 'conflicted', 'rejected', 'superseded',
+  'answered',
 ])
 
 function mapRequest(value: unknown): ContentRequestRow {
@@ -54,10 +64,33 @@ export async function getContentRequests(
   return (data ?? []).map(mapRequest)
 }
 
+export async function getContentRequestMessages(
+  clientId: string,
+  requestIds: string[],
+): Promise<ContentRequestMessage[]> {
+  if (!requestIds.length) return []
+  const supabase = await createSupabaseServer()
+  const { data, error } = await supabase
+    .from('content_change_request_messages')
+    .select('id,request_id,author_type,author_name,body,created_at')
+    .eq('client_id', clientId)
+    .in('request_id', requestIds)
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true })
+  if (error) throw new PortalDataError(error.message)
+  return (data ?? []).flatMap((value) => {
+    const row = value as Partial<ContentRequestMessage>
+    if (!row.id || !row.request_id || !row.author_name || !row.body
+        || !row.created_at || (row.author_type !== 'client' && row.author_type !== 'anastasia')) return []
+    return [row as ContentRequestMessage]
+  })
+}
+
 export function clientRequestLabel(status: ContentRequestStatus): string {
   if (status === 'pending') return 'Received'
   if (status === 'applying' || status === 'prepared') return 'In progress'
   if (status === 'applied') return 'Applied'
+  if (status === 'answered') return 'Answered'
   if (status === 'rejected') return 'Not proceeding'
   if (status === 'conflicted') return 'Needs review'
   return 'Superseded'
