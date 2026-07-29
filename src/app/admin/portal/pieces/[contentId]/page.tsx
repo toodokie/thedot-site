@@ -7,6 +7,9 @@ import { agencyProgress, AGENCY_LABELS } from '@/lib/portal/progress-bar-model'
 import { resolveNineGates } from '@/lib/portal/gates'
 import { Eyebrow, Text, Button } from '@thedot/design-system'
 import AdminPageHeader from '../../AdminPageHeader'
+import { CommentList } from '../../CommentInbox'
+import { RequestList } from '../../RequestAdmin'
+import { loadAdminComments, loadRequests } from '../../data'
 import ProgressBar from '@/components/portal/ProgressBar'
 import styles from '../../portal-admin.module.css'
 
@@ -56,6 +59,12 @@ export default async function AdminPiecePage({ params }: { params: Promise<{ con
   const driveRaw = designLink?.drive_url ?? content?.drive_url ?? null
   const canva = canvaRaw && /^https:\/\//i.test(canvaRaw) ? canvaRaw : null
   const drive = driveRaw && /^https:\/\//i.test(driveRaw) ? driveRaw : null
+  const [comments, requests] = itemRow.data?.id
+    ? await Promise.all([
+      loadAdminComments({ clientId: client.data.id, contentUuid: itemRow.data.id }),
+      loadRequests({ clientId: client.data.id, contentUuid: itemRow.data.id }),
+    ])
+    : [[], []] as const
 
   const model = agencyProgress(piece)
   const gates = resolveNineGates(piece)
@@ -116,6 +125,18 @@ export default async function AdminPiecePage({ params }: { params: Promise<{ con
             {drive && <Button as="a" href={drive} target="_blank" rel="noreferrer" variant="ghost" size="sm">Open in Drive</Button>}
           </div>
         )}
+      </section>
+
+      <section className={styles.card}>
+        <div className={styles.panelHead}><Eyebrow tone="grey">Client comments</Eyebrow></div>
+        <p className={styles.panelNote}>Comments on this piece’s copy or linked design, with the full reply thread in one place.</p>
+        <CommentList comments={comments} showPieceLink={false} emptyLabel="Maria has not left a comment on this piece yet." />
+      </section>
+
+      <section className={styles.card}>
+        <div className={styles.panelHead}><Eyebrow tone="grey">Requests</Eyebrow></div>
+        <p className={styles.panelNote}>Questions, requested edits, and their conversation. Reply here before you prepare a canonical revision.</p>
+        <RequestList requests={requests} showPieceTitle={false} emptyLabel="Maria has not sent a request for this piece yet." />
       </section>
 
       <section className={styles.card}>

@@ -46,17 +46,23 @@ function ReplyForm({ comment }: { comment: AdminComment }) {
   </form>
 }
 
-export default function CommentInbox({ comments }: { comments: AdminComment[] }) {
-  return <section className={styles.card}>
-    <div className={styles.panelHead}><Eyebrow tone="grey">Client comments</Eyebrow></div>
-    <p className={styles.panelNote}>Every comment is retained in the audit log and linked back to its piece. Unresolved comments stay here until you handle them.</p>
-    {comments.length === 0 ? <p className={styles.empty}>No client comments yet.</p> : <ul className={styles.commentList}>
+export function CommentList({
+  comments,
+  showPieceLink = true,
+  emptyLabel = 'No client comments yet.',
+}: {
+  comments: AdminComment[]
+  showPieceLink?: boolean
+  emptyLabel?: string
+}) {
+  return <>
+    {comments.length === 0 ? <p className={styles.empty}>{emptyLabel}</p> : <ul className={styles.commentList}>
       {comments.map((comment) => <li key={comment.id} className={styles.commentItem}>
         <div className={styles.commentMeta}>
           <span>{comment.clientName}</span><span>{comment.authorName}</span><time dateTime={comment.createdAt}>{new Date(comment.createdAt).toLocaleString('en-CA', { timeZone: 'America/Toronto' })}</time>
           {!comment.resolved && <span className={styles.commentOpen}>needs reply</span>}
         </div>
-        <Link href={`/admin/portal/pieces/${encodeURIComponent(comment.contentId)}`} className={styles.commentPiece}>{comment.title}</Link>
+        {showPieceLink && <Link href={`/admin/portal/pieces/${encodeURIComponent(comment.contentId)}`} className={styles.commentPiece}>{comment.title}</Link>}
         <div className={styles.commentTarget}>{comment.targetKind === 'design' ? 'Design feedback' : `Copy${comment.copyBlockKey ? ` · ${comment.copyBlockKey}` : ''}`}</div>
         {comment.targetUrl && <a href={comment.targetUrl} target="_blank" rel="noreferrer" className={styles.destLink}>Open referenced design</a>}
         {comment.quotedText && <blockquote className={styles.commentQuote}>{comment.quotedText}</blockquote>}
@@ -70,5 +76,13 @@ export default function CommentInbox({ comments }: { comments: AdminComment[] })
           : <ReplyForm comment={comment} />}
       </li>)}
     </ul>}
+  </>
+}
+
+export default function CommentInbox({ comments }: { comments: AdminComment[] }) {
+  return <section className={styles.card}>
+    <div className={styles.panelHead}><Eyebrow tone="grey">Client comments</Eyebrow></div>
+    <p className={styles.panelNote}>Every comment is retained in the audit log and linked back to its piece. Unresolved comments stay here until you handle them.</p>
+    <CommentList comments={comments} />
   </section>
 }

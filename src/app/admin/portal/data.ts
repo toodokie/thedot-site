@@ -47,14 +47,29 @@ function parseCopyBlocks(value: unknown): CopyBlock[] {
   })
 }
 
-export async function loadAdminComments(): Promise<AdminComment[]> {
+export async function loadAdminComments(scope: { clientId?: string; contentUuid?: string } = {}): Promise<AdminComment[]> {
   const admin = createSupabaseAdmin()
+  let commentQuery = admin.from('comments')
+    .select('id,client_id,content_id,content_version,copy_block_key,target_kind,target_url,reply_to_comment_id,author_type,author_name,body,quoted_text,resolved,created_at')
+    .order('created_at', { ascending: false })
+  if (scope.clientId) commentQuery = commentQuery.eq('client_id', scope.clientId)
+  if (scope.contentUuid) commentQuery = commentQuery.eq('content_id', scope.contentUuid)
+
+  let itemQuery = admin.from('content_items').select('id,client_id,content_id')
+  let versionQuery = admin.from('content_item_versions').select('content_item_id,client_id,version,title')
+  if (scope.clientId) {
+    itemQuery = itemQuery.eq('client_id', scope.clientId)
+    versionQuery = versionQuery.eq('client_id', scope.clientId)
+  }
+  if (scope.contentUuid) {
+    itemQuery = itemQuery.eq('id', scope.contentUuid)
+    versionQuery = versionQuery.eq('content_item_id', scope.contentUuid)
+  }
   const [clients, comments, items, versions] = await Promise.all([
-    admin.from('clients').select('id,name'),
-    admin.from('comments').select('id,client_id,content_id,content_version,copy_block_key,target_kind,target_url,reply_to_comment_id,author_type,author_name,body,quoted_text,resolved,created_at')
-      .order('created_at', { ascending: false }),
-    admin.from('content_items').select('id,client_id,content_id'),
-    admin.from('content_item_versions').select('content_item_id,client_id,version,title'),
+    scope.clientId ? admin.from('clients').select('id,name').eq('id', scope.clientId) : admin.from('clients').select('id,name'),
+    commentQuery,
+    itemQuery,
+    versionQuery,
   ])
   const failure = clients.error ?? comments.error ?? items.error ?? versions.error
   if (failure) throw new Error(`Portal admin comments unavailable: ${failure.message}`)
@@ -284,14 +299,22 @@ export async function loadInvoices(): Promise<AdminInvoice[]> {
 }
 
 // ---- Requests: Maria's change requests, with the referenced piece title resolved ----
-export async function loadRequests(): Promise<AdminContentRequest[]> {
+export async function loadRequests(scope: { clientId?: string; contentUuid?: string } = {}): Promise<AdminContentRequest[]> {
   const admin = createSupabaseAdmin()
+  let contentQuery = admin.from('content_item_versions').select('content_item_id,client_id,version,title,copy_blocks')
+  if (scope.clientId) contentQuery = contentQuery.eq('client_id', scope.clientId)
+  if (scope.contentUuid) contentQuery = contentQuery.eq('content_item_id', scope.contentUuid)
+  let messageQuery = admin.from('content_change_request_messages')
+    .select('id,request_id,author_type,author_name,body,created_at')
+    .order('created_at', { ascending: true }).order('id', { ascending: true })
+  if (scope.clientId) messageQuery = messageQuery.eq('client_id', scope.clientId)
   const [clients, content, contentRequests, messages] = await Promise.all([
-    admin.from('clients').select('id,name,slug').order('name'),
-    admin.from('content_item_versions').select('content_item_id,client_id,version,title,copy_blocks'),
-    admin.rpc('list_content_change_requests', { p_client_id: null }),
-    admin.from('content_change_request_messages').select('id,request_id,author_type,author_name,body,created_at')
-      .order('created_at', { ascending: true }).order('id', { ascending: true }),
+    scope.clientId
+      ? admin.from('clients').select('id,name,slug').eq('id', scope.clientId)
+      : admin.from('clients').select('id,name,slug').order('name'),
+    contentQuery,
+    admin.rpc('list_content_change_requests', { p_client_id: scope.clientId ?? null }),
+    messageQuery,
   ])
   const failure = clients.error ?? content.error ?? contentRequests.error ?? messages.error
   if (failure) throw new Error(`Portal admin data unavailable: ${failure.message}`)
@@ -315,7 +338,9 @@ export async function loadRequests(): Promise<AdminContentRequest[]> {
       body: message.body, createdAt: message.created_at })
     messagesByRequest.set(message.request_id, thread)
   }
-  return requestRows.map((request) => {
+  return requestRows
+    .filter((request) => !scope.contentUuid || request.content_id === scope.contentUuid)
+    .map((request) => {
     const item = request.content_id && request.base_version !== null
       ? contentMap.get(`${request.client_id}:${request.content_id}:${request.base_version}`)
       : null
@@ -324,7 +349,7 @@ export async function loadRequests(): Promise<AdminContentRequest[]> {
     const proposedText = asText(request.payload.proposed_text)
     return { id: request.id, clientName: clientMap.get(request.client_id)?.name ?? 'Unknown client',
       requestType: request.request_type, status: request.status, requesterName: request.requester_name,
-      createdAt: request.created_at, baseVersion: request.base_version,
+      createdAt: request.created_at, contentUuid: request.content_id, baseVersion: request.base_version,
       title: item?.title ?? (typeof request.payload.title === 'string' ? request.payload.title : 'Content request'),
       resolutionNote: request.resolution_note,
       edit: request.request_type === 'edit' && proposedText !== null

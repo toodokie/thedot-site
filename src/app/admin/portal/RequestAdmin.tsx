@@ -8,7 +8,7 @@ import AdminPageHeader from './AdminPageHeader'
 
 export type AdminContentRequest = {
   id: string; clientName: string; requestType: string; status: string; requesterName: string
-  createdAt: string; title: string; baseVersion: number | null; resolutionNote: string | null
+  createdAt: string; title: string; contentUuid: string | null; baseVersion: number | null; resolutionNote: string | null
   edit: {
     blockKey: string | null; blockLabel: string | null; originalText: string | null; proposedText: string
   } | null
@@ -65,7 +65,15 @@ function RequestReplyForm({ request }: { request: AdminContentRequest }) {
   </form>
 }
 
-export default function RequestAdmin({ requests }: { requests: AdminContentRequest[] }) {
+export function RequestList({
+  requests,
+  showPieceTitle = true,
+  emptyLabel = 'No change requests from Maria right now.',
+}: {
+  requests: AdminContentRequest[]
+  showPieceTitle?: boolean
+  emptyLabel?: string
+}) {
   const router = useRouter()
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -86,14 +94,11 @@ export default function RequestAdmin({ requests }: { requests: AdminContentReque
     finally { setBusy(null) }
   }
   return <>
-    <AdminPageHeader kicker="Agency ops" title="Change requests"
-      intro="Requests Maria sends from her portal. Answer questions here. For a proposed edit, reply with the plan, then prepare the canonical revision in the content workflow before re-sharing it with Maria." />
-    <section className={styles.card}>
     {message && <p className={styles.statusMsg} role="status">{message}</p>}
-    {!requests.length ? <p className={styles.empty}>No change requests from Maria right now.</p> : <div>
+    {!requests.length ? <p className={styles.empty}>{emptyLabel}</p> : <div>
       {requests.map((request) => <article key={request.id} className={styles.subCard}>
         <div className={styles.pubPieceHead}>
-          <span className={styles.subCardTitle}>{request.title}</span>
+          {showPieceTitle && <span className={styles.subCardTitle}>{request.title}</span>}
           <StatusPill tone={requestTone(request.status)} label={request.status} />
         </div>
         <div className={styles.metaLine}>{request.clientName} · {request.requestType} · {request.requesterName} · {request.createdAt.slice(0, 10)}{request.baseVersion ? ` · v${request.baseVersion}` : ''}</div>
@@ -128,6 +133,15 @@ export default function RequestAdmin({ requests }: { requests: AdminContentReque
         </div>}
       </article>)}
     </div>}
+  </>
+}
+
+export default function RequestAdmin({ requests }: { requests: AdminContentRequest[] }) {
+  return <>
+    <AdminPageHeader kicker="Agency ops" title="Change requests"
+      intro="Requests Maria sends from her portal. Answer questions here. For a proposed edit, reply with the plan, then prepare the canonical revision in the content workflow before re-sharing it with Maria." />
+    <section className={styles.card}>
+      <RequestList requests={requests} />
     </section>
   </>
 }
