@@ -4,8 +4,10 @@ import { redirect } from 'next/navigation'
 import { getContent, getActivity, type ContentRow as ContentRowType } from '@/lib/portal/data'
 import { getRecentPublishedContentIds } from '@/lib/portal/publication'
 import { getCurrentPlanCycle } from '@/lib/portal/plan-cycle'
+import { getSchedule, routesToPiecePage, statusAccent } from '@/lib/portal/schedule'
 import { clientStateLabel } from '@/lib/portal/state'
 import { getLastSeen } from '@/lib/portal/seen'
+import WeekCalendar, { type WeekCalendarChip } from '@/components/portal/WeekCalendar'
 import MarkSeen from './MarkSeen'
 import { Eyebrow, Heading, Text, Button, Dot } from '@thedot/design-system'
 import styles from './overview.module.css'
@@ -59,14 +61,21 @@ function formatActivityDate(value: string): string {
   }).format(new Date(value))
 }
 
+function torontoTodayIso(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date())
+}
+
 export default async function Overview({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const session = await getClientSession(slug)
   if (!session) redirect('/client/login')
 
-  const [items, activity, lastSeen, recentPublishedIds, currentPlan] = await Promise.all([
+  const [items, activity, lastSeen, recentPublishedIds, currentPlan, schedule] = await Promise.all([
     getContent(session.clientId), getActivity(session.clientId), getLastSeen(session.clientId),
     getRecentPublishedContentIds(session.clientId), getCurrentPlanCycle(session.clientId),
+    getSchedule(session.clientId),
   ])
   // "new since your last visit": an event the OTHER party logged after you were last here.
   const isNew = (a: { created_at: string; actor_name: string }) =>
@@ -103,6 +112,24 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
   const firstName = session.name ? session.name.split(' ')[0] : ''
   const planWaiting = currentPlan.cycle?.status === 'submitted' || currentPlan.cycle?.status === 'change_requested'
   const approvalCount = needs.length + (planWaiting ? 1 : 0)
+  const calendarDays: Record<string, WeekCalendarChip[]> = {}
+  for (const row of schedule) {
+    if (!row.planned_date) continue
+    const href = routesToPiecePage(row.client_state)
+      ? `/client/${encodeURIComponent(slug)}/piece/${encodeURIComponent(row.content_id)}`
+      : `/client/${encodeURIComponent(slug)}/plan/${encodeURIComponent(row.content_id)}`
+    const chip: WeekCalendarChip = {
+      id: row.id,
+      href,
+      title: row.title,
+      meta: [row.format, row.pillar].filter(Boolean).join(' · ') || null,
+      platforms: row.platforms,
+      stateNote: row.status === 'approved' ? row.schedule_state.replaceAll('_', ' ') : null,
+      syncLabel: row.calendar_sync_label ?? null,
+      accent: statusAccent(row.status),
+    }
+    ;(calendarDays[row.planned_date.slice(0, 10)] ??= []).push(chip)
+  }
 
   return (
     <div className={styles.wrap}>
@@ -169,6 +196,9 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
           </div>
 
           <aside>
+            <Panel label="This week">
+              <WeekCalendar days={calendarDays} todayIso={torontoTodayIso()} label="Content calendar" />
+            </Panel>
             <Panel label="Activity">
               {activity.length === 0 ? (
                 <div className={styles.emptyRow}><Text size="md" tone="graphite">No activity yet.</Text></div>

@@ -5,6 +5,7 @@ import { GATE_ORDER, resolveNineGates, deriveContentStage, deriveMyTasks,
 import StatusPill, { type PillTone } from './StatusPill'
 import AdminPageHeader from './AdminPageHeader'
 import type { AdminComment } from './data'
+import WeekCalendar, { type WeekCalendarChip } from '@/components/portal/WeekCalendar'
 import styles from './portal-admin.module.css'
 
 // Agency-only surface (gate-system spec sections 4 + 6.8): My Tasks + the per-piece gate
@@ -127,6 +128,36 @@ function formatPieceDate(value: string | null | undefined): string {
   }).format(date)
 }
 
+function weekCalendarDays(pieces: StagePiece[]): Record<string, WeekCalendarChip[]> {
+  const days: Record<string, WeekCalendarChip[]> = {}
+  for (const piece of pieces) {
+    if (piece.archived || !piece.plannedDate) continue
+    const { stage, label } = deriveContentStage(piece)
+    const display = stageDisplay(stage, label)
+    const accent: WeekCalendarChip['accent'] = (
+      stage === 'done' || stage === 'posted_unverified' || stage === 'legacy'
+        ? 'grey'
+        : stage === 'approved' || stage === 'direction_approved'
+          || stage === 'scheduled' || stage === 'scheduled_partial'
+          ? 'graphite'
+          : 'yellow'
+    )
+    const chip: WeekCalendarChip = {
+      id: `${piece.clientId}:${piece.contentId}`,
+      href: `/admin/portal/pieces/${encodeURIComponent(piece.contentId)}`,
+      title: piece.title,
+      meta: [piece.format, piece.pillar].filter(Boolean).join(' · ') || null,
+      platforms: piece.platforms,
+      stateNote: [display.label, display.detail].filter(Boolean).join(' · '),
+      syncLabel: null,
+      accent,
+    }
+    const date = piece.plannedDate.slice(0, 10)
+    ;(days[date] ??= []).push(chip)
+  }
+  return days
+}
+
 // My tasks: the landing surface (spec IA #1). Its own routed page (/admin/portal) so it is
 // never buried under the rest of the ops board.
 export function MyTasksAdmin({ pieces, opsTasks, completedOps, openComments, todayIso }: {
@@ -151,6 +182,7 @@ export function MyTasksAdmin({ pieces, opsTasks, completedOps, openComments, tod
   // Single-client board: drop the repeated client name / column entirely (it was noise on
   // every row). Shows again the moment a second client's pieces appear.
   const multiClient = new Set(pieces.map((p) => p.clientId)).size > 1
+  const calendarDays = weekCalendarDays(pieces)
 
   // Each bucket is its OWN panel card (the client-overview pattern: many distinct cards in a
   // two-column grid), instead of one crammed box. `emphasis` gives the priority bucket the
@@ -181,6 +213,9 @@ export function MyTasksAdmin({ pieces, opsTasks, completedOps, openComments, tod
             <Panel label="Waiting on studio" rows={studio} />
           </div>
           <aside>
+            <section className={styles.card}>
+              <WeekCalendar days={calendarDays} todayIso={todayIso} label="This week" />
+            </section>
             {openComments.length > 0 && (
               <section className={styles.card}>
                 <div className={styles.panelHead}><Eyebrow tone="grey">Comments needing reply</Eyebrow></div>

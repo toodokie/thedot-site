@@ -1,0 +1,70 @@
+.wrap {
+  color: var(--dot-black);
+  font-family: var(--dot-font-text);
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--dot-font-display);
+  font-size: 18px;
+  font-weight: var(--dot-weight-medium);
+  letter-spacing: 0.01em;
+}
+
+.range {
+  margin: 3px 0 0;
+  color: var(--dot-graphite);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.controls { display: flex; gap: 6px; }
+
+.navButton {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--dot-hairline);
+  background: var(--dot-white);
+  color: var(--dot-black);
+  font-family: var(--dot-font-text);
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+}
+.navButton:hover { border-color: var(--dot-yellow); background: var(--dot-yellow); }
+.navButton:focus-visible, .chip:focus-visible { outline: 2px solid var(--dot-yellow); outline-offset: 2px; }
+
+.days { border-top: 1px solid var(--dot-hairline); }
+.day { padding: 9px 0; border-bottom: 1px solid var(--dot-hairline); }
+.today { box-shadow: inset 3px 0 0 var(--dot-yellow); padding-left: 9px; margin-left: -9px; }
+.dayHead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.weekday { color: var(--dot-graphite); font-size: 11px; font-weight: var(--dot-weight-demi); letter-spacing: 0.1em; text-transform: uppercase; }
+.date { color: var(--dot-graphite); font-size: 12px; font-variant-numeric: tabular-nums; }
+.today .date { color: var(--dot-black); font-weight: var(--dot-weight-medium); }
+.chips { display: flex; flex-direction: column; gap: 6px; margin-top: 7px; }
+.chip {
+  display: block;
+  border: 1px solid var(--dot-hairline);
+  border-left: 3px solid var(--dot-hairline);
+  background: var(--dot-white);
+  color: var(--dot-black);
+  padding: 7px 8px;
+  text-decoration: none;
+  transition: transform 120ms ease;
+}
+.chip:hover { transform: translateX(2px); }
+.chipTitle { display: block; font-size: 13px; font-weight: var(--dot-weight-medium); line-height: 1.35; overflow-wrap: anywhere; }
+.chipMeta, .chipPlatforms { display: block; color: var(--dot-graphite); font-size: 11px; line-height: 1.4; margin-top: 2px; text-transform: capitalize; }
+.accent_yellow { border-left-color: var(--dot-yellow); }
+.accent_graphite { border-left-color: var(--dot-graphite); }
+.accent_grey { border-left-color: var(--dot-grey); }
+
+@media (prefers-reduced-motion: reduce) { .chip { transition: none; } }

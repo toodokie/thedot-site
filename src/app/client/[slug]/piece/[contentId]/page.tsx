@@ -27,6 +27,14 @@ const chip: CSSProperties = {
 const chipFact: CSSProperties = {
   ...chip, color: 'var(--dot-black)', background: 'var(--dot-yellow-pale)', borderColor: 'transparent',
 }
+const sectionLink: CSSProperties = {
+  color: 'var(--dot-graphite)',
+  fontFamily: 'var(--dot-font-text)',
+  fontSize: 13,
+  textDecoration: 'underline',
+  textUnderlineOffset: 4,
+  textDecorationColor: 'var(--dot-hairline)',
+}
 
 export default async function Piece({ params }: { params: Promise<{ slug: string; contentId: string }> }) {
   const { slug, contentId } = await params
@@ -80,12 +88,13 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
         </span>}
       </div>
 
-      <nav aria-label="Review package sections" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 28 }}>
-        <Button as="a" href="#review-copy" variant="ghost" size="sm">Copy</Button>
-        {designLinks.length > 0 && <Button as="a" href="#review-design" variant="ghost" size="sm">Design</Button>}
-        <Button as="a" href="#review-facts" variant="ghost" size="sm">Facts</Button>
-        <Button as="a" href="#review-comments" variant="ghost" size="sm">Comments</Button>
-        {item.state === 'needs_review' && <Button as="a" href="#review-decision" variant="ghost" size="sm">Decision</Button>}
+      <nav aria-label="Review package sections" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '8px 14px', marginBottom: 28 }}>
+        <span style={{ color: 'var(--dot-grey)', fontSize: 13 }}>Jump to:</span>
+        <a href="#review-copy" style={sectionLink}>Copy</a>
+        {designLinks.length > 0 && <a href="#review-design" style={sectionLink}>Design</a>}
+        <a href="#review-facts" style={sectionLink}>Facts</a>
+        <a href="#review-comments" style={sectionLink}>Comments</a>
+        {item.state === 'needs_review' && <a href="#review-decision" style={sectionLink}>Decision</a>}
       </nav>
 
       <ReviewPackage
@@ -100,7 +109,7 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
         marginBottom: 28, padding: '20px', border: '1px solid var(--dot-hairline)', background: 'var(--dot-cream)',
       }}>
         <Heading level={3} id="review-design-heading">Design review</Heading>
-        <Text tone="graphite">Open the current design, then return here to leave a design comment for The Dot.</Text>
+        <Text tone="graphite">Open the current design, then return here to leave a design comment for The Dot. Approving the package below approves this linked design and its copy together.</Text>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
           {designLinks.map((link, index) => <Button key={link.url} as="a" href={link.url} target="_blank" rel="noreferrer"
             variant={index === 0 ? 'yellow' : 'ghost'} size="sm">Open {link.label}</Button>)}
@@ -128,13 +137,12 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
           decision for the immutable released version, after copy, design, facts, and
           comments have all been available for review. */}
       {item.state === 'needs_review' && <section id="review-decision" aria-labelledby="review-decision-heading" style={{
-        position: 'sticky', bottom: 16, zIndex: 1, marginTop: 32, padding: '20px',
-        border: '1px solid var(--dot-black)', background: 'var(--dot-off-white)', boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+        marginTop: 32, padding: '20px', border: '1px solid var(--dot-black)', background: 'var(--dot-cream)',
       }}>
-        <Heading level={3} id="review-decision-heading">Your decision</Heading>
+        <Heading level={3} id="review-decision-heading">{session.canDecide ? 'Your decision' : 'Package decision'}</Heading>
         {session.canDecide
           ? <DecideForm slug={slug} contentId={item.content_id} />
-          : <Text tone="grey">This review package is waiting for the primary decision-maker.</Text>}
+          : <Text tone="grey">Only Maria, the primary decision-maker, can approve this package or request changes. Your comments are still part of the review.</Text>}
       </section>}
 
       <SchedulePanel
