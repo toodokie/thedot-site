@@ -10,10 +10,10 @@ function Buttons() {
   return (
     <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
       <Button type="submit" name="decision" value="change_requested" variant="ghost" disabled={pending}>
-        {active === 'change_requested' ? 'Saving…' : 'Request a change'}
+        {active === 'change_requested' ? 'Saving…' : 'Request package changes'}
       </Button>
       <Button type="submit" name="decision" value="approved" variant="black" disabled={pending}>
-        {active === 'approved' ? 'Saving…' : 'Approve'}
+        {active === 'approved' ? 'Saving…' : 'Approve package'}
       </Button>
     </div>
   )
@@ -24,9 +24,9 @@ export default function DecideForm({ slug, contentId }: { slug: string; contentI
     <form action={action} style={{ borderTop: '1px solid var(--dot-hairline)', paddingTop: 20 }}>
       <input type="hidden" name="slug" value={slug} />
       <input type="hidden" name="contentId" value={contentId} />
-      <Textarea label="Note (required to request a change)" id="decision-note" name="note" rows={3} maxLength={2000}
+      <Textarea label="Note (required if you request changes)" id="decision-note" name="note" rows={3} maxLength={2000}
         invalid={Boolean(state?.error)} aria-describedby={state?.error ? 'decision-error' : undefined}
-        placeholder="What would you like changed?" />
+        placeholder="What would you like changed? You can also comment on exact copy or the linked design above." />
       {state?.error && <p id="decision-error" role="alert" style={{ color: '#c0392b', margin: '10px 0 0' }}>{state.error}</p>}
       <div style={{ marginTop: 16 }}>
         <Buttons />

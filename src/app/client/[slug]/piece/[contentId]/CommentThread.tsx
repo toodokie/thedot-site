@@ -62,7 +62,8 @@ export default function CommentThread({
 
   return (
     <div style={{ marginTop: 44 }}>
-      <Eyebrow tone="grey">Comments</Eyebrow>
+      <Eyebrow tone="grey">Comments and replies</Eyebrow>
+      <Text size="sm" tone="grey">Highlight exact copy above to comment on it, suggest a replacement below a copy block, or choose a linked design.</Text>
 
       <div style={{ marginTop: 12 }}>
         {comments.length === 0 && <Text tone="graphite">No comments yet.</Text>}

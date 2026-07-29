@@ -6,7 +6,7 @@ import { getContentItem } from '@/lib/portal/data'
 import { getComments } from '@/lib/portal/comments'
 import { Heading, Text, Button } from '@thedot/design-system'
 import DecideForm from './DecideForm'
-import CopyBlock from './CopyBlock'
+import ReviewPackage from './ReviewPackage'
 import CommentThread from './CommentThread'
 import FactCheckEvidence from '../../FactCheckEvidence'
 import { getScheduleDetails } from '@/lib/portal/schedule'
@@ -53,6 +53,10 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
   const blocks = item.copy_blocks && item.copy_blocks.length > 0
     ? item.copy_blocks
     : (item.client_body ? [{ key: null, label: 'Caption', body: item.client_body }] : [])
+  const designLinks = [
+    item.canva_url && /^https:\/\//i.test(item.canva_url) ? { label: 'Canva', url: item.canva_url } : null,
+    item.drive_url && /^https:\/\//i.test(item.drive_url) ? { label: 'Google Drive', url: item.drive_url } : null,
+  ].filter((link): link is { label: string; url: string } => Boolean(link))
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: '40px 32px' }}>
@@ -76,21 +80,33 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
         </span>}
       </div>
 
-      {item.canva_url && /^https:\/\//i.test(item.canva_url) && (
-        <div style={{ marginBottom: 24 }}>
-          <Button as="a" href={item.canva_url} target="_blank" rel="noreferrer" variant="yellow" size="sm">
-            Open the design in Canva
-          </Button>
-        </div>
-      )}
+      <nav aria-label="Review package sections" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 28 }}>
+        <Button as="a" href="#review-copy" variant="ghost" size="sm">Copy</Button>
+        {designLinks.length > 0 && <Button as="a" href="#review-design" variant="ghost" size="sm">Design</Button>}
+        <Button as="a" href="#review-facts" variant="ghost" size="sm">Facts</Button>
+        <Button as="a" href="#review-comments" variant="ghost" size="sm">Comments</Button>
+        {item.state === 'needs_review' && <Button as="a" href="#review-decision" variant="ghost" size="sm">Decision</Button>}
+      </nav>
 
-      <div id="piece-copy" style={{ marginBottom: 28 }}>
-        {blocks.length === 0
-          ? <Text tone="grey">No copy for this piece yet.</Text>
-          : blocks.map((b, i) => <CopyBlock key={b.key ?? `${b.label}-${i}`} blockKey={b.key}
-              label={b.label} body={b.body} slug={slug} contentId={item.content_id}
-              canRequest={session.canSubmitRequests} idempotencyKey={randomUUID()} />)}
-      </div>
+      <ReviewPackage
+        blocks={blocks}
+        platforms={item.platforms || []}
+        slug={slug}
+        contentId={item.content_id}
+        canRequest={session.canSubmitRequests}
+      />
+
+      {designLinks.length > 0 && <section id="review-design" aria-labelledby="review-design-heading" style={{
+        marginBottom: 28, padding: '20px', border: '1px solid var(--dot-hairline)', background: 'var(--dot-cream)',
+      }}>
+        <Heading level={3} id="review-design-heading">Design review</Heading>
+        <Text tone="graphite">Open the current design, then return here to leave a design comment for The Dot.</Text>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
+          {designLinks.map((link, index) => <Button key={link.url} as="a" href={link.url} target="_blank" rel="noreferrer"
+            variant={index === 0 ? 'yellow' : 'ghost'} size="sm">Open {link.label}</Button>)}
+          <Button as="a" href="#review-comments" variant="ghost" size="sm">Leave design feedback</Button>
+        </div>
+      </section>}
 
       {requests.length > 0 && <section style={{ marginBottom: 28 }}>
         <Heading level={3}>Requests for this piece</Heading>
@@ -98,7 +114,28 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
           canReply={session.canSubmitRequests} />
       </section>}
 
-      <FactCheckEvidence item={item} />
+      <div id="review-facts">
+        <FactCheckEvidence item={item} />
+      </div>
+
+      <div id="review-comments">
+        <CommentThread slug={slug} contentId={item.content_id} comments={comments}
+        canComment={session.canComment}
+        designLinks={designLinks} />
+      </div>
+
+      {/* The progress bar under the title carries the state. This remains one atomic
+          decision for the immutable released version, after copy, design, facts, and
+          comments have all been available for review. */}
+      {item.state === 'needs_review' && <section id="review-decision" aria-labelledby="review-decision-heading" style={{
+        position: 'sticky', bottom: 16, zIndex: 1, marginTop: 32, padding: '20px',
+        border: '1px solid var(--dot-black)', background: 'var(--dot-off-white)', boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+      }}>
+        <Heading level={3} id="review-decision-heading">Your decision</Heading>
+        {session.canDecide
+          ? <DecideForm slug={slug} contentId={item.content_id} />
+          : <Text tone="grey">This review package is waiting for the primary decision-maker.</Text>}
+      </section>}
 
       <SchedulePanel
         slug={slug}
@@ -111,19 +148,6 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
       />
 
       <PublicationPanel targets={publication} />
-
-      {/* The progress bar under the title now carries the state; keep only the ACTION
-          (decide) or the non-decider note here. */}
-      {item.state === 'needs_review' && (session.canDecide
-        ? <DecideForm slug={slug} contentId={item.content_id} />
-        : <Text tone="grey">This piece is waiting for the primary decision-maker.</Text>)}
-
-      <CommentThread slug={slug} contentId={item.content_id} comments={comments}
-        canComment={session.canComment}
-        designLinks={[
-          item.canva_url && /^https:\/\//i.test(item.canva_url) ? { label: 'Canva', url: item.canva_url } : null,
-          item.drive_url && /^https:\/\//i.test(item.drive_url) ? { label: 'Google Drive', url: item.drive_url } : null,
-        ].filter((link): link is { label: string; url: string } => Boolean(link))} />
 
       {session.canSubmitRequests
         && !requests.some((request) => request.request_type === 'archive'
