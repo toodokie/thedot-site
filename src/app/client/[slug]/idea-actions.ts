@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { getClientSession } from '@/lib/portal/auth'
 import { createSupabaseServer } from '@/lib/supabase/server'
 
+export type IdeaCommentActionState = { error?: string; success?: string }
+
 // Strict: a missing field or a File is null, not the strings "null" / "[object File]".
 function textField(data: FormData, key: string): string | null {
   const v = data.get(key)
@@ -66,4 +68,40 @@ export async function editIdea(formData: FormData): Promise<{ error?: string }> 
 
   revalidatePath(`/client/${slug}/ideas`)
   return {}
+}
+
+// Ideas are shared discussion objects before they become pieces. The RPC, not this form, binds
+// the submitted idea to the caller's tenant and capability. This action only validates the
+// browser payload and refreshes the one shared board after a committed write.
+export async function addIdeaComment(
+  _previous: IdeaCommentActionState,
+  formData: FormData,
+): Promise<IdeaCommentActionState> {
+  const slug = textField(formData, 'slug')
+  const ideaId = textField(formData, 'ideaId')
+  const body = (textField(formData, 'body') ?? '').trim()
+  const idempotencyKey = textField(formData, 'idempotencyKey')
+  if (!slug || !ideaId || !idempotencyKey
+      || !/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(ideaId)
+      || !/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(idempotencyKey)) {
+    return { error: 'This form expired. Please reload and try again.' }
+  }
+  const session = await getClientSession(slug)
+  if (!session) redirect('/client/login')
+  if (!session.canComment) return { error: 'Your account cannot comment on ideas.' }
+  if (!body || body.length > 4000) return { error: 'Write a comment of no more than 4,000 characters.' }
+
+  const supabase = await createSupabaseServer()
+  const { data, error } = await supabase.rpc('add_idea_comment', {
+    p_idea_id: ideaId,
+    p_body: body,
+    p_idempotency_key: idempotencyKey,
+  })
+  if (error) return { error: 'Could not send your comment. Please reload and try again.' }
+  const outcome = data && typeof data === 'object' && 'outcome' in data
+    ? String((data as { outcome?: unknown }).outcome ?? '') : ''
+  if (outcome && outcome !== 'created') return { error: 'Could not send your comment. Please try again.' }
+  revalidatePath(`/client/${slug}`)
+  revalidatePath(`/client/${slug}/ideas`)
+  return { success: 'Comment sent to The Dot.' }
 }

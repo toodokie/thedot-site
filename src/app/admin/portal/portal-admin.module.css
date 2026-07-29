@@ -255,6 +255,8 @@
 
 /* ---- secondary sections (calendar / billing / requests) -------------------------------- */
 .subCard { border: 1px solid var(--admin-line); padding: 16px 18px; margin: 14px 0; }
+.ideaCommentThread { display: grid; gap: 10px; margin-top: 15px; padding-top: 13px; border-top: 1px solid var(--admin-line); }
+.ideaCommentItem { padding: 11px 12px; border: 1px solid var(--admin-line); background: var(--admin-ground); }
 .reportSectionHead, .reportPeriodHead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .reportGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .reportGrid .subCard { margin: 0; }

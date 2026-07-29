@@ -1409,6 +1409,81 @@ async function main(): Promise<void> {
         client_id: bClientId, author_type: 'client', author_name: 'x', title: 'direct',
       })
       check('D10: direct authenticated idea write is rejected', !!direct.error, direct.error?.message ?? 'NO ERROR')
+
+      // 0041: ideas are shared discussion objects. Prove the client writer is tenant-bound and
+      // idempotent, the agency reply is browser-denied, direct writes remain blocked, and a client
+      // comment produces the durable inbox event plus exactly one outbox alert pair.
+      if (!ideaId) throw new Error('idea id missing for comment test')
+      const commentKey = randomUUID()
+      const beforeActivity = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
+      const comment = await bClient.rpc('add_idea_comment', {
+        p_idea_id: ideaId, p_body: 'Could this answer an employer question?', p_idempotency_key: commentKey,
+      })
+      const commentId = (comment.data as { id?: string } | null)?.id
+      const retry = await bClient.rpc('add_idea_comment', {
+        p_idea_id: ideaId, p_body: 'Could this answer an employer question?', p_idempotency_key: commentKey,
+      })
+      const afterActivity = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
+      const ownThread = await bClient.from('idea_comments').select('id,idea_id,author_type,body,resolved')
+        .eq('idea_id', ideaId)
+      const foreignThread = await kansetClient.from('idea_comments').select('id').eq('idea_id', ideaId)
+      const directIdeaComment = await bClient.from('idea_comments').insert({
+        client_id: bClientId, idea_id: ideaId, author_type: 'client', author_name: 'forged', body: 'forged',
+        idempotency_key: randomUUID(), comment_fingerprint: 'a'.repeat(64),
+      })
+      const viewerIdeaComment = await bViewerClient.rpc('add_idea_comment', {
+        p_idea_id: ideaId, p_body: 'forbidden viewer comment', p_idempotency_key: randomUUID(),
+      })
+      const browserAgencyReply = await bClient.rpc('add_agency_idea_comment_reply', {
+        p_parent_comment_id: commentId ?? randomUUID(), p_body: 'forged browser reply',
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const agencyReply = commentId ? await admin.rpc('add_agency_idea_comment_reply', {
+        p_parent_comment_id: commentId, p_body: 'Yes. We will shape that angle before drafting.',
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      }) : { error: new Error('no comment id') }
+      const resolvedParent = commentId ? await bClient.from('idea_comments').select('resolved').eq('id', commentId).single()
+        : { error: new Error('no comment id'), data: null }
+      const inbox = await admin.rpc('read_portal_inbox', {
+        p_consumer_key: `rls-idea-comment-${RUN_ID}`, p_client_id: bClientId, p_limit: 500,
+      })
+      const inboxRow = (inbox.data ?? []).find((row: PortalInboxRow) =>
+        row.event_type === 'idea_comment_added' && row.object_type === 'content_idea'
+          && row.object_id === ideaId && row.payload?.comment_id === commentId,
+      )
+      const alerts = commentId ? await admin.from('notification_outbox').select('channel,recipient_kind,event_key')
+        .like('event_key', `comment:${commentId}:%`) : { error: new Error('no comment id'), data: [] }
+      const alertRows = alerts.data ?? []
+      const agencyStart = await admin.rpc('add_agency_idea_comment', {
+        p_idea_id: ideaId, p_body: 'Which audience should we prioritize for this?',
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const threadAfterAgencyStart = await bClient.from('idea_comments').select('author_type,body,reply_to_comment_id')
+        .eq('idea_id', ideaId)
+      const clientAlert = await bClient.from('notification_outbox')
+        .select('channel,recipient_kind,body').eq('body', 'Which audience should we prioritize for this?').maybeSingle()
+      check('IC1: client idea comment is idempotent, tenant-scoped, and direct writes are denied',
+        !comment.error && !retry.error && !ownThread.error && !foreignThread.error && !!directIdeaComment.error
+          && !!viewerIdeaComment.error && !!browserAgencyReply.error
+          && ownThread.data?.filter((row) => row.body === 'Could this answer an employer question?').length === 1
+          && (foreignThread.data ?? []).length === 0
+          && !beforeActivity.error && !afterActivity.error && (afterActivity.count ?? 0) - (beforeActivity.count ?? 0) === 1,
+        comment.error?.message ?? retry.error?.message ?? ownThread.error?.message ?? foreignThread.error?.message
+          ?? directIdeaComment.error?.message ?? viewerIdeaComment.error?.message ?? browserAgencyReply.error?.message
+          ?? `activity delta=${(afterActivity.count ?? 0) - (beforeActivity.count ?? 0)}`)
+      check('IC2: either side can start the discussion; replies, inbox events, and alerts stay durable',
+        !agencyReply.error && !resolvedParent.error && resolvedParent.data?.resolved === true
+          && !inbox.error && inboxRow?.requires_reconciliation === true
+          && !alerts.error && alertRows.length === 2
+          && alertRows.some((row) => row.channel === 'in_app' && row.recipient_kind === 'agency')
+          && alertRows.some((row) => row.channel === 'email' && row.recipient_kind === 'agency')
+          && !agencyStart.error
+          && (threadAfterAgencyStart.data ?? []).some((row) => row.author_type === 'anastasia'
+            && row.body === 'Which audience should we prioritize for this?' && row.reply_to_comment_id === null)
+          && !clientAlert.error && clientAlert.data?.recipient_kind === 'client' && clientAlert.data?.channel === 'in_app',
+        agencyReply.error?.message ?? resolvedParent.error?.message ?? inbox.error?.message ?? alerts.error?.message
+          ?? agencyStart.error?.message ?? threadAfterAgencyStart.error?.message ?? clientAlert.error?.message
+          ?? JSON.stringify({ inboxRow, alertRows, clientAlert: clientAlert.data }))
     }
 
     {

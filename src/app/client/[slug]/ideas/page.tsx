@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getClientSession } from '@/lib/portal/auth'
-import { getIdeas } from '@/lib/portal/ideas'
+import { getIdeaComments, getIdeas } from '@/lib/portal/ideas'
 import { Eyebrow, Heading, Text } from '@thedot/design-system'
 import IdeasBoard from './IdeasBoard'
 import styles from './ideas.module.css'
@@ -10,7 +10,10 @@ export default async function IdeasPage({ params }: { params: Promise<{ slug: st
   const session = await getClientSession(slug)
   if (!session) redirect('/client/login')
 
-  const ideas = await getIdeas(session.clientId)
+  const [ideas, comments] = await Promise.all([
+    getIdeas(session.clientId),
+    getIdeaComments(session.clientId),
+  ])
 
   return (
     <div className={styles.wrap}>
@@ -23,7 +26,8 @@ export default async function IdeasPage({ params }: { params: Promise<{ slug: st
         </Text>
       </div>
 
-      <IdeasBoard slug={slug} ideas={ideas} canSubmit={session.canSubmitRequests} />
+      <IdeasBoard slug={slug} ideas={ideas} comments={comments}
+        canSubmit={session.canSubmitRequests} canComment={session.canComment} />
     </div>
   )
 }

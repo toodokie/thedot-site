@@ -4,7 +4,8 @@ import { useFormStatus } from 'react-dom'
 import Link from 'next/link'
 import { Eyebrow, Text, Button, Input, Textarea } from '@thedot/design-system'
 import { addIdea, editIdea } from '../idea-actions'
-import type { IdeaRow } from '@/lib/portal/ideas'
+import type { IdeaCommentRow, IdeaRow } from '@/lib/portal/ideas'
+import IdeaComments from './IdeaComments'
 import styles from './ideas.module.css'
 
 function SubmitBtn({ label, pendingLabel }: { label: string; pendingLabel: string }) {
@@ -28,7 +29,15 @@ function statusClass(status: string): string {
 // server revalidates and hands this card a fresh `idea` prop, so a changed updated_at is our signal
 // the save landed (mirrors how the comment thread watches the server-provided data change). We then
 // close the editor.
-function IdeaCard({ slug, idea, canSubmit }: { slug: string; idea: IdeaRow; canSubmit: boolean }) {
+function IdeaCard({
+  slug, idea, comments, canSubmit, canComment,
+}: {
+  slug: string
+  idea: IdeaRow
+  comments: IdeaCommentRow[]
+  canSubmit: boolean
+  canComment: boolean
+}) {
   const [state, action] = useActionState(async (_p: { error?: string }, fd: FormData) => editIdea(fd), {})
   const [editing, setEditing] = useState(false)
   const prevUpdated = useRef(idea.updated_at)
@@ -65,7 +74,7 @@ function IdeaCard({ slug, idea, canSubmit }: { slug: string; idea: IdeaRow; canS
   }
 
   return (
-    <div className={styles.card}>
+    <div id={`idea-${idea.id}`} className={styles.card}>
       <div className={styles.cardHead}>
         <div className={styles.cardTitle}>
           {idea.became_content_id ? (
@@ -88,11 +97,20 @@ function IdeaCard({ slug, idea, canSubmit }: { slug: string; idea: IdeaRow; canS
         <span className={styles.metaName}>{isClient ? idea.author_name : `${idea.author_name} · The Dot`}</span>
         <time className={styles.metaDate} dateTime={idea.created_at}>{idea.created_at.slice(0, 10)}</time>
       </div>
+      <IdeaComments slug={slug} ideaId={idea.id} comments={comments} canComment={canComment} />
     </div>
   )
 }
 
-export default function IdeasBoard({ slug, ideas, canSubmit }: { slug: string; ideas: IdeaRow[]; canSubmit: boolean }) {
+export default function IdeasBoard({
+  slug, ideas, comments, canSubmit, canComment,
+}: {
+  slug: string
+  ideas: IdeaRow[]
+  comments: IdeaCommentRow[]
+  canSubmit: boolean
+  canComment: boolean
+}) {
   const [state, action] = useActionState(async (_p: { error?: string }, fd: FormData) => addIdea(fd), {})
   const formRef = useRef<HTMLFormElement>(null)
   const prevCount = useRef(ideas.length)
@@ -136,7 +154,9 @@ export default function IdeasBoard({ slug, ideas, canSubmit }: { slug: string; i
             <Text size="md" tone="graphite">No ideas yet. Add the first one.</Text>
           </div>
         ) : (
-          ideas.map((idea) => <IdeaCard key={idea.id} slug={slug} idea={idea} canSubmit={canSubmit} />)
+          ideas.map((idea) => <IdeaCard key={idea.id} slug={slug} idea={idea}
+            comments={comments.filter((comment) => comment.idea_id === idea.id)}
+            canSubmit={canSubmit} canComment={canComment} />)
         )}
       </div>
     </div>

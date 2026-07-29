@@ -7,6 +7,11 @@ import { loadAgencyPieceCalendar } from '@/lib/portal/gates-loader'
 // without touching those RLS getters. Read-only; management (add idea, edit plan) is layered later.
 
 export type IdeaRow = { id: string; author_type: string; author_name: string; title: string; body: string | null; status: string; became_content_id: string | null; created_at: string; updated_at: string }
+export type AdminIdeaComment = {
+  id: string; clientId: string; ideaId: string; replyToCommentId: string | null
+  authorType: 'client' | 'anastasia' | 'agent'; authorName: string; body: string
+  resolved: boolean; createdAt: string
+}
 export type PlanRow = { id: string; content_id: string; title: string; format: string | null; pillar: string | null; platforms: string[]; status: string; planned_date: string | null; client_slug?: string; not_shared?: boolean; producer?: string | null; calendar_note?: string | null }
 export type ReportRow = { id: string; period: string; period_start: string; period_end: string; platform: string; schema_version: number; metrics: Record<string, unknown>; summary: string | null }
 export type RecRow = { id: string; title: string; body: string; category: string; platform: string | null; status: string; created_at: string }
@@ -26,6 +31,29 @@ export async function loadIdeas(): Promise<IdeaRow[]> {
     .order('created_at', { ascending: false })
   if (r.error) throw new Error(r.error.message)
   return (r.data ?? []) as IdeaRow[]
+}
+
+// Ideas and their discussions are agency-readable through the service client, but this loader is
+// deliberately still pinned to Kanset. Other tenants never bleed into an operator's idea inbox.
+export async function loadIdeaComments(): Promise<AdminIdeaComment[]> {
+  const admin = createSupabaseAdmin()
+  const r = await admin.from('idea_comments')
+    .select('id,client_id,idea_id,reply_to_comment_id,author_type,author_name,body,resolved,created_at')
+    .eq('client_id', await kansetId(admin))
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true })
+  if (r.error) throw new Error(r.error.message)
+  return (r.data ?? []).map((row) => ({
+    id: row.id,
+    clientId: row.client_id,
+    ideaId: row.idea_id,
+    replyToCommentId: row.reply_to_comment_id,
+    authorType: row.author_type as AdminIdeaComment['authorType'],
+    authorName: row.author_name,
+    body: row.body,
+    resolved: row.resolved,
+    createdAt: row.created_at,
+  }))
 }
 
 export async function loadPlan(): Promise<PlanRow[]> {
