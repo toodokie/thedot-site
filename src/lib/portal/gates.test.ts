@@ -275,11 +275,12 @@ describe('deriveMyTasks', () => {
     expect(tasks[0]).toMatchObject({ kind: 'link_pending', dest: 'instagram' })
   })
 
-  it('a live destination never surfaces a stale scheduled action (posting supersedes scheduling)', () => {
+  it('a live destination without a provider schedule never surfaces a stale schedule action or a fabricated schedule record', () => {
     const live = piece({ platforms: ['instagram'],
       dests: [dest('instagram', { publicationStatus: 'live', verified: false })] })
     const scheduled = resolveNineGates(live).find((g) => g.key === 'scheduled' && g.dest === 'instagram')
-    expect(scheduled?.state).toBe('done')
+    expect(scheduled?.state).toBe('na')
+    expect(scheduled?.note).toBe('live confirmed; no provider schedule record')
     // and My Tasks never emits a scheduled:instagram action for it
     const tasks = deriveMyTasks([live], [], '2026-07-21')
     expect(tasks.some((t) => t.kind === 'action' && t.gate === 'scheduled')).toBe(false)

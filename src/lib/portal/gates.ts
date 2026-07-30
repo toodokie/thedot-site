@@ -200,14 +200,16 @@ export function resolveNineGates(piece: StagePiece): ResolvedGate[] {
 
   for (const platform of piece.platforms) {
     const dest = piece.dests.find((d) => d.destination === platform)
-    // A LIVE destination was necessarily scheduled: posting supersedes scheduling, so a
-    // published piece never shows an open "scheduled" gate (which surfaced as a false
-    // "schedule this" action on already-posted pieces in My Tasks). scheduled is done when
-    // the platform is confirmed scheduled OR already live.
+    // A live destination must not create a stale "schedule this" action, but live proof
+    // is not provider-schedule proof. Render the schedule step as non-blocking `na` when
+    // the item was published without an audited schedule confirmation, instead of
+    // inventing a scheduled timestamp/state in the pack projection.
+    const liveWithoutSchedule = dest?.publicationStatus === 'live' && dest.scheduleStatus !== 'scheduled'
     rows.push({
       key: 'scheduled', dest: platform, present: true,
-      state: dest?.scheduleStatus === 'scheduled' || dest?.publicationStatus === 'live' ? 'done' : 'open',
-      owner: 'anastasia', date: day(dest?.scheduledAt), note: null,
+      state: dest?.scheduleStatus === 'scheduled' ? 'done' : liveWithoutSchedule ? 'na' : 'open',
+      owner: 'anastasia', date: day(dest?.scheduledAt),
+      note: liveWithoutSchedule ? 'live confirmed; no provider schedule record' : null,
     })
   }
   for (const platform of piece.platforms) {
