@@ -22,13 +22,16 @@ const SELECT =
   'id, client_id, number, issued_at, period_start, period_end, amount, currency, status, document_url, updated_at'
 
 // A client's invoices, newest first. RLS already scopes to the caller's tenant; the client_id
-// filter is belt-and-suspenders. Throws PortalDataError on failure.
+// filter is belt-and-suspenders. Voided invoices (cancelled or test/release artifacts) are
+// hidden from the client, they are not a bill the client owes or needs to see. Throws
+// PortalDataError on failure.
 export async function getInvoices(clientId: string): Promise<InvoiceRow[]> {
   const supabase = await createSupabaseServer()
   const { data, error } = await supabase
     .from('invoices_client')
     .select(SELECT)
     .eq('client_id', clientId)
+    .neq('status', 'void')
     .order('issued_at', { ascending: false })
   if (error) throw new PortalDataError(error.message)
   return (data ?? []) as InvoiceRow[]
