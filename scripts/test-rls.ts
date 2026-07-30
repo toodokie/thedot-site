@@ -1236,6 +1236,32 @@ async function main(): Promise<void> {
         p_observed_text: 'Visible main body', p_observation_key: `rls-publication-${RUN_ID}`,
         p_supersedes_observation_id: null, p_verification_note: 'Opened and visibly checked.',
       }
+      // Publication is a terminal lock for this version. A client edit must be reconciled
+      // before the agency can claim a destination is live, otherwise the client can be
+      // stranded with a pending request that no longer has a safe revision path.
+      const pendingPublicationEdit = await bClient.rpc('request_content_edit', {
+        p_content_id: bItemId, p_content_version: 1, p_block_key: 'main',
+        p_proposed_text: 'Client asks for a final copy correction before publication.',
+        p_idempotency_key: randomUUID(),
+      })
+      const pendingPublicationRequestId = (pendingPublicationEdit.data as { id?: string } | null)?.id
+      const blockedPublication = await admin.rpc('record_publication_observation', {
+        ...observationArgs,
+        p_observation_key: `rls-publication-blocked-${RUN_ID}`,
+      })
+      const resolvedPublicationEdit = pendingPublicationRequestId
+        ? await admin.rpc('resolve_content_request', {
+          p_request_id: pendingPublicationRequestId, p_status: 'rejected',
+          p_reason: 'Disposable test closure after the publication block check.',
+          p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+        })
+        : { data: null, error: new Error('pending publication edit id missing') }
+      check('P3b: a pending client edit blocks live confirmation until it is reconciled',
+        !pendingPublicationEdit.error && !!blockedPublication.error
+          && blockedPublication.error.message.includes('unresolved client edit')
+          && !resolvedPublicationEdit.error,
+        pendingPublicationEdit.error?.message ?? blockedPublication.error?.message
+          ?? resolvedPublicationEdit.error?.message ?? 'NO ERROR')
       const before = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
       const first = await admin.rpc('record_publication_observation', observationArgs)
       const second = await admin.rpc('record_publication_observation', observationArgs)
@@ -1255,6 +1281,39 @@ async function main(): Promise<void> {
       const locked = await admin.rpc('begin_content_revision', { p_content_id: bItemId, p_content_version: 1 })
       check('P5: first verified live destination blocks in-place revision', !!locked.error,
         locked.error?.message ?? 'NO ERROR')
+
+      // The first-live block must not suppress later provider evidence. Once a piece is
+      // already live, a newly submitted follow-up edit cannot erase an audited removal or
+      // availability correction for that live version.
+      const postLiveEdit = await bClient.rpc('request_content_edit', {
+        p_content_id: bItemId, p_content_version: 1, p_block_key: 'main',
+        p_proposed_text: 'Client requests a follow-up revision after publication.',
+        p_idempotency_key: randomUUID(),
+      })
+      const postLiveRequestId = (postLiveEdit.data as { id?: string } | null)?.id
+      const { data: currentTarget, error: currentTargetError } = await admin
+        .from('content_publication_targets').select('current_observation_id').eq('id', publicationTarget.id).single()
+      const unavailableAfterLive = currentTarget?.current_observation_id
+        ? await admin.rpc('record_publication_observation', {
+          ...observationArgs,
+          p_provider_state: 'unavailable', p_live_url: null, p_published_at: null,
+          p_provider_object_id: null, p_observed_title: 'RLS publication proof unavailable',
+          p_observed_text: null, p_observation_key: `rls-publication-unavailable-${RUN_ID}`,
+          p_supersedes_observation_id: currentTarget.current_observation_id,
+          p_verification_note: 'The previously verified URL is unavailable during this check.',
+        })
+        : { data: null, error: new Error('current publication observation missing') }
+      const closePostLiveEdit = postLiveRequestId
+        ? await admin.rpc('resolve_content_request', {
+          p_request_id: postLiveRequestId, p_status: 'rejected',
+          p_reason: 'Disposable test closure after the later-evidence check.',
+          p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+        })
+        : { data: null, error: new Error('post-live request id missing') }
+      check('P5b: a post-live edit does not block a later removal or availability observation',
+        !postLiveEdit.error && !currentTargetError && !unavailableAfterLive.error && !closePostLiveEdit.error,
+        postLiveEdit.error?.message ?? currentTargetError?.message ?? unavailableAfterLive.error?.message
+          ?? closePostLiveEdit.error?.message ?? 'NO ERROR')
     }
 
     console.log('\n--- Version-bound comments ---')
