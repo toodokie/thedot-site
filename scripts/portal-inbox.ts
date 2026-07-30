@@ -1,7 +1,7 @@
 import { loadEnvConfig } from '@next/env'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'node:crypto'
-import { closeSync, existsSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
+import { closeSync, existsSync, lstatSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { join, relative, resolve, sep } from 'node:path'
 import { applyCanonicalEdit, buildCanonicalCreate } from '../src/lib/portal/canonical-request-reconciler'
@@ -37,6 +37,12 @@ function canonicalFile(dir:string, sourcePath:string):string{
   if(rel.startsWith(`..${sep}`)||rel==='..'||rel.startsWith(sep)||!rel) throw new Error('Canonical source path escapes its root')
   return candidate
 }
+function candidateFile(path:string):string{
+  if(!path.startsWith('/')) throw new Error('Package candidate must use an absolute path')
+  const stat=lstatSync(path)
+  if(stat.isSymbolicLink()||!stat.isFile()) throw new Error('Package candidate must be a regular file, not a symlink')
+  return readFileSync(path,'utf8')
+}
 function atomicWrite(path:string,raw:string){
   const tmp=`${path}.portal-${process.pid}-${randomUUID()}.tmp`; const mode=existsSync(path)?statSync(path).mode:0o600
   let fd:number|undefined
@@ -56,6 +62,19 @@ function printSafeEditDiff(before:string,after:string){
   console.log('Client-visible block diff (internal notes are intentionally omitted):')
   console.log(`- ${before.replace(/\n/g,'\n- ')}`);console.log(`+ ${after.replace(/\n/g,'\n+ ')}`)
 }
+function printSafePackageDiff(before:ParsedContent,after:ParsedContent){
+  const beforeBlocks=new Map(before.copy_blocks.map((block)=>[block.key,block]))
+  const afterBlocks=new Map(after.copy_blocks.map((block)=>[block.key,block]))
+  const keys=[...new Set([...beforeBlocks.keys(),...afterBlocks.keys()])]
+  for(const key of keys){
+    const left=beforeBlocks.get(key);const right=afterBlocks.get(key)
+    if(left?.body===right?.body&&left?.label===right?.label) continue
+    console.log(`\nClient-visible package change: ${right?.label??left?.label??key}`)
+    printSafeEditDiff(left?.body??'[block removed]',right?.body??'[block added]')
+  }
+  if(before.fact_check_exemption!==after.fact_check_exemption)
+    console.log('\nRelease exemption note changed and will be rechecked at release.')
+}
 function syncRow(parsed:ParsedContent,clientId:string,commit:string){return {content_id:parsed.content_id,
   client_id:clientId,title:parsed.title,producer:parsed.producer,calendar_note:parsed.calendar_note,
   format:parsed.format,pillar:parsed.pillar,platforms:parsed.platforms,
@@ -71,12 +90,32 @@ async function startJob(request:ChangeRequest,contentId:string|null,file:string|
     p_actor_key:'thedot-admin',p_idempotency_key:request.id})
   if(result.error) throw new Error(result.error.message)
 }
+function normalText(value:string){return value.replace(/\r\n?/g,'\n').trim()}
+function validateEditPackageCandidate(
+  raw:string,sourcePath:string,base:ParsedContent,request:{blockKey:string;proposedText:string},
+):ParsedContent{
+  const candidate=parseContentFile(raw,sourcePath)
+  if(candidate.content_id!==base.content_id||candidate.client!==base.client)
+    throw new Error('Package candidate does not match the requested content identity')
+  if(candidate.version!==base.version+1)
+    throw new Error(`Package candidate must be version ${base.version+1}`)
+  const preserved: Array<keyof ParsedContent>=[
+    'portal_kind','title','producer','calendar_note','format','pillar','platforms','scheduled_date',
+    'status','canva_url','drive_url','fact_check','fact_check_scope','fact_check_ledger',
+  ]
+  if(preserved.some((key)=>JSON.stringify(candidate[key])!==JSON.stringify(base[key])))
+    throw new Error('Package candidate changes workflow metadata outside the requested copy package')
+  const block=candidate.copy_blocks.find((row)=>row.key===request.blockKey)
+  if(!block||normalText(block.body)!==normalText(request.proposedText))
+    throw new Error('Package candidate does not include Maria\'s exact requested copy edit')
+  return candidate
+}
 async function markConflict(requestId:string){
   await admin.rpc('resolve_content_request',{p_request_id:requestId,p_status:'conflicted',
     p_reason:'Local reconciliation failed a checked precondition. The canonical checkout and request require review.',
     p_actor_key:'thedot-admin',p_idempotency_key:randomUUID()})
 }
-async function reconcileEdit(client:{id:string;slug:string},requestId:string,apply:boolean){
+async function reconcileEdit(client:{id:string;slug:string},requestId:string,apply:boolean,candidatePath:string|null){
   const request=await changeRequest(client.id,requestId)
   if(request.request_type!=='edit'||!request.content_id||!request.base_version)throw new Error('request is not an edit')
   const {data:snapshot,error}=await admin.from('content_item_versions')
@@ -87,20 +126,28 @@ async function reconcileEdit(client:{id:string;slug:string},requestId:string,app
   const raw=readFileSync(path,'utf8'); const blockKey=text(request.payload,'block_key')
   const originalChecksum=text(request.payload,'original_checksum');const proposedText=text(request.payload,'proposed_text')
   if(!blockKey||!originalChecksum||!proposedText)throw new Error('edit request payload is invalid')
+  const base=parseContentFile(raw,snapshot.source_path)
   const edited=applyCanonicalEdit(raw,snapshot.source_path,request.base_version,{blockKey,originalChecksum,proposedText})
-  printSafeEditDiff(edited.before,edited.after)
+  const candidateRaw=candidatePath?candidateFile(candidatePath):edited.raw
+  const parsed=candidatePath
+    ?validateEditPackageCandidate(candidateRaw,snapshot.source_path,base,{blockKey,proposedText})
+    :parseContentFile(candidateRaw,snapshot.source_path)
+  const candidateBlock=parsed.copy_blocks.find((row)=>row.key===blockKey)
+  if(candidatePath){
+    printSafePackageDiff(base,parsed)
+    console.log(`Package candidate accepted: ${candidatePath}. Related copy changes are shown above, and Maria's requested block is exact.`)
+  }else printSafeEditDiff(edited.before,candidateBlock?.body??edited.after)
   if(!apply){console.log('Preview only. Re-run with --apply after reviewing this client-visible diff.');return}
   let started=false
   try{
     await startJob(request,null,null,null);started=true
-    atomicWrite(path,edited.raw);git(dir,['diff','--check','--',snapshot.source_path])
+    atomicWrite(path,candidateRaw);git(dir,['diff','--check','--',snapshot.source_path])
     git(dir,['add','--',snapshot.source_path]);git(dir,['commit','-m',`Apply portal edit request ${request.id}`],'inherit')
     git(dir,['push','origin','HEAD'],'inherit');const commit=git(dir,['rev-parse','HEAD'])
     const begin=await admin.rpc('begin_content_request_revision',{
       p_request_id:request.id,p_content_id:request.content_id,p_content_version:request.base_version,
     })
     if(begin.error)throw new Error(begin.error.message)
-    const parsed=parseContentFile(edited.raw,snapshot.source_path)
     const synced=await admin.rpc('sync_content_item_versions',{p_items:[syncRow(parsed,client.id,commit)]})
     if(synced.error)throw new Error(synced.error.message)
     const prepared=await admin.rpc('mark_content_request_prepared',{p_request_id:request.id,p_commit_sha:commit,
@@ -161,6 +208,20 @@ async function supersedeRequest(client:{id:string;slug:string},requestId:string,
   if(result.error) throw new Error(result.error.message)
   console.log(`Superseded request ${request.id} against released v${version}; the original proposal is not claimed as verbatim applied.`)
 }
+function parseEditFlags(args:string[]):{apply:boolean;candidatePath:string|null}{
+  let apply=false;let candidatePath:string|null=null
+  for(let index=0;index<args.length;index+=1){
+    const arg=args[index]
+    if(arg==='--apply'){apply=true;continue}
+    if(arg==='--candidate'){
+      const value=args[index+1]
+      if(!value||value.startsWith('--')||candidatePath) throw new Error('apply-edit accepts one --candidate <absolute-path>')
+      candidatePath=value;index+=1;continue
+    }
+    throw new Error('apply-edit accepts only --apply and optional --candidate <absolute-path>')
+  }
+  return {apply,candidatePath}
+}
 
 async function main(){
   const [command='list',slug='kanset',value,...rest]=process.argv.slice(2)
@@ -189,9 +250,9 @@ async function main(){
     if(result.error) throw new Error(result.error.message)
     console.log(`Requeued ${result.data} definite projection failure(s) for ${slug}.`)
   }else if(command==='apply-edit'){
-    if(!value)throw new Error('usage: portal-inbox apply-edit <clientSlug> <request-uuid> [--apply]')
-    if(rest.some((arg)=>arg!=='--apply'))throw new Error('only --apply is accepted')
-    await reconcileEdit(client,value,rest.includes('--apply'))
+    if(!value)throw new Error('usage: portal-inbox apply-edit <clientSlug> <request-uuid> [--candidate <absolute-path>] [--apply]')
+    const flags=parseEditFlags(rest)
+    await reconcileEdit(client,value,flags.apply,flags.candidatePath)
   }else if(command==='apply-create'){
     const contentId=rest.find((arg)=>arg!=='--apply')
     if(!value||!contentId||!/^[a-z0-9][a-z0-9._-]{1,119}$/.test(contentId))
