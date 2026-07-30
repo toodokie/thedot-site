@@ -61,6 +61,11 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
   const blocks = item.copy_blocks && item.copy_blocks.length > 0
     ? item.copy_blocks
     : (item.client_body ? [{ key: null, label: 'Caption', body: item.client_body }] : [])
+  // A first verified live destination locks this exact version. Do not offer an edit
+  // form that would create a request the agency cannot safely apply to shipped work.
+  // Maria can still use the durable comment thread to ask for a correction or follow-up.
+  const isPublished = publication.some((target) => target.status === 'live')
+    || ['live', 'partially_live'].includes(item.state)
   const designLinks = [
     item.canva_url && /^https:\/\//i.test(item.canva_url) ? { label: 'Canva', url: item.canva_url } : null,
     item.drive_url && /^https:\/\//i.test(item.drive_url) ? { label: 'Google Drive', url: item.drive_url } : null,
@@ -102,7 +107,8 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
         platforms={item.platforms || []}
         slug={slug}
         contentId={item.content_id}
-        canRequest={session.canSubmitRequests}
+        canRequest={session.canSubmitRequests && !isPublished}
+        isPublished={isPublished}
       />
 
       {designLinks.length > 0 && <section id="review-design" aria-labelledby="review-design-heading" style={{

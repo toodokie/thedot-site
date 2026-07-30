@@ -17,12 +17,14 @@ export default function ReviewPackage({
   slug,
   contentId,
   canRequest,
+  isPublished,
 }: {
   blocks: ReviewCopyBlock[]
   platforms: string[]
   slug: string
   contentId: string
   canRequest: boolean
+  isPublished: boolean
 }) {
   const groups = groupReviewCopy(blocks, platforms)
 
@@ -33,8 +35,9 @@ export default function ReviewPackage({
         <Heading level={3}>One decision, all materials</Heading>
       </div>
       <Text tone="graphite">
-        Your approval covers this version&apos;s copy and linked design together. You can comment on exact wording,
-        suggest a replacement, or request a change to the package.
+        {isPublished
+          ? 'This version is already live. Its published copy cannot be changed here. Use the comments below to ask The Dot about a correction or follow-up.'
+          : 'Your approval covers this version\'s copy and linked design together. You can comment on exact wording, suggest a replacement, or request a change to the package.'}
       </Text>
 
       <div style={{ marginTop: 24 }}>
