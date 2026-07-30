@@ -588,6 +588,26 @@ async function main(): Promise<void> {
         p_expected_base_commit: null, p_actor_key: 'thedot-admin', p_idempotency_key: editId,
       })
       if (started.error) throw new Error(`start edit reconciliation: ${started.error.message}`)
+      const interrupted = await admin.rpc('resolve_content_request', {
+        p_request_id: editId, p_status: 'conflicted',
+        p_reason: 'Simulated local tool interruption before portal sync.',
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const clientResume = await bClient.rpc('resume_content_request_reconciliation', {
+        p_request_id: editId, p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const resumed = await admin.rpc('resume_content_request_reconciliation', {
+        p_request_id: editId, p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const resumedRow = await bClient.from('content_change_requests_client')
+        .select('status').eq('id', editId).single()
+      const resumedActivity = await bClient.from('activity_log').select('event_type')
+        .eq('event_type', 'request_reopened').eq('content_id', bRequestItemId)
+      check('R4b: only service can resume an interrupted reconciliation without changing the client base version',
+        !interrupted.error && !!clientResume.error && !resumed.error
+          && resumedRow.data?.status === 'applying' && resumedActivity.data?.length === 1,
+        interrupted.error?.message ?? clientResume.error?.message ?? resumed.error?.message
+          ?? JSON.stringify({ request: resumedRow.data, activity: resumedActivity.data }))
       const begin = await admin.rpc('begin_content_request_revision', {
         p_request_id: editId, p_content_id: bRequestItemId, p_content_version: 1,
       })

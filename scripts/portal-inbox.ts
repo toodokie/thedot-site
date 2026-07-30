@@ -18,7 +18,12 @@ type ChangeRequest={id:string;client_id:string;content_id:string|null;request_ty
   base_version:number|null;payload:Record<string,unknown>;status:string;requested_content_id:string|null}
 
 function git(cwd:string,args:string[],stdio:'pipe'|'inherit'='pipe'){
-  return execFileSync('git',['-C',cwd,...args],{encoding:'utf8',stdio:stdio==='pipe'?['ignore','pipe','pipe']:'inherit'}).trim()
+  const output=execFileSync('git',['-C',cwd,...args],{
+    encoding:'utf8',stdio:stdio==='pipe'?['ignore','pipe','pipe']:'inherit',
+  })
+  // Node returns null when stdio is inherited. Commands such as commit and push are
+  // intentionally noisy, but successful output is not part of this tool's contract.
+  return typeof output==='string'?output.trim():''
 }
 function canonicalRoot(){
   const dir=process.env.PORTAL_CONTENT_DIR; if(!dir) throw new Error('Missing PORTAL_CONTENT_DIR')
@@ -110,11 +115,6 @@ function validateEditPackageCandidate(
     throw new Error('Package candidate does not include Maria\'s exact requested copy edit')
   return candidate
 }
-async function markConflict(requestId:string){
-  await admin.rpc('resolve_content_request',{p_request_id:requestId,p_status:'conflicted',
-    p_reason:'Local reconciliation failed a checked precondition. The canonical checkout and request require review.',
-    p_actor_key:'thedot-admin',p_idempotency_key:randomUUID()})
-}
 async function reconcileEdit(client:{id:string;slug:string},requestId:string,apply:boolean,candidatePath:string|null){
   const request=await changeRequest(client.id,requestId)
   if(request.request_type!=='edit'||!request.content_id||!request.base_version)throw new Error('request is not an edit')
@@ -138,23 +138,53 @@ async function reconcileEdit(client:{id:string;slug:string},requestId:string,app
     console.log(`Package candidate accepted: ${candidatePath}. Related copy changes are shown above, and Maria's requested block is exact.`)
   }else printSafeEditDiff(edited.before,candidateBlock?.body??edited.after)
   if(!apply){console.log('Preview only. Re-run with --apply after reviewing this client-visible diff.');return}
-  let started=false
-  try{
-    await startJob(request,null,null,null);started=true
-    atomicWrite(path,candidateRaw);git(dir,['diff','--check','--',snapshot.source_path])
-    git(dir,['add','--',snapshot.source_path]);git(dir,['commit','-m',`Apply portal edit request ${request.id}`],'inherit')
-    git(dir,['push','origin','HEAD'],'inherit');const commit=git(dir,['rev-parse','HEAD'])
-    const begin=await admin.rpc('begin_content_request_revision',{
-      p_request_id:request.id,p_content_id:request.content_id,p_content_version:request.base_version,
-    })
-    if(begin.error)throw new Error(begin.error.message)
-    const synced=await admin.rpc('sync_content_item_versions',{p_items:[syncRow(parsed,client.id,commit)]})
-    if(synced.error)throw new Error(synced.error.message)
-    const prepared=await admin.rpc('mark_content_request_prepared',{p_request_id:request.id,p_commit_sha:commit,
-      p_actor_key:'thedot-admin',p_idempotency_key:randomUUID()})
-    if(prepared.error)throw new Error(prepared.error.message)
-    console.log(`Prepared edit request ${request.id} at ${commit}. Release review is still required.`)
-  }catch(error){if(started)await markConflict(request.id);throw error}
+  await startJob(request,null,null,null)
+  // From this point a failed command can leave a valid local commit or a valid open DB job.
+  // Keep that recoverable state as `applying`; never falsely label Maria's request conflicted.
+  atomicWrite(path,candidateRaw);git(dir,['diff','--check','--',snapshot.source_path])
+  git(dir,['add','--',snapshot.source_path]);git(dir,['commit','-m',`Apply portal edit request ${request.id}`],'inherit')
+  git(dir,['push','origin','HEAD'],'inherit');const commit=git(dir,['rev-parse','HEAD'])
+  const begin=await admin.rpc('begin_content_request_revision',{
+    p_request_id:request.id,p_content_id:request.content_id,p_content_version:request.base_version,
+  })
+  if(begin.error)throw new Error(begin.error.message)
+  const synced=await admin.rpc('sync_content_item_versions',{p_items:[syncRow(parsed,client.id,commit)]})
+  if(synced.error)throw new Error(synced.error.message)
+  const prepared=await admin.rpc('mark_content_request_prepared',{p_request_id:request.id,p_commit_sha:commit,
+    p_actor_key:'thedot-admin',p_idempotency_key:randomUUID()})
+  if(prepared.error)throw new Error(prepared.error.message)
+  console.log(`Prepared edit request ${request.id} at ${commit}. Release review is still required.`)
+}
+async function resumeEdit(client:{id:string;slug:string},requestId:string,apply:boolean){
+  const request=await changeRequest(client.id,requestId)
+  if(request.request_type!=='edit'||!request.content_id||!request.base_version)
+    throw new Error('request is not an edit')
+  const {data:snapshot,error}=await admin.from('content_item_versions')
+    .select('source_path,source_commit_sha').eq('content_item_id',request.content_id)
+    .eq('client_id',client.id).eq('version',request.base_version).single()
+  if(error||!snapshot)throw new Error(`canonical provenance unavailable: ${error?.message??'missing'}`)
+  const {dir,head}=canonicalRoot(); const path=canonicalFile(dir,snapshot.source_path)
+  git(dir,['merge-base','--is-ancestor',snapshot.source_commit_sha,head])
+  const base=parseContentFile(git(dir,['show',`${snapshot.source_commit_sha}:${snapshot.source_path}`]),snapshot.source_path)
+  const parsed=validateEditPackageCandidate(readFileSync(path,'utf8'),snapshot.source_path,base,{
+    blockKey:text(request.payload,'block_key')??'',proposedText:text(request.payload,'proposed_text')??'',
+  })
+  printSafePackageDiff(base,parsed)
+  if(!apply){console.log('Resume preview only. Re-run with --apply after reviewing this client-visible diff.');return}
+  const resumed=await admin.rpc('resume_content_request_reconciliation',{
+    p_request_id:request.id,p_actor_key:'thedot-admin',p_idempotency_key:randomUUID(),
+  })
+  if(resumed.error)throw new Error(resumed.error.message)
+  const begin=await admin.rpc('begin_content_request_revision',{
+    p_request_id:request.id,p_content_id:request.content_id,p_content_version:request.base_version,
+  })
+  if(begin.error)throw new Error(begin.error.message)
+  const synced=await admin.rpc('sync_content_item_versions',{p_items:[syncRow(parsed,client.id,head)]})
+  if(synced.error)throw new Error(synced.error.message)
+  const prepared=await admin.rpc('mark_content_request_prepared',{p_request_id:request.id,p_commit_sha:head,
+    p_actor_key:'thedot-admin',p_idempotency_key:randomUUID()})
+  if(prepared.error)throw new Error(prepared.error.message)
+  console.log(`Resumed and prepared edit request ${request.id} at ${head}. Release review is still required.`)
 }
 async function reconcileCreate(client:{id:string;slug:string},requestId:string,contentId:string,apply:boolean){
   const request=await changeRequest(client.id,requestId);if(request.request_type!=='create')throw new Error('request is not a create')
@@ -167,32 +197,27 @@ async function reconcileCreate(client:{id:string;slug:string},requestId:string,c
   console.log(`Create preview: ${sourcePath}; title=${JSON.stringify(title)}; destinations=${platforms.join(', ')}.`)
   console.log('The generated v1 is needs-confirm and cannot be released until actual copy/evidence are reviewed.')
   if(!apply){console.log('Preview only. Re-run with --apply after reviewing the request.');return}
-  let started=false
-  try{
-    await startJob(request,contentId,sourcePath,head);started=true;atomicWrite(path,raw)
-    git(dir,['diff','--check','--',sourcePath]);git(dir,['add','--',sourcePath])
-    git(dir,['commit','-m',`Create canonical draft for portal request ${request.id}`],'inherit')
-    git(dir,['push','origin','HEAD'],'inherit');const commit=git(dir,['rev-parse','HEAD'])
-    const parsed=parseContentFile(raw,sourcePath)
-    const synced=await admin.rpc('sync_content_item_versions',{p_items:[syncRow(parsed,client.id,commit)]})
-    if(synced.error)throw new Error(synced.error.message)
-    const prepared=await admin.rpc('mark_content_request_prepared',{p_request_id:request.id,p_commit_sha:commit,
-      p_actor_key:'thedot-admin',p_idempotency_key:randomUUID()})
-    if(prepared.error)throw new Error(prepared.error.message)
-    console.log(`Prepared create request ${request.id} at ${commit}. Authoring, fact-check, and release review remain.`)
-  }catch(error){if(started)await markConflict(request.id);throw error}
+  await startJob(request,contentId,sourcePath,head);atomicWrite(path,raw)
+  git(dir,['diff','--check','--',sourcePath]);git(dir,['add','--',sourcePath])
+  git(dir,['commit','-m',`Create canonical draft for portal request ${request.id}`],'inherit')
+  git(dir,['push','origin','HEAD'],'inherit');const commit=git(dir,['rev-parse','HEAD'])
+  const parsed=parseContentFile(raw,sourcePath)
+  const synced=await admin.rpc('sync_content_item_versions',{p_items:[syncRow(parsed,client.id,commit)]})
+  if(synced.error)throw new Error(synced.error.message)
+  const prepared=await admin.rpc('mark_content_request_prepared',{p_request_id:request.id,p_commit_sha:commit,
+    p_actor_key:'thedot-admin',p_idempotency_key:randomUUID()})
+  if(prepared.error)throw new Error(prepared.error.message)
+  console.log(`Prepared create request ${request.id} at ${commit}. Authoring, fact-check, and release review remain.`)
 }
 async function reconcileArchive(clientId:string,requestId:string,apply:boolean){
   const request=await changeRequest(clientId,requestId);if(request.request_type!=='archive')throw new Error('request is not an archive')
   console.log(`Archive preview: request ${request.id}, base version ${request.base_version}; history will be retained.`)
   if(!apply){console.log('Preview only. Re-run with --apply after reviewing the request.');return}
-  let started=false
-  try{await startJob(request,null,null,null);started=true
-    const result=await admin.rpc('apply_content_archive_request',{p_request_id:request.id,
-      p_actor_key:'thedot-admin',p_idempotency_key:randomUUID()})
-    if(result.error)throw new Error(result.error.message)
-    console.log(`Applied archive request ${request.id}; history is retained.`)
-  }catch(error){if(started)await markConflict(request.id);throw error}
+  await startJob(request,null,null,null)
+  const result=await admin.rpc('apply_content_archive_request',{p_request_id:request.id,
+    p_actor_key:'thedot-admin',p_idempotency_key:randomUUID()})
+  if(result.error)throw new Error(result.error.message)
+  console.log(`Applied archive request ${request.id}; history is retained.`)
 }
 async function supersedeRequest(client:{id:string;slug:string},requestId:string,versionText:string,note:string){
   const request=await changeRequest(client.id,requestId)
@@ -253,6 +278,10 @@ async function main(){
     if(!value)throw new Error('usage: portal-inbox apply-edit <clientSlug> <request-uuid> [--candidate <absolute-path>] [--apply]')
     const flags=parseEditFlags(rest)
     await reconcileEdit(client,value,flags.apply,flags.candidatePath)
+  }else if(command==='resume-edit'){
+    if(!value||rest.length!==1||rest[0]!=='--apply')
+      throw new Error('usage: portal-inbox resume-edit <clientSlug> <request-uuid> --apply')
+    await resumeEdit(client,value,true)
   }else if(command==='apply-create'){
     const contentId=rest.find((arg)=>arg!=='--apply')
     if(!value||!contentId||!/^[a-z0-9][a-z0-9._-]{1,119}$/.test(contentId))
@@ -273,6 +302,6 @@ async function main(){
     const result=await admin.rpc('resolve_content_request',{p_request_id:request.id,p_status:'rejected',
       p_reason:reason,p_actor_key:'thedot-admin',p_idempotency_key:randomUUID()})
     if(result.error)throw new Error(result.error.message);console.log(`Rejected request ${request.id}.`)
-  }else throw new Error('usage: portal-inbox <list|show|ack|apply-edit|apply-create|apply-archive|supersede|reject|retry-projections> <clientSlug> [value]')
+  }else throw new Error('usage: portal-inbox <list|show|ack|apply-edit|resume-edit|apply-create|apply-archive|supersede|reject|retry-projections> <clientSlug> [value]')
 }
 main().catch((error)=>{console.error(`FAILED: ${error?.message ?? error}`);process.exit(1)})
