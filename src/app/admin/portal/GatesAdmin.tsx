@@ -102,6 +102,7 @@ export function stageDisplay(stage: string, label: string): { label: string; ton
     case 'scheduled':
     case 'scheduled_partial': return { label: 'Scheduled', tone: 'scheduled', detail: label.replace(/^scheduled\s*/i, '') }
     case 'approved': return { label: 'Approved', tone: 'done', detail: '' }
+    case 'courtesy_released': return { label: 'Courtesy release', tone: 'done', detail: 'no client approval required' }
     case 'direction_approved': return { label: 'Direction approved', tone: 'done', detail: 'still in production' }
     case 'awaiting_decision': return { label: 'Awaiting Maria', tone: 'open', detail: '' }
     case 'awaiting_idea_approval': return { label: 'Awaiting idea approval', tone: 'open', detail: '' }
@@ -137,7 +138,7 @@ function weekCalendarDays(pieces: StagePiece[]): Record<string, WeekCalendarChip
     const accent: WeekCalendarChip['accent'] = (
       stage === 'done' || stage === 'posted_unverified' || stage === 'legacy'
         ? 'grey'
-        : stage === 'approved' || stage === 'direction_approved'
+        : stage === 'approved' || stage === 'courtesy_released' || stage === 'direction_approved'
           || stage === 'scheduled' || stage === 'scheduled_partial'
           ? 'graphite'
           : 'yellow'

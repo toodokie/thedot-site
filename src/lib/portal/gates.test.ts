@@ -99,6 +99,22 @@ describe('deriveContentStage', () => {
     expect(result.stage).toBe('approved')
   })
 
+  it('treats a courtesy release as an agency policy, never as a client approval or a Maria task', () => {
+    const courtesy = piece({
+      reviewMode: 'courtesy',
+      gates: [gate('source_in_hand', 'na'), gate('design_built', 'done'),
+        gate('proofed', 'done'), gate('approval_sent', 'done')],
+    })
+    expect(deriveContentStage(courtesy)).toEqual({
+      stage: 'courtesy_released', label: 'courtesy release (no client approval required)',
+    })
+    const approvalGate = resolveNineGates(courtesy).find((row) => row.key === 'copy-approved')
+    expect(approvalGate).toMatchObject({ state: 'na', owner: 'agency' })
+    expect(deriveMyTasks([courtesy], [], '2026-07-30')).not.toContainEqual(
+      expect.objectContaining({ kind: 'waiting_maria' }),
+    )
+  })
+
   // Codex round-2 fix A: absent gate rows must NOT force direction_approved; only a
   // PRESENT-and-open design_built/proofed/approval_sent does.
   it('5c: approved decision + only a PARTIAL gate set (proofed done, no design row) -> approved', () => {

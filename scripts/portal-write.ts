@@ -51,7 +51,7 @@ const assertNoteGrammarSafe = (value: string | null, field: string) => {
 
 async function main() {
   const [command, inputPath, ...rest] = process.argv.slice(2)
-  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|plan-cycle|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
+  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|courtesy-release|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|plan-cycle|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
   const dryRun = rest.includes('--dry-run')
   const packIndex = rest.indexOf('--pack')
   const packPath = packIndex >= 0 ? rest[packIndex + 1] ?? null : null
@@ -132,6 +132,20 @@ async function main() {
       p_decision:stringArray(payload.decision,'decision',['approved','change_requested']),p_note:note,
       p_decision_source:stringArray(payload.decisionSource,'decisionSource',['email','call']),
       p_source_occurred_at:timestamp(payload.sourceOccurredAt,'sourceOccurredAt'),p_actor_key:actor,p_idempotency_key:idempotency}
+  } else if (command === 'courtesy-release') {
+    // A courtesy release is an explicit agency policy for this exact released snapshot.
+    // It is deliberately NOT an external/client approval and must never be used to
+    // backfill a missing Maria decision. The DB re-checks release completeness,
+    // current-version identity, agency_mutations, and the absence of any decision.
+    const reason = requiredText(payload.reason, 'reason', 2000)
+    assertClientSafeAgencyText({ reason })
+    if (reason.length < 10) throw new Error('reason must be at least 10 characters')
+    externalContentId = requiredText(payload.contentId, 'contentId', 200)
+    externalContentVersion = integer(payload.contentVersion, 'contentVersion', 1)
+    rpc = 'record_content_courtesy_release'; args = {
+      p_content_id: null, p_content_version: externalContentVersion, p_reason: reason,
+      p_actor_key: actor, p_idempotency_key: idempotency,
+    }
   } else if (command === 'publication-confirm') {
     const liveUrl = assertReviewedHttpsUrl(payload.liveUrl)
     const observedTitle = optionalText(payload.observedTitle, 'observedTitle', 300)

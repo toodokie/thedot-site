@@ -52,6 +52,10 @@ export type StagePiece = {
   factCheckExempt: boolean
   factCheckValid?: boolean
   currentDecision: 'approved' | 'change_requested' | null
+  // This is an agency-only, version-bound workflow policy. It is never a fabricated
+  // client decision: `courtesy` means the agency has explicitly made client approval
+  // non-blocking for this released snapshot (for example a studio-owned live cut).
+  reviewMode?: 'required' | 'courtesy'
   // Versionless ideas have a separate decision plane. A plan-cycle approval is the
   // batch decision; a piece decision overrides it for that cycle revision.
   ideaDecision: 'approved' | 'change_requested' | null
@@ -187,9 +191,11 @@ export function resolveNineGates(piece: StagePiece): ResolvedGate[] {
 
   rows.push({
     key: 'copy-approved', dest: null, present: true,
-    state: piece.currentDecision === 'approved' ? 'done' : 'open',
-    owner: 'maria', date: null,
-    note: piece.currentDecision === 'change_requested' ? 'change requested; re-arms on the new version' : null,
+    state: piece.reviewMode === 'courtesy' ? 'na' : piece.currentDecision === 'approved' ? 'done' : 'open',
+    owner: piece.reviewMode === 'courtesy' ? 'agency' : 'maria', date: null,
+    note: piece.reviewMode === 'courtesy'
+      ? 'courtesy release, no client approval required'
+      : piece.currentDecision === 'change_requested' ? 'change requested; re-arms on the new version' : null,
   })
 
   for (const platform of piece.platforms) {
@@ -227,7 +233,7 @@ export function resolveNineGates(piece: StagePiece): ResolvedGate[] {
 
 export type ContentStage =
   | 'done' | 'posted_unverified' | 'scheduled' | 'scheduled_partial'
-  | 'approved' | 'direction_approved' | 'awaiting_decision' | 'awaiting_idea_approval' | 'in_production' | 'draft'
+  | 'approved' | 'courtesy_released' | 'direction_approved' | 'awaiting_decision' | 'awaiting_idea_approval' | 'in_production' | 'draft'
   | 'idea' | 'archived' | 'legacy' | 'needs_platform_mapping'
 
 export type StageResult = { stage: ContentStage; label: string }
@@ -298,7 +304,7 @@ export function deriveContentStage(piece: StagePiece): StageResult {
   const approvalSent = productionGate(piece, 'approval_sent')
   const hasGateRows = piece.gates.length > 0
 
-  if (piece.currentDecision === 'approved') {
+  if (piece.currentDecision === 'approved' || piece.reviewMode === 'courtesy') {
     // 4/5. approved vs direction_approved (the H&C shape): a decision recorded while any
     // PRESENT production gate is still open claims less than "approved". Codex round-2
     // fix A: an ABSENT design_built/proofed/approval_sent row never forces
@@ -307,7 +313,12 @@ export function deriveContentStage(piece: StagePiece): StageResult {
     // (present and open) DOES, which the old design/proofed-only check missed. Pieces
     // with no gate rows at all derive approved from the decision alone (spec 12.7).
     if (gateBlocks(design) || gateBlocks(proofed) || gateBlocks(approvalSent)) {
-      return { stage: 'direction_approved', label: 'direction approved (production gates open)' }
+      return piece.reviewMode === 'courtesy'
+        ? { stage: 'courtesy_released', label: 'courtesy release (production gates open)' }
+        : { stage: 'direction_approved', label: 'direction approved (production gates open)' }
+    }
+    if (piece.reviewMode === 'courtesy') {
+      return { stage: 'courtesy_released', label: 'courtesy release (no client approval required)' }
     }
     return { stage: 'approved', label: 'approved' }
   }

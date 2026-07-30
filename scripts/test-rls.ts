@@ -854,6 +854,76 @@ async function main(): Promise<void> {
         pendingRaceReady.error?.message ?? pendingRaceRequest.error?.message ?? blockedAgencyRevision.error?.message
           ?? agencyRaceReady.error?.message ?? openedAgencyRevision.error?.message ?? blockedClientEdit.error?.message
           ?? 'NO ERROR')
+
+      // A courtesy release is deliberately agency-only and version-bound. It clears the
+      // client queue without inventing an approval row, then permits the normal evidence
+      // writer to record an already-live studio cut for that exact released version.
+      const courtesyContentId = `rls-courtesy-${RUN_ID}`
+      const [courtesySync] = await sync([
+        snapshot(bClientId, courtesyContentId, 1, 'Courtesy studio short', 'Studio-owned short body', 'youtube-short', {
+          platforms: ['youtube'], producer: 'studio', fact_check_scope: 'not_applicable',
+          fact_check_exemption: 'Studio-owned brand clip with no regulated claim.', fact_check_ledger: [],
+        }),
+      ])
+      const courtesyItemId = courtesySync.item_id
+      const courtesyReady = await admin.rpc('mark_content_ready', {
+        p_content_id: courtesyItemId, p_content_version: 1,
+      })
+      const browserCourtesy = await bClient.rpc('record_content_courtesy_release', {
+        p_content_id: courtesyItemId, p_content_version: 1,
+        p_reason: 'Studio-owned short released as a courtesy review, no client decision required.',
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const courtesyKey = randomUUID()
+      const courtesyArgs = {
+        p_content_id: courtesyItemId, p_content_version: 1,
+        p_reason: 'Studio-owned short released as a courtesy review, no client decision required.',
+        p_actor_key: 'thedot-admin', p_idempotency_key: courtesyKey,
+      }
+      const courtesy = await admin.rpc('record_content_courtesy_release', courtesyArgs)
+      const courtesyRetry = await admin.rpc('record_content_courtesy_release', courtesyArgs)
+      const courtesyView = await bClient.from('content_with_state')
+        .select('status,current_decision,client_state').eq('id', courtesyItemId).single()
+      const courtesyApproval = await admin.from('approvals').select('id')
+        .eq('content_id', courtesyItemId).eq('content_version', 1)
+      const courtesyRows = await admin.from('content_courtesy_releases')
+        .select('id,content_version').eq('content_id', courtesyItemId)
+      const browserCourtesyRows = await bClient.from('content_courtesy_releases').select('id')
+      const courtesySchedule = await admin.from('content_schedule_targets')
+        .select('id,destination').eq('content_id', courtesyItemId).eq('content_version', 1).single()
+      const courtesyPublication = await admin.from('content_publication_targets')
+        .select('id').eq('content_id', courtesyItemId).eq('content_version', 1).single()
+      const { data: courtesyEvidenceId, error: courtesyEvidenceError } = await admin.rpc('register_publication_evidence', {
+        p_client_id: bClientId, p_actor_key: 'thedot-admin', p_evidence_kind: 'yt_check',
+        p_object_key: null, p_evidence_url: 'https://youtube.com/shorts/rls-courtesy-proof',
+        p_attestation_note: null, p_captured_at: new Date().toISOString(), p_sha256: null,
+        p_mime_type: null, p_byte_length: null, p_idempotency_key: `rls-courtesy-evidence-${RUN_ID}`,
+      })
+      const courtesyPublicationWrite = courtesyPublication.data && courtesyEvidenceId
+        ? await admin.rpc('record_publication_observation', {
+          p_publication_target_id: courtesyPublication.data.id, p_provider_state: 'live',
+          p_live_url: 'https://youtube.com/shorts/rls-courtesy-live',
+          p_published_at: new Date(Date.now() - 60_000).toISOString(), p_visibility: 'public',
+          p_evidence_id: courtesyEvidenceId, p_actor_key: 'thedot-admin', p_source_type: 'manual',
+          p_reconciliation_status: 'verified', p_provider_object_id: 'rls-courtesy-live',
+          p_observed_title: 'Courtesy studio short', p_observed_text: null,
+          p_observation_key: `rls-courtesy-publication-${RUN_ID}`,
+          p_supersedes_observation_id: null, p_verification_note: 'Public YouTube Short reviewed.',
+        }) : { data: null, error: courtesyEvidenceError ?? new Error('courtesy publication target missing') }
+      check('R17: agency-only courtesy release clears the review queue without fabricating approval and permits normal evidence-backed publication',
+        !courtesyReady.error && !!browserCourtesy.error && !courtesy.error && !courtesyRetry.error
+          && courtesy.data?.courtesy_release_id === courtesyRetry.data?.courtesy_release_id
+          && !courtesyView.error && courtesyView.data?.status === 'approved'
+          && courtesyView.data?.current_decision === null && courtesyView.data?.client_state === 'approved'
+          && !courtesyApproval.error && courtesyApproval.data?.length === 0
+          && !courtesyRows.error && courtesyRows.data?.length === 1 && courtesyRows.data[0]?.content_version === 1
+          && !!browserCourtesyRows.error && !courtesySchedule.error && courtesySchedule.data?.destination === 'youtube'
+          && !courtesyPublication.error && !courtesyPublicationWrite.error,
+        courtesyReady.error?.message ?? browserCourtesy.error?.message ?? courtesy.error?.message
+          ?? courtesyRetry.error?.message ?? courtesyView.error?.message ?? courtesyApproval.error?.message
+          ?? courtesyRows.error?.message ?? browserCourtesyRows.error?.message ?? courtesySchedule.error?.message
+          ?? courtesyPublication.error?.message ?? courtesyEvidenceError?.message ?? courtesyPublicationWrite.error?.message
+          ?? JSON.stringify({ view: courtesyView.data, approvals: courtesyApproval.data, rows: courtesyRows.data }))
     }
 
     console.log('\n--- Slice 3 scheduling/rescheduling ---')

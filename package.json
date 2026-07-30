@@ -22,6 +22,7 @@
     "assistant-eval": "tsx scripts/assistant-eval.ts",
     "portal-admin": "tsx scripts/portal-admin.ts",
     "portal-write": "tsx scripts/portal-write.ts",
+    "portal-schedule": "tsx scripts/portal-schedule.ts",
     "portal-inbox": "tsx scripts/portal-inbox.ts",
     "portal-history": "tsx scripts/import-portal-history.ts",
     "sync-content": "tsx scripts/sync-content-to-supabase.ts",

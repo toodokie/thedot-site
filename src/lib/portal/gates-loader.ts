@@ -44,6 +44,7 @@ type GateRow = ProductionGateRow & { content_item_id: string }
 type ScheduleRow = { content_id: string; content_version: number; destination: string; required: boolean; status: string; scheduled_at: string | null }
 type PublicationRow = { id: string; content_id: string; content_version: number; destination: string; required: boolean; status: string; live_url: string | null; published_at: string | null; first_verified_at: string | null }
 type HistoricalRow = { client_id: string; publication_target_id: string; provenance: string }
+type CourtesyReleaseRow = { content_id: string; client_id: string; content_version: number }
 type LegacyClassification = 'legacy_verified' | 'legacy_unverified'
 type PlanCycleRow = { id: string; client_id: string; revision: number; status: string; approved_revision: number | null; submitted_at: string; updated_at: string }
 type PlanCycleItemRow = { plan_cycle_id: string; client_id: string; content_item_id: string }
@@ -62,6 +63,7 @@ function buildPieces(
   clientNames: Map<string, string>, factCheckValid: Map<string, boolean>,
   ideaDecisions: Map<string, { decision: 'approved' | 'change_requested' | null; source: 'batch' | 'piece' | null; note: string | null; sentAt: string | null }>,
   legacyItems: Map<string, LegacyClassification>,
+  courtesyReleases: Set<string>,
 ): StagePiece[] {
   const versionByItem = new Map<string, VersionRow>()
   for (const version of versions) {
@@ -127,6 +129,8 @@ function buildPieces(
       factCheck: version?.fact_check ?? null, factCheckExempt: version?.fact_check_scope === 'not_applicable',
       factCheckValid: factCheckValid.get(item.id) ?? false,
       currentDecision,
+      reviewMode: workingVersion !== null && courtesyReleases.has(`${item.id}:${workingVersion}`)
+        ? 'courtesy' : 'required',
       ideaDecision: ideaDecisions.get(item.id)?.decision ?? null,
       ideaDecisionSource: ideaDecisions.get(item.id)?.source ?? null,
       ideaDecisionNote: ideaDecisions.get(item.id)?.note ?? null,
@@ -161,7 +165,7 @@ async function loadDependents(
   clientIds: string[],
   workingVersions: Map<string, number | null>,
 ) {
-  const [versions, approvals, gates, schedules, publications, clients, historical] = await Promise.all([
+  const [versions, approvals, gates, schedules, publications, clients, historical, courtesyReleases] = await Promise.all([
     run<VersionRow>(admin.from('content_item_versions').select(VERSION_COLS).in('content_item_id', itemIds), 'content_item_versions'),
     run<ApprovalRow>(admin.from('approvals').select(APPROVAL_COLS).in('content_id', itemIds), 'approvals'),
     run<GateRow>(admin.from('content_production_gates').select(GATE_COLS).in('content_item_id', itemIds), 'content_production_gates'),
@@ -171,6 +175,9 @@ async function loadDependents(
     run<HistoricalRow>(admin.from('historical_publication_import_entries')
       .select('client_id, publication_target_id, provenance').in('client_id', clientIds),
       'historical_publication_import_entries'),
+    run<CourtesyReleaseRow>(admin.from('content_courtesy_releases')
+      .select('content_id,client_id,content_version').in('content_id', itemIds),
+      'content_courtesy_releases'),
   ])
   const factCheckValid = new Map<string, boolean>()
   await Promise.all(versions.filter((version) =>
@@ -235,7 +242,10 @@ async function loadDependents(
       ideaDecisions.set(item.id, { decision: null, source: null, note: null, sentAt })
     }
   }
-  return [versions, approvals, gates, schedules, publications, clients, factCheckValid, ideaDecisions, legacyItems] as const
+  return [
+    versions, approvals, gates, schedules, publications, clients, factCheckValid, ideaDecisions,
+    legacyItems, new Set(courtesyReleases.map((release) => `${release.content_id}:${release.content_version}`)),
+  ] as const
 }
 
 // All pieces for a client (or every client when clientId is omitted), unreleased included.
@@ -245,11 +255,11 @@ export async function loadAgencyStagePieces(admin: Client, clientId?: string): P
   const items = await run<ItemRow>(query, 'content_items')
   if (items.length === 0) return []
   const clientIds = [...new Set(items.map((i) => i.client_id))]
-  const [versions, approvals, gates, schedules, publications, clients, factCheckValid, ideaDecisions, legacyItems] =
+  const [versions, approvals, gates, schedules, publications, clients, factCheckValid, ideaDecisions, legacyItems, courtesyReleases] =
     await loadDependents(admin, items, items.map((i) => i.id), clientIds,
       new Map(items.map((item) => [item.id, item.working_version])))
   const clientNames = new Map(clients.map((c) => [c.id, c.name]))
-  return buildPieces(items, versions, approvals, gates, schedules, publications, clientNames, factCheckValid, ideaDecisions, legacyItems)
+  return buildPieces(items, versions, approvals, gates, schedules, publications, clientNames, factCheckValid, ideaDecisions, legacyItems, courtesyReleases)
 }
 
 // One piece by content_id (for STATUS GATES block regeneration), unreleased included;
@@ -259,11 +269,11 @@ export async function loadAgencyStagePiece(admin: Client, clientId: string, cont
     admin.from('content_items').select(ITEM_COLS).eq('client_id', clientId).eq('content_id', contentId),
     'content_items')
   if (items.length === 0) return null
-  const [versions, approvals, gates, schedules, publications, clients, factCheckValid, ideaDecisions, legacyItems] =
+  const [versions, approvals, gates, schedules, publications, clients, factCheckValid, ideaDecisions, legacyItems, courtesyReleases] =
     await loadDependents(admin, [items[0]], [items[0].id], [items[0].client_id],
       new Map([[items[0].id, items[0].working_version]]))
   const clientNames = new Map(clients.map((c) => [c.id, c.name]))
-  return buildPieces([items[0]], versions, approvals, gates, schedules, publications, clientNames, factCheckValid, ideaDecisions, legacyItems)[0] ?? null
+  return buildPieces([items[0]], versions, approvals, gates, schedules, publications, clientNames, factCheckValid, ideaDecisions, legacyItems, courtesyReleases)[0] ?? null
 }
 
 export type AgencyPieceCalendarRow = StagePiece & {
