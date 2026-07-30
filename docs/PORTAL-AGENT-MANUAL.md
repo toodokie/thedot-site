@@ -417,11 +417,13 @@ recs, ideas, links, design links — the 13th, `0021`) via `portal_assistant_sea
 `portal_assistant_reindex`. Endpoint: `/api/client/[slug]/assistant`; cron
 `/api/cron/portal-assistant`. Guardrails: `src/lib/portal/assistant-guardrails.ts` (tested).
 
-**Status:** the OpenAI build is committed but the **assistant feature switch stays OFF** until
-Anastasia's usefulness / token-cap review. The nav entry only appears when the member holds
-`can_use_assistant` **and** the `assistant` switch is on (`portal_assistant_gate`). Launch-day needs
-`OPENAI_PORTAL_API_KEY` + `PORTAL_ASSISTANT_HMAC_SECRET` in Vercel. Reporting-API automation
-(Meta/YouTube/GA4 metrics) is **v2 / manual in v1** (`~/Kanset/portal-v2-deferred.md`).
+**Live status, verified 2026-07-30:** Bird, the OpenAI Client Work Assistant, is enabled globally
+and for Kanset. Maria, Anastasia, and the `Maria (preview)` seat hold `can_use_assistant`.
+The nav entry and floating widget appear only when the member holds that capability **and** the
+`assistant` switch is on (`portal_assistant_gate`). Production therefore requires
+`OPENAI_PORTAL_API_KEY` + `PORTAL_ASSISTANT_HMAC_SECRET` in Vercel. Do not disable the live
+assistant without Anastasia's explicit approval. Reporting-API automation (Meta/YouTube/GA4
+metrics) remains **v2 / manual in v1** (`~/Kanset/portal-v2-deferred.md`).
 
 ---
 
