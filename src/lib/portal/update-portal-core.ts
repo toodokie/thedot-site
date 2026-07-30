@@ -35,6 +35,8 @@ export type UpdateAction =
   | 'reshare'         // human --re-share path: begin-revision -> sync v+1 -> mark-ready
   | 'refuse-no-change-note' // --re-share without a --change-note
 
+export type ClientEditRequestState = 'pending' | 'applying' | 'prepared' | 'applied' | 'answered' | 'conflicted' | 'rejected' | 'superseded'
+
 export type ExtractedPack = {
   packId: string | null
   contentId: string
@@ -299,6 +301,19 @@ export function decideAction(input: {
   }
   // released + changed, default path
   return { action: 'flag-reshare', reason: 'released piece changed; FLAG ONLY — a human runs --re-share' }
+}
+
+// A portal edit request is an auditable, version-bound instruction. A generic re-share has no
+// request id to settle, so letting it run while this is open can change the copy yet strand the
+// client's request as "pending". The CLI uses this narrow pure guard before ANY re-share mutation.
+export function openClientEditRequestBlocksReshare(requests: Array<{
+  content_id: string | null
+  request_type: string
+  status: ClientEditRequestState | string
+}>, contentId: string): boolean {
+  return requests.some((request) => request.content_id === contentId
+    && request.request_type === 'edit'
+    && ['pending', 'applying', 'prepared'].includes(request.status))
 }
 
 // Derive the workflow state (§4.4) from the content_items row shape returned by Supabase.

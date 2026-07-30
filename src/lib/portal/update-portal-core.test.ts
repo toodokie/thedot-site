@@ -5,6 +5,7 @@ import {
   deriveState,
   extractPack,
   normalizeCopy,
+  openClientEditRequestBlocksReshare,
   planVersioning,
   readFactCheckGate,
   readPackContentId,
@@ -281,6 +282,25 @@ describe('decideAction', () => {
   })
   it('locked wins even under --re-share', () => {
     expect(decideAction({ ...base, state: 'locked', isReshare: true, hasChangeNote: true }).action).toBe('refuse-locked')
+  })
+})
+
+describe('openClientEditRequestBlocksReshare', () => {
+  it('requires the version-bound request path while an edit is unresolved', () => {
+    expect(openClientEditRequestBlocksReshare([
+      { content_id: 'kanset-piece', request_type: 'edit', status: 'pending' },
+    ], 'kanset-piece')).toBe(true)
+    expect(openClientEditRequestBlocksReshare([
+      { content_id: 'kanset-piece', request_type: 'edit', status: 'prepared' },
+    ], 'kanset-piece')).toBe(true)
+  })
+
+  it('does not block a separate piece or a terminal request', () => {
+    expect(openClientEditRequestBlocksReshare([
+      { content_id: 'other-piece', request_type: 'edit', status: 'pending' },
+      { content_id: 'kanset-piece', request_type: 'edit', status: 'superseded' },
+      { content_id: 'kanset-piece', request_type: 'create', status: 'pending' },
+    ], 'kanset-piece')).toBe(false)
   })
 })
 

@@ -39,6 +39,7 @@ import {
   deriveState,
   extractPack,
   normalizeCopy,
+  openClientEditRequestBlocksReshare,
   planVersioning,
   readPackContentId,
   reopenCopyApprovedGate,
@@ -57,6 +58,13 @@ const LOCK_STALE_MS = 10 * 60 * 1000
 type Db = SupabaseClient<any, any, any, any, any>
 const PREVIEW_RPC = 'preview_content_item_versions'
 const SYNC_RPC = 'sync_content_item_versions'
+
+type ContentRequestGateRow = {
+  id: string
+  content_id: string | null
+  request_type: string
+  status: string
+}
 
 type Flags = {
   target: string
@@ -180,6 +188,20 @@ function inspect(portalDir: string, mode: 'preview' | 'apply'): CanonicalContent
   })
 }
 
+async function openClientEditRequest(
+  supabase: Db,
+  clientId: string,
+  contentId: string,
+): Promise<ContentRequestGateRow | null> {
+  const { data, error } = await supabase.rpc('list_content_change_requests', { p_client_id: clientId })
+  if (error) throw new Error(`cannot check open portal edit requests: ${error.message}`)
+  const requests = (data ?? []) as ContentRequestGateRow[]
+  if (!openClientEditRequestBlocksReshare(requests, contentId)) return null
+  return requests.find((request) => request.content_id === contentId
+    && request.request_type === 'edit'
+    && ['pending', 'applying', 'prepared'].includes(request.status)) ?? null
+}
+
 async function main() {
   const flags = parseArgs(process.argv.slice(2))
   const writeMode = flags.apply
@@ -300,6 +322,13 @@ async function main() {
       hasChangeNote: Boolean(flags.changeNote),
     })
 
+    // A portal edit carries a request id, reviewed base version, and terminal receipt. Never use
+    // the generic re-share route while one is open: it cannot close that request and previously
+    // produced live copy with a misleading pending client request.
+    const blockingRequest = ['flag-reshare', 'reshare'].includes(action)
+      ? await openClientEditRequest(supabase, client.id, contentId)
+      : null
+
     // Refreshing copy needs the pack; a bare content_id can only refuse / flag / no-op.
     if ((action === 'sync' || action === 'create' || action === 'reshare') && extractedBody === null) {
       logRun({ content_id: contentId, outcome: 'refused', reason: 'content_id-only input cannot refresh copy' })
@@ -333,6 +362,14 @@ async function main() {
         return
 
       case 'flag-reshare':
+        if (blockingRequest) {
+          report({ outcome: 'refused', reason: 'open portal edit request', request_id: blockingRequest.id })
+          console.error(`REFUSED: ${contentId} has an open portal edit request (${blockingRequest.id}).`)
+          console.error('   Do not use --re-share: it cannot settle the client request.')
+          console.error(`   Review first, then use: npx tsx scripts/portal-inbox.ts apply-edit ${CLIENT_SLUG} ${blockingRequest.id} --apply`)
+          process.exitCode = 4
+          return
+        }
         report({ outcome: 'flagged' }); clearPendingMarker(contentId)
         console.log(`⚠️  FLAG: ${contentId} is RELEASED and its copy CHANGED. The default step does NOT re-arm Maria.`)
         console.log(`   A human runs:  npx tsx scripts/update-portal.ts ${packPath ?? contentId} --re-share --change-note "…" --apply --confirm`)
@@ -367,6 +404,14 @@ async function main() {
         return
 
       case 'reshare':
+        if (blockingRequest) {
+          report({ outcome: 'refused', reason: 'open portal edit request', request_id: blockingRequest.id })
+          console.error(`REFUSED: ${contentId} has an open portal edit request (${blockingRequest.id}).`)
+          console.error('   Re-share is not allowed because it would leave that request unresolved.')
+          console.error(`   Use the version-bound request workflow instead: npx tsx scripts/portal-inbox.ts apply-edit ${CLIENT_SLUG} ${blockingRequest.id} --apply`)
+          process.exitCode = 4
+          return
+        }
         await runReshare({ supabase, clientId: client.id, portalDir, canonicalPath, canonicalName, contentId,
           packPath, extractedBody: extractedBody!, releasedVersion: clientVisibleVersion, workingVersion,
           canonicalVersion, bodyChanged, revisionInProgress, newVersion: plan.newVersion,
@@ -465,9 +510,13 @@ async function runReshare(ctx: {
   const parsed = parseContentFile(refreshed, ctx.canonicalName) // safety gate
   assertCanonicalIdentity(parsed, ctx.contentId)
 
-  // Preflight BEFORE any mutation (file OR begin-revision). File work first (cheap/reversible), then
-  // the DB sequence tight, so a failure leaves at most a safe unreleased draft.
+  // Preflight before any mutation. Open the database revision before changing the canonical file:
+  // begin_content_revision rejects a newly pending client edit, while request_content_edit rejects
+  // a new client edit once this revision is open. That closes the client-click / agency-re-share race.
+  // A later Git or sync failure leaves the old released version visible and the new work fail-closed
+  // as an open revision, which the retry path can complete.
   inspect(ctx.portalDir, 'apply')
+  runAdmin(['begin-revision', CLIENT_SLUG, ctx.contentId, String(ctx.releasedVersion)])
   if (refreshed !== existingRaw) {
     writeFileSync(ctx.canonicalPath, refreshed)
     git(ctx.portalDir, ['add', '--', ctx.canonicalName])
@@ -475,7 +524,6 @@ async function runReshare(ctx: {
   }
   const finalInspection = inspect(ctx.portalDir, 'apply')
 
-  runAdmin(['begin-revision', CLIENT_SLUG, ctx.contentId, String(ctx.releasedVersion)])
   const { error } = await ctx.supabase.rpc(SYNC_RPC, {
     p_items: [toRow(parsed, ctx.clientId, ctx.canonicalName, finalInspection.sourceCommitSha)],
   })

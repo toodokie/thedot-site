@@ -588,8 +588,8 @@ async function main(): Promise<void> {
         p_expected_base_commit: null, p_actor_key: 'thedot-admin', p_idempotency_key: editId,
       })
       if (started.error) throw new Error(`start edit reconciliation: ${started.error.message}`)
-      const begin = await admin.rpc('begin_content_revision', {
-        p_content_id: bRequestItemId, p_content_version: 1,
+      const begin = await admin.rpc('begin_content_request_revision', {
+        p_request_id: editId, p_content_id: bRequestItemId, p_content_version: 1,
       })
       if (begin.error) throw new Error(`begin request revision: ${begin.error.message}`)
       const editV2 = snapshot(bClientId, B_REQUEST_ID, 2, 'Request workflow v2',
@@ -772,6 +772,88 @@ async function main(): Promise<void> {
           && requestReplyEvents.every((row) => row.requires_reconciliation === true),
         reopened.error?.message ?? reopenedRow.error?.message ?? inboxRows.error?.message
           ?? JSON.stringify({ request: reopenedRow.data, inbox: requestReplyEvents }))
+
+      const recoveryKey = randomUUID()
+      const browserRecovery = await bClient.rpc('supersede_content_request_with_released_version', {
+        p_request_id: requestId, p_content_id: bRequestItemId, p_content_version: 2,
+        p_note: 'A later released version is the current review package.',
+        p_actor_key: 'thedot-admin', p_idempotency_key: recoveryKey,
+      })
+      const wrongVersion = await admin.rpc('supersede_content_request_with_released_version', {
+        p_request_id: requestId, p_content_id: bRequestItemId, p_content_version: 1,
+        p_note: 'A later released version is the current review package.',
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const recovery = await admin.rpc('supersede_content_request_with_released_version', {
+        p_request_id: requestId, p_content_id: bRequestItemId, p_content_version: 2,
+        p_note: 'A later released version is the current review package.',
+        p_actor_key: 'thedot-admin', p_idempotency_key: recoveryKey,
+      })
+      const recoveryRetry = await admin.rpc('supersede_content_request_with_released_version', {
+        p_request_id: requestId, p_content_id: bRequestItemId, p_content_version: 2,
+        p_note: 'A later released version is the current review package.',
+        p_actor_key: 'thedot-admin', p_idempotency_key: recoveryKey,
+      })
+      const recoveredRow = await bClient.from('content_change_requests_client')
+        .select('status,canonical_content_key,canonical_version,resolution_note').eq('id', requestId).single()
+      const recoveryInbox = await admin.rpc('read_portal_inbox', {
+        p_consumer_key: `rls-request-recovery-${RUN_ID}`, p_client_id: bClientId, p_limit: 500,
+      })
+      const recoveryEvents: PortalInboxRow[] = (recoveryInbox.data ?? []).filter((row: PortalInboxRow) =>
+        row.event_type === 'request_superseded' && row.object_id === requestId,
+      )
+      check('R15: only service role can truthfully supersede a stale pending request with its current released version',
+        !!browserRecovery.error && !!wrongVersion.error && !recovery.error && !recoveryRetry.error
+          && recoveredRow.data?.status === 'superseded'
+          && recoveredRow.data?.canonical_content_key === B_REQUEST_ID
+          && recoveredRow.data?.canonical_version === 2
+          && recoveredRow.data?.resolution_note === 'A later released version is the current review package.'
+          && !recoveryInbox.error && recoveryEvents.length === 1
+          && recoveryEvents[0].requires_reconciliation === false,
+        browserRecovery.error?.message ?? wrongVersion.error?.message ?? recovery.error?.message
+          ?? recoveryRetry.error?.message ?? recoveredRow.error?.message ?? recoveryInbox.error?.message
+          ?? JSON.stringify({ row: recoveredRow.data, events: recoveryEvents }))
+
+      // The two writers share the content row lock. A client edit that wins first blocks a generic
+      // agency revision, while an opened agency revision blocks a later browser edit. This is the
+      // real race closure behind update-portal's preflight warning.
+      const pendingRaceId = `rls-revision-pending-${RUN_ID}`
+      const [pendingRaceSync] = await sync([
+        snapshot(bClientId, pendingRaceId, 1, 'Pending revision race', 'Pending race body', 'caption'),
+      ])
+      const pendingRaceItemId = pendingRaceSync.item_id
+      const pendingRaceReady = await admin.rpc('mark_content_ready', {
+        p_content_id: pendingRaceItemId, p_content_version: 1,
+      })
+      const pendingRaceRequest = await bClient.rpc('request_content_edit', {
+        p_content_id: pendingRaceItemId, p_content_version: 1, p_block_key: 'caption',
+        p_proposed_text: 'Client edit wins the race.', p_idempotency_key: randomUUID(),
+      })
+      const blockedAgencyRevision = await admin.rpc('begin_content_revision', {
+        p_content_id: pendingRaceItemId, p_content_version: 1,
+      })
+
+      const agencyRaceId = `rls-revision-agency-${RUN_ID}`
+      const [agencyRaceSync] = await sync([
+        snapshot(bClientId, agencyRaceId, 1, 'Agency revision race', 'Agency race body', 'caption'),
+      ])
+      const agencyRaceItemId = agencyRaceSync.item_id
+      const agencyRaceReady = await admin.rpc('mark_content_ready', {
+        p_content_id: agencyRaceItemId, p_content_version: 1,
+      })
+      const openedAgencyRevision = await admin.rpc('begin_content_revision', {
+        p_content_id: agencyRaceItemId, p_content_version: 1,
+      })
+      const blockedClientEdit = await bClient.rpc('request_content_edit', {
+        p_content_id: agencyRaceItemId, p_content_version: 1, p_block_key: 'caption',
+        p_proposed_text: 'Client edit loses the race.', p_idempotency_key: randomUUID(),
+      })
+      check('R16: a client edit and an agency revision cannot cross and strand each other',
+        !pendingRaceReady.error && !pendingRaceRequest.error && !!blockedAgencyRevision.error
+          && !agencyRaceReady.error && !openedAgencyRevision.error && !!blockedClientEdit.error,
+        pendingRaceReady.error?.message ?? pendingRaceRequest.error?.message ?? blockedAgencyRevision.error?.message
+          ?? agencyRaceReady.error?.message ?? openedAgencyRevision.error?.message ?? blockedClientEdit.error?.message
+          ?? 'NO ERROR')
     }
 
     console.log('\n--- Slice 3 scheduling/rescheduling ---')

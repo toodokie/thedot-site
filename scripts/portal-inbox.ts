@@ -96,7 +96,9 @@ async function reconcileEdit(client:{id:string;slug:string},requestId:string,app
     atomicWrite(path,edited.raw);git(dir,['diff','--check','--',snapshot.source_path])
     git(dir,['add','--',snapshot.source_path]);git(dir,['commit','-m',`Apply portal edit request ${request.id}`],'inherit')
     git(dir,['push','origin','HEAD'],'inherit');const commit=git(dir,['rev-parse','HEAD'])
-    const begin=await admin.rpc('begin_content_revision',{p_content_id:request.content_id,p_content_version:request.base_version})
+    const begin=await admin.rpc('begin_content_request_revision',{
+      p_request_id:request.id,p_content_id:request.content_id,p_content_version:request.base_version,
+    })
     if(begin.error)throw new Error(begin.error.message)
     const parsed=parseContentFile(edited.raw,snapshot.source_path)
     const synced=await admin.rpc('sync_content_item_versions',{p_items:[syncRow(parsed,client.id,commit)]})
@@ -145,6 +147,20 @@ async function reconcileArchive(clientId:string,requestId:string,apply:boolean){
     console.log(`Applied archive request ${request.id}; history is retained.`)
   }catch(error){if(started)await markConflict(request.id);throw error}
 }
+async function supersedeRequest(client:{id:string;slug:string},requestId:string,versionText:string,note:string){
+  const request=await changeRequest(client.id,requestId)
+  const version=Number(versionText)
+  if(request.request_type!=='edit'||!request.content_id) throw new Error('request is not an edit')
+  if(!Number.isInteger(version)||version<1) throw new Error('replacement version must be an integer >= 1')
+  const message=note.trim()
+  if(message.length<3||message.length>2000) throw new Error('client-safe explanation must be 3..2000 characters')
+  const result=await admin.rpc('supersede_content_request_with_released_version',{
+    p_request_id:request.id,p_content_id:request.content_id,p_content_version:version,p_note:message,
+    p_actor_key:'thedot-admin',p_idempotency_key:randomUUID(),
+  })
+  if(result.error) throw new Error(result.error.message)
+  console.log(`Superseded request ${request.id} against released v${version}; the original proposal is not claimed as verbatim applied.`)
+}
 
 async function main(){
   const [command='list',slug='kanset',value,...rest]=process.argv.slice(2)
@@ -186,12 +202,16 @@ async function main(){
     if(!value)throw new Error('usage: portal-inbox apply-archive <clientSlug> <request-uuid> [--apply]')
     if(rest.some((arg)=>arg!=='--apply'))throw new Error('only --apply is accepted')
     await reconcileArchive(client.id,value,rest.includes('--apply'))
+  }else if(command==='supersede'){
+    const [version,note,...extra]=rest
+    if(!value||!version||!note||extra.length) throw new Error('usage: portal-inbox supersede <clientSlug> <request-uuid> <released-version> "<client-safe explanation>"')
+    await supersedeRequest(client,value,version,note)
   }else if(command==='reject'){
     const reason=rest.join(' ').trim();if(!value||reason.length<3)throw new Error('usage: portal-inbox reject <clientSlug> <request-uuid> <reason>')
     const request=await changeRequest(client.id,value)
     const result=await admin.rpc('resolve_content_request',{p_request_id:request.id,p_status:'rejected',
       p_reason:reason,p_actor_key:'thedot-admin',p_idempotency_key:randomUUID()})
     if(result.error)throw new Error(result.error.message);console.log(`Rejected request ${request.id}.`)
-  }else throw new Error('usage: portal-inbox <list|show|ack|apply-edit|apply-create|apply-archive|reject|retry-projections> <clientSlug> [value]')
+  }else throw new Error('usage: portal-inbox <list|show|ack|apply-edit|apply-create|apply-archive|supersede|reject|retry-projections> <clientSlug> [value]')
 }
 main().catch((error)=>{console.error(`FAILED: ${error?.message ?? error}`);process.exit(1)})
