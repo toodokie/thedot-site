@@ -27,6 +27,14 @@ const SERVICE_KEY = rawService
 // turn a verification run into a destructive data write. A deliberately named override is
 // available only for an explicitly disposable staging project.
 const supabaseHost = new URL(SUPABASE_URL).hostname
+// This test suite creates tenants, auth users, content, approvals, and agency-global
+// tasks. The production portal project is NEVER a disposable target. Do not weaken this
+// with PORTAL_RLS_ALLOW_REMOTE: that escape hatch is only for an explicitly disposable
+// staging project.
+const PRODUCTION_SUPABASE_HOST = 'ltotkkpytvtcgelrgdkg.supabase.co'
+if (supabaseHost === PRODUCTION_SUPABASE_HOST) {
+  throw new Error('Refusing RLS test against the production Kanset Supabase project')
+}
 if (!['127.0.0.1', 'localhost', '::1'].includes(supabaseHost)
     && process.env.PORTAL_RLS_ALLOW_REMOTE !== 'I_UNDERSTAND_THIS_MUTATES_DISPOSABLE_DB') {
   throw new Error(
