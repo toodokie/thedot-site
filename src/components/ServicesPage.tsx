@@ -135,7 +135,98 @@ export default function ServicesPage() {
       <section className="services-features">
         <div className="services-container">
           <h2 className="services-features-title">Services Features Overview</h2>
-          
+
+          {/* Key capabilities — WHAT we do (packaged into the priced tiers below) */}
+          <div className="dot-caps">
+            <p className="dot-caps-lead">What we do — packaged into the tiers below</p>
+            <div className="dot-caps-grid">
+              <div className="dot-cap">
+                <span className="dot-cap-dot" aria-hidden="true" />
+                <h3 className="dot-cap-title">Web Design &amp; Development</h3>
+                <p className="dot-cap-text">Custom, accessible, conversion-focused websites for Ontario businesses.</p>
+              </div>
+              <div className="dot-cap">
+                <span className="dot-cap-dot" aria-hidden="true" />
+                <h3 className="dot-cap-title">Business Systems Integration</h3>
+                <p className="dot-cap-text">Connect your site to the CRM, accounting, scheduling and intake tools you already run.</p>
+              </div>
+              <div className="dot-cap">
+                <span className="dot-cap-dot" aria-hidden="true" />
+                <h3 className="dot-cap-title">Workflow Automation</h3>
+                <p className="dot-cap-text">Automate the manual client and admin busywork that eats your week.</p>
+              </div>
+              <div className="dot-cap">
+                <span className="dot-cap-dot" aria-hidden="true" />
+                <h3 className="dot-cap-title">AODA Accessibility</h3>
+                <p className="dot-cap-text">Compliance built in &mdash; plus practical audits for sites you already have.</p>
+              </div>
+              <a href="/tools/ai-visibility" className="dot-cap dot-cap--link">
+                <span className="dot-cap-dot" aria-hidden="true" />
+                <h3 className="dot-cap-title">AI Visibility <span className="dot-cap-arrow" aria-hidden="true">&rarr;</span></h3>
+                <p className="dot-cap-text">See whether AI recommends your business &mdash; free check, then an audit.</p>
+              </a>
+            </div>
+          </div>
+
+          <style jsx>{`
+            .dot-caps { margin: 0 0 4.5rem; }
+            .dot-caps-lead {
+              font-family: ff-real-text-pro, sans-serif;
+              font-size: 0.85rem;
+              font-weight: 500;
+              letter-spacing: 0.16em;
+              text-transform: uppercase;
+              color: #7a776f;
+              margin: 0 0 2rem 0;
+            }
+            .dot-caps-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+              gap: 2rem 2.5rem;
+            }
+            .dot-cap {
+              border-top: 1px solid #e6e4de;
+              padding-top: 1.25rem;
+              display: block;
+              text-decoration: none !important;
+            }
+            .dot-cap-dot {
+              display: inline-block;
+              width: 0.5rem;
+              height: 0.5rem;
+              border-radius: 50%;
+              background: #daff00;
+              margin-bottom: 1rem;
+            }
+            .dot-cap-title {
+              font-family: futura-pt, sans-serif;
+              font-weight: 400;
+              font-size: 1.35rem !important;
+              line-height: 1.2;
+              letter-spacing: 0;
+              text-transform: none !important;
+              color: #35332f;
+              margin: 0 0 0.6rem 0;
+              padding: 0;
+            }
+            .dot-cap-text {
+              font-family: ff-real-text-pro, sans-serif;
+              font-size: 1.05rem;
+              font-weight: 200;
+              line-height: 1.5;
+              color: #55524c;
+              margin: 0;
+            }
+            .dot-cap--link .dot-cap-title { color: #35332f; }
+            .dot-cap-arrow { display: inline-block; transition: transform 0.3s ease; }
+            .dot-cap--link:hover { border-top-color: #daff00; }
+            .dot-cap--link:hover .dot-cap-arrow { transform: translateX(4px); }
+            @media (max-width: 768px) {
+              .dot-caps-grid { grid-template-columns: 1fr; gap: 0; }
+              .dot-cap { padding: 1.25rem 0; }
+            }
+          `}</style>
+
           {/* Tabs Navigation */}
           <div className="services-tabs">
             <div className="services-tabs-menu">
@@ -168,11 +259,19 @@ export default function ServicesPage() {
               <div className="decorative-line-black"></div>
             </div>
 
-            {/* Tabs Content */}
+            {/* Tabs Content — ALL panels are rendered so every tier is present in
+                the server-rendered HTML for crawlers/AI; inactive panels are hidden
+                with display:none and aria-hidden. */}
             <div className="services-tabs-content">
-              {activeTab === 'websites' && <WebsitesTab />}
-              {activeTab === 'graphic' && <GraphicTab />}
-              {activeTab === 'photo' && <PhotoVideoTab />}
+              <div role="tabpanel" aria-hidden={activeTab !== 'websites'} style={{ display: activeTab === 'websites' ? 'block' : 'none' }}>
+                <WebsitesTab />
+              </div>
+              <div role="tabpanel" aria-hidden={activeTab !== 'graphic'} style={{ display: activeTab === 'graphic' ? 'block' : 'none' }}>
+                <GraphicTab />
+              </div>
+              <div role="tabpanel" aria-hidden={activeTab !== 'photo'} style={{ display: activeTab === 'photo' ? 'block' : 'none' }}>
+                <PhotoVideoTab />
+              </div>
             </div>
           </div>
         </div>
