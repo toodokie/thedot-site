@@ -79,7 +79,7 @@ export default function Footer() {
             <div>
               <div className="footer-text">
                 <br />
-                The Dot Creative Agency © 2025
+                The Dot Creative Agency © {new Date().getFullYear()}
               </div>
             </div>
           </div>

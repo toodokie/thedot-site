@@ -118,9 +118,9 @@ export default function ServicesPage() {
       {/* Moving Text Section */}
       <section className="services-moving-text">
         <div className="scrolling-text-container">
-          <h1 className="scrolling-text">
+          <div className="scrolling-text">
             transforming vision into captivating digital experiences • transforming vision into captivating digital experiences • transforming vision into captivating digital experiences • transforming vision into captivating digital experiences • transforming vision into captivating digital experiences •
-          </h1>
+          </div>
         </div>
       </section>
 
@@ -200,7 +200,7 @@ function WebsitesTab() {
     <div className="services-tab-content">
       <div className="services-tab-header">
         <div className="services-tab-title-row">
-          <h1 className="services-tab-title">Website Design</h1>
+          <h2 className="services-tab-title">Website Design</h2>
           <h6 className="services-tab-price">starting from $650</h6>
         </div>
         <p className="services-tab-description">
@@ -252,7 +252,7 @@ function GraphicTab() {
     <div className="services-tab-content">
       <div className="services-tab-header">
         <div className="services-tab-title-row">
-          <h1 className="services-tab-title">Graphic Design</h1>
+          <h2 className="services-tab-title">Graphic Design</h2>
           <h6 className="services-tab-price">starting from $350</h6>
         </div>
         <p className="services-tab-description">
@@ -299,7 +299,7 @@ function PhotoVideoTab() {
     <div className="services-tab-content">
       <div className="services-tab-header">
         <div className="services-tab-title-row">
-          <h1 className="services-tab-title">Photo & Video</h1>
+          <h2 className="services-tab-title">Photo & Video</h2>
           <h6 className="services-tab-price">starting from $450</h6>
         </div>
         <p className="services-tab-description">

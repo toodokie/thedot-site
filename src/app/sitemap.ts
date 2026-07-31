@@ -8,16 +8,18 @@ export const revalidate = 3600;
 const baseUrl = 'https://www.thedotcreative.co';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const now = new Date();
-
+  // NOTE: static/project pages intentionally omit `lastModified`. We don't track a
+  // real per-page content-modified date for them, and stamping `new Date()` (which
+  // changes every revalidate) is a misleading freshness signal. Blog posts below
+  // carry their real Notion last-edited date.
   const staticPages: MetadataRoute.Sitemap = [
-    { url: baseUrl, lastModified: now, changeFrequency: 'monthly', priority: 1.0 },
-    { url: `${baseUrl}/services`, lastModified: now, changeFrequency: 'monthly', priority: 0.9 },
-    { url: `${baseUrl}/contacts`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
-    { url: `${baseUrl}/brief`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
-    { url: `${baseUrl}/estimate`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
-    { url: `${baseUrl}/blog`, lastModified: now, changeFrequency: 'weekly', priority: 0.6 },
-    { url: `${baseUrl}/tools/ai-visibility`, lastModified: now, changeFrequency: 'monthly', priority: 0.6 },
+    { url: baseUrl, changeFrequency: 'monthly', priority: 1.0 },
+    { url: `${baseUrl}/services`, changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${baseUrl}/contacts`, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${baseUrl}/brief`, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${baseUrl}/estimate`, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${baseUrl}/blog`, changeFrequency: 'weekly', priority: 0.6 },
+    { url: `${baseUrl}/tools/ai-visibility`, changeFrequency: 'monthly', priority: 0.6 },
   ];
 
   // Project pages — real slugs from the portfolio data (no placeholder fallback).
@@ -26,7 +28,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const slugs = await getProjectSlugs();
     projectPages = slugs.map((slug) => ({
       url: `${baseUrl}/projects/${slug}`,
-      lastModified: now,
       changeFrequency: 'monthly' as const,
       priority: 0.7,
     }));

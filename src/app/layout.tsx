@@ -99,11 +99,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
-    "@id": "https://thedotcreative.co",
+    "@id": "https://www.thedotcreative.co/#organization",
     "name": "The Dot Creative Agency",
     "alternateName": "The Dot Creative",
-    "description": "Professional web design and development agency serving the Greater Toronto Area with international design expertise.",
-    "url": "https://thedotcreative.co",
+    "description": "Web design and development, business systems integration, workflow automation, AODA accessibility, and AI-visibility services for growing Ontario businesses.",
+    "url": "https://www.thedotcreative.co",
+    "telephone": "+1-647-402-4420",
     "email": "info@thedotcreative.co",
     "address": {
       "@type": "PostalAddress",
@@ -120,56 +121,54 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       "@type": "State",
       "name": "Ontario"
     },
-    "serviceArea": {
-      "@type": "GeoCircle",
-      "geoMidpoint": {
-        "@type": "GeoCoordinates",
-        "latitude": "43.7",
-        "longitude": "-79.4"
-      },
-      "geoRadius": "100000"
-    },
-    "priceRange": "$",
-    "image": "https://thedotcreative.co/images/logo.png",
-    "logo": "https://thedotcreative.co/images/logo.png",
+    "image": "https://www.thedotcreative.co/images/logo.png",
+    "logo": "https://www.thedotcreative.co/images/logo.png",
     "sameAs": [
       "https://www.instagram.com/thedotcreativeagency/",
       "https://www.linkedin.com/in/anna-volk-75b354373/"
     ],
     "hasOfferCatalog": {
       "@type": "OfferCatalog",
-      "name": "Web Design Services",
+      "name": "Web, Systems & AI-Visibility Services",
       "itemListElement": [
         {
           "@type": "Offer",
           "itemOffered": {
             "@type": "Service",
-            "name": "Custom Website Design",
-            "description": "Bespoke website design with international design standards"
+            "name": "Web Design & Development",
+            "description": "Custom, accessible websites built to convert for Ontario service businesses."
           }
         },
         {
-          "@type": "Offer", 
+          "@type": "Offer",
           "itemOffered": {
             "@type": "Service",
-            "name": "Web Development",
-            "description": "Professional web development with modern technologies"
+            "name": "Business Systems Integration",
+            "description": "Connecting websites with CRM, accounting, scheduling and intake tools."
           }
         },
         {
-          "@type": "Offer", 
+          "@type": "Offer",
           "itemOffered": {
             "@type": "Service",
-            "name": "Graphic Design",
-            "description": "Professional graphic design and branding services"
+            "name": "Workflow Automation",
+            "description": "Automating manual client and admin workflows to save time."
           }
         },
         {
-          "@type": "Offer", 
+          "@type": "Offer",
           "itemOffered": {
             "@type": "Service",
-            "name": "Photo & Video Production",
-            "description": "Professional photography and video production services"
+            "name": "AODA Accessibility Compliance",
+            "description": "Accessible web design and audits aligned with Ontario AODA requirements."
+          }
+        },
+        {
+          "@type": "Offer",
+          "itemOffered": {
+            "@type": "Service",
+            "name": "AI Visibility (Generative Engine Optimization)",
+            "description": "Helping businesses get found and recommended by AI search engines."
           }
         }
       ]
