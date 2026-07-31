@@ -208,7 +208,7 @@ export default function ProjectBrief() {
               </div>
               <div className="w-layout-blockcontainer graphic-copy-services-subheader w-container">
                 <div className="graphic-copy-services-copy">
-                  <h2 className="dot_h2_subheader">Fill Out Our Design Brief</h2>
+                  <h2 className="dot_h2_subheader">Tell Us About Your Project</h2>
                 </div>
               </div>
             </div>
@@ -239,14 +239,14 @@ export default function ProjectBrief() {
                   onClick={() => setActiveTab('Tab 1 - Websites')}
                 >
                   <span className="tab-dot">●</span>
-                  <span className="tab-title">WEBSITES</span>
+                  <span className="tab-title">WEBSITE &amp; SYSTEMS</span>
                 </button>
                 <button 
                   className={`services-tab-button ${activeTab === 'Tab 2 - Graphic' ? 'active' : ''}`}
                   onClick={() => setActiveTab('Tab 2 - Graphic')}
                 >
                   <span className="tab-dot">●</span>
-                  <span className="tab-title">GRAPHIC DESIGN</span>
+                  <span className="tab-title">DESIGN &amp; CONSULTING</span>
                 </button>
                 <button 
                   className={`services-tab-button ${activeTab === 'Tab 3 - Photo' ? 'active' : ''}`}
@@ -272,7 +272,7 @@ export default function ProjectBrief() {
                             <div className="tabs-layout_component w-form">
                               <form id="wf-form-Website-Form" name="wf-form-Website-Form" data-name="Website Form" redirect="/" data-redirect="/" method="get" className="website-form" data-wf-page-id="650e3ca06cf62f0b69c35e31" data-wf-element-id="fedee880-7b4d-c63e-75bd-9f4fb22a3840">
                                 <div className="w-layout-blockcontainer form-container-web-section w-container">
-                                  <h2 className="brief-title">Websites Brief</h2>
+                                  <h2 className="brief-title">Website &amp; Systems Brief</h2>
                                   
                                   <div className="w-layout-blockcontainer form-container w-container">
                                     <h2 className="dot_forms_title sites">Your Contacts:</h2>
@@ -621,7 +621,7 @@ export default function ProjectBrief() {
                             <div className="tabs-layout_component w-form">
                               <form id="wf-form-Webdesign-Form" name="wf-form-Webdesign-Form" data-name="Webdesign Form" redirect="/" data-redirect="/" method="get" className="webdesign-form" data-wf-page-id="650e3ca06cf62f0b69c35e31" data-wf-element-id="0d26b044-80d0-a38f-eccd-c3ce5a46d3e2">
                                 <div className="w-layout-blockcontainer form-container-web-section w-container">
-                                  <h2 className="brief-title">Graphic Design Brief</h2>
+                                  <h2 className="brief-title">Design &amp; Consulting Brief</h2>
                                   
                                   <div className="w-layout-blockcontainer form-container w-container">
                                     <h2 className="dot_forms_title sites">Your Contacts:</h2>
