@@ -248,7 +248,7 @@ export default function ContactPage() {
             </div>
 
             {/* Main Content Section */}
-            <h1 className="contact-heading eng">Let&apos;s create great designs together!</h1>
+            <h1 className="contact-heading eng">Let&apos;s design and build something great together!</h1>
             
             <div className="code-embed">
               <iframe 

@@ -79,10 +79,15 @@ function PromptRow({ text }: { text: string }) {
 export default function AiVisibilitySelfCheck({
   bookingUrl = '/contacts',
   apiPath = '/api/ai-visibility',
+  headingLevel = 2,
 }: {
   bookingUrl?: string;
   apiPath?: string;
+  /** Title tag level. Defaults to 2 for blog embeds (the post owns the H1);
+   *  the standalone /tools/ai-visibility page passes 1 so it has a proper H1. */
+  headingLevel?: 1 | 2;
 }) {
+  const TitleTag = (`h${headingLevel}` as 'h1' | 'h2');
   const [email, setEmail] = useState('');
   const [biz, setBiz] = useState('');
   const [city, setCity] = useState('');
@@ -206,7 +211,7 @@ export default function AiVisibilitySelfCheck({
   return (
     <section className="aivc" aria-label="AI visibility self-check">
       <div className="eyebrow"><span className="dot" aria-hidden="true" />Free tool · The Dot Creative</div>
-      <h2 className="title">Can AI find your business?</h2>
+      <TitleTag className="title">Can AI find your business?</TitleTag>
       <p className="sub">
         When a potential customer asks AI for a recommendation, does it name you? Enter your details, see the exact
         questions we&apos;ll ask, then we run them live and hand you a short, honest report.

@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     title: 'Can AI Find Your Business? Free AI-Visibility Self-Check',
     description:
       'Test whether ChatGPT, Gemini and Perplexity recommend your business. Free prompts you can run in about five minutes.',
-    url: 'https://thedotcreative.co/tools/ai-visibility',
+    url: 'https://www.thedotcreative.co/tools/ai-visibility',
     siteName: 'The Dot Creative Agency',
     images: [
       {
@@ -44,7 +44,7 @@ export default function AiVisibilityToolPage() {
   return (
     <>
       <main style={{ padding: 'clamp(48px, 10vw, 120px) 20px' }}>
-        <AiVisibilitySelfCheck />
+        <AiVisibilitySelfCheck headingLevel={1} />
       </main>
       <Footer />
     </>
