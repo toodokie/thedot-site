@@ -22,9 +22,6 @@ export default function HeroContent() {
               {/* Services List - Desktop */}
               <div className="services-list desktop-services">
                 <span>BRANDS THAT ATTRACT • WEBSITES THAT CONVERT • SYSTEMS THAT GROW</span>
-                <span style={{display: 'none'}}>PHOTO & VIDEO</span>
-                <span style={{display: 'none'}}>WEBSITES</span>
-                <span style={{display: 'none'}}>and MORE</span>
               </div>
             </div>
           </div>

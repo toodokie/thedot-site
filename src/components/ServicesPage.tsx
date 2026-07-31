@@ -139,26 +139,26 @@ export default function ServicesPage() {
           {/* Tabs Navigation */}
           <div className="services-tabs">
             <div className="services-tabs-menu">
-              <button 
+              <button
                 className={`services-tab-button ${activeTab === 'websites' ? 'active' : ''}`}
                 onClick={() => setActiveTab('websites')}
               >
                 <span className="tab-dot">●</span>
-                <span className="tab-title">WEBSITES</span>
+                <span className="tab-title">PROFESSIONAL FOUNDATION</span>
               </button>
-              <button 
+              <button
                 className={`services-tab-button ${activeTab === 'graphic' ? 'active' : ''}`}
                 onClick={() => setActiveTab('graphic')}
               >
                 <span className="tab-dot">●</span>
-                <span className="tab-title">GRAPHIC DESIGN</span>
+                <span className="tab-title">CONNECTED SYSTEM</span>
               </button>
-              <button 
+              <button
                 className={`services-tab-button ${activeTab === 'photo' ? 'active' : ''}`}
                 onClick={() => setActiveTab('photo')}
               >
                 <span className="tab-dot">●</span>
-                <span className="tab-title">PHOTO & VIDEO</span>
+                <span className="tab-title">DESIGN &amp; CONSULTING</span>
               </button>
             </div>
 
@@ -200,11 +200,11 @@ function WebsitesTab() {
     <div className="services-tab-content">
       <div className="services-tab-header">
         <div className="services-tab-title-row">
-          <h2 className="services-tab-title">Website Design</h2>
-          <h6 className="services-tab-price">starting from $650</h6>
+          <h2 className="services-tab-title">Professional Foundation</h2>
+          <h6 className="services-tab-price">$2,500&ndash;$4,500</h6>
         </div>
         <p className="services-tab-description">
-          For every client, we offer a curated suite of services tailored to your unique needs, all within our standard project fee. Should your project call for specialized features or functionalities beyond our comprehensive offerings, we are more than open to crafting a bespoke proposal to meet those specific requirements.
+          A strategic website that positions your business for growth. A 5&ndash;7 page, mobile-first, AODA-compliant site with professional brand implementation &mdash; built to convert, with 30 days of post-launch support. Need something beyond this scope? We&apos;ll craft a bespoke proposal.
         </p>
       </div>
 
@@ -252,40 +252,45 @@ function GraphicTab() {
     <div className="services-tab-content">
       <div className="services-tab-header">
         <div className="services-tab-title-row">
-          <h2 className="services-tab-title">Graphic Design</h2>
-          <h6 className="services-tab-price">starting from $350</h6>
+          <h2 className="services-tab-title">Connected Business System</h2>
+          <h6 className="services-tab-price">$5,500&ndash;$7,500</h6>
         </div>
         <p className="services-tab-description">
-          For every client, we offer a curated suite of services tailored to your unique needs, all within our standard project fee. Should your project call for specialized features or functionalities beyond our comprehensive offerings, we are more than open to crafting a bespoke proposal to meet those specific requirements.
+          Your complete digital transformation. We design an exceptional website, then connect it to the tools you already run &mdash; CRM, accounting, scheduling, intake &mdash; and automate the busywork in between. One intelligent system that typically saves you 10&ndash;20 hours a month.
         </p>
       </div>
 
       <div className="services-features-grid">
         <ServiceFeature
-          title="Impactful Brand Discovery and Strategy."
-          description=" Before we put pencil to paper, we delve into your business ethos, goals, and target audience. This deep dive informs every choice we make, ensuring your graphic elements are both visually stunning and strategically sound."
-          iconType="brand"
+          title="Strategic Website Design."
+          description=" Everything in the Professional Foundation tier, built as the front end of a connected system rather than a standalone brochure site."
+          iconType="design"
         />
         <ServiceFeature
-          title="Creative Concepts That Resonate."
-          description=" Our design process begins with understanding your vision and translating it into compelling visual narratives. We craft concepts that not only look exceptional but also communicate your brand's core message effectively."
-          iconType="creative"
+          title="Business Systems Integration."
+          description=" We wire your site to your CRM, accounting, scheduling and intake tools so information flows in one place &mdash; no more re-keying the same data across apps."
+          iconType="strategy"
         />
         <ServiceFeature
-          title="Versatile Design Solutions."
-          description=" From business cards to billboards, our graphic design services span across all mediums. We ensure consistency in your brand&apos;s visual identity whether it&apos;s digital or print applications."
-          iconType="versatile"
+          title="Workflow Automation."
+          description=" We map the manual, repetitive steps in your client and admin workflows and automate them end to end, so routine work runs itself."
+          iconType="responsive"
         />
         <ServiceFeature
-          title="Collaborative Design Process."
-          description=" We believe the best designs come from collaboration. Throughout the project, we work closely with you, incorporating your feedback and ensuring the final product exceeds your expectations."
-          iconType="collaborative"
+          title="Team Training &amp; Documentation."
+          description=" Your team gets hands-on training and clear documentation, so the new system is genuinely usable from day one."
+          iconType="support"
+        />
+        <ServiceFeature
+          title="90-Day Optimization."
+          description=" We stay on for 90 days after launch to tune the integrations and automations against how you actually work."
+          iconType="seo"
         />
       </div>
-      
+
       <div className="services-tab-cta">
         <h3 className="services-cta-title">Want to see what&apos;s included and estimate the costs?</h3>
-        <Link href="/estimate#graphic" className="services-cta-button">
+        <Link href="/estimate" className="services-cta-button">
           Learn More
         </Link>
       </div>
@@ -299,44 +304,44 @@ function PhotoVideoTab() {
     <div className="services-tab-content">
       <div className="services-tab-header">
         <div className="services-tab-title-row">
-          <h2 className="services-tab-title">Photo & Video</h2>
-          <h6 className="services-tab-price">starting from $450</h6>
+          <h2 className="services-tab-title">Design &amp; Consulting</h2>
+          <h6 className="services-tab-price">from $350</h6>
         </div>
         <p className="services-tab-description">
-          For every client, we offer a curated suite of services tailored to your unique needs, all within our standard project fee. Should your project call for specialized features or functionalities beyond our comprehensive offerings, we are more than open to crafting a bespoke proposal to meet those specific requirements.
+          Targeted engagements for businesses that need a specific improvement or an ongoing partner &mdash; not a full build. Fixed-scope projects and consulting, priced from $350.
         </p>
       </div>
 
       <div className="services-features-grid">
-        <div className="service-feature">
-          <div className="service-feature-text">
-            <h3 className="service-feature-title">Professional Photography.</h3>
-            <p className="service-feature-description"> From product shots to corporate headshots, we capture high-quality images that tell your brand&apos;s story. Our photography services ensure your visual content stands out across all platforms.</p>
-          </div>
-        </div>
-        <div className="service-feature">
-          <div className="service-feature-text">
-            <h3 className="service-feature-title">Video Production & Editing.</h3>
-            <p className="service-feature-description"> We create compelling video content from concept to final cut. Whether it&apos;s promotional videos, corporate presentations, or social media content, we deliver professional video solutions.</p>
-          </div>
-        </div>
-        <div className="service-feature">
-          <div className="service-feature-text">
-            <h3 className="service-feature-title">Social Media Content.</h3>
-            <p className="service-feature-description"> Specialized content creation for social platforms. We understand the unique requirements of different social channels and create optimized visual content that engages your audience.</p>
-          </div>
-        </div>
-        <div className="service-feature">
-          <div className="service-feature-text">
-            <h3 className="service-feature-title">Brand Photography.</h3>
-            <p className="service-feature-description"> Consistent visual identity across all your brand touchpoints. We develop and maintain a cohesive photographic style that aligns with your brand guidelines and messaging.</p>
-          </div>
-        </div>
+        <ServiceFeature
+          title="Brand Identity Systems."
+          description=" Logo, colour, type and usage guidelines that keep your brand consistent everywhere it appears."
+          iconType="brand"
+        />
+        <ServiceFeature
+          title="AODA Accessibility Audit."
+          description=" A practical review of your site against Ontario AODA requirements, with a prioritised list of what to fix and how."
+          iconType="strategy"
+        />
+        <ServiceFeature
+          title="System Integration Consulting."
+          description=" Not sure how your tools should fit together? We map your stack and recommend the integrations and automations worth building."
+          iconType="seo"
+        />
+        <ServiceFeature
+          title="Performance &amp; Optimization."
+          description=" Speed, Core Web Vitals, conversion and SEO tune-ups for a site you already have."
+          iconType="responsive"
+        />
       </div>
-      
+
+      <p className="services-tab-description" style={{ marginTop: '1.5rem', opacity: 0.75 }}>
+        Also available on request: brand identity, graphic design, and photo &amp; video &mdash; as &agrave;-la-carte add-ons to a project.
+      </p>
+
       <div className="services-tab-cta">
         <h3 className="services-cta-title">Want to see what&apos;s included and estimate the costs?</h3>
-        <Link href="/estimate#photo" className="services-cta-button">
+        <Link href="/estimate" className="services-cta-button">
           Learn More
         </Link>
       </div>

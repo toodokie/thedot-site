@@ -18,6 +18,28 @@ The external audit is **largely accurate** — I verified the concrete claims ag
 
 ---
 
+## Canonical offer — DECIDED 2026-07-31 (the unlock)
+
+The founder's decisions, now the single source of truth for all Wave-2/3 work:
+
+- **Positioning:** *Websites and connected business systems for growing Ontario businesses.* Web + systems is the headline; **workflow automation, AODA accessibility, and AI-visibility are supporting services**; **graphic design + photo/video are secondary à-la-carte** (available on request — NOT in nav, schema, or the primary architecture).
+- **Canonical services + prices** (these REPLACE the legacy $650 / $350 / $450 and $800–$2,800 figures everywhere):
+  | Service | Price | Role |
+  |---|---|---|
+  | Professional Foundation (web design + build) | $2,500–$4,500 | Primary |
+  | Connected Business System (site + integration + automation) | $5,500–$7,500 | Primary (differentiator) |
+  | Design & Consulting (AODA audit, integration consulting, optimization, + à-la-carte creative) | from $350 | Supporting |
+  | AI-Visibility Audit | tie to the /tools/ai-visibility tool | Supporting |
+- **Impact claim — standardized to "10–20 hours per month".** Purge the conflicting "10+ hours weekly" and "25–40% less admin" claims until a case study can support a stronger number.
+- **Estimate + Brief:** REBUILD to the current offer (not retire/noindex) — keep the interactive funnels, update services/prices/minimums.
+
+### Wave-2 build sub-projects (sequenced)
+- **SP1 — Core offer reconciliation** (the Critical fix; mostly executable now): hero H1 (drop "DIGITAL DESIGN AGENCY" → the positioning line), Services page rebuilt around the 3 tiers + secondary à-la-carte, purge legacy prices site-wide, standardize the impact claim, align schema.
+- **SP2 — Rebuild `/estimate` + `/brief`** to the current services/prices.
+- **SP3 — Service landing pages** (web-design+systems, workflow-automation, AODA, managed-growth, AI-visibility-audit) + internal linking + per-page `Service` schema.
+- **SP4 — About page** (needs the founder's real bio/experience/credentials).
+- **SP5 — Proof / case study** (needs client-approved evidence).
+
 ## Verification results (checked today)
 
 | # | Audit claim | Verified? | Evidence / nuance |
