@@ -3152,11 +3152,16 @@ li {
   .services-page .service-feature-title {
     color: var(--foreground) !important;
     margin-bottom: 0.5rem !important;
+    /* Match the run-in label to its body size and make it the bold lead-in.
+       Previously the title stayed at 1.25rem while the description below jumped
+       to 2rem, inverting the hierarchy. */
+    font-size: 1.6rem !important;
+    font-weight: 500 !important;
   }
-  
+
   .services-page .service-feature-description {
     margin-top: 0 !important;
-    font-size: 2rem !important;
+    font-size: 1.6rem !important;
   }
 }
 
