@@ -98,6 +98,7 @@ async function startJob(request:ChangeRequest,contentId:string|null,file:string|
 function normalText(value:string){return value.replace(/\r\n?/g,'\n').trim()}
 function validateEditPackageCandidate(
   raw:string,sourcePath:string,base:ParsedContent,request:{blockKey:string;proposedText:string},
+  expectedPlannedDate:string|null,
 ):ParsedContent{
   const candidate=parseContentFile(raw,sourcePath)
   if(candidate.content_id!==base.content_id||candidate.client!==base.client)
@@ -105,12 +106,23 @@ function validateEditPackageCandidate(
   if(candidate.version!==base.version+1)
     throw new Error(`Package candidate must be version ${base.version+1}`)
   const preserved: Array<keyof ParsedContent>=[
-    'portal_kind','title','producer','calendar_note','format','pillar','platforms','scheduled_date',
+    'portal_kind','title','producer','calendar_note','format','pillar','platforms',
     'status','canva_url','drive_url','fact_check','fact_check_scope','fact_check_ledger',
   ]
   if(preserved.some((key)=>JSON.stringify(candidate[key])!==JSON.stringify(base[key])))
     throw new Error('Package candidate changes workflow metadata outside the requested copy package')
-  const block=candidate.copy_blocks.find((row)=>row.key===request.blockKey)
+  // The portal, not an old source snapshot, owns the current editorial date. A request
+  // reconciliation may carry that already-recorded date forward into its new immutable
+  // version, but it must never choose a different one or resurrect stale source metadata.
+  if(candidate.scheduled_date!==expectedPlannedDate)
+    throw new Error('Package candidate scheduled_date must exactly match the current portal planned date')
+  // A legacy single-platform caption may be intentionally consolidated into the
+  // reviewed shared social package. This is the only allowed key transition, and
+  // the requested text still has to match the receiving block exactly.
+  const compatibleKeys=request.blockKey==='ig-caption'||request.blockKey==='fb-caption'
+    ? [request.blockKey,'ig-facebook-caption','social-caption']
+    : [request.blockKey]
+  const block=candidate.copy_blocks.find((row)=>compatibleKeys.includes(row.key))
   if(!block||normalText(block.body)!==normalText(request.proposedText))
     throw new Error('Package candidate does not include Maria\'s exact requested copy edit')
   return candidate
@@ -122,6 +134,9 @@ async function reconcileEdit(client:{id:string;slug:string},requestId:string,app
     .select('source_path,source_commit_sha').eq('content_item_id',request.content_id)
     .eq('client_id',client.id).eq('version',request.base_version).single()
   if(error||!snapshot)throw new Error(`canonical provenance unavailable: ${error?.message??'missing'}`)
+  const {data:item,error:itemError}=await admin.from('content_items').select('planned_date')
+    .eq('id',request.content_id).eq('client_id',client.id).single()
+  if(itemError||!item)throw new Error(`content item unavailable: ${itemError?.message??'missing'}`)
   const {dir}=canonicalRoot(); const path=canonicalFile(dir,snapshot.source_path)
   const raw=readFileSync(path,'utf8'); const blockKey=text(request.payload,'block_key')
   const originalChecksum=text(request.payload,'original_checksum');const proposedText=text(request.payload,'proposed_text')
@@ -130,8 +145,10 @@ async function reconcileEdit(client:{id:string;slug:string},requestId:string,app
   const edited=applyCanonicalEdit(raw,snapshot.source_path,request.base_version,{blockKey,originalChecksum,proposedText})
   const candidateRaw=candidatePath?candidateFile(candidatePath):edited.raw
   const parsed=candidatePath
-    ?validateEditPackageCandidate(candidateRaw,snapshot.source_path,base,{blockKey,proposedText})
+    ?validateEditPackageCandidate(candidateRaw,snapshot.source_path,base,{blockKey,proposedText},item.planned_date??null)
     :parseContentFile(candidateRaw,snapshot.source_path)
+  if(!candidatePath&&parsed.scheduled_date!==(item.planned_date??null))
+    throw new Error('Canonical source has a stale scheduled_date; provide a candidate that matches the current portal planned date')
   const candidateBlock=parsed.copy_blocks.find((row)=>row.key===blockKey)
   if(candidatePath){
     printSafePackageDiff(base,parsed)
@@ -140,14 +157,15 @@ async function reconcileEdit(client:{id:string;slug:string},requestId:string,app
   if(!apply){console.log('Preview only. Re-run with --apply after reviewing this client-visible diff.');return}
   await startJob(request,null,null,null)
   // From this point a failed command can leave a valid local commit or a valid open DB job.
-  // Keep that recoverable state as `applying`; never falsely label Maria's request conflicted.
-  atomicWrite(path,candidateRaw);git(dir,['diff','--check','--',snapshot.source_path])
-  git(dir,['add','--',snapshot.source_path]);git(dir,['commit','-m',`Apply portal edit request ${request.id}`],'inherit')
-  git(dir,['push','origin','HEAD'],'inherit');const commit=git(dir,['rev-parse','HEAD'])
+  // Open the DB revision before the irreversible canonical commit. A later Git or sync failure
+  // leaves a recoverable open revision, never a committed source change that the DB refused.
   const begin=await admin.rpc('begin_content_request_revision',{
     p_request_id:request.id,p_content_id:request.content_id,p_content_version:request.base_version,
   })
   if(begin.error)throw new Error(begin.error.message)
+  atomicWrite(path,candidateRaw);git(dir,['diff','--check','--',snapshot.source_path])
+  git(dir,['add','--',snapshot.source_path]);git(dir,['commit','-m',`Apply portal edit request ${request.id}`],'inherit')
+  git(dir,['push','origin','HEAD'],'inherit');const commit=git(dir,['rev-parse','HEAD'])
   const synced=await admin.rpc('sync_content_item_versions',{p_items:[syncRow(parsed,client.id,commit)]})
   if(synced.error)throw new Error(synced.error.message)
   const prepared=await admin.rpc('mark_content_request_prepared',{p_request_id:request.id,p_commit_sha:commit,
@@ -159,22 +177,29 @@ async function resumeEdit(client:{id:string;slug:string},requestId:string,apply:
   const request=await changeRequest(client.id,requestId)
   if(request.request_type!=='edit'||!request.content_id||!request.base_version)
     throw new Error('request is not an edit')
+  if(!['conflicted','applying'].includes(request.status))
+    throw new Error('request is not a recoverable edit reconciliation')
   const {data:snapshot,error}=await admin.from('content_item_versions')
     .select('source_path,source_commit_sha').eq('content_item_id',request.content_id)
     .eq('client_id',client.id).eq('version',request.base_version).single()
   if(error||!snapshot)throw new Error(`canonical provenance unavailable: ${error?.message??'missing'}`)
+  const {data:item,error:itemError}=await admin.from('content_items').select('planned_date')
+    .eq('id',request.content_id).eq('client_id',client.id).single()
+  if(itemError||!item)throw new Error(`content item unavailable: ${itemError?.message??'missing'}`)
   const {dir,head}=canonicalRoot(); const path=canonicalFile(dir,snapshot.source_path)
   git(dir,['merge-base','--is-ancestor',snapshot.source_commit_sha,head])
   const base=parseContentFile(git(dir,['show',`${snapshot.source_commit_sha}:${snapshot.source_path}`]),snapshot.source_path)
   const parsed=validateEditPackageCandidate(readFileSync(path,'utf8'),snapshot.source_path,base,{
     blockKey:text(request.payload,'block_key')??'',proposedText:text(request.payload,'proposed_text')??'',
-  })
+  },item.planned_date??null)
   printSafePackageDiff(base,parsed)
   if(!apply){console.log('Resume preview only. Re-run with --apply after reviewing this client-visible diff.');return}
-  const resumed=await admin.rpc('resume_content_request_reconciliation',{
-    p_request_id:request.id,p_actor_key:'thedot-admin',p_idempotency_key:randomUUID(),
-  })
-  if(resumed.error)throw new Error(resumed.error.message)
+  if(request.status==='conflicted'){
+    const resumed=await admin.rpc('resume_content_request_reconciliation',{
+      p_request_id:request.id,p_actor_key:'thedot-admin',p_idempotency_key:randomUUID(),
+    })
+    if(resumed.error)throw new Error(resumed.error.message)
+  }
   const begin=await admin.rpc('begin_content_request_revision',{
     p_request_id:request.id,p_content_id:request.content_id,p_content_version:request.base_version,
   })
@@ -184,7 +209,7 @@ async function resumeEdit(client:{id:string;slug:string},requestId:string,apply:
   const prepared=await admin.rpc('mark_content_request_prepared',{p_request_id:request.id,p_commit_sha:head,
     p_actor_key:'thedot-admin',p_idempotency_key:randomUUID()})
   if(prepared.error)throw new Error(prepared.error.message)
-  console.log(`Resumed and prepared edit request ${request.id} at ${head}. Release review is still required.`)
+  console.log(`Recovered and prepared edit request ${request.id} at ${head}. Release review is still required.`)
 }
 async function reconcileCreate(client:{id:string;slug:string},requestId:string,contentId:string,apply:boolean){
   const request=await changeRequest(client.id,requestId);if(request.request_type!=='create')throw new Error('request is not a create')
