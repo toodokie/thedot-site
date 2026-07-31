@@ -646,15 +646,18 @@ async function main(): Promise<void> {
 
     {
       const createKey = randomUUID()
+      const tomorrow = new Date()
+      tomorrow.setUTCDate(tomorrow.getUTCDate() + 1)
+      const desiredDate = tomorrow.toISOString().slice(0, 10)
       const created = await bClient.rpc('request_content_create', {
         p_client_id: bClientId, p_title: 'Requested from the portal',
         p_brief: 'A safe client brief for a new piece.', p_platforms: ['instagram','facebook'],
-        p_desired_date: '2026-07-30', p_notes: null, p_idempotency_key: createKey,
+        p_desired_date: desiredDate, p_notes: null, p_idempotency_key: createKey,
       })
       const createId = (created.data as { id?: string } | null)?.id
       const crossCreate = await bClient.rpc('request_content_create', {
         p_client_id: kansetClientId, p_title: 'Cross tenant', p_brief: 'Must fail.',
-        p_platforms: ['instagram'], p_desired_date: '2026-07-30', p_notes: null,
+        p_platforms: ['instagram'], p_desired_date: desiredDate, p_notes: null,
         p_idempotency_key: randomUUID(),
       })
       check('R7: create request is tenant-scoped and creates no premature content row',
@@ -2916,6 +2919,92 @@ async function main(): Promise<void> {
           ?? changedContact.error?.message ?? changedProvenance.error?.message
           ?? clientProvenanceRead.error?.message ?? directProvenanceWrite.error?.message
           ?? 'unexpected agency plan-cycle provenance result')
+    }
+
+    {
+      // 0049: a premature future submission must not mask the nearest actionable plan.
+      // The date writer must update that same nearest cycle, and closing the accidental
+      // submission is an agency-only, stale-safe, idempotent audit event.
+      const formatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit',
+      })
+      const parts = formatter.formatToParts(new Date())
+      const part = (type: string) => parts.find((value) => value.type === type)?.value
+      const today = `${part('year')}-${part('month')}-${part('day')}`
+      const addDays = (value: string, days: number) => {
+        const date = new Date(`${value}T12:00:00Z`)
+        date.setUTCDate(date.getUTCDate() + days)
+        return date.toISOString().slice(0, 10)
+      }
+      const thisMondayOffset = (new Date(`${today}T12:00:00Z`).getUTCDay() + 6) % 7
+      const nearestStart = addDays(today, 7 - thisMondayOffset)
+      const nearestEnd = addDays(nearestStart, 4)
+      const laterStart = addDays(nearestStart, 7)
+      const laterEnd = addDays(laterStart, 4)
+      const prematureStart = addDays(nearestStart, 14)
+      const prematureEnd = addDays(prematureStart, 4)
+      const makeCycle = (key: string, start: string, end: string, title: string) => admin.rpc('agency_upsert_plan_cycle', {
+        p_client_id: bClientId,
+        p_cycle_key: key,
+        p_week_start: start, p_week_end: end, p_title: title,
+        p_direction_summary: 'RLS plan-cycle selection fixture.',
+        p_items: [{
+          content_id: B_CONTENT_ID, title: 'Visible main v1', format: 'caption',
+          pillar: 'employer', platforms: ['instagram'], producer: 'the_dot',
+          planned_date: start, direction_note: 'Selection fixture.', position: 1,
+        }],
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-plan-selection-${key}-${RUN_ID}`,
+      })
+      const nearest = await makeCycle(`rls-nearest-${RUN_ID}`, nearestStart, nearestEnd, 'Nearest actionable plan')
+      const later = await makeCycle(`rls-later-${RUN_ID}`, laterStart, laterEnd, 'Later actionable plan')
+      const premature = await makeCycle(`rls-premature-${RUN_ID}`, prematureStart, prematureEnd, 'Premature plan')
+      const planDate = await admin.rpc('agency_set_content_plan_date', {
+        p_client_id: bClientId, p_content_id: B_CONTENT_ID, p_planned_date: addDays(nearestStart, 1),
+        p_note: 'Move the nearest actionable plan item.', p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-nearest-plan-date-${RUN_ID}`,
+      })
+      const itemDates = await admin.from('plan_cycle_items').select('plan_cycle_id,planned_date')
+        .eq('client_id', bClientId).eq('content_id', B_CONTENT_ID)
+        .in('plan_cycle_id', [nearest.data, later.data, premature.data].filter(Boolean))
+      const dateByCycle = new Map((itemDates.data ?? []).map((row) => [row.plan_cycle_id, row.planned_date]))
+      const closeArgs = {
+        p_client_id: bClientId, p_plan_cycle_id: premature.data, p_revision: 1,
+        p_reason: 'Submitted two weeks too early.', p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-close-premature-${RUN_ID}`,
+      }
+      const clientClose = await bClient.rpc('agency_close_plan_cycle', closeArgs)
+      const staleClose = premature.data
+        ? await admin.rpc('agency_close_plan_cycle', { ...closeArgs, p_revision: 2, p_idempotency_key: `rls-close-stale-${RUN_ID}` })
+        : { data: null, error: new Error('premature cycle missing') }
+      const closed = premature.data
+        ? await admin.rpc('agency_close_plan_cycle', closeArgs)
+        : { data: null, error: new Error('premature cycle missing') }
+      const exactRetry = premature.data
+        ? await admin.rpc('agency_close_plan_cycle', closeArgs)
+        : { data: null, error: new Error('premature cycle missing') }
+      const closedCycle = premature.data
+        ? await admin.from('plan_cycles').select('status').eq('id', premature.data).single()
+        : { data: null, error: new Error('premature cycle missing') }
+      const clientClosedRead = premature.data
+        ? await bClient.from('plan_cycles_client').select('id').eq('id', premature.data)
+        : { data: [], error: new Error('premature cycle missing') }
+      check('PC2: nearest actionable plan wins, plan-date updates it, and premature close is agency-only/idempotent',
+        !nearest.error && !later.error && !premature.error && !planDate.error && !itemDates.error
+          && dateByCycle.get(nearest.data) === addDays(nearestStart, 1)
+          && dateByCycle.get(later.data) === laterStart
+          && dateByCycle.get(premature.data) === prematureStart
+          && !!clientClose.error && !!staleClose.error && !closed.error && !exactRetry.error
+          && !closedCycle.error && closedCycle.data?.status === 'closed'
+          && !!(closed.data as { activity_event_id?: string } | null)?.activity_event_id
+          && (closed.data as { activity_event_key?: string } | null)?.activity_event_key === `agency:plan-cycle-closed:${premature.data}:1`
+          && (exactRetry.data as { activity_event_id?: string } | null)?.activity_event_id
+            === (closed.data as { activity_event_id?: string } | null)?.activity_event_id
+          && !clientClosedRead.error && (clientClosedRead.data ?? []).length === 0,
+        nearest.error?.message ?? later.error?.message ?? premature.error?.message ?? planDate.error?.message
+          ?? itemDates.error?.message
+          ?? closed.error?.message ?? exactRetry.error?.message ?? closedCycle.error?.message
+          ?? clientClosedRead.error?.message
+          ?? `nearest=${dateByCycle.get(nearest.data)} later=${dateByCycle.get(later.data)} premature=${dateByCycle.get(premature.data)}`)
     }
 
     {

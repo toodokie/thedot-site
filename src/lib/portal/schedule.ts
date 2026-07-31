@@ -2,6 +2,7 @@ import { createSupabaseServer } from '@/lib/supabase/server'
 import { PortalDataError } from './data'
 import { parseClientState, type ContentStatus, type ClientState } from './state'
 import type { ScheduleState } from './data'
+import { getCurrentPlanCycle } from './plan-cycle'
 
 // Read model for the Calendar + Plan surfaces. Mirrors data.ts (createSupabaseServer,
 // the content_with_state view, PortalDataError on failure) but selects only the columns the
@@ -60,27 +61,16 @@ const SELECT = 'id, content_id, title, format, pillar, platforms, status, client
 
 export async function getSchedule(clientId: string): Promise<ScheduleRow[]> {
   const supabase = await createSupabaseServer()
-  const [contentResult, calendarResult, cycleResult] = await Promise.all([
+  const [contentResult, calendarResult, currentPlan] = await Promise.all([
     supabase.from('content_calendar_client').select(SELECT).eq('client_id', clientId)
       .order('planned_date', { ascending: true, nullsFirst: false }).order('content_id', { ascending: true }),
     supabase.from('calendar_events_client')
       .select('content_id,content_version,event_html_link,sync_status,sync_label,event_role')
       .eq('client_id', clientId).eq('event_role','editorial_plan'),
-    supabase.from('plan_cycles_client').select('id')
-      .eq('client_id', clientId)
-      .order('week_start', { ascending: false }).order('revision', { ascending: false })
-      .limit(1).maybeSingle(),
+    getCurrentPlanCycle(clientId),
   ])
   if (contentResult.error) throw new PortalDataError(contentResult.error.message)
   if (calendarResult.error) throw new PortalDataError(calendarResult.error.message)
-  if (cycleResult.error) throw new PortalDataError(cycleResult.error.message)
-  const cycleItemsResult = cycleResult.data
-    ? await supabase.from('plan_cycle_items_client')
-      .select('content_item_id,content_id,planned_date,title,format,pillar,platforms,direction_note')
-      .eq('client_id', clientId).eq('plan_cycle_id', cycleResult.data.id)
-      .order('position', { ascending: true })
-    : { data: [], error: null }
-  if (cycleItemsResult.error) throw new PortalDataError(cycleItemsResult.error.message)
   const calendarMap = new Map((calendarResult.data ?? []).map((row) => [`${row.content_id}:${row.content_version}`,row]))
   // Normalise platforms to a real array so callers never guard against null.
   const released = (contentResult.data ?? []).map((value) => {
@@ -97,7 +87,7 @@ export async function getSchedule(clientId: string): Promise<ScheduleRow[]> {
       calendar_event_link: calendar?.event_html_link ?? null }
   }) as unknown as ScheduleRow[]
   const releasedIds = new Set(released.map((row) => row.id))
-  const ideas = (cycleItemsResult.data ?? []).flatMap((value) => {
+  const ideas = currentPlan.items.flatMap((value) => {
     if (releasedIds.has(value.content_item_id)) return []
     return [{
       id: value.content_item_id,

@@ -51,7 +51,7 @@ const assertNoteGrammarSafe = (value: string | null, field: string) => {
 
 async function main() {
   const [command, inputPath, ...rest] = process.argv.slice(2)
-  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|courtesy-release|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|plan-cycle|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
+  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|courtesy-release|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|plan-cycle|plan-cycle-close|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
   const dryRun = rest.includes('--dry-run')
   const packIndex = rest.indexOf('--pack')
   const packPath = packIndex >= 0 ? rest[packIndex + 1] ?? null : null
@@ -326,6 +326,14 @@ async function main() {
     rpc = 'agency_upsert_plan_cycle'; args = { p_client_id: null,
       p_cycle_key: cycleKey, p_week_start: weekStart, p_week_end: weekEnd,
       p_title: title, p_direction_summary: directionSummary, p_items: items,
+      p_actor_key: actor, p_idempotency_key: idempotency }
+  } else if (command === 'plan-cycle-close') {
+    const reason = requiredText(payload.reason, 'reason', 500)
+    if (reason.length < 3) throw new Error('reason must be at least 3 characters')
+    assertClientSafeAgencyText({ reason })
+    rpc = 'agency_close_plan_cycle'; args = { p_client_id: null,
+      p_plan_cycle_id: requiredText(payload.planCycleId, 'planCycleId', 36),
+      p_revision: integer(payload.revision, 'revision', 1), p_reason: reason,
       p_actor_key: actor, p_idempotency_key: idempotency }
   } else if (command === 'plan-cycle-decision') {
     // Agency-recorded plan-cycle decision (0039). Records a real client approval/change made

@@ -1,4 +1,5 @@
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
+import { selectCurrentPlanCycle } from '@/lib/portal/plan-cycle-selection'
 import { loadAgencyPieceCalendar } from '@/lib/portal/gates-loader'
 
 // Admin read-loaders for the surfaces that MIRROR Maria's side (Ideas / Plan / Reports / Strategy
@@ -96,9 +97,9 @@ export async function loadPlanCycle(): Promise<AdminPlanCycle> {
   const clientId = await kansetId(admin)
   const c = await admin.from('plan_cycles')
     .select('id,cycle_key,week_start,week_end,title,direction_summary,revision,status,submitted_at,decided_at,approved_revision')
-    .eq('client_id', clientId).order('week_start', { ascending: false }).order('revision', { ascending: false }).limit(1)
+    .eq('client_id', clientId)
   if (c.error) throw new Error(c.error.message)
-  const cycle = (c.data ?? [])[0] as PlanCycleRow | undefined
+  const cycle = selectCurrentPlanCycle((c.data ?? []) as PlanCycleRow[])
   if (!cycle) return { cycle: null, items: [], latestDecision: null }
   const it = await admin.from('plan_cycle_items')
     .select('id,position,planned_date,title,format,platforms,producer,direction_note,content_id')

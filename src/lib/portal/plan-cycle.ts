@@ -1,5 +1,6 @@
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { PortalDataError } from '@/lib/portal/data'
+import { selectCurrentPlanCycle } from './plan-cycle-selection'
 
 export type PlanCycle = {
   id: string
@@ -151,7 +152,7 @@ export async function getContentAvailability(
 
 export async function getCurrentPlanCycle(clientId: string): Promise<{ cycle: PlanCycle | null; items: PlanCycleItem[] }> {
   const cycles = await getPlanCycles(clientId)
-  const cycle = cycles[0] ?? null
+  const cycle = selectCurrentPlanCycle(cycles)
   if (!cycle) return { cycle: null, items: [] }
   return { cycle, items: await getPlanCycleItems(clientId, cycle.id) }
 }
