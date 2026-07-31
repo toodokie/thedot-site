@@ -8,14 +8,20 @@ import HoneypotField from './HoneypotField';
 import { trackLeadGeneration, trackNavigation } from '@/lib/analytics';
 
 export default function ProjectEstimate() {
-  const [activeTab, setActiveTab] = useState<'websites' | 'graphic' | 'photo'>('websites');
+  // 'websites' is retained in the union for back-compat (old #websites anchors),
+  // but websites are now a package (see the tier cards) rather than an à-la-carte
+  // tab, so the calculator defaults to the design/add-ons estimator.
+  const [activeTab, setActiveTab] = useState<'websites' | 'graphic' | 'photo'>('graphic');
 
   useEffect(() => {
     // Handle hash-based routing for tabs
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '');
-      if (hash === 'websites' || hash === 'graphic' || hash === 'photo') {
-        setActiveTab(hash as 'websites' | 'graphic' | 'photo');
+      if (hash === 'graphic' || hash === 'photo') {
+        setActiveTab(hash as 'graphic' | 'photo');
+      } else if (hash === 'websites') {
+        // Old #websites anchor: websites are now a package, route to add-ons.
+        setActiveTab('graphic');
       }
     };
 
@@ -365,7 +371,80 @@ export default function ProjectEstimate() {
         <div className="container about-title brief">
           <div className="max-width-xlarge align-center">
             <h2 className="services-features-title">Choose Your Project Type</h2>
-            
+
+            {/* Package tiers — scoped projects, quoted via the brief (they need a
+                conversation, not a self-serve calculator). */}
+            <div className="est-packages">
+              <div className="est-packages-grid">
+                <div className="est-pkg">
+                  <h3 className="est-pkg-title">Professional Foundation</h3>
+                  <p className="est-pkg-price">$2,500&ndash;$4,500</p>
+                  <p className="est-pkg-desc">A strategic, accessible website built to convert &mdash; 5&ndash;7 pages, mobile-first, with brand implementation and 30 days of support.</p>
+                  <a href="/brief" className="services-cta-button">Get a scoped quote</a>
+                </div>
+                <div className="est-pkg">
+                  <h3 className="est-pkg-title">Connected Business System</h3>
+                  <p className="est-pkg-price">$5,500&ndash;$7,500</p>
+                  <p className="est-pkg-desc">Everything in Foundation, connected to your CRM, accounting, scheduling and intake &mdash; with automation that saves 10&ndash;20 hours a month.</p>
+                  <a href="/brief" className="services-cta-button">Get a scoped quote</a>
+                </div>
+              </div>
+              <p className="est-alc-lead">Just need a smaller piece? Build an &agrave;-la-carte estimate below.</p>
+            </div>
+
+            <style jsx>{`
+              .est-packages { margin: 0 0 3.5rem; }
+              .est-packages-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+                gap: 1.5rem;
+                text-align: left;
+                margin-bottom: 2.25rem;
+              }
+              .est-pkg {
+                background: radial-gradient(circle at top right, rgba(218,255,0,0.14) 0%, rgba(218,255,0,0.04) 28%, #ffffff 52%);
+                border: 1px solid #e6e4de;
+                padding: clamp(1.75rem, 3vw, 2.5rem);
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+              }
+              .est-pkg-title {
+                font-family: futura-pt, sans-serif;
+                font-weight: 400;
+                font-size: 1.6rem !important;
+                text-transform: none !important;
+                color: #35332f;
+                margin: 0 0 0.4rem 0;
+                padding: 0;
+                line-height: 1.15;
+              }
+              .est-pkg-price {
+                font-family: futura-pt, sans-serif;
+                font-weight: 500;
+                font-size: 1.25rem;
+                color: #35332f;
+                margin: 0 0 1rem 0;
+              }
+              .est-pkg-desc {
+                font-family: ff-real-text-pro, sans-serif;
+                font-weight: 200;
+                font-size: 1.05rem;
+                line-height: 1.55;
+                color: #55524c;
+                margin: 0 0 1.75rem 0;
+                flex-grow: 1;
+              }
+              .est-alc-lead {
+                font-family: ff-real-text-pro, sans-serif;
+                font-weight: 300;
+                font-size: 1.1rem;
+                color: #7a776f;
+                text-align: center;
+                margin: 0;
+              }
+            `}</style>
+
             {/* Tabs Navigation */}
             <div className="services-tabs">
               <div className="services-tabs-menu">
@@ -379,17 +458,7 @@ export default function ProjectEstimate() {
                   <span className="tab-dot">●</span>
                   <span className="tab-title">GRAPHIC DESIGN</span>
                 </button>
-                <button 
-                  className={`services-tab-button ${activeTab === 'websites' ? 'active' : ''}`}
-                  onClick={() => {
-                    setActiveTab('websites');
-                    trackLeadGeneration.calculatorStart('websites');
-                  }}
-                >
-                  <span className="tab-dot">●</span>
-                  <span className="tab-title">WEBSITES</span>
-                </button>
-                <button 
+                <button
                   className={`services-tab-button ${activeTab === 'photo' ? 'active' : ''}`}
                   onClick={() => {
                     setActiveTab('photo');
@@ -435,40 +504,6 @@ export default function ProjectEstimate() {
                         <QuoteBreakdown formType="design" />
                         
                         <LeadCaptureSection formType="design" />
-                        
-                      </div>
-                    </form>
-                  </div>
-                )}
-
-                {/* Website Tab */}
-                {activeTab === 'websites' && (
-                  <div className="services-tab-content">
-                    <form className="hack42-45-form-websites">
-                      <h2 className="brief-title">Website A La Carte Estimate</h2>
-                      <div className="hack42-45-form-left _2">
-                        <p className="paragraph brief hero">Please fill out the fields below to get an approximate cost for your project. This tool aims to give you a preliminary idea of your investment.</p>
-                        
-                        <h2 className="dot_forms_title sites estimate">Estimated Number of Website Pages:</h2>
-                        <WebsiteTypeOptions />
-                        
-                        <h2 className="dot_forms_title sites estimate">When your website has to be ready:</h2>
-                        <WebsiteTimeframeOptions />
-                        
-                        <h2 className="dot_forms_title sites estimate">Features:</h2>
-                        <WebsiteFeatureOptions />
-                        
-                        <div className="hack42-45-form-right-2">
-                          <div className="hack42-45-added-value-row-2">
-                            <div className="text-block-70">CAD$</div>
-                            <div className="hack45-added-value-2">0</div>
-                            <input type="hidden" className="hack45-send-value-2" value="" />
-                          </div>
-                        </div>
-                        
-                        <QuoteBreakdown formType="website" />
-                        
-                        <LeadCaptureSection formType="website" />
                         
                       </div>
                     </form>
