@@ -28,8 +28,8 @@ interface BlogPostProps {
 async function getBlogPost(slug: string): Promise<BlogPost | null> {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
-                   (process.env.NODE_ENV === 'production' 
-                     ? 'https://thedotcreative.co' 
+                   (process.env.NODE_ENV === 'production'
+                     ? 'https://www.thedotcreative.co'
                      : 'http://localhost:3000');
     
     const response = await fetch(`${baseUrl}/api/blog/${slug}`, {

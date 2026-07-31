@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import Footer from './Footer';
 import { trackContent, trackNavigation } from '@/lib/analytics';
+import { normalizeFeaturedImages } from '@/lib/blog-images';
 
 interface BlogPost {
   id: string;
@@ -20,10 +21,11 @@ interface BlogPost {
   tags: string[];
 }
 
-export default function BlogPage() {
-  const [posts, setPosts] = useState<BlogPost[]>(samplePosts); // Start with sample data to prevent layout shifts
+export default function BlogPage({ initialPosts = [] }: { initialPosts?: BlogPost[] }) {
+  // Seeded with server-fetched posts so the list is in the SSR HTML for crawlers.
+  const [posts, setPosts] = useState<BlogPost[]>(initialPosts);
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(initialPosts.length === 0);
 
   useEffect(() => {
     // Apply critical containment styles immediately after hydration
@@ -84,65 +86,14 @@ export default function BlogPage() {
       const response = await fetch('/api/blog');
       if (response.ok) {
         const data = await response.json();
-        let posts = data.posts || [];
-        
-        // Override featured image for all featured posts since S3 URLs are expiring
-        posts = posts.map((post: BlogPost) => {
-          if (post.featured) {
-            console.log('Featured post found:', post.title, post.slug);
-            
-            // Use local images based on slug or title
-            if (post.slug.includes('emotional-brand') || 
-                post.title.toLowerCase().includes('emotional brand')) {
-              return {
-                ...post,
-                featuredImage: '/images/blog/emotional-brand-strategy-306-percent-lifetime-value-ontario-business/emotional-brand-800x600 px.webp'
-              };
-            } else if (post.slug.includes('software-subscription') || 
-                       post.title.toLowerCase().includes('software subscription')) {
-              return {
-                ...post,
-                featuredImage: '/images/blog/software-subscription-trap-ontario-business/software-subscription-trap-ontario-business 800.webp'
-              };
-            } else if (post.slug.includes('website-design-trends') || 
-                       post.title.toLowerCase().includes('website design trends')) {
-              return {
-                ...post,
-                featuredImage: '/images/blog/website-design-trends-europe/Website Design Trends.webp'
-              };
-            } else if (post.slug.includes('website-mistakes') || 
-                       post.title.toLowerCase().includes('gta small business')) {
-              return {
-                ...post,
-                featuredImage: '/images/blog/website-mistakes-gta-businesses/hero-hourglass.gif'
-              };
-            } else if (post.slug.includes('true-cost-of-free') || 
-                       post.title.toLowerCase().includes('true cost of free') ||
-                       post.title.toLowerCase().includes('manual work')) {
-              return {
-                ...post,
-                featuredImage: '/images/blog/the-true-cost-of-free-manual-work/the-true-cost-of-free-manual-work.webp'
-              };
-            }
-            
-            // Fallback: try to use S3 URL via proxy, but if it fails, use first available local image
-            return {
-              ...post,
-              featuredImage: post.featuredImage && post.featuredImage.includes('prod-files-secure.s3.us-west-2.amazonaws.com') 
-                ? '/images/blog/emotional-brand-strategy-306-percent-lifetime-value-ontario-business/emotional-brand-800x600 px.webp'
-                : post.featuredImage
-            };
-          }
-          return post;
-        });
-        
+        const posts = normalizeFeaturedImages(data.posts || []);
+
         setPosts(posts);
         setIsLoading(false);
       }
     } catch (error) {
       console.error('Error fetching posts:', error);
-      // Keep sample data on error to prevent layout shifts
-      setPosts(samplePosts);
+      // On error keep whatever we already have (the server-seeded posts).
       setIsLoading(false);
     }
   };
@@ -1266,63 +1217,3 @@ export default function BlogPage() {
     </>
   );
 }
-
-// Sample blog posts for demo
-const samplePosts: BlogPost[] = [
-  {
-    id: '1',
-    slug: 'gta-small-business-website-mistakes',
-    title: '5 Website Mistakes Costing GTA Small Businesses Customers (And How to Fix Them)',
-    excerpt: 'Research shows 94% of negative website feedback is design-related. Discover the critical mistakes costing GTA small businesses customers and proven solutions.',
-    date: 'January 12, 2025',
-    category: 'Strategy',
-    readTime: 8,
-    featured: true,
-    content: '',
-    tags: ['strategy', 'web-design', 'small-business']
-  },
-  {
-    id: '2',
-    slug: 'the-power-of-visual-storytelling',
-    title: 'The Power of Visual Storytelling in Brand Design',
-    excerpt: 'Discover how compelling visual narratives can transform your brand identity and create deeper connections with your audience.',
-    date: 'March 15, 2024',
-    category: 'Design',
-    readTime: 5,
-    content: '',
-    tags: ['design', 'branding', 'storytelling']
-  },
-  {
-    id: '3',
-    slug: 'responsive-design-best-practices',
-    title: 'Responsive Design Best Practices for 2024',
-    excerpt: 'Learn the essential principles and techniques for creating websites that work seamlessly across all devices.',
-    date: 'March 10, 2024',
-    category: 'Development',
-    readTime: 7,
-    content: '',
-    tags: ['development', 'responsive', 'web-design']
-  },
-  {
-    id: '4',
-    slug: 'color-psychology-in-branding',
-    title: 'Color Psychology: How Colors Influence Brand Perception',
-    excerpt: 'Explore the psychological impact of color choices and how to leverage them for stronger brand communication.',
-    date: 'March 5, 2024',
-    category: 'Strategy',
-    readTime: 6,
-    content: '',
-    tags: ['strategy', 'branding', 'psychology']
-  },
-  {
-    id: '5',
-    slug: 'future-of-web-design',
-    title: 'The Future of Web Design: Trends to Watch',
-    excerpt: 'A comprehensive look at emerging design trends that will shape the digital landscape in the coming years.',
-    date: 'February 28, 2024',
-    category: 'Industry Insights',
-    readTime: 8,
-    content: '',
-    tags: ['trends', 'web-design', 'industry-insights']
-  }
-];

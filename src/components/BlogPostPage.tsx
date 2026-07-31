@@ -62,7 +62,6 @@ function buildFaqSchema(content: string) {
 export default function BlogPostPage({ post }: BlogPostPageProps) {
   const [relatedPosts, setRelatedPosts] = useState<BlogPost[]>([]);
   const [nextPost, setNextPost] = useState<BlogPost | null>(null);
-  const [loading, setLoading] = useState(true);
 
   // Generate Article structured data
   const articleStructuredData = {
@@ -141,21 +140,16 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
       } catch (error) {
         console.error('Error fetching related posts:', error);
         setRelatedPosts([]);
-      } finally {
-        setLoading(false);
       }
     };
-    
+
     fetchRelatedAndNextPosts();
   }, [post.category, post.id]);
 
-  if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner">Loading...</div>
-      </div>
-    );
-  }
+  // NOTE: the article renders immediately from the server-provided `post` prop.
+  // Related/next posts (the only data the effect above fetches) populate the
+  // bottom sections after hydration; they must NOT gate the article body, or
+  // non-JS crawlers receive an empty loading shell instead of the article.
 
   if (!post) {
     return (
