@@ -3,7 +3,7 @@ import { getClientSession } from '@/lib/portal/auth'
 import { redirect } from 'next/navigation'
 import { getContent, getActivity, type ContentRow as ContentRowType } from '@/lib/portal/data'
 import { getRecentPublishedContentIds } from '@/lib/portal/publication'
-import { getCurrentPlanCycle } from '@/lib/portal/plan-cycle'
+import { getCurrentPlanCycle, getUpcomingPlanCycles } from '@/lib/portal/plan-cycle'
 import { getSchedule, routesToPiecePage, statusAccent } from '@/lib/portal/schedule'
 import { clientStateLabel } from '@/lib/portal/state'
 import { getLastSeen } from '@/lib/portal/seen'
@@ -74,9 +74,10 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
   const session = await getClientSession(slug)
   if (!session) redirect('/client/login')
 
-  const [items, activity, lastSeen, recentPublishedIds, currentPlan, schedule, requests] = await Promise.all([
+  const [items, activity, lastSeen, recentPublishedIds, currentPlan, upcomingPlans, schedule, requests] = await Promise.all([
     getContent(session.clientId), getActivity(session.clientId), getLastSeen(session.clientId),
     getRecentPublishedContentIds(session.clientId), getCurrentPlanCycle(session.clientId),
+    getUpcomingPlanCycles(session.clientId),
     getSchedule(session.clientId),
     getContentRequests(session.clientId),
   ])
@@ -184,6 +185,22 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
                 })
               )}
             </Panel>
+
+            {upcomingPlans.length > 0 && (
+              <Panel label="Coming up" note="These are the next weeks on our radar. We will ask for your approval once each full plan is ready.">
+                {upcomingPlans.map(({ cycle }) => (
+                  <Link key={cycle.id} className={styles.row} href={`/client/${encodeURIComponent(slug)}/plan`}>
+                    <span className={styles.rowMain}>
+                      <Text as="span" size="md" tone="black">{cycle.title}</Text>
+                      <span className={styles.chipRow}>
+                        <span className={styles.chip}>week of {cycle.week_start}</span>
+                        <span className={styles.chip}>in preparation</span>
+                      </span>
+                    </span>
+                  </Link>
+                ))}
+              </Panel>
+            )}
 
             {copyReady.length > 0 && (
               <Panel label="Copy ready for plan review" note="These fact-checked drafts are ready for your comments. Final approval opens when the linked design is ready.">

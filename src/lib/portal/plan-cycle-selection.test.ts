@@ -39,4 +39,18 @@ describe('selectCurrentPlanCycle', () => {
     ], '2026-07-31')
     expect(result).toBeNull()
   })
+
+  it('never treats an upcoming draft as an approval cycle', () => {
+    const result = selectCurrentPlanCycle([
+      cycle('aug-3', '2026-08-03', '2026-08-07', 'submitted'),
+      cycle('aug-10-draft', '2026-08-10', '2026-08-14', 'draft'),
+    ], '2026-07-31')
+    expect(result?.id).toBe('aug-3')
+  })
+
+  it('returns no current plan when only an upcoming draft exists', () => {
+    expect(selectCurrentPlanCycle([
+      cycle('aug-10-draft', '2026-08-10', '2026-08-14', 'draft'),
+    ], '2026-07-31')).toBeNull()
+  })
 })

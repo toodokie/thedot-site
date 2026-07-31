@@ -84,12 +84,13 @@ export type PlanCycleRow = {
   decided_at: string | null; approved_revision: number | null
 }
 export type PlanCycleItemRow = {
-  id: string; position: number; planned_date: string | null; title: string; format: string | null
+  id: string; plan_cycle_id: string; position: number; planned_date: string | null; title: string; format: string | null
   platforms: string[]; producer: string | null; direction_note: string | null; content_id: string
 }
 export type PlanCycleDecisionRow = { revision: number; decision: string; note: string | null; created_at: string }
 export type AdminPlanCycle = {
   cycle: PlanCycleRow | null; items: PlanCycleItemRow[]; latestDecision: PlanCycleDecisionRow | null
+  upcoming: Array<{ cycle: PlanCycleRow; items: PlanCycleItemRow[] }>
 }
 
 // The current weekly plan cycle (status + items + latest client decision) for the agency Plan view.
@@ -102,9 +103,28 @@ export async function loadPlanCycle(): Promise<AdminPlanCycle> {
     .eq('client_id', clientId)
   if (c.error) throw new Error(c.error.message)
   const cycle = selectCurrentPlanCycle((c.data ?? []) as PlanCycleRow[])
-  if (!cycle) return { cycle: null, items: [], latestDecision: null }
+  const dateParts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date())
+  const datePart = (type: string) => dateParts.find((part) => part.type === type)?.value
+  const today = `${datePart('year')}-${datePart('month')}-${datePart('day')}`
+  const drafts = ((c.data ?? []) as PlanCycleRow[])
+    .filter((row) => row.status === 'draft' && row.week_end >= today)
+    .sort((a, b) => a.week_start.localeCompare(b.week_start) || b.revision - a.revision)
+  const draftIds = drafts.map((draft) => draft.id)
+  const draftItems = draftIds.length === 0
+    ? { data: [] as PlanCycleItemRow[], error: null }
+    : await admin.from('plan_cycle_items')
+      .select('id,plan_cycle_id,position,planned_date,title,format,platforms,producer,direction_note,content_id')
+      .eq('client_id', clientId).in('plan_cycle_id', draftIds).order('position', { ascending: true })
+  if (draftItems.error) throw new Error(draftItems.error.message)
+  const upcoming = drafts.map((draft) => ({
+    cycle: draft,
+    items: (draftItems.data ?? []).filter((item) => item.plan_cycle_id === draft.id) as PlanCycleItemRow[],
+  }))
+  if (!cycle) return { cycle: null, items: [], latestDecision: null, upcoming }
   const it = await admin.from('plan_cycle_items')
-    .select('id,position,planned_date,title,format,platforms,producer,direction_note,content_id')
+    .select('id,plan_cycle_id,position,planned_date,title,format,platforms,producer,direction_note,content_id')
     .eq('client_id', clientId).eq('plan_cycle_id', cycle.id).order('position', { ascending: true })
   if (it.error) throw new Error(it.error.message)
   const d = await admin.from('plan_cycle_decisions')
@@ -115,6 +135,7 @@ export async function loadPlanCycle(): Promise<AdminPlanCycle> {
     cycle,
     items: (it.data ?? []) as PlanCycleItemRow[],
     latestDecision: ((d.data ?? [])[0] as PlanCycleDecisionRow | undefined) ?? null,
+    upcoming,
   }
 }
 

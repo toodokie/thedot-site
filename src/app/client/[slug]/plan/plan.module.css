@@ -105,6 +105,7 @@
 .statusOpen { background: var(--dot-yellow); border-color: var(--dot-yellow); color: var(--dot-black); }
 .statusApproved { background: var(--dot-graphite); border-color: var(--dot-graphite); color: var(--dot-cream, #fff); }
 .statusChanges { background: transparent; border-color: var(--dot-graphite); color: var(--dot-graphite); }
+.statusDraft { background: transparent; border-color: var(--dot-hairline); color: var(--dot-graphite); }
 
 .cycleMeta { margin: 10px 0 0; }
 .cycleSummary { margin: 14px 0 20px; }

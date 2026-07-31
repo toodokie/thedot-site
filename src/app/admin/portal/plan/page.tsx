@@ -90,6 +90,40 @@ export default async function PortalAdminPlanPage() {
         )}
       </section>
 
+      {plan.upcoming.map(({ cycle, items }) => (
+        <section className={styles.card} key={cycle.id}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+            <strong>{cycle.title}</strong>
+            <StatusPill tone="muted" label="in preparation" />
+          </div>
+          <p className={styles.cellMuted} style={{ marginTop: 0 }}>
+            Week {cycle.week_start} to {cycle.week_end} · revision {cycle.revision} · not submitted to Maria
+          </p>
+          <p style={{ margin: '8px 0 16px' }}>{cycle.direction_summary}</p>
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr><th>#</th><th>Planned</th><th className={styles.pieceCol}>Piece</th><th>Format</th><th>Platforms</th><th>Review</th></tr>
+              </thead>
+              <tbody>
+                {items.map((it) => (
+                  <tr key={it.id}>
+                    <td className={styles.cellNum}>{it.position}</td>
+                    <td className={styles.cellNum}>{it.planned_date ?? <span className={styles.cellMuted}>unscheduled</span>}</td>
+                    <td className={styles.pieceCol}>
+                      <a className={styles.pieceLink} href={`/admin/portal/pieces/${encodeURIComponent(it.content_id)}`}>{it.title}</a>
+                    </td>
+                    <td className={styles.cellMuted}>{it.format ?? ''}</td>
+                    <td className={styles.cellMuted}>{it.platforms.join(', ')}</td>
+                    <td className={styles.cellMuted}>{planReviewState(rowsByContentId.get(it.content_id))}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ))}
+
       <section className={styles.card}>
         {rows.length === 0
           ? <p className={styles.empty}>No planned pieces yet.</p>

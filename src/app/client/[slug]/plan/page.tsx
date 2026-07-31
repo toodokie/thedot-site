@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getClientSession } from '@/lib/portal/auth'
 import { getSchedule, statusAccent, belongsOnPlanSurface, type ScheduleRow } from '@/lib/portal/schedule'
-import { getCurrentPlanCycle, getPlanCycleDecisions, type PlanCycleItem } from '@/lib/portal/plan-cycle'
+import { getCurrentPlanCycle, getPlanCycleDecisions, getUpcomingPlanCycles, type PlanCycleItem } from '@/lib/portal/plan-cycle'
 import { getContent, type ContentRow } from '@/lib/portal/data'
 import { Eyebrow, Heading, Text } from '@thedot/design-system'
 import PlanDecideForm from './PlanDecideForm'
@@ -78,6 +78,7 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
   // The current weekly plan cycle (the direction Maria approves as a batch). A missing projection
   // throws PortalDataError -> the route error boundary, never a silent "empty approved plan".
   const { cycle, items: cycleItems } = await getCurrentPlanCycle(session.clientId)
+  const upcomingCycles = await getUpcomingPlanCycles(session.clientId)
   const cycleDecisions = cycle ? await getPlanCycleDecisions(session.clientId, cycle.id) : []
   const lastChangeNote = cycleDecisions.find((d) => d.decision === 'change_requested')?.note ?? null
 
@@ -178,6 +179,29 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
           )}
         </section>
       )}
+
+      {upcomingCycles.map(({ cycle: upcoming, items }) => (
+        <section key={upcoming.id} className={styles.cycleCard} aria-label={`Coming up: ${upcoming.title}`}>
+          <div className={styles.cycleHead}>
+            <Heading level={2}>{upcoming.title}</Heading>
+            <span className={`${styles.statusBadge} ${styles.statusDraft}`}>In preparation</span>
+          </div>
+          <div className={styles.cycleMeta}>
+            <Text as="span" size="sm" tone="grey">Week of {fmtRange(upcoming.week_start, upcoming.week_end)}</Text>
+          </div>
+          <div className={styles.cycleSummary}>
+            <Text size="md" tone="graphite">{upcoming.direction_summary}</Text>
+          </div>
+          {items.length > 0 && (
+            <ol className={styles.cycleList}>
+              {items.map((it) => <CycleItem key={it.id} item={it} slug={slug} content={contentById.get(it.content_id) ?? null} />)}
+            </ol>
+          )}
+          <p className={styles.decisionMuted} role="status">
+            This is coming up. We are still building the week, so there is nothing for you to approve yet.
+          </p>
+        </section>
+      ))}
 
       <div className={styles.head}>
         <Heading level={cycle ? 3 : 2}>What we are planning next</Heading>

@@ -3043,6 +3043,56 @@ async function main(): Promise<void> {
           ?? closed.error?.message ?? exactRetry.error?.message ?? closedCycle.error?.message
           ?? clientClosedRead.error?.message
           ?? `nearest=${dateByCycle.get(nearest.data)} later=${dateByCycle.get(later.data)} premature=${dateByCycle.get(premature.data)}`)
+
+      // 0051: a closed, undecided premature cycle can return as a visible draft, not as
+      // an approval request. The client may read the safe projection but cannot invoke
+      // either the agency writer or a plan-decision RPC against its draft revision.
+      const stageArgs = {
+        p_client_id: bClientId, p_cycle_key: `rls-premature-${RUN_ID}`,
+        p_week_start: prematureStart, p_week_end: prematureEnd, p_title: 'Coming up draft plan',
+        p_direction_summary: 'Visible for planning, not yet submitted for approval.',
+        p_items: [{
+          content_id: B_CONTENT_ID, title: 'Visible main v1', format: 'caption',
+          pillar: 'employer', platforms: ['instagram'], producer: 'the_dot',
+          planned_date: prematureStart, direction_note: 'Draft plan fixture.', position: 1,
+        }],
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-stage-plan-${RUN_ID}`,
+      }
+      const staged = await admin.rpc('agency_stage_plan_cycle', stageArgs)
+      const stagedRetry = await admin.rpc('agency_stage_plan_cycle', stageArgs)
+      const stagedCycle = premature.data
+        ? await admin.from('plan_cycles').select('status,revision,approved_revision,decided_at').eq('id', premature.data).single()
+        : { data: null, error: new Error('premature cycle missing') }
+      const stagedClientRead = premature.data
+        ? await bClient.from('plan_cycles_client').select('id,status,revision').eq('id', premature.data)
+        : { data: [], error: new Error('premature cycle missing') }
+      const stagedItemsRead = premature.data
+        ? await bClient.from('plan_cycle_items_client').select('content_id,title').eq('plan_cycle_id', premature.data)
+        : { data: [], error: new Error('premature cycle missing') }
+      const stagedDecision = premature.data
+        ? await bClient.rpc('record_plan_cycle_decision', {
+          p_plan_cycle_id: premature.data, p_revision: 2, p_decision: 'approved', p_note: null,
+        })
+        : { data: null, error: new Error('premature cycle missing') }
+      const stagedIdeaDecision = premature.data
+        ? await bClient.rpc('record_content_idea_decision', {
+          p_content_item_id: bItemId, p_plan_cycle_id: premature.data,
+          p_plan_cycle_revision: 2, p_decision: 'approved', p_note: null,
+        })
+        : { data: null, error: new Error('premature cycle missing') }
+      const stagedClientWriter = await bClient.rpc('agency_stage_plan_cycle', stageArgs)
+      check('PD1: draft cycles are client-readable but cannot become a decision or client write',
+        !staged.error && !stagedRetry.error && staged.data === premature.data && stagedRetry.data === premature.data
+          && !stagedCycle.error && stagedCycle.data?.status === 'draft' && stagedCycle.data?.revision === 2
+          && stagedCycle.data?.approved_revision === null && stagedCycle.data?.decided_at === null
+          && !stagedClientRead.error && stagedClientRead.data?.[0]?.status === 'draft'
+          && stagedClientRead.data?.[0]?.revision === 2
+          && !stagedItemsRead.error && stagedItemsRead.data?.[0]?.content_id === B_CONTENT_ID
+          && !!stagedDecision.error && !!stagedIdeaDecision.error && !!stagedClientWriter.error,
+        staged.error?.message ?? stagedRetry.error?.message ?? stagedCycle.error?.message
+          ?? stagedClientRead.error?.message ?? stagedDecision.error?.message ?? stagedIdeaDecision.error?.message
+          ?? stagedItemsRead.error?.message ?? stagedClientWriter.error?.message
+          ?? `stage=${staged.data} retry=${stagedRetry.data} row=${JSON.stringify(stagedCycle.data)}`)
     }
 
     {

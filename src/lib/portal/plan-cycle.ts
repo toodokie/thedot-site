@@ -1,6 +1,6 @@
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { PortalDataError } from '@/lib/portal/data'
-import { selectCurrentPlanCycle } from './plan-cycle-selection'
+import { selectCurrentPlanCycle, torontoToday } from './plan-cycle-selection'
 
 export type PlanCycle = {
   id: string
@@ -11,7 +11,7 @@ export type PlanCycle = {
   title: string
   direction_summary: string
   revision: number
-  status: 'submitted' | 'approved' | 'change_requested' | 'closed'
+  status: 'draft' | 'submitted' | 'approved' | 'change_requested' | 'closed'
   submitted_at: string
   decided_at: string | null
   approved_revision: number | null
@@ -155,4 +155,20 @@ export async function getCurrentPlanCycle(clientId: string): Promise<{ cycle: Pl
   const cycle = selectCurrentPlanCycle(cycles)
   if (!cycle) return { cycle: null, items: [] }
   return { cycle, items: await getPlanCycleItems(clientId, cycle.id) }
+}
+
+/**
+ * A draft cycle is a client-safe heads-up only. It is deliberately separate from the
+ * current actionable cycle, so an early one-piece placeholder cannot masquerade as a
+ * plan Maria is expected to approve.
+ */
+export async function getUpcomingPlanCycles(
+  clientId: string,
+): Promise<Array<{ cycle: PlanCycle; items: PlanCycleItem[] }>> {
+  const cycles = await getPlanCycles(clientId)
+  const today = torontoToday()
+  const drafts = cycles
+    .filter((cycle) => cycle.status === 'draft' && cycle.week_end >= today)
+    .sort((a, b) => a.week_start.localeCompare(b.week_start) || b.revision - a.revision)
+  return Promise.all(drafts.map(async (cycle) => ({ cycle, items: await getPlanCycleItems(clientId, cycle.id) })))
 }

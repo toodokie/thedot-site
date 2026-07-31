@@ -8,6 +8,7 @@ export type PlanCycleSelectionRow = {
 }
 
 const OPEN_FOR_DECISION = new Set(['submitted', 'change_requested'])
+const LIVE_PLAN_STATUSES = new Set(['submitted', 'approved', 'change_requested'])
 
 export function torontoToday(now = new Date()): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -28,7 +29,9 @@ export function selectCurrentPlanCycle<T extends PlanCycleSelectionRow>(
   cycles: readonly T[],
   today = torontoToday(),
 ): T | null {
-  const visible = cycles.filter((cycle) => cycle.status !== 'closed' && cycle.week_end >= today)
+  // A draft is visible as "Coming up" but must never become the plan selected for
+  // approval, even when it is the only future cycle.
+  const visible = cycles.filter((cycle) => LIVE_PLAN_STATUSES.has(cycle.status) && cycle.week_end >= today)
   const candidates = visible.some((cycle) => OPEN_FOR_DECISION.has(cycle.status))
     ? visible.filter((cycle) => OPEN_FOR_DECISION.has(cycle.status))
     : visible

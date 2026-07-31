@@ -51,7 +51,7 @@ const assertNoteGrammarSafe = (value: string | null, field: string) => {
 
 async function main() {
   const [command, inputPath, ...rest] = process.argv.slice(2)
-  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|courtesy-release|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|plan-cycle|plan-cycle-close|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
+  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|courtesy-release|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|plan-cycle|plan-cycle-stage|plan-cycle-close|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
   const dryRun = rest.includes('--dry-run')
   const packIndex = rest.indexOf('--pack')
   const packPath = packIndex >= 0 ? rest[packIndex + 1] ?? null : null
@@ -287,7 +287,7 @@ async function main() {
       p_status: stringArray(payload.status, 'status', ['proposed','picked','dropped','became_piece']),
       p_became_content_id: becameContentId,
       p_actor_key: actor, p_idempotency_key: idempotency }
-  } else if (command === 'plan-cycle') {
+  } else if (command === 'plan-cycle' || command === 'plan-cycle-stage') {
     const cycleKey = requiredText(payload.cycleKey, 'cycleKey', 200)
     const weekStart = requiredText(payload.weekStart, 'weekStart', 10)
     const weekEnd = requiredText(payload.weekEnd, 'weekEnd', 10)
@@ -323,7 +323,7 @@ async function main() {
       return { content_id: contentId, title: itemTitle, format, pillar, producer,
         planned_date: plannedDate, direction_note: directionNote, platforms, position: index + 1 }
     })
-    rpc = 'agency_upsert_plan_cycle'; args = { p_client_id: null,
+    rpc = command === 'plan-cycle' ? 'agency_upsert_plan_cycle' : 'agency_stage_plan_cycle'; args = { p_client_id: null,
       p_cycle_key: cycleKey, p_week_start: weekStart, p_week_end: weekEnd,
       p_title: title, p_direction_summary: directionSummary, p_items: items,
       p_actor_key: actor, p_idempotency_key: idempotency }
