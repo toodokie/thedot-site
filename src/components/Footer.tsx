@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { trackNavigation } from '@/lib/analytics';
 
 export default function Footer() {
   const [showCookieBanner, setShowCookieBanner] = useState(false);
@@ -46,6 +47,27 @@ export default function Footer() {
     <>
       <footer className="footer">
         <div className="footer-container animate-on-scroll">
+          <div className="footer-tools">
+            <span className="footer-tools-label">Free tools</span>
+            <nav className="footer-tools-links">
+              <a
+                href="/tools/ai-visibility"
+                className="footer-tool-link"
+                onClick={() => trackNavigation.ctaClick('AI Visibility Check', 'Footer', '/tools/ai-visibility')}
+              >
+                <span className="footer-tool-dot" aria-hidden="true" />
+                AI Visibility Check
+              </a>
+              <a
+                href="/#hidden-revenue-finder"
+                className="footer-tool-link"
+                onClick={() => trackNavigation.ctaClick('The Hidden Revenue Finder', 'Footer', '/#hidden-revenue-finder')}
+              >
+                <span className="footer-tool-dot" aria-hidden="true" />
+                The Hidden Revenue Finder
+              </a>
+            </nav>
+          </div>
           <div className="footer-content">
             <div className="footer-text">
               Use, copying of materials (a selection of site materials, design elements and design) is allowed with the permission of the copyright holder and a link to{' '}
@@ -122,6 +144,49 @@ export default function Footer() {
           font-size: 1rem;
           font-weight: 200;
           display: block;
+        }
+
+        .footer-tools {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: baseline;
+          gap: 1rem 3rem;
+          padding-bottom: 2rem;
+          margin-bottom: 2rem;
+          border-bottom: 1px solid rgba(53, 51, 47, 0.12);
+        }
+        .footer-tools-label {
+          font-family: 'ff-real-text-pro', sans-serif;
+          font-size: 0.8rem;
+          font-weight: 500;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: #7a776f;
+        }
+        .footer-tools-links {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 1rem 2rem;
+        }
+        .footer-tool-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.55rem;
+          color: var(--foreground);
+          text-decoration: none !important;
+          font-family: 'ff-real-text-pro', sans-serif;
+          font-size: 1rem;
+          font-weight: 200;
+          transition: opacity 0.3s ease;
+        }
+        .footer-tool-link:hover { opacity: 0.6; }
+        .footer-tool-dot {
+          width: 0.4rem;
+          height: 0.4rem;
+          border-radius: 50%;
+          background: #daff00;
+          display: inline-block;
+          flex: 0 0 auto;
         }
 
         .footer-link {
@@ -230,6 +295,12 @@ export default function Footer() {
 
           .footer-text {
             font-size: 0.875rem;
+          }
+
+          .footer-tools {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
           }
 
           .cookie-banner-container {

@@ -685,7 +685,7 @@ export default function ConversionDiagnosticTool() {
 
       `}</style>
 
-      <section className="diagnostic-tool-section">
+      <section className="diagnostic-tool-section" id="hidden-revenue-finder">
         <div className="quiz-container">
           {screen === 0 && renderWelcomeScreen()}
           {screen >= 1 && screen <= 5 && renderQuestionScreen()}

@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import Footer from './Footer';
 import AiVisibilitySelfCheck from './AiVisibilitySelfCheck';
+import AiCheckCta from './AiCheckCta';
 
 interface BlogPost {
   id: string;
@@ -761,24 +762,35 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
           </div>
         )}
 
-        {/* Post Content: embeds the self-check where the content contains the
-            [[ai-visibility-tool]] marker (optionally wrapped in <p> by the CMS).
-            Posts without the marker render exactly as before. */}
+        {/* Post Content: embeds an AI-visibility widget wherever the content contains
+            a marker (each optionally wrapped in <p> by the CMS):
+              [[ai-visibility-tool]] → the full interactive self-check
+              [[ai-visibility-cta]]  → a lightweight end-of-post CTA (links ?src=blog)
+            Posts without any marker render exactly as before. */}
         {(() => {
-          const TOOL_RE = /(?:<p>\s*)?\[\[ai-visibility-tool\]\](?:\s*<\/p>)?/;
-          if (!TOOL_RE.test(post.content)) {
+          const MARKER_RE = /(?:<p>\s*)?\[\[(ai-visibility-tool|ai-visibility-cta)\]\](?:\s*<\/p>)?/;
+          if (!MARKER_RE.test(post.content)) {
             return <article className="post-content" dangerouslySetInnerHTML={{ __html: post.content }} />;
           }
-          const parts = post.content.split(TOOL_RE);
-          const before = parts[0];
-          const after = parts.slice(1).join('');
+          // split() with a capturing group interleaves the matched marker name into
+          // the array: [html, markerName, html, markerName, html, ...]. Odd indices
+          // are markers, even indices are HTML chunks.
+          const parts = post.content.split(MARKER_RE);
           return (
             <>
-              <article className="post-content" dangerouslySetInnerHTML={{ __html: before }} />
-              <div className="post-content" style={{ margin: '3.5rem auto' }}>
-                <AiVisibilitySelfCheck />
-              </div>
-              <article className="post-content" dangerouslySetInnerHTML={{ __html: after }} />
+              {parts.map((seg, i) => {
+                if (i % 2 === 1) {
+                  const Widget = seg === 'ai-visibility-cta' ? AiCheckCta : AiVisibilitySelfCheck;
+                  return (
+                    <div key={i} className="post-content" style={{ margin: '3.5rem auto' }}>
+                      <Widget />
+                    </div>
+                  );
+                }
+                return seg ? (
+                  <article key={i} className="post-content" dangerouslySetInnerHTML={{ __html: seg }} />
+                ) : null;
+              })}
             </>
           );
         })()}

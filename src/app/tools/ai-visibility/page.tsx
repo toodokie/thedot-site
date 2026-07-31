@@ -17,6 +17,14 @@ export const metadata: Metadata = {
       'Test whether ChatGPT, Gemini and Perplexity recommend your business. Free prompts you can run in about five minutes.',
     url: 'https://thedotcreative.co/tools/ai-visibility',
     siteName: 'The Dot Creative Agency',
+    images: [
+      {
+        url: '/images/The Dot Poster.webp',
+        width: 1200,
+        height: 630,
+        alt: 'The Dot Creative Agency — Can AI find your business?',
+      },
+    ],
     locale: 'en_CA',
     type: 'website',
   },
@@ -24,6 +32,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Can AI Find Your Business? Free AI-Visibility Self-Check',
     description: 'Test whether ChatGPT, Gemini and Perplexity recommend your business.',
+    images: ['/images/The Dot Poster.webp'],
   },
   robots: {
     index: true,
