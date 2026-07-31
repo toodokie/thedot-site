@@ -160,10 +160,10 @@ export default function ServicesPage() {
                 <h3 className="dot-cap-title">AODA Accessibility</h3>
                 <p className="dot-cap-text">Compliance built in &mdash; plus practical audits for sites you already have.</p>
               </div>
-              <a href="/tools/ai-visibility" className="dot-cap dot-cap--link">
+              <a href="/services/ai-visibility-audit" className="dot-cap dot-cap--link">
                 <span className="dot-cap-dot" aria-hidden="true" />
-                <h3 className="dot-cap-title">AI Visibility <span className="dot-cap-arrow" aria-hidden="true">&rarr;</span></h3>
-                <p className="dot-cap-text">See whether AI recommends your business &mdash; free check, then an audit.</p>
+                <h3 className="dot-cap-title">AI Visibility (GEO) <span className="dot-cap-arrow" aria-hidden="true">&rarr;</span></h3>
+                <p className="dot-cap-text">Get recommended when customers ask ChatGPT, Gemini &amp; Perplexity &mdash; free check, then an audit.</p>
               </a>
             </div>
           </div>
