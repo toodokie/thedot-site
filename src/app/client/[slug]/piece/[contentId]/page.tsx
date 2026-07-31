@@ -4,7 +4,7 @@ import type { CSSProperties } from 'react'
 import { getClientSession } from '@/lib/portal/auth'
 import { getContentItem } from '@/lib/portal/data'
 import { getComments } from '@/lib/portal/comments'
-import { Heading, Text, Button } from '@thedot/design-system'
+import { Eyebrow, Heading, Text, Button } from '@thedot/design-system'
 import DecideForm from './DecideForm'
 import ReviewPackage from './ReviewPackage'
 import CommentThread from './CommentThread'
@@ -18,6 +18,7 @@ import RequestHistory from '../../requests/RequestHistory'
 import RemovalRequestForm from './RemovalRequestForm'
 import ProgressBar from '@/components/portal/ProgressBar'
 import { clientProgress } from '@/lib/portal/progress-bar-model'
+import { reReviewContext } from '@/lib/portal/re-review'
 
 const chip: CSSProperties = {
   fontFamily: 'var(--dot-font-text)', fontSize: 11, color: 'var(--dot-graphite)',
@@ -51,6 +52,7 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
   const requestMessages = await getContentRequestMessages(
     session.clientId, requests.map((request) => request.id),
   )
+  const reReview = reReviewContext(item.version, item.state, requests)
 
   const progress = clientProgress({
     clientState: item.state,
@@ -91,7 +93,18 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
         {item.fact_check && <span style={chipFact}>
           {item.fact_check === 'confirmed' ? 'fact-checked' : item.fact_check}
         </span>}
+        {reReview && <span style={chip}>updated after your feedback</span>}
       </div>
+
+      {reReview && <section aria-labelledby="re-review-heading" style={{
+        marginBottom: 28, padding: '20px', border: '1px solid var(--dot-hairline)', background: 'var(--dot-yellow-pale)',
+      }}>
+        <Eyebrow tone="grey">Updated for re-review</Eyebrow>
+        <div style={{ marginTop: 8 }}><Heading level={3} id="re-review-heading">We updated this after your feedback.</Heading></div>
+        <Text tone="graphite">
+          This is version {item.version}, updated from version {reReview.previousVersion}. Please review the current copy and linked design, then approve it when ready or request further changes.
+        </Text>
+      </section>}
 
       <nav aria-label="Review package sections" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '8px 14px', marginBottom: 28 }}>
         <span style={{ color: 'var(--dot-grey)', fontSize: 13 }}>Jump to:</span>
@@ -145,7 +158,7 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
       {item.state === 'needs_review' && <section id="review-decision" aria-labelledby="review-decision-heading" style={{
         marginTop: 32, padding: '20px', border: '1px solid var(--dot-black)', background: 'var(--dot-cream)',
       }}>
-        <Heading level={3} id="review-decision-heading">{session.canDecide ? 'Your decision' : 'Package decision'}</Heading>
+        <Heading level={3} id="review-decision-heading">{session.canDecide ? (reReview ? 'Your re-review decision' : 'Your decision') : 'Package decision'}</Heading>
         {session.canDecide
           ? <DecideForm slug={slug} contentId={item.content_id} />
           : <Text tone="grey">Only Maria, the primary decision-maker, can approve this package or request changes. Your comments are still part of the review.</Text>}

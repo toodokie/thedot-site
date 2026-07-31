@@ -7,6 +7,8 @@ import { getCurrentPlanCycle } from '@/lib/portal/plan-cycle'
 import { getSchedule, routesToPiecePage, statusAccent } from '@/lib/portal/schedule'
 import { clientStateLabel } from '@/lib/portal/state'
 import { getLastSeen } from '@/lib/portal/seen'
+import { getContentRequests } from '@/lib/portal/requests'
+import { reReviewContext } from '@/lib/portal/re-review'
 import WeekCalendar, { type WeekCalendarChip } from '@/components/portal/WeekCalendar'
 import MarkSeen from './MarkSeen'
 import { Eyebrow, Heading, Text, Button, Dot } from '@thedot/design-system'
@@ -72,15 +74,20 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
   const session = await getClientSession(slug)
   if (!session) redirect('/client/login')
 
-  const [items, activity, lastSeen, recentPublishedIds, currentPlan, schedule] = await Promise.all([
+  const [items, activity, lastSeen, recentPublishedIds, currentPlan, schedule, requests] = await Promise.all([
     getContent(session.clientId), getActivity(session.clientId), getLastSeen(session.clientId),
     getRecentPublishedContentIds(session.clientId), getCurrentPlanCycle(session.clientId),
     getSchedule(session.clientId),
+    getContentRequests(session.clientId),
   ])
   // "new since your last visit": an event the OTHER party logged after you were last here.
   const isNew = (a: { created_at: string; actor_name: string }) =>
     Boolean(lastSeen) && a.created_at > (lastSeen as string) && a.actor_name !== session.name
   const needs = items.filter((i) => i.state === 'needs_review')
+  const reReviewByContentId = new Map(items.flatMap((item) => {
+    const context = reReviewContext(item.version, item.state, requests.filter((request) => request.content_id === item.id))
+    return context ? [[item.id, context] as const] : []
+  }))
   const withDot = items.filter((i) => i.state === 'with_dot')
   const approved = items.filter((i) => i.state === 'approved')
   const scheduled = items.filter((i) => i.state === 'scheduled')
@@ -167,7 +174,11 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
               {needs.length === 0 && !planWaiting ? (
                 <div className={styles.emptyRow}><Text size="md" tone="graphite">Nothing is waiting on your approval right now.</Text></div>
               ) : (
-                needs.map((it) => <ContentRow key={it.id} it={it} slug={slug} priority />)
+                needs.map((it) => {
+                  const reReview = reReviewByContentId.get(it.id)
+                  return <ContentRow key={it.id} it={it} slug={slug} priority
+                    note={reReview ? `updated after your feedback · v${it.version}` : undefined} />
+                })
               )}
             </Panel>
 
