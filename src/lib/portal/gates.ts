@@ -351,7 +351,7 @@ export function deriveContentStage(piece: StagePiece): StageResult {
 // (Codex round-4 fix 2). An ops task with a null client_id is agency-global: its
 // clientName is 'Agency'. Piece-derived tasks also carry clientId for composite keys.
 export type MyTask =
-  | { kind: 'action'; clientId: string; clientName: string; contentId: string; title: string; gate: GateKey | 'idea-approved'; dest: string | null; moreOpen: number; postPublishProofRecord: boolean }
+  | { kind: 'action'; clientId: string; clientName: string; contentId: string; title: string; gate: GateKey | 'plan-direction-approved'; dest: string | null; moreOpen: number; postPublishProofRecord: boolean }
   // posted everywhere required, only link-confirmation outstanding: bookkeeping, not
   // production work, so it renders in a quiet "link-confirm pending" group instead of
   // flooding Actions (many imported/legacy pieces sit here honestly unverified).
@@ -414,11 +414,12 @@ export function deriveMyTasks(
     // not started. It must not manufacture a fact-check or production task before v1.
     if (piece.workingVersion === null) continue
     const tenant = { clientId: piece.clientId, clientName: piece.clientName }
-    // A submitted plan cycle is a distinct approval surface. It must win over the
-    // later version-bound copy approval, even when the pack has already been synced.
+    // A submitted plan cycle is a distinct first decision. It covers the week's
+    // direction and any fact-checked copy that is already visible, never the later
+    // version-bound final copy-plus-design approval.
     if (piece.ideaApprovalSentAt !== null && piece.ideaDecision !== 'approved') {
       tasks.push({ kind: 'action', ...tenant, contentId: piece.contentId, title: piece.title,
-        gate: 'idea-approved', dest: null, moreOpen: 0, postPublishProofRecord: false })
+        gate: 'plan-direction-approved', dest: null, moreOpen: 0, postPublishProofRecord: false })
       continue
     }
     const resolved = resolveNineGates(piece)

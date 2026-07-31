@@ -28,7 +28,7 @@ export default function PlanDecideForm({ slug, cycleId, revision }: { slug: stri
       <input type="hidden" name="revision" value={revision} />
       <Textarea label="Note (required to request changes)" id="plan-decision-note" name="note" rows={3} maxLength={2000}
         invalid={Boolean(state?.error)} aria-describedby={state?.error ? 'plan-decision-error' : undefined}
-        placeholder="What would you like changed about this plan?" />
+        placeholder="What would you like changed about this week’s direction or the copy already available?" />
       {state?.error && (
         <p id="plan-decision-error" role="alert" style={{ color: '#c0392b', margin: '10px 0 0' }}>{state.error}</p>
       )}

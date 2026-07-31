@@ -28,6 +28,9 @@ export async function decide(formData: FormData): Promise<{ error?: string }> {
 
   const item = await getContentItem(session.clientId, contentId)
   if (!item) return { error: 'That piece is no longer available.' }
+  if (!item.canva_url && !item.drive_url) {
+    return { error: 'The final package is not ready yet. You can leave copy feedback now; final approval opens once a linked design is ready.' }
+  }
   // Mirror the RPC's transition matrix for fast feedback; the RPC is the authoritative boundary.
   if (decision === 'approved' && item.status !== 'draft') return { error: 'This piece is not open for approval.' }
   if (decision === 'change_requested' && item.status === 'idea') return { error: 'This piece is not open for review.' }

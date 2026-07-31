@@ -33,7 +33,7 @@ const ACTION_LABEL: Record<string, string> = {
   'proofed': 'Proof it',
   'approval-sent': 'Send to Maria',
   'copy-approved': 'Final copy + design approval',
-  'idea-approved': 'Resolve idea approval',
+  'plan-direction-approved': 'Resolve plan direction',
   'scheduled': 'Schedule',
   'posted': 'Post',
   'link-confirmed': 'Confirm link',
@@ -46,7 +46,7 @@ function actionLabel(gate: string, dest: string | null, postPublishProofRecord =
 
 // Plain-English names for the nine steps, shown in the Pieces legend (never the raw gate
 // keys like "source-in-hand" / "link-confirmed").
-const STEP_NAMES = ['Idea sent to Maria', 'Idea approved', 'Fact-check', 'Studio cut', 'Design', 'Proof',
+const STEP_NAMES = ['Plan direction sent', 'Plan direction approved', 'Fact-check', 'Studio cut', 'Design', 'Proof',
   'Final copy + design sent', 'Final copy + design approved', 'Scheduled', 'Posted', 'Link confirmed']
 
 // One row shape for every task: title on the LEFT, the plain-English next step / status on
@@ -106,7 +106,7 @@ export function stageDisplay(stage: string, label: string): { label: string; ton
     case 'courtesy_released': return { label: 'Courtesy release', tone: 'done', detail: 'no client approval required' }
     case 'direction_approved': return { label: 'Direction approved', tone: 'done', detail: 'still in production' }
     case 'awaiting_decision': return { label: 'Awaiting Maria', tone: 'open', detail: '' }
-    case 'awaiting_idea_approval': return { label: 'Awaiting idea approval', tone: 'open', detail: '' }
+    case 'awaiting_idea_approval': return { label: 'Awaiting plan direction', tone: 'open', detail: '' }
     case 'legacy': return {
       label: 'Posted',
       tone: label.includes('not portal-verified') ? 'muted' : 'verified',

@@ -154,8 +154,8 @@ export function agencyProgress(piece: StagePiece): ProgressModel {
   const ideaNodes: StageNode[] = [
     { key: 'idea-created', label: 'Idea created', state: 'done' },
     { key: 'copy-drafted', label: 'Copy drafted', state: 'done' },
-    { key: 'idea-approval-sent', label: 'Idea sent to Maria', state: ideaSent ? 'done' : 'upcoming' },
-    { key: 'idea-approved', label: 'Idea approved', state: ideaApproved ? 'done' : 'current',
+    { key: 'idea-approval-sent', label: 'Plan direction sent', state: ideaSent ? 'done' : 'upcoming' },
+    { key: 'idea-approved', label: 'Plan direction approved', state: ideaApproved ? 'done' : 'current',
       note: piece.ideaDecision === 'change_requested' ? 'changes requested' : piece.ideaDecisionSource === 'batch' ? 'approved in plan' : null },
   ]
 

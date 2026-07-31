@@ -18,6 +18,7 @@ export default function ReviewPackage({
   contentId,
   canRequest,
   isPublished,
+  finalDecisionAvailable,
 }: {
   blocks: ReviewCopyBlock[]
   platforms: string[]
@@ -25,19 +26,22 @@ export default function ReviewPackage({
   contentId: string
   canRequest: boolean
   isPublished: boolean
+  finalDecisionAvailable: boolean
 }) {
   const groups = groupReviewCopy(blocks, platforms)
 
   return (
     <section id="review-copy" aria-labelledby="review-package-heading" style={panel}>
-      <Eyebrow tone="grey">Review package</Eyebrow>
+      <Eyebrow tone="grey">{finalDecisionAvailable ? 'Review package' : 'Copy review'}</Eyebrow>
       <div id="review-package-heading" style={{ marginTop: 8 }}>
-        <Heading level={3}>One decision, all materials</Heading>
+        <Heading level={3}>{finalDecisionAvailable ? 'One decision, all materials' : 'Copy ready, design in progress'}</Heading>
       </div>
       <Text tone="graphite">
         {isPublished
           ? 'This version is already live. Its published copy cannot be changed here. Use the comments below to ask The Dot about a correction or follow-up.'
-          : 'Your approval covers this version\'s copy and linked design together. You can comment on exact wording, suggest a replacement, or request a change to the package.'}
+          : finalDecisionAvailable
+            ? 'Your approval covers this version\'s copy and linked design together. You can comment on exact wording, suggest a replacement, or request a change to the package.'
+            : 'This fact-checked copy is ready for your feedback. Please leave comments or suggested edits below. We will return with the linked design for the separate final package decision.'}
       </Text>
 
       <div style={{ marginTop: 24 }}>

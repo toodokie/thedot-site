@@ -498,6 +498,26 @@ async function main(): Promise<void> {
     }
 
     {
+      // 0050: a released fact-checked copy may be visible for plan feedback, but it
+      // cannot record either final-package decision before a client-safe design link
+      // exists. The check belongs at the RPC boundary, not only in the page UI.
+      const noDesignBefore = await bClient.from('content_with_state')
+        .select('current_decision').eq('id', bRequestItemId).single()
+      const noDesign = await bClient.rpc('record_content_decision', {
+        p_content_id: bRequestItemId, p_content_version: 1, p_decision: 'approved', p_note: null,
+      })
+      const noDesignAfter = await bClient.from('content_with_state')
+        .select('current_decision').eq('id', bRequestItemId).single()
+      const mainDesign = await admin.rpc('set_content_design_links', {
+        p_client_id: bClientId, p_content_id: B_CONTENT_ID,
+        p_canva_url: 'https://www.canva.com/design/FINALPACKAGE/view', p_drive_url: null,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-final-package-design-${RUN_ID}`,
+      })
+      check('FP1: final package decision rejects copy-only review and accepts a linked design',
+        !!noDesign.error && noDesign.error.message.includes('final_package_design_required') && !mainDesign.error
+          && noDesignBefore.data?.current_decision === null && noDesignAfter.data?.current_decision === null,
+        noDesign.error?.message ?? mainDesign.error?.message ?? `before=${noDesignBefore.data?.current_decision} after=${noDesignAfter.data?.current_decision}`)
+
       const before = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
       const args = { p_content_id: bItemId, p_content_version: 1, p_decision: 'approved' }
       const first = await bClient.rpc('record_content_decision', args)
@@ -1066,6 +1086,12 @@ async function main(): Promise<void> {
       planPayload.platforms = []
       const [planSync] = await sync([planPayload])
       const planItemId = planSync.item_id
+      const planDesign = await admin.rpc('set_content_design_links', {
+        p_client_id: bClientId, p_content_id: 'rls-plan-only',
+        p_canva_url: 'https://www.canva.com/design/PLANONLY/view', p_drive_url: null,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-planonly-design-${RUN_ID}`,
+      })
+      if (planDesign.error) throw new Error(`plan-only design: ${planDesign.error.message}`)
       const ready = await admin.rpc('mark_content_ready', {
         p_content_id: planItemId, p_content_version: 1,
       })
@@ -1136,6 +1162,12 @@ async function main(): Promise<void> {
       )
       multiPayload.platforms = ['instagram', 'facebook']
       const [multiSync] = await sync([multiPayload])
+      const multiDesign = await admin.rpc('set_content_design_links', {
+        p_client_id: bClientId, p_content_id: 'rls-multi-target',
+        p_canva_url: 'https://www.canva.com/design/MULTITARGET/view', p_drive_url: null,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-multi-design-${RUN_ID}`,
+      })
+      if (multiDesign.error) throw new Error(`multi-target design: ${multiDesign.error.message}`)
       const ready = await admin.rpc('mark_content_ready', {
         p_content_id: multiSync.item_id, p_content_version: 1,
       })
@@ -1179,6 +1211,12 @@ async function main(): Promise<void> {
       )
       unsafePayload.platforms = ['instagram', 'unconfigured-network']
       const [unsafeSync] = await sync([unsafePayload])
+      const unsafeDesign = await admin.rpc('set_content_design_links', {
+        p_client_id: bClientId, p_content_id: 'rls-unsupported-target',
+        p_canva_url: 'https://www.canva.com/design/UNSAFE/view', p_drive_url: null,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-unsafe-design-${RUN_ID}`,
+      })
+      if (unsafeDesign.error) throw new Error(`unsupported-target design: ${unsafeDesign.error.message}`)
       const unsafeReady = await admin.rpc('mark_content_ready', {
         p_content_id: unsafeSync.item_id, p_content_version: 1,
       })

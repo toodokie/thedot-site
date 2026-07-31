@@ -13,7 +13,7 @@ export type AdminIdeaComment = {
   authorType: 'client' | 'anastasia' | 'agent'; authorName: string; body: string
   resolved: boolean; createdAt: string
 }
-export type PlanRow = { id: string; content_id: string; title: string; format: string | null; pillar: string | null; platforms: string[]; status: string; planned_date: string | null; client_slug?: string; not_shared?: boolean; producer?: string | null; calendar_note?: string | null }
+export type PlanRow = { id: string; content_id: string; title: string; format: string | null; pillar: string | null; platforms: string[]; status: string; planned_date: string | null; client_slug?: string; not_shared?: boolean; producer?: string | null; calendar_note?: string | null; released: boolean; fact_check_valid: boolean }
 export type ReportRow = { id: string; period: string; period_start: string; period_end: string; platform: string; schema_version: number; metrics: Record<string, unknown>; summary: string | null }
 export type RecRow = { id: string; title: string; body: string; category: string; platform: string | null; status: string; created_at: string }
 export type LinkRow = { id: string; category: string; label: string; url: string; description: string | null; sort: number | null }
@@ -73,6 +73,8 @@ export async function loadPlan(): Promise<PlanRow[]> {
     not_shared: row.notShared,
     producer: row.producer ?? null,
     calendar_note: row.calendarNote ?? null,
+    released: Boolean(row.released),
+    fact_check_valid: Boolean(row.factCheckValid),
   })).sort((a, b) => (b.planned_date ?? '').localeCompare(a.planned_date ?? '') || a.content_id.localeCompare(b.content_id))
 }
 

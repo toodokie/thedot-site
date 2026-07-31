@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { getClientSession } from '@/lib/portal/auth'
 import { getSchedule, statusAccent, belongsOnPlanSurface, type ScheduleRow } from '@/lib/portal/schedule'
 import { getCurrentPlanCycle, getPlanCycleDecisions, type PlanCycleItem } from '@/lib/portal/plan-cycle'
+import { getContent, type ContentRow } from '@/lib/portal/data'
 import { Eyebrow, Heading, Text } from '@thedot/design-system'
 import PlanDecideForm from './PlanDecideForm'
 import styles from './plan.module.css'
@@ -34,11 +35,15 @@ function fmtRange(startIso: string, endIso: string): string {
   return `${fmtDay(startIso)} to ${fmtDay(endIso)}`
 }
 
-function CycleItem({ item, slug }: { item: PlanCycleItem; slug: string }) {
+function CycleItem({ item, slug, content }: { item: PlanCycleItem; slug: string; content: ContentRow | null }) {
   const meta = [item.format, ...item.platforms].filter(Boolean)
+  const href = content
+    ? `/client/${encodeURIComponent(slug)}/piece/${encodeURIComponent(item.content_id)}`
+    : `/client/${encodeURIComponent(slug)}/plan/${encodeURIComponent(item.content_id)}`
+  const hasDesign = Boolean(content?.canva_url || content?.drive_url)
   return (
     <li className={styles.cycleItem}>
-      <Link href={`/client/${encodeURIComponent(slug)}/plan/${encodeURIComponent(item.content_id)}`} className={styles.cycleItemLink}>
+      <Link href={href} className={styles.cycleItemLink}>
         <span className={styles.cyclePos} aria-hidden="true">{item.position}</span>
         <span className={styles.cycleItemMain}>
           <Text as="span" size="md" tone="black">{item.title}</Text>
@@ -46,6 +51,13 @@ function CycleItem({ item, slug }: { item: PlanCycleItem; slug: string }) {
             {item.planned_date && <span className={styles.chip}>{fmtDay(item.planned_date)}</span>}
             {meta.map((m) => <span key={m} className={styles.chip}>{m}</span>)}
           </span>
+          {content && (
+            <span className={styles.reviewAvailability}>
+              {hasDesign
+                ? 'Fact-checked copy and linked design are available for final review.'
+                : 'Fact-checked copy is available for plan review. Design is still in progress.'}
+            </span>
+          )}
           {item.direction_note && <span className={styles.cycleNote}><Text as="span" size="sm" tone="graphite">{item.direction_note}</Text></span>}
         </span>
       </Link>
@@ -57,7 +69,11 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
   const { slug } = await params
   const session = await getClientSession(slug)
   if (!session) redirect('/client/login')
-  const rows = await getSchedule(session.clientId)
+  const [rows, content] = await Promise.all([
+    getSchedule(session.clientId),
+    getContent(session.clientId),
+  ])
+  const contentById = new Map(content.map((item) => [item.content_id, item]))
 
   // The current weekly plan cycle (the direction Maria approves as a batch). A missing projection
   // throws PortalDataError -> the route error boundary, never a silent "empty approved plan".
@@ -137,13 +153,13 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
 
           {cycleItems.length > 0 && (
             <ol className={styles.cycleList}>
-              {cycleItems.map((it) => <CycleItem key={it.id} item={it} slug={slug} />)}
+              {cycleItems.map((it) => <CycleItem key={it.id} item={it} slug={slug} content={contentById.get(it.content_id) ?? null} />)}
             </ol>
           )}
 
           {cycle.status === 'approved' ? (
             <p className={styles.decisionApproved} role="status">
-              You approved this plan{cycle.decided_at ? ` on ${fmtDay(cycle.decided_at)}` : ''}. We are producing these pieces now.
+              You approved this plan{cycle.decided_at ? ` on ${fmtDay(cycle.decided_at)}` : ''}. We are producing these pieces now. A separate final decision comes once copy and design are ready together.
             </p>
           ) : cycle.status === 'change_requested' ? (
             <div className={styles.decisionChanges} role="status">
@@ -154,7 +170,7 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
             </div>
           ) : session.canDecide ? (
             <div className={styles.decisionOpen}>
-              <Text as="p" size="md" tone="black">Review the direction above, then approve it or request changes.</Text>
+              <Text as="p" size="md" tone="black">Review the week&rsquo;s direction, then approve it or request changes. Where fact-checked copy is available, you can open it and leave feedback now. We will return with a linked design for the separate final package decision.</Text>
               <PlanDecideForm slug={slug} cycleId={cycle.id} revision={cycle.revision} />
             </div>
           ) : (

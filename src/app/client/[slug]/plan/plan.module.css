@@ -140,6 +140,13 @@
 }
 .cycleItemMain { flex: 1 1 auto; min-width: 0; }
 .cycleItemMeta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.reviewAvailability {
+  display: block;
+  margin-top: 8px;
+  color: var(--dot-graphite);
+  font-size: 13px;
+  line-height: 1.45;
+}
 .cycleNote { display: block; margin-top: 8px; }
 
 .decisionApproved,

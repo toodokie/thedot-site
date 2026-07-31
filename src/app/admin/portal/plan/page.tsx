@@ -19,10 +19,18 @@ function cycleTone(status: string): PillTone {
   return status === 'approved' ? 'done' : 'muted'
 }
 
+function planReviewState(row: { released: boolean; fact_check_valid: boolean } | undefined): string {
+  if (!row) return 'Identity not loaded'
+  if (row.released && row.fact_check_valid) return 'Copy available for plan review'
+  if (row.released) return 'Copy is not eligible for client review'
+  return 'In preparation'
+}
+
 export default async function PortalAdminPlanPage() {
   const session = await verifySession()
   if (!session || session.role !== 'admin') redirect('/admin/login')
   const [rows, plan] = await Promise.all([loadPlan(), loadPlanCycle()])
+  const rowsByContentId = new Map(rows.map((row) => [row.content_id, row]))
   const scheduled = rows.filter((r) => r.planned_date)
   return (
     <>
@@ -48,7 +56,7 @@ export default async function PortalAdminPlanPage() {
               <div className={styles.tableWrap}>
                 <table className={styles.table}>
                   <thead>
-                    <tr><th>#</th><th>Planned</th><th className={styles.pieceCol}>Piece</th><th>Format</th><th>Platforms</th><th>Direction note</th></tr>
+                  <tr><th>#</th><th>Planned</th><th className={styles.pieceCol}>Piece</th><th>Format</th><th>Platforms</th><th>Review</th><th>Direction note</th></tr>
                   </thead>
                   <tbody>
                     {plan.items.map((it) => (
@@ -64,6 +72,7 @@ export default async function PortalAdminPlanPage() {
                         </td>
                         <td className={styles.cellMuted}>{it.format ?? ''}</td>
                         <td className={styles.cellMuted}>{it.platforms.join(', ')}</td>
+                        <td className={styles.cellMuted}>{planReviewState(rowsByContentId.get(it.content_id))}</td>
                         <td className={styles.cellMuted}>{it.direction_note ?? ''}</td>
                       </tr>
                     ))}

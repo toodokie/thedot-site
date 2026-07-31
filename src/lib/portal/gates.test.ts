@@ -185,13 +185,13 @@ describe('deriveMyTasks', () => {
   it('does not manufacture production tasks for a versionless idea', () => {
     expect(deriveMyTasks([piece({ workingVersion: null, status: 'idea' })], [], '2026-07-21')).toEqual([])
   })
-  it('routes a hydrated submitted idea to idea approval, not final copy approval', () => {
+  it('routes a hydrated submitted plan item to plan direction, not final copy approval', () => {
     const tasks = deriveMyTasks([piece({
       ideaApprovalSentAt: '2026-07-26T12:00:00Z',
       gates: [gate('source_in_hand', 'done'), gate('design_built', 'done'), gate('proofed', 'done'), gate('approval_sent', 'done')],
     })], [], '2026-07-26')
     expect(tasks).toHaveLength(1)
-    expect(tasks[0]).toMatchObject({ kind: 'action', gate: 'idea-approved' })
+    expect(tasks[0]).toMatchObject({ kind: 'action', gate: 'plan-direction-approved' })
   })
   it('surfaces the first open gate in canonical order with the open-gate count', () => {
     // platforms empty so gates 7-9 add no lines: open = design/proofed/approval + copy

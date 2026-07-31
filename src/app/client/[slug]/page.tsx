@@ -83,7 +83,10 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
   // "new since your last visit": an event the OTHER party logged after you were last here.
   const isNew = (a: { created_at: string; actor_name: string }) =>
     Boolean(lastSeen) && a.created_at > (lastSeen as string) && a.actor_name !== session.name
-  const needs = items.filter((i) => i.state === 'needs_review')
+  // A fact-checked released copy can be available during the plan-direction phase,
+  // before a design exists. It is deliberately NOT a final package approval ask.
+  const needs = items.filter((i) => i.state === 'needs_review' && Boolean(i.canva_url || i.drive_url))
+  const copyReady = items.filter((i) => i.state === 'needs_review' && !i.canva_url && !i.drive_url)
   const reReviewByContentId = new Map(items.flatMap((item) => {
     const context = reReviewContext(item.version, item.state, requests.filter((request) => request.content_id === item.id))
     return context ? [[item.id, context] as const] : []
@@ -181,6 +184,12 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
                 })
               )}
             </Panel>
+
+            {copyReady.length > 0 && (
+              <Panel label="Copy ready for plan review" note="These fact-checked drafts are ready for your comments. Final approval opens when the linked design is ready.">
+                {copyReady.map((it) => <ContentRow key={it.id} it={it} slug={slug} priority />)}
+              </Panel>
+            )}
 
             {withDot.length > 0 && (
               <Panel label="Back with The Dot">

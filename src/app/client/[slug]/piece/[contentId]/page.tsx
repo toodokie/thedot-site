@@ -78,6 +78,7 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
     item.canva_url && /^https:\/\//i.test(item.canva_url) ? { label: 'Canva', url: item.canva_url } : null,
     item.drive_url && /^https:\/\//i.test(item.drive_url) ? { label: 'Google Drive', url: item.drive_url } : null,
   ].filter((link): link is { label: string; url: string } => Boolean(link))
+  const finalDecisionAvailable = item.state === 'needs_review' && designLinks.length > 0
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: '40px 32px' }}>
@@ -118,7 +119,7 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
         {designLinks.length > 0 && <a href="#review-design" style={sectionLink}>Design</a>}
         <a href="#review-facts" style={sectionLink}>Facts</a>
         <a href="#review-comments" style={sectionLink}>Comments</a>
-        {item.state === 'needs_review' && <a href="#review-decision" style={sectionLink}>Decision</a>}
+        {finalDecisionAvailable && <a href="#review-decision" style={sectionLink}>Decision</a>}
       </nav>
 
       <ReviewPackage
@@ -128,6 +129,7 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
         contentId={item.content_id}
         canRequest={session.canSubmitRequests && !isPublished}
         isPublished={isPublished}
+        finalDecisionAvailable={finalDecisionAvailable}
       />
 
       {designLinks.length > 0 && <section id="review-design" aria-labelledby="review-design-heading" style={{
@@ -161,7 +163,7 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
       {/* The progress bar under the title carries the state. This remains one atomic
           decision for the immutable released version, after copy, design, facts, and
           comments have all been available for review. */}
-      {item.state === 'needs_review' && <section id="review-decision" aria-labelledby="review-decision-heading" style={{
+      {finalDecisionAvailable && <section id="review-decision" aria-labelledby="review-decision-heading" style={{
         marginTop: 32, padding: '20px', border: '1px solid var(--dot-black)', background: 'var(--dot-cream)',
       }}>
         <Heading level={3} id="review-decision-heading">{session.canDecide ? (reReview ? 'Your re-review decision' : 'Your decision') : 'Package decision'}</Heading>
