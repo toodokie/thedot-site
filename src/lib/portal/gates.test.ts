@@ -275,6 +275,25 @@ describe('deriveMyTasks', () => {
     expect(tasks[0]).toMatchObject({ kind: 'link_pending', dest: 'instagram' })
   })
 
+  it('never resurrects a completed post as waiting on studio because of a stale source gate', () => {
+    const completed = piece({
+      currentDecision: 'approved', factCheckExempt: true,
+      gates: [gate('source_in_hand', 'open', { owner_label: 'studio' }),
+        gate('design_built', 'done'), gate('proofed', 'done'), gate('approval_sent', 'done')],
+      platforms: ['instagram'],
+      dests: [dest('instagram', { publicationStatus: 'live', verified: true })],
+    })
+    expect(deriveMyTasks([completed], [], '2026-07-31')).toEqual([])
+  })
+
+  it('does not ask Maria for final approval of an unshared stub package', () => {
+    const stub = piece({
+      released: false, visibleVersion: null, factCheckExempt: true,
+      gates: [], platforms: [], currentDecision: null,
+    })
+    expect(deriveMyTasks([stub], [], '2026-07-31')).toEqual([])
+  })
+
   it('a live destination without a provider schedule never surfaces a stale schedule action or a fabricated schedule record', () => {
     const live = piece({ platforms: ['instagram'],
       dests: [dest('instagram', { publicationStatus: 'live', verified: false })] })

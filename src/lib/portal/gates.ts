@@ -422,6 +422,22 @@ export function deriveMyTasks(
         gate: 'plan-direction-approved', dest: null, moreOpen: 0, postPublishProofRecord: false })
       continue
     }
+
+    // Publication state wins over stale production-gate rows. A completed piece can retain
+    // its historical source/design/approval rows forever, but none of those may resurrect
+    // a finished post as an open studio or agency task. The one deliberate exception is an
+    // explicitly-open proof gate: that is a real post-publish audit omission, rendered as
+    // "Record missing proof" rather than a fictional pre-publish task.
+    const stage = deriveContentStage(piece)
+    if (stage.stage === 'done') {
+      const proofed = productionGate(piece, 'proofed')
+      if (proofed?.state === 'open') {
+        tasks.push({ kind: 'action', ...tenant, contentId: piece.contentId, title: piece.title,
+          gate: 'proofed', dest: null, moreOpen: 0, postPublishProofRecord: true })
+      }
+      continue
+    }
+
     const resolved = resolveNineGates(piece)
     // only gates the portal actually stores generate tasks (absent rows are unknowns,
     // not obligations: a podcast episode must not show "needs source" forever)
@@ -430,6 +446,10 @@ export function deriveMyTasks(
     const first = open[0]
     if (first.key === 'copy-approved') {
       const approvalSent = productionGate(piece, 'approval_sent')
+      // A current decision cannot be requested until the exact released package has been
+      // sent. Unshared v1 stubs used to fall through here and falsely told Ops that Maria
+      // owed final approval, even though there was no client-visible copy or design.
+      if (piece.released === false || approvalSent?.state !== 'done') continue
       if (approvalSent?.state === 'done' && approvalSent.occurred_at) {
         const days = businessDaysBetween(approvalSent.occurred_at, todayIso)
         // call 4: at 2 business days the row flags nudge?; a draft is OFFERED, nothing
