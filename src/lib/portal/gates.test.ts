@@ -285,6 +285,17 @@ describe('deriveMyTasks', () => {
     const tasks = deriveMyTasks([live], [], '2026-07-21')
     expect(tasks.some((t) => t.kind === 'action' && t.gate === 'scheduled')).toBe(false)
   })
+
+  it('keeps a missing proof record visible after publication without pretending the links need proofing', () => {
+    const afterPublication = piece({
+      gates: [gate('source_in_hand', 'done'), gate('design_built', 'done'), gate('proofed', 'open')],
+      platforms: ['instagram'],
+      dests: [dest('instagram', { publicationStatus: 'live', verified: true })],
+    })
+    expect(deriveMyTasks([afterPublication], [], '2026-07-31')[0]).toMatchObject({
+      kind: 'action', gate: 'proofed', postPublishProofRecord: true,
+    })
+  })
 })
 
 describe('businessDaysBetween', () => {

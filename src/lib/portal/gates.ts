@@ -351,7 +351,7 @@ export function deriveContentStage(piece: StagePiece): StageResult {
 // (Codex round-4 fix 2). An ops task with a null client_id is agency-global: its
 // clientName is 'Agency'. Piece-derived tasks also carry clientId for composite keys.
 export type MyTask =
-  | { kind: 'action'; clientId: string; clientName: string; contentId: string; title: string; gate: GateKey | 'idea-approved'; dest: string | null; moreOpen: number }
+  | { kind: 'action'; clientId: string; clientName: string; contentId: string; title: string; gate: GateKey | 'idea-approved'; dest: string | null; moreOpen: number; postPublishProofRecord: boolean }
   // posted everywhere required, only link-confirmation outstanding: bookkeeping, not
   // production work, so it renders in a quiet "link-confirm pending" group instead of
   // flooding Actions (many imported/legacy pieces sit here honestly unverified).
@@ -418,7 +418,7 @@ export function deriveMyTasks(
     // later version-bound copy approval, even when the pack has already been synced.
     if (piece.ideaApprovalSentAt !== null && piece.ideaDecision !== 'approved') {
       tasks.push({ kind: 'action', ...tenant, contentId: piece.contentId, title: piece.title,
-        gate: 'idea-approved', dest: null, moreOpen: 0 })
+        gate: 'idea-approved', dest: null, moreOpen: 0, postPublishProofRecord: false })
       continue
     }
     const resolved = resolveNineGates(piece)
@@ -450,7 +450,11 @@ export function deriveMyTasks(
       continue
     }
     tasks.push({ kind: 'action', ...tenant, contentId: piece.contentId, title: piece.title,
-      gate: first.key, dest: first.dest, moreOpen: open.length - 1 })
+      gate: first.key, dest: first.dest, moreOpen: open.length - 1,
+      // A publication record proves a live destination, not that the required pre-publish
+      // proof happened. Keep the missing audit record visible, but name it honestly.
+      postPublishProofRecord: first.key === 'proofed'
+        && piece.dests.some((dest) => dest.publicationStatus === 'live') })
   }
 
   const weekAhead = new Date(todayIso.slice(0, 10) + 'T00:00:00Z')

@@ -38,7 +38,8 @@ const ACTION_LABEL: Record<string, string> = {
   'posted': 'Post',
   'link-confirmed': 'Confirm link',
 }
-function actionLabel(gate: string, dest: string | null): string {
+function actionLabel(gate: string, dest: string | null, postPublishProofRecord = false): string {
+  if (gate === 'proofed' && postPublishProofRecord) return 'Record missing proof'
   const base = ACTION_LABEL[gate] ?? gate
   return dest ? `${base}: ${dest}` : base
 }
@@ -58,7 +59,7 @@ function TaskRow({ task, showClient }: { task: MyTask; showClient: boolean }) {
   let trail: ReactNode = null
   let lead: ReactNode = null
   if (task.kind === 'action') {
-    trail = <StatusPill tone="open" label={actionLabel(task.gate, task.dest)} />
+    trail = <StatusPill tone="open" label={actionLabel(task.gate, task.dest, task.postPublishProofRecord)} />
   } else if (task.kind === 'link_pending') {
     trail = <span className={styles.meta}>confirm the live link{task.dest ? ` on ${task.dest}` : ''}{task.moreOpen > 0 ? ` +${task.moreOpen} more` : ''}</span>
   } else if (task.kind === 'waiting_maria') {

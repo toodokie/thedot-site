@@ -37,6 +37,12 @@ const sectionLink: CSSProperties = {
   textDecorationColor: 'var(--dot-hairline)',
 }
 
+function listAreas(areas: string[]): string {
+  if (areas.length < 2) return areas[0] ?? 'review package'
+  if (areas.length === 2) return `${areas[0]} and ${areas[1]}`
+  return `${areas.slice(0, -1).join(', ')}, and ${areas.at(-1)}`
+}
+
 export default async function Piece({ params }: { params: Promise<{ slug: string; contentId: string }> }) {
   const { slug, contentId } = await params
   const session = await getClientSession(slug)
@@ -102,7 +108,7 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
         <Eyebrow tone="grey">Updated for re-review</Eyebrow>
         <div style={{ marginTop: 8 }}><Heading level={3} id="re-review-heading">We updated this after your feedback.</Heading></div>
         <Text tone="graphite">
-          This is version {item.version}, updated from version {reReview.previousVersion}. Please review the current copy and linked design, then approve it when ready or request further changes.
+          We updated the {listAreas(reReview.changedAreas)}. This is version {item.version}, updated from version {reReview.previousVersion}. Please review the current package, then approve it when ready or request further changes.
         </Text>
       </section>}
 

@@ -4,6 +4,15 @@ import type { ClientState } from './state'
 export type ReReviewContext = {
   previousVersion: number
   changeCount: number
+  changedAreas: string[]
+}
+
+function changedArea(request: ContentRequestRow): string {
+  const block = typeof request.payload.block_key === 'string' ? request.payload.block_key : ''
+  if (['ig-caption', 'fb-caption', 'ig-facebook-caption', 'social-caption'].includes(block)) return 'social caption'
+  if (block === 'graphic') return 'graphic'
+  if (['design', 'canva', 'drive'].includes(block)) return 'design'
+  return 'review package'
 }
 
 // A new release is a re-review only when the client has already given feedback that
@@ -28,5 +37,6 @@ export function reReviewContext(
   return {
     previousVersion: Math.max(...appliedToThisVersion.map((request) => request.base_version as number)),
     changeCount: appliedToThisVersion.length,
+    changedAreas: [...new Set(appliedToThisVersion.map(changedArea))],
   }
 }
