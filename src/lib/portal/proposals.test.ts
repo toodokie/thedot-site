@@ -12,6 +12,11 @@ describe('proposal document parser', () => {
     ])).toHaveLength(4)
   })
 
+  it('accepts a bullet list inside a visual callout card', () => {
+    expect(parseProposalBlocks([{ kind: 'callout', title: 'Decision', items: ['Approve the direction', 'Request changes'] }]))
+      .toEqual([{ kind: 'callout', title: 'Decision', items: ['Approve the direction', 'Request changes'] }])
+  })
+
   it('fails closed for incomplete blocks and unsafe link schemes', () => {
     expect(() => parseProposalBlocks([{ kind: 'checklist', items: [] }])).toThrow(PortalDataError)
     expect(() => parseProposalBlocks([{ kind: 'links', links: [{ label: 'Bad', url: 'javascript:alert(1)' }] }])).toThrow(PortalDataError)
