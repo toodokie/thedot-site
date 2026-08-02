@@ -138,7 +138,7 @@ export default function ServicesPage() {
 
           {/* Key capabilities — WHAT we do (packaged into the priced tiers below) */}
           <div className="dot-caps">
-            <p className="dot-caps-lead">What we do — packaged into the tiers below</p>
+            <p className="dot-caps-lead">What we do, packaged into the tiers below</p>
             <div className="dot-caps-grid">
               <a href="/services/web-design-business-systems" className="dot-cap dot-cap--link">
                 <span className="dot-cap-dot" aria-hidden="true" />
@@ -158,7 +158,7 @@ export default function ServicesPage() {
               <a href="/services/aoda-web-accessibility" className="dot-cap dot-cap--link">
                 <span className="dot-cap-dot" aria-hidden="true" />
                 <h3 className="dot-cap-title">AODA Accessibility <span className="dot-cap-arrow" aria-hidden="true">&rarr;</span></h3>
-                <p className="dot-cap-text">Compliance built in &mdash; plus practical audits for sites you already have.</p>
+                <p className="dot-cap-text">Compliance built in, plus practical audits for sites you already have.</p>
               </a>
               <a href="/services/managed-website-growth" className="dot-cap dot-cap--link">
                 <span className="dot-cap-dot" aria-hidden="true" />
@@ -168,7 +168,7 @@ export default function ServicesPage() {
               <a href="/services/ai-visibility-audit" className="dot-cap dot-cap--link">
                 <span className="dot-cap-dot" aria-hidden="true" />
                 <h3 className="dot-cap-title">AI Visibility (GEO) <span className="dot-cap-arrow" aria-hidden="true">&rarr;</span></h3>
-                <p className="dot-cap-text">Get recommended when customers ask ChatGPT, Gemini &amp; Perplexity &mdash; free check, then an audit.</p>
+                <p className="dot-cap-text">Get recommended when customers ask ChatGPT, Gemini and Perplexity. Free check, then an audit.</p>
               </a>
             </div>
           </div>
@@ -308,7 +308,7 @@ function WebsitesTab() {
           <h6 className="services-tab-price">$2,500&ndash;$4,500</h6>
         </div>
         <p className="services-tab-description">
-          A strategic website that positions your business for growth. A 5&ndash;7 page, mobile-first, AODA-compliant site with professional brand implementation &mdash; built to convert, with 30 days of post-launch support. Need something beyond this scope? We&apos;ll craft a bespoke proposal.
+          A strategic website that positions your business for growth. A 5&ndash;7 page, mobile-first, AODA-compliant site with professional brand implementation, built to convert, with 30 days of post-launch support. Need something beyond this scope? We&apos;ll put together a custom quote.
         </p>
       </div>
 
@@ -360,7 +360,7 @@ function GraphicTab() {
           <h6 className="services-tab-price">$5,500&ndash;$7,500</h6>
         </div>
         <p className="services-tab-description">
-          Your complete digital transformation. We design an exceptional website, then connect it to the tools you already run &mdash; CRM, accounting, scheduling, intake &mdash; and automate the busywork in between. One intelligent system that typically saves you 10&ndash;20 hours a month.
+          Your complete digital transformation. We design an exceptional website, then connect it to the tools you already run (CRM, accounting, scheduling, intake) and automate the busywork in between. One intelligent system that typically saves you 10&ndash;20 hours a month.
         </p>
       </div>
 
@@ -372,7 +372,7 @@ function GraphicTab() {
         />
         <ServiceFeature
           title="Business Systems Integration."
-          description=" We wire your site to your CRM, accounting, scheduling and intake tools so information flows in one place &mdash; no more re-keying the same data across apps."
+          description=" We wire your site to your CRM, accounting, scheduling and intake tools so information flows in one place, with no more re-keying the same data across apps."
           iconType="strategy"
         />
         <ServiceFeature
@@ -412,7 +412,7 @@ function PhotoVideoTab() {
           <h6 className="services-tab-price">from $350</h6>
         </div>
         <p className="services-tab-description">
-          Targeted engagements for businesses that need a specific improvement or an ongoing partner &mdash; not a full build. Fixed-scope projects and consulting, priced from $350.
+          Targeted engagements for businesses that need a specific improvement or an ongoing partner, not a full build. Fixed-scope projects and consulting, priced from $350.
         </p>
       </div>
 
@@ -440,7 +440,7 @@ function PhotoVideoTab() {
       </div>
 
       <p className="services-tab-description" style={{ marginTop: '1.5rem', opacity: 0.75 }}>
-        Also available on request: brand identity, graphic design, and photo &amp; video &mdash; as &agrave;-la-carte add-ons to a project.
+        Also available on request: brand identity, graphic design, and photo &amp; video, as &agrave;-la-carte add-ons to a project.
       </p>
 
       <div className="services-tab-cta">

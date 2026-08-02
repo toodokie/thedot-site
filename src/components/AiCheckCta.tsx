@@ -24,7 +24,7 @@ export default function AiCheckCta() {
         </div>
         <h3 className="aicta-title">Can AI find your business?</h3>
         <p className="aicta-lede">
-          Run a free check to see whether ChatGPT, Gemini and Perplexity name you — or
+          Run a free check to see whether ChatGPT, Gemini and Perplexity name you, or
           send your customers to a competitor.
         </p>
       </div>

@@ -28,7 +28,7 @@ export default function AiCheckPromo() {
             <h2 className="aicheck-title">Can AI find your business?</h2>
             <p className="aicheck-lede">
               When a customer asks ChatGPT, Gemini or Perplexity for a business like
-              yours, does it name you — or send them to a competitor? Run a free check
+              yours, does it name you, or send them to a competitor? Run a free check
               and see exactly what AI says about you today.
             </p>
           </div>

@@ -379,13 +379,13 @@ export default function ProjectEstimate() {
                 <div className="est-pkg">
                   <h3 className="est-pkg-title">Professional Foundation</h3>
                   <p className="est-pkg-price">$2,500&ndash;$4,500</p>
-                  <p className="est-pkg-desc">A strategic, accessible website built to convert &mdash; 5&ndash;7 pages, mobile-first, with brand implementation and 30 days of support.</p>
+                  <p className="est-pkg-desc">A strategic, accessible website built to convert. 5&ndash;7 pages, mobile-first, with brand implementation and 30 days of support.</p>
                   <a href="/brief" className="services-cta-button">Get a scoped quote</a>
                 </div>
                 <div className="est-pkg">
                   <h3 className="est-pkg-title">Connected Business System</h3>
                   <p className="est-pkg-price">$5,500&ndash;$7,500</p>
-                  <p className="est-pkg-desc">Everything in Foundation, connected to your CRM, accounting, scheduling and intake &mdash; with automation that saves 10&ndash;20 hours a month.</p>
+                  <p className="est-pkg-desc">Everything in Foundation, connected to your CRM, accounting, scheduling and intake, with automation that saves 10&ndash;20 hours a month.</p>
                   <a href="/brief" className="services-cta-button">Get a scoped quote</a>
                 </div>
               </div>

@@ -25,8 +25,8 @@ export default function AiVisibilityAuditPage() {
           <h1 className="geo-h1">Get found when your customers ask AI.</h1>
           <p className="geo-lede">
             Search is moving into ChatGPT, Gemini, Perplexity and Google&rsquo;s AI answers.
-            When someone asks one of them for a business like yours, it names a handful &mdash;
-            and ignores the rest. An AI-Visibility (GEO) audit finds out whether that&rsquo;s you,
+            When someone asks one of them for a business like yours, it names a handful and
+            ignores the rest. An AI-Visibility (GEO) audit finds out whether that&rsquo;s you,
             and fixes what&rsquo;s keeping AI from recommending you.
           </p>
           <div className="geo-cta-row">
@@ -54,10 +54,9 @@ export default function AiVisibilityAuditPage() {
           <h2 className="geo-h2">Why this matters now</h2>
           <p className="geo-body">
             People increasingly ask an AI assistant to <em>recommend</em> a business instead of
-            scrolling a list of links. If AI doesn&rsquo;t know you exist &mdash; or can&rsquo;t
-            read your site clearly &mdash; you&rsquo;re invisible at the exact moment a customer
-            is ready to choose. Ranking #1 on Google doesn&rsquo;t help if the answer never
-            shows a link at all.
+            scrolling a list of links. If AI doesn&rsquo;t know you exist, or can&rsquo;t read
+            your site clearly, you&rsquo;re invisible at the exact moment a customer is ready to
+            choose. Ranking #1 on Google doesn&rsquo;t help if the answer never shows a link at all.
           </p>
         </div>
       </section>
@@ -70,32 +69,32 @@ export default function AiVisibilityAuditPage() {
             <div className="geo-card">
               <span className="geo-dot" aria-hidden="true" />
               <h3 className="geo-card-title">Do AI engines name you?</h3>
-              <p className="geo-card-text">We ask ChatGPT, Gemini and Perplexity for a business like yours &mdash; <strong>by name</strong> and, more importantly, <strong>by the problem a customer brings</strong> (where new clients actually find you).</p>
+              <p className="geo-card-text">We ask ChatGPT, Gemini and Perplexity for a business like yours: <strong>by name</strong>, and, more importantly, <strong>by the problem a customer brings</strong> (where new clients actually find you).</p>
             </div>
             <div className="geo-card">
               <span className="geo-dot" aria-hidden="true" />
               <h3 className="geo-card-title">Can AI read your site?</h3>
-              <p className="geo-card-text">We check whether AI crawlers can actually see and correctly describe your business &mdash; the content, structure and signals they rely on.</p>
+              <p className="geo-card-text">We check whether AI crawlers can actually see and correctly describe your business: the content, structure and signals they rely on.</p>
             </div>
             <div className="geo-card">
               <span className="geo-dot" aria-hidden="true" />
               <h3 className="geo-card-title">A prioritised gap report</h3>
-              <p className="geo-card-text">A plain-English report of where you&rsquo;re missing, why, and the specific fixes &mdash; ranked by impact, not a 40-page PDF you&rsquo;ll never read.</p>
+              <p className="geo-card-text">A plain-English report of where you&rsquo;re missing, why, and the specific fixes, ranked by impact. Not a 40-page PDF you&rsquo;ll never read.</p>
             </div>
             <div className="geo-card">
               <span className="geo-dot" aria-hidden="true" />
               <h3 className="geo-card-title">The fixes</h3>
-              <p className="geo-card-text">Structured data, entity consistency, answer-ready content and machine-readable signals (schema, an <code>llms.txt</code> where it helps) &mdash; the things that make AI describe you accurately.</p>
+              <p className="geo-card-text">Structured data, entity consistency, answer-ready content and machine-readable signals like schema and an <code>llms.txt</code> where it helps. These are the things that make AI describe you accurately.</p>
             </div>
             <div className="geo-card">
               <span className="geo-dot" aria-hidden="true" />
               <h3 className="geo-card-title">Monitoring</h3>
-              <p className="geo-card-text">We track a fixed set of buyer questions across the major assistants over time, so you can see whether you&rsquo;re mentioned, cited and described correctly &mdash; with dates and sources.</p>
+              <p className="geo-card-text">We track a fixed set of buyer questions across the major assistants over time, so you can see whether you&rsquo;re mentioned, cited and described correctly, with dates and sources.</p>
             </div>
             <div className="geo-card">
               <span className="geo-dot" aria-hidden="true" />
               <h3 className="geo-card-title">Built on real engineering</h3>
-              <p className="geo-card-text">We don&rsquo;t just advise &mdash; we&rsquo;re a web + systems studio, so the fixes get implemented properly on your site, accessibility and content included.</p>
+              <p className="geo-card-text">We don&rsquo;t just advise. We&rsquo;re a web and systems studio, so the fixes get implemented properly on your site, accessibility and content included.</p>
             </div>
           </div>
         </div>
@@ -108,7 +107,7 @@ export default function AiVisibilityAuditPage() {
           <ol className="geo-steps">
             <li><span className="geo-step-n">1</span><div><h3 className="geo-step-t">Free self-check</h3><p className="geo-step-p">Run our <a href="/tools/ai-visibility" className="geo-inline-link">free AI-visibility tool</a> in about two minutes to see a snapshot today.</p></div></li>
             <li><span className="geo-step-n">2</span><div><h3 className="geo-step-t">Full audit</h3><p className="geo-step-p">We run the deeper checks across engines and your site, and deliver the prioritised gap report.</p></div></li>
-            <li><span className="geo-step-n">3</span><div><h3 className="geo-step-t">Fixes</h3><p className="geo-step-p">We implement the highest-impact fixes &mdash; schema, content, entity and accessibility &mdash; on your live site.</p></div></li>
+            <li><span className="geo-step-n">3</span><div><h3 className="geo-step-t">Fixes</h3><p className="geo-step-p">We implement the highest-impact fixes (schema, content, entity and accessibility) on your live site.</p></div></li>
             <li><span className="geo-step-n">4</span><div><h3 className="geo-step-t">Monitor</h3><p className="geo-step-p">We re-check over time and report whether AI is now recommending and describing you correctly.</p></div></li>
           </ol>
         </div>
@@ -121,7 +120,7 @@ export default function AiVisibilityAuditPage() {
             <h3 className="geo-note-t">An honest word on guarantees</h3>
             <p className="geo-note-p">
               AI answers are probabilistic, personalised and change over time. No legitimate
-              provider can <em>guarantee</em> you&rsquo;ll appear or rank in an AI answer &mdash;
+              provider can <em>guarantee</em> you&rsquo;ll appear or rank in an AI answer, and
               anyone who promises that is selling you something. What we <em>can</em> do is remove
               every reason AI has to overlook or misdescribe you, and measure the change honestly.
             </p>
@@ -139,15 +138,15 @@ export default function AiVisibilityAuditPage() {
           </div>
           <div className="geo-faq-item">
             <h3 className="geo-faq-q">How is this different from SEO?</h3>
-            <p className="geo-faq-a">SEO gets you ranked in a list of links. GEO gets you named inside an AI&rsquo;s answer &mdash; which increasingly happens before anyone sees a list of links at all. They overlap, but the signals AI relies on (clear entity, structured data, answer-ready content) need deliberate work.</p>
+            <p className="geo-faq-a">SEO gets you ranked in a list of links. GEO gets you named inside an AI&rsquo;s answer, which increasingly happens before anyone sees a list of links at all. They overlap, but the signals AI relies on (clear entity, structured data, answer-ready content) need deliberate work.</p>
           </div>
           <div className="geo-faq-item">
             <h3 className="geo-faq-q">Can you guarantee I&rsquo;ll appear in ChatGPT?</h3>
-            <p className="geo-faq-a">No &mdash; and be wary of anyone who does. AI answers are probabilistic and change over time. We remove the reasons AI overlooks you and measure the change with documented prompts, dates and sources.</p>
+            <p className="geo-faq-a">No, and be wary of anyone who does. AI answers are probabilistic and change over time. We remove the reasons AI overlooks you and measure the change with documented prompts, dates and sources.</p>
           </div>
           <div className="geo-faq-item">
             <h3 className="geo-faq-q">Which AI engines do you check?</h3>
-            <p className="geo-faq-a">ChatGPT, Google&rsquo;s Gemini / AI answers, and Perplexity &mdash; the assistants your customers are most likely to ask.</p>
+            <p className="geo-faq-a">ChatGPT, Google&rsquo;s Gemini and AI answers, and Perplexity: the assistants your customers are most likely to ask.</p>
           </div>
           <div className="geo-faq-item">
             <h3 className="geo-faq-q">Where do I start?</h3>
@@ -160,7 +159,7 @@ export default function AiVisibilityAuditPage() {
       <section className="geo-section geo-final">
         <div className="geo-wrap">
           <h2 className="geo-h2">See what AI says about you today</h2>
-          <p className="geo-body">Start with the free two-minute check &mdash; then we&rsquo;ll take it from there.</p>
+          <p className="geo-body">Start with the free two-minute check, then we&rsquo;ll take it from there.</p>
           <div className="geo-cta-row">
             <a
               href="/tools/ai-visibility"
