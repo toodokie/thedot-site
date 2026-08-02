@@ -85,7 +85,7 @@ function ProposalReplyForm({ proposal }: { proposal: AdminClientProposal }) {
 function ProposalList({ proposals }: { proposals: AdminClientProposal[] }) {
   if (!proposals.length) return <p className={styles.empty}>No agency proposals yet.</p>
   return <div>{proposals.map((proposal) => <article key={proposal.id} id={`proposal-${proposal.id}`} className={styles.subCard}>
-    <div className={styles.pubPieceHead}><span className={styles.subCardTitle}>{proposal.title}</span><StatusPill tone={proposal.status === 'approved' ? 'verified' : proposal.status === 'change_requested' ? 'failed' : 'pending'} label={proposal.status === 'awaiting_decision' ? 'Waiting on Maria' : proposal.status.replaceAll('_', ' ')} /></div>
+    <div className={styles.pubPieceHead}><span className={styles.subCardTitle}>{proposal.title}</span><StatusPill tone={proposal.status === 'approved' ? 'verified' : proposal.status === 'change_requested' ? 'failed' : 'pending'} label={proposal.status === 'awaiting_decision' ? 'Waiting on review' : proposal.status.replaceAll('_', ' ')} /></div>
     <div className={styles.metaLine}>{proposal.clientName} · proposal · v{proposal.revision}{proposal.submittedAt ? ` · ${proposal.submittedAt.slice(0, 10)}` : ''}</div>
     {proposal.summary && <p>{proposal.summary}</p>}
     {proposal.decisionNote && <p className={styles.metaLine}><strong>{proposal.decidedByName ?? 'Client'}:</strong> {proposal.decisionNote}</p>}

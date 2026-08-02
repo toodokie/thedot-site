@@ -8,7 +8,7 @@ import { getSchedule, routesToPiecePage, statusAccent } from '@/lib/portal/sched
 import { clientStateLabel } from '@/lib/portal/state'
 import { getLastSeen } from '@/lib/portal/seen'
 import { getContentRequests } from '@/lib/portal/requests'
-import { getClientProposals } from '@/lib/portal/proposals'
+import { getClientProposalMessages, getClientProposals } from '@/lib/portal/proposals'
 import { reReviewContext } from '@/lib/portal/re-review'
 import WeekCalendar, { type WeekCalendarChip } from '@/components/portal/WeekCalendar'
 import MarkSeen from './MarkSeen'
@@ -83,6 +83,7 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
     getContentRequests(session.clientId),
     getClientProposals(session.clientId),
   ])
+  const proposalMessages = await getClientProposalMessages(session.clientId, proposals.map((proposal) => proposal.id))
   // "new since your last visit": an event the OTHER party logged after you were last here.
   const isNew = (a: { created_at: string; actor_name: string }) =>
     Boolean(lastSeen) && a.created_at > (lastSeen as string) && a.actor_name !== session.name
@@ -125,6 +126,10 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
   const firstName = session.name ? session.name.split(' ')[0] : ''
   const planWaiting = currentPlan.cycle?.status === 'submitted' || currentPlan.cycle?.status === 'change_requested'
   const awaitingProposals = proposals.filter((proposal) => proposal.status === 'awaiting_decision')
+  const latestProposalReply = new Map<string, { author_name: string; body: string }>()
+  for (const message of proposalMessages) {
+    if (message.author_type === 'anastasia') latestProposalReply.set(message.proposal_id, message)
+  }
   const approvalCount = needs.length + (planWaiting ? 1 : 0) + awaitingProposals.length
   const calendarDays: Record<string, WeekCalendarChip[]> = {}
   for (const row of schedule) {
@@ -162,7 +167,7 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
         <div className={styles.grid}>
           <div>
             <Panel
-              label="Waiting on approval"
+              label="Waiting on review"
               note={planWaiting
                 ? needs.length > 0
                   ? 'Your content plan and released pieces are ready for your approval.'
@@ -183,10 +188,13 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
                 <span className={styles.marker}><Dot fill="yellow" size={8} /></span><span className={styles.rowMain}>
                   <Text as="span" size="md" tone="black">{proposal.title}</Text>
                   <span className={styles.chipRow}><span className={styles.chip}>proposal</span><span className={styles.chip}>your decision</span></span>
+                  {latestProposalReply.get(proposal.id) && <Text as="span" size="sm" tone="grey">
+                    Latest reply from {latestProposalReply.get(proposal.id)?.author_name}: {latestProposalReply.get(proposal.id)?.body}
+                  </Text>}
                 </span>
               </Link>)}
               {needs.length === 0 && !planWaiting && awaitingProposals.length === 0 ? (
-                <div className={styles.emptyRow}><Text size="md" tone="graphite">Nothing is waiting on your approval right now.</Text></div>
+                <div className={styles.emptyRow}><Text size="md" tone="graphite">Nothing is waiting on your review right now.</Text></div>
               ) : (
                 needs.map((it) => {
                   const reReview = reReviewByContentId.get(it.id)

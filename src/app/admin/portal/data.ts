@@ -135,7 +135,7 @@ function opsClientNamer(clientMap: Map<string, { name: string }>) {
 // ---- My tasks (hero): stage pieces + ops tasks + recently-completed ops ----
 export async function loadMyTasksData(): Promise<{
   pieces: StagePiece[]; opsTasks: OpsTaskRow[]; completedOps: CompletedOpsTask[];
-  openComments: AdminComment[]; openProposals: Array<{ id: string; clientName: string; title: string; submittedAt: string | null }>; todayIso: string
+  openComments: AdminComment[]; openProposals: Array<{ id: string; clientName: string; title: string; submittedAt: string | null; latestClientReply: { authorName: string; body: string } | null }>; todayIso: string
 }> {
   const admin = createSupabaseAdmin()
   const [clients, opsTasks, completedOpsRows, proposals] = await Promise.all([
@@ -161,8 +161,21 @@ export async function loadMyTasksData(): Promise<{
     title: task.title, category: task.category, status: task.status,
     triggerNote: task.trigger_note, completionNote: task.completion_note, completedAt: task.completed_at,
   }))
+  const proposalIds = (proposals.data ?? []).map((proposal) => proposal.id)
+  const { data: proposalMessages, error: proposalMessagesError } = proposalIds.length
+    ? await admin.from('client_proposal_messages').select('proposal_id,author_type,author_name,body,created_at')
+      .in('proposal_id', proposalIds).eq('author_type', 'client').order('created_at', { ascending: false }).order('id', { ascending: false })
+    : { data: [], error: null }
+  if (proposalMessagesError) throw new Error(`Portal proposal messages unavailable: ${proposalMessagesError.message}`)
+  const latestClientReply = new Map<string, { authorName: string; body: string }>()
+  for (const message of proposalMessages ?? []) {
+    if (!latestClientReply.has(message.proposal_id)) latestClientReply.set(message.proposal_id, {
+      authorName: message.author_name, body: message.body,
+    })
+  }
   const openProposals = (proposals.data ?? []).map((proposal) => ({ id: proposal.id,
-    clientName: opsClientName(proposal.client_id), title: proposal.title, submittedAt: proposal.submitted_at }))
+    clientName: opsClientName(proposal.client_id), title: proposal.title, submittedAt: proposal.submitted_at,
+    latestClientReply: latestClientReply.get(proposal.id) ?? null }))
   return { pieces, opsTasks: adminOpsTasks, completedOps, openComments, openProposals, todayIso: torontoToday() }
 }
 

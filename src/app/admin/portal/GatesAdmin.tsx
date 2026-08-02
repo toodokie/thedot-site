@@ -167,7 +167,7 @@ export function MyTasksAdmin({ pieces, opsTasks, completedOps, openComments, ope
   opsTasks: OpsTaskRow[]
   completedOps: CompletedOpsTask[]
   openComments: AdminComment[]
-  openProposals: Array<{ id: string; clientName: string; title: string; submittedAt: string | null }>
+  openProposals: Array<{ id: string; clientName: string; title: string; submittedAt: string | null; latestClientReply: { authorName: string; body: string } | null }>
   todayIso: string
 }) {
   const tasks = deriveMyTasks(pieces, opsTasks, todayIso)
@@ -212,13 +212,15 @@ export function MyTasksAdmin({ pieces, opsTasks, completedOps, openComments, ope
         <div className={styles.grid}>
           <div>
             <Panel label="Actions" note="Your move, most pressing first." rows={actions} emphasis />
-            <Panel label="Waiting on Maria" rows={maria} />
+            <Panel label="Waiting on client review" rows={maria} />
             {openProposals.length > 0 && <section className={styles.card}>
-              <div className={styles.panelHead}><Eyebrow tone="grey">Waiting on Maria · proposals</Eyebrow></div>
-              <p className={styles.panelNote}>Agency messages that need a client decision.</p><ul className={styles.taskList}>
+              <div className={styles.panelHead}><Eyebrow tone="grey">Waiting on review · proposals</Eyebrow></div>
+              <p className={styles.panelNote}>Agency messages that need a client decision. The latest client reply is shown here too.</p><ul className={styles.taskList}>
                 {openProposals.map((proposal) => <li key={proposal.id} className={styles.taskRow}><span className={styles.taskMain}>
                   <a className={`${styles.taskTitle} ${styles.pieceLink}`} href={`/admin/portal/requests#proposal-${proposal.id}`}>{proposal.title}</a>
-                  <span className={styles.meta}>{proposal.clientName}</span></span><span className={styles.taskTrail}><span className={styles.meta}>{proposal.submittedAt?.slice(0, 10) ?? 'sent'}</span></span></li>)}
+                  <span className={styles.meta}>{proposal.clientName}</span>
+                  {proposal.latestClientReply && <span className={styles.meta}>Latest reply from {proposal.latestClientReply.authorName}: {proposal.latestClientReply.body}</span>}
+                </span><span className={styles.taskTrail}><span className={styles.meta}>{proposal.submittedAt?.slice(0, 10) ?? 'sent'}</span></span></li>)}
               </ul></section>}
             <Panel label="Waiting on studio" rows={studio} />
           </div>
