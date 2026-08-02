@@ -12,6 +12,7 @@
 .error { color: #8b1e1e; }
 .success { color: #315c38; }
 .history { display: grid; gap: 12px; }
+.requestHistoryHeading { margin-top: 32px; }
 .card { border: 1px solid var(--dot-hairline); background: white; padding: 16px; }
 .cardHead { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
 .badge { flex: none; border: 1px solid var(--dot-hairline); padding: 2px 7px; font: 500 11px/1.5 var(--dot-font-text); text-transform: uppercase; letter-spacing: .08em; }
@@ -25,4 +26,19 @@
 .agencyMessage { border-left: 2px solid var(--dot-yellow); background: #fffde9; }
 .replyForm { display: grid; gap: 8px; margin-top: 12px; }
 .replyForm .textarea { min-height: 72px; }
+.proposalLayout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr); gap: 24px; align-items: start; }
+.proposalPanel { border: 1px solid var(--dot-hairline); background: white; padding: 28px; }
+.proposalSide { display: grid; gap: 18px; }
+.proposalDocument { display: grid; gap: 22px; }
+.proposalBlock { border-top: 1px solid var(--dot-hairline); padding-top: 20px; }
+.proposalBlock:first-child { border-top: 0; padding-top: 0; }
+.proposalBlock h2 { margin: 0 0 8px; font: 500 20px/1.25 var(--dot-font-display); }
+.proposalBlock p, .proposalBlock li { white-space: pre-wrap; overflow-wrap: anywhere; font: 400 16px/1.6 var(--dot-font-text); }
+.proposalBlock ul { margin: 10px 0 0; padding-left: 22px; display: grid; gap: 8px; }
+.proposal_callout { background: #fffde9; border: 1px solid var(--dot-yellow); padding: 16px; }
+.proposal_quote { border-left: 3px solid var(--dot-yellow); padding-left: 16px; }
+.proposalLinks { list-style: none; padding-left: 0 !important; }
+.proposalLinks a { color: inherit; text-decoration: underline; }
+.proposalDecision { display: grid; gap: 10px; margin-top: 12px; }
+@media (max-width: 760px) { .proposalLayout { grid-template-columns: 1fr; } .proposalPanel { padding: 18px; } }
 @media (max-width: 760px) { .wrap { padding: 28px 18px 88px; } .grid { grid-template-columns: 1fr; } .checks { grid-template-columns: 1fr; } }

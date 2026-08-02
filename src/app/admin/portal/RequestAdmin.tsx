@@ -5,6 +5,7 @@ import { useState } from 'react'
 import styles from './portal-admin.module.css'
 import StatusPill, { type PillTone } from './StatusPill'
 import AdminPageHeader from './AdminPageHeader'
+import type { AdminClientProposal } from './data'
 
 export type AdminContentRequest = {
   id: string; clientName: string; requestType: string; status: string; requesterName: string
@@ -63,6 +64,34 @@ function RequestReplyForm({ request }: { request: AdminContentRequest }) {
       <button type="submit" className={styles.disclose} disabled={state.kind === 'sending' || !body.trim()}>{state.kind === 'sending' ? 'Posting…' : 'Reply'}</button>
     </div>
   </form>
+}
+
+function ProposalReplyForm({ proposal }: { proposal: AdminClientProposal }) {
+  const router = useRouter(); const [body, setBody] = useState(''); const [state, setState] = useState<{ kind: 'idle' | 'sending' | 'sent' | 'error'; message?: string }>({ kind: 'idle' })
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault(); const reply = body.trim(); if (!reply) return; setState({ kind: 'sending' })
+    try {
+      const response = await fetch('/api/admin/portal/requests', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'proposal-reply', requestId: proposal.id, body: reply, idempotencyKey: crypto.randomUUID() }) })
+      const payload = await response.json() as { error?: string }; if (!response.ok) throw new Error(payload.error ?? 'Could not post the reply.')
+      setBody(''); setState({ kind: 'sent', message: 'Reply posted.' }); router.refresh()
+    } catch (error) { setState({ kind: 'error', message: error instanceof Error ? error.message : 'Could not post the reply.' }) }
+  }
+  return <form onSubmit={submit} className={styles.requestReplyForm}><label className={styles.fieldLabel} htmlFor={`proposal-reply-${proposal.id}`}>Reply to Maria</label>
+    <textarea id={`proposal-reply-${proposal.id}`} value={body} onChange={(event) => setBody(event.target.value.slice(0, 4000))} rows={2} maxLength={4000} className={styles.commentReplyInput} placeholder="Reply in the portal" />
+    <div className={styles.commentReplyActions}>{state.message && <span className={state.kind === 'error' ? styles.commentError : styles.commentSuccess} role="status">{state.message}</span>}<button type="submit" className={styles.disclose} disabled={state.kind === 'sending' || !body.trim()}>{state.kind === 'sending' ? 'Posting…' : 'Reply'}</button></div>
+  </form>
+}
+
+function ProposalList({ proposals }: { proposals: AdminClientProposal[] }) {
+  if (!proposals.length) return <p className={styles.empty}>No agency proposals yet.</p>
+  return <div>{proposals.map((proposal) => <article key={proposal.id} id={`proposal-${proposal.id}`} className={styles.subCard}>
+    <div className={styles.pubPieceHead}><span className={styles.subCardTitle}>{proposal.title}</span><StatusPill tone={proposal.status === 'approved' ? 'verified' : proposal.status === 'change_requested' ? 'failed' : 'pending'} label={proposal.status === 'awaiting_decision' ? 'Waiting on Maria' : proposal.status.replaceAll('_', ' ')} /></div>
+    <div className={styles.metaLine}>{proposal.clientName} · proposal · v{proposal.revision}{proposal.submittedAt ? ` · ${proposal.submittedAt.slice(0, 10)}` : ''}</div>
+    {proposal.summary && <p>{proposal.summary}</p>}
+    {proposal.decisionNote && <p className={styles.metaLine}><strong>{proposal.decidedByName ?? 'Client'}:</strong> {proposal.decisionNote}</p>}
+    {proposal.messages.length > 0 && <section className={styles.requestConversation} aria-label="Proposal conversation">{proposal.messages.map((message) => <div key={message.id} className={message.authorType === 'anastasia' ? styles.requestAgencyMessage : styles.requestClientMessage}><span>{message.authorName}</span><p>{message.body}</p></div>)}</section>}
+    <ProposalReplyForm proposal={proposal} />
+  </article>)}</div>
 }
 
 export function RequestList({
@@ -136,11 +165,16 @@ export function RequestList({
   </>
 }
 
-export default function RequestAdmin({ requests }: { requests: AdminContentRequest[] }) {
+export default function RequestAdmin({ requests, proposals = [] }: { requests: AdminContentRequest[]; proposals?: AdminClientProposal[] }) {
   return <>
-    <AdminPageHeader kicker="Agency ops" title="Change requests"
-      intro="Requests Maria sends from her portal. Answer questions here. For a proposed edit, reply with the plan, then prepare the canonical revision in the content workflow before re-sharing it with Maria." />
+    <AdminPageHeader kicker="Agency ops" title="Messages & requests"
+      intro="Proposals are client-facing agency messages that can be discussed and approved in the portal. Content requests remain separate because canonical copy changes still move through the revision workflow." />
     <section className={styles.card}>
+      <h2 className={styles.sectionTitle}>Agency proposals</h2>
+      <ProposalList proposals={proposals} />
+    </section>
+    <section className={styles.card}>
+      <h2 className={styles.sectionTitle}>Content requests</h2>
       <RequestList requests={requests} />
     </section>
   </>

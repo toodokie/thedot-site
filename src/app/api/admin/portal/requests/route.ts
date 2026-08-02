@@ -8,8 +8,19 @@ export async function POST(request: Request) {
     await requireAdminSession()
     assertSameOriginRequest(request)
     const body = await request.json() as {
-      action?: 'resolve' | 'reply'
+      action?: 'resolve' | 'reply' | 'proposal-reply'
       requestId?: string; status?: string; reason?: string; body?: string; close?: boolean; idempotencyKey?: string
+    }
+    if (body.action === 'proposal-reply') {
+      const reply = body.body?.trim()
+      if (!body.requestId?.match(/^[0-9a-f-]{36}$/i) || !reply || reply.length > 4000
+          || !body.idempotencyKey?.match(/^[0-9a-f-]{36}$/i)) return NextResponse.json({ error: 'Invalid proposal reply.' }, { status: 400 })
+      const admin = createSupabaseAdmin()
+      const { data, error } = await admin.rpc('reply_to_client_proposal', {
+        p_proposal_id: body.requestId, p_body: reply, p_actor_key: 'thedot-admin', p_idempotency_key: body.idempotencyKey,
+      })
+      if (error) throw new Error(error.message)
+      return NextResponse.json({ result: data }, { headers: { 'Cache-Control': 'private, no-store' } })
     }
     if (body.action === 'reply') {
       const reply = body.body?.trim()

@@ -8,6 +8,7 @@ import {
   assertClientSafeAgencyText, assertReportMetrics, assertReviewedHttpsUrl,
   optionalText, requiredText, sha256,
 } from '../src/lib/portal/agency-write'
+import { parseProposalBlocks } from '../src/lib/portal/proposals'
 
 loadEnvConfig(process.cwd())
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -51,7 +52,7 @@ const assertNoteGrammarSafe = (value: string | null, field: string) => {
 
 async function main() {
   const [command, inputPath, ...rest] = process.argv.slice(2)
-  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|external-decision|courtesy-release|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|plan-cycle|plan-cycle-stage|plan-cycle-close|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
+  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|proposal-draft|proposal-submit|proposal-reply|external-decision|courtesy-release|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|plan-cycle|plan-cycle-stage|plan-cycle-close|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
   const dryRun = rest.includes('--dry-run')
   const packIndex = rest.indexOf('--pack')
   const packPath = packIndex >= 0 ? rest[packIndex + 1] ?? null : null
@@ -123,6 +124,32 @@ async function main() {
       p_channel:stringArray(payload.channel,'channel',['email','call','meeting','text']),p_occurred_at:timestamp(payload.occurredAt,'occurredAt'),
       p_title:title,p_summary:summary,p_actor_name:clientActorName,
       p_source_ref:requiredText(payload.sourceRef,'sourceRef',500),p_actor_key:actor,p_idempotency_key:idempotency}
+  } else if (command === 'proposal-draft') {
+    const proposalKey = requiredText(payload.proposalKey, 'proposalKey', 200)
+    if (!/^[a-z0-9][a-z0-9._-]*$/.test(proposalKey)) throw new Error('proposalKey must be lowercase letters, numbers, dots, underscores, or hyphens')
+    const title = requiredText(payload.title, 'title', 300); const summary = optionalText(payload.summary, 'summary', 2000)
+    const blocks = parseProposalBlocks(payload.blocks)
+    const safe: Record<string, string | null> = { title, summary }
+    for (const [index, block] of blocks.entries()) {
+      safe[`block_${index}_title`] = block.title ?? null; safe[`block_${index}_body`] = block.body ?? null
+      for (const [itemIndex, item] of (block.items ?? []).entries()) safe[`block_${index}_item_${itemIndex}`] = item
+      for (const [linkIndex, link] of (block.links ?? []).entries()) {
+        safe[`block_${index}_link_${linkIndex}`] = link.label; assertReviewedHttpsUrl(link.url)
+      }
+    }
+    assertClientSafeAgencyText(safe)
+    rpc = 'upsert_client_proposal_draft'; args = { p_client_id: null, p_proposal_key: proposalKey, p_title: title,
+      p_summary: summary, p_blocks: blocks, p_actor_key: actor, p_idempotency_key: idempotency }
+  } else if (command === 'proposal-submit') {
+    const proposalKey = requiredText(payload.proposalKey, 'proposalKey', 200)
+    if (!/^[a-z0-9][a-z0-9._-]*$/.test(proposalKey)) throw new Error('proposalKey is invalid')
+    rpc = 'submit_client_proposal'; args = { p_client_id: null, p_proposal_key: proposalKey,
+      p_revision: integer(payload.revision, 'revision', 1), p_actor_key: actor, p_idempotency_key: idempotency }
+  } else if (command === 'proposal-reply') {
+    const proposalId = requiredText(payload.proposalId, 'proposalId', 36)
+    if (!/^[0-9a-f-]{36}$/i.test(proposalId)) throw new Error('proposalId is invalid')
+    const body = requiredText(payload.body, 'body', 4000); assertClientSafeAgencyText({ body })
+    rpc = 'reply_to_client_proposal'; args = { p_proposal_id: proposalId, p_body: body, p_actor_key: actor, p_idempotency_key: idempotency }
   } else if (command === 'external-decision') {
     const note=optionalText(payload.note,'note',2000); assertClientSafeAgencyText({note})
     externalContentId=requiredText(payload.contentId,'contentId',200)

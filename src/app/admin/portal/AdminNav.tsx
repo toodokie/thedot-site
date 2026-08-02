@@ -19,7 +19,7 @@ const ITEMS = [
   { label: 'Strategy', seg: 'strategy' },
   { label: 'Library', seg: 'library' },
   { label: 'Billing', seg: 'billing' },
-  { label: 'Requests', seg: 'requests' },
+  { label: 'Messages', seg: 'requests' },
   { label: 'Comments', seg: 'comments' },
 ]
 

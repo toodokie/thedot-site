@@ -29,6 +29,13 @@ export type AdminComment = {
   replyCreatedAt: string | null
 }
 
+export type AdminClientProposal = {
+  id: string; clientId: string; clientName: string; proposalKey: string; title: string
+  summary: string | null; blocks: unknown; status: string; revision: number; submittedAt: string | null
+  decidedAt: string | null; decidedByName: string | null; decisionNote: string | null
+  messages: Array<{ id: string; authorType: 'client' | 'anastasia'; authorName: string; body: string; createdAt: string }>
+}
+
 type CopyBlock = { key: string; label: string | null; body: string }
 
 function asText(value: unknown): string | null {
@@ -128,16 +135,17 @@ function opsClientNamer(clientMap: Map<string, { name: string }>) {
 // ---- My tasks (hero): stage pieces + ops tasks + recently-completed ops ----
 export async function loadMyTasksData(): Promise<{
   pieces: StagePiece[]; opsTasks: OpsTaskRow[]; completedOps: CompletedOpsTask[];
-  openComments: AdminComment[]; todayIso: string
+  openComments: AdminComment[]; openProposals: Array<{ id: string; clientName: string; title: string; submittedAt: string | null }>; todayIso: string
 }> {
   const admin = createSupabaseAdmin()
-  const [clients, opsTasks, completedOpsRows] = await Promise.all([
+  const [clients, opsTasks, completedOpsRows, proposals] = await Promise.all([
     admin.from('clients').select('id,name,slug').order('name'),
     admin.from('ops_tasks').select('id,client_id,title,category,due_date,trigger_note,status').eq('status', 'open'),
     admin.from('ops_tasks').select('id,client_id,title,category,status,trigger_note,completion_note,completed_at')
       .in('status', ['done', 'dropped']).order('completed_at', { ascending: false }).limit(10),
+    admin.from('client_proposals').select('id,client_id,title,submitted_at').eq('status', 'awaiting_decision').order('submitted_at'),
   ])
-  const failure = clients.error ?? opsTasks.error ?? completedOpsRows.error
+  const failure = clients.error ?? opsTasks.error ?? completedOpsRows.error ?? proposals.error
   if (failure) throw new Error(`Portal admin data unavailable: ${failure.message}`)
   const clientMap = new Map((clients.data ?? []).map((client) => [client.id, client]))
   const opsClientName = opsClientNamer(clientMap)
@@ -153,7 +161,9 @@ export async function loadMyTasksData(): Promise<{
     title: task.title, category: task.category, status: task.status,
     triggerNote: task.trigger_note, completionNote: task.completion_note, completedAt: task.completed_at,
   }))
-  return { pieces, opsTasks: adminOpsTasks, completedOps, openComments, todayIso: torontoToday() }
+  const openProposals = (proposals.data ?? []).map((proposal) => ({ id: proposal.id,
+    clientName: opsClientName(proposal.client_id), title: proposal.title, submittedAt: proposal.submitted_at }))
+  return { pieces, opsTasks: adminOpsTasks, completedOps, openComments, openProposals, todayIso: torontoToday() }
 }
 
 // ---- Pieces: the per-piece gate strip. loadAgencyStagePieces runs its own service-role
@@ -295,6 +305,33 @@ export async function loadInvoices(): Promise<AdminInvoice[]> {
     clientName: clientMap.get(inv.client_id)?.name ?? 'Unknown client',
     number: inv.number, issuedAt: inv.issued_at, amount: String(inv.amount),
     currency: inv.currency, status: inv.status, documentUrl: inv.document_url,
+  }))
+}
+
+export async function loadClientProposals(): Promise<AdminClientProposal[]> {
+  const admin = createSupabaseAdmin()
+  const [clients, proposals, messages] = await Promise.all([
+    admin.from('clients').select('id,name'),
+    admin.from('client_proposals').select('id,client_id,proposal_key,title,summary,blocks,status,revision,submitted_at,decided_at,decided_by_name,decision_note').neq('status', 'draft').order('submitted_at', { ascending: false }),
+    admin.from('client_proposal_messages').select('id,client_id,proposal_id,author_type,author_name,body,created_at').order('created_at', { ascending: true }).order('id', { ascending: true }),
+  ])
+  const failure = clients.error ?? proposals.error ?? messages.error
+  if (failure) throw new Error(`Portal proposals unavailable: ${failure.message}`)
+  const names = new Map((clients.data ?? []).map((client) => [client.id, client.name]))
+  const messagesByProposal = new Map<string, AdminClientProposal['messages']>()
+  for (const message of messages.data ?? []) {
+    if (!message.id || !message.proposal_id || !message.author_name || !message.body || !message.created_at
+      || (message.author_type !== 'client' && message.author_type !== 'anastasia')) continue
+    const thread = messagesByProposal.get(message.proposal_id) ?? []
+    thread.push({ id: message.id, authorType: message.author_type, authorName: message.author_name, body: message.body, createdAt: message.created_at })
+    messagesByProposal.set(message.proposal_id, thread)
+  }
+  return (proposals.data ?? []).map((proposal) => ({
+    id: proposal.id, clientId: proposal.client_id, clientName: names.get(proposal.client_id) ?? 'Unknown client',
+    proposalKey: proposal.proposal_key, title: proposal.title, summary: proposal.summary, blocks: proposal.blocks,
+    status: proposal.status, revision: proposal.revision, submittedAt: proposal.submitted_at,
+    decidedAt: proposal.decided_at, decidedByName: proposal.decided_by_name, decisionNote: proposal.decision_note,
+    messages: messagesByProposal.get(proposal.id) ?? [],
   }))
 }
 

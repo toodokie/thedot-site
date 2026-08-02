@@ -18,7 +18,7 @@ const ITEMS = [
   { label: 'Plan', seg: 'plan' },
   { label: 'Idea inbox', seg: 'ideas' },
   { label: 'Reports', seg: 'reports' },
-  { label: 'Requests', seg: 'requests' },
+  { label: 'Messages', seg: 'requests' },
   { label: 'Strategy', seg: 'strategy' },
   { label: 'Library', seg: 'library' },
   { label: 'Billing', seg: 'billing' },

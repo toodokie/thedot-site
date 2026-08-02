@@ -162,11 +162,12 @@ function weekCalendarDays(pieces: StagePiece[]): Record<string, WeekCalendarChip
 
 // My tasks: the landing surface (spec IA #1). Its own routed page (/admin/portal) so it is
 // never buried under the rest of the ops board.
-export function MyTasksAdmin({ pieces, opsTasks, completedOps, openComments, todayIso }: {
+export function MyTasksAdmin({ pieces, opsTasks, completedOps, openComments, openProposals, todayIso }: {
   pieces: StagePiece[]
   opsTasks: OpsTaskRow[]
   completedOps: CompletedOpsTask[]
   openComments: AdminComment[]
+  openProposals: Array<{ id: string; clientName: string; title: string; submittedAt: string | null }>
   todayIso: string
 }) {
   const tasks = deriveMyTasks(pieces, opsTasks, todayIso)
@@ -204,7 +205,7 @@ export function MyTasksAdmin({ pieces, opsTasks, completedOps, openComments, tod
   return (
     <>
       <AdminPageHeader kicker="Agency ops" title="My tasks" display
-        intro="What needs doing, most pressing first." count={openCount + openComments.length} countLabel="open" />
+        intro="What needs doing, most pressing first." count={openCount + openComments.length + openProposals.length} countLabel="open" />
       {openCount === 0 && linkPending.length === 0 ? (
         <section className={styles.card}><p className={styles.empty}>Nothing open.</p></section>
       ) : (
@@ -212,6 +213,13 @@ export function MyTasksAdmin({ pieces, opsTasks, completedOps, openComments, tod
           <div>
             <Panel label="Actions" note="Your move, most pressing first." rows={actions} emphasis />
             <Panel label="Waiting on Maria" rows={maria} />
+            {openProposals.length > 0 && <section className={styles.card}>
+              <div className={styles.panelHead}><Eyebrow tone="grey">Waiting on Maria · proposals</Eyebrow></div>
+              <p className={styles.panelNote}>Agency messages that need a client decision.</p><ul className={styles.taskList}>
+                {openProposals.map((proposal) => <li key={proposal.id} className={styles.taskRow}><span className={styles.taskMain}>
+                  <a className={`${styles.taskTitle} ${styles.pieceLink}`} href={`/admin/portal/requests#proposal-${proposal.id}`}>{proposal.title}</a>
+                  <span className={styles.meta}>{proposal.clientName}</span></span><span className={styles.taskTrail}><span className={styles.meta}>{proposal.submittedAt?.slice(0, 10) ?? 'sent'}</span></span></li>)}
+              </ul></section>}
             <Panel label="Waiting on studio" rows={studio} />
           </div>
           <aside>

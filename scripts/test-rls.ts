@@ -3104,6 +3104,59 @@ async function main(): Promise<void> {
     }
 
     {
+      // 0053: proposals are a separate discussion/approval boundary. The browser can read
+      // only its tenant's submitted document and can reply/decide only through the narrowed
+      // RPCs. Direct table writes and agency writers remain unavailable to it.
+      const proposalKey = `rls-proposal-${RUN_ID}`
+      const draftArgs = {
+        p_client_id: bClientId, p_proposal_key: proposalKey, p_title: 'RLS proposal',
+        p_summary: 'A client-safe proposal fixture.', p_blocks: [
+          { kind: 'heading', title: 'Decision needed' },
+          { kind: 'paragraph', body: 'Please review this client-safe proposal.' },
+          { kind: 'checklist', title: 'Choices', items: ['Approve the direction', 'Request changes'] },
+        ], p_actor_key: 'thedot-admin', p_idempotency_key: `rls-proposal-draft-${RUN_ID}`,
+      }
+      const drafted = await admin.rpc('upsert_client_proposal_draft', draftArgs)
+      const submitted = await admin.rpc('submit_client_proposal', {
+        p_client_id: bClientId, p_proposal_key: proposalKey, p_revision: 1,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-proposal-submit-${RUN_ID}`,
+      })
+      const ownProposal = await bClient.from('client_proposals_client').select('id,title,status,blocks')
+        .eq('proposal_key', proposalKey).maybeSingle()
+      const crossProposal = await kansetClient.from('client_proposals_client').select('id').eq('proposal_key', proposalKey)
+      const directProposalWrite = await bClient.from('client_proposal_messages').insert({
+        client_id: bClientId, proposal_id: (drafted.data as { id?: string } | null)?.id ?? null,
+        author_type: 'client', author_name: 'forged', body: 'forged', idempotency_key: randomUUID(), message_fingerprint: '0'.repeat(64),
+      })
+      const agencyProposalWriter = await bClient.rpc('upsert_client_proposal_draft', draftArgs)
+      const proposalId = ownProposal.data?.id
+      const reply = proposalId ? await bClient.rpc('reply_to_client_proposal_as_client', {
+        p_proposal_id: proposalId, p_body: 'Could we make the opening warmer?', p_idempotency_key: randomUUID(),
+      }) : { data: null, error: new Error('proposal missing') }
+      const decisionArgs = proposalId ? { p_proposal_id: proposalId, p_revision: 1, p_decision: 'approved',
+        p_note: 'Approved for the RLS test.', p_idempotency_key: randomUUID() } : null
+      const decision = decisionArgs ? await bClient.rpc('record_client_proposal_decision', decisionArgs) : { data: null, error: new Error('proposal missing') }
+      const decisionRetry = decisionArgs && decision.data
+        ? await bClient.rpc('record_client_proposal_decision', { ...decisionArgs, p_idempotency_key: decisionArgs.p_idempotency_key })
+        : { data: null, error: new Error('proposal decision missing') }
+      const decidedProposal = proposalId ? await bClient.from('client_proposals_client').select('status,decided_by_name')
+        .eq('id', proposalId).maybeSingle() : { data: null, error: new Error('proposal missing') }
+      const ownMessages = proposalId ? await bClient.from('client_proposal_messages_client').select('author_type,body')
+        .eq('proposal_id', proposalId) : { data: [], error: new Error('proposal missing') }
+      check('PR1: submitted proposal is tenant-scoped, browser-write-denied, and decision/reply writers are durable and idempotent',
+        !drafted.error && !submitted.error && !ownProposal.error && ownProposal.data?.status === 'awaiting_decision'
+          && !crossProposal.error && (crossProposal.data ?? []).length === 0 && !!directProposalWrite.error
+          && !!agencyProposalWriter.error && !reply.error && !decision.error && !decisionRetry.error
+          && !decidedProposal.error && decidedProposal.data?.status === 'approved'
+          && !ownMessages.error && (ownMessages.data ?? []).some((row) => row.author_type === 'client'),
+        drafted.error?.message ?? submitted.error?.message ?? ownProposal.error?.message ?? crossProposal.error?.message
+          ?? reply.error?.message ?? decision.error?.message ?? decisionRetry.error?.message
+          ?? decidedProposal.error?.message ?? ownMessages.error?.message ?? JSON.stringify({ own: ownProposal.data, cross: crossProposal.data,
+            directDenied: Boolean(directProposalWrite.error), agencyDenied: Boolean(agencyProposalWriter.error),
+            reply: reply.data, decision: decision.data, retry: decisionRetry.data, decided: decidedProposal.data, messages: ownMessages.data }))
+    }
+
+    {
       const stop = await admin.rpc('set_portal_feature_switch', {
         p_client_id: bClientId, p_feature: 'client_mutations', p_enabled: false,
         p_reason: 'Exercise emergency tenant stop', p_actor_key: 'thedot-admin',

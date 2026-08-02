@@ -8,6 +8,7 @@ import { getSchedule, routesToPiecePage, statusAccent } from '@/lib/portal/sched
 import { clientStateLabel } from '@/lib/portal/state'
 import { getLastSeen } from '@/lib/portal/seen'
 import { getContentRequests } from '@/lib/portal/requests'
+import { getClientProposals } from '@/lib/portal/proposals'
 import { reReviewContext } from '@/lib/portal/re-review'
 import WeekCalendar, { type WeekCalendarChip } from '@/components/portal/WeekCalendar'
 import MarkSeen from './MarkSeen'
@@ -74,12 +75,13 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
   const session = await getClientSession(slug)
   if (!session) redirect('/client/login')
 
-  const [items, activity, lastSeen, recentPublishedIds, currentPlan, upcomingPlans, schedule, requests] = await Promise.all([
+  const [items, activity, lastSeen, recentPublishedIds, currentPlan, upcomingPlans, schedule, requests, proposals] = await Promise.all([
     getContent(session.clientId), getActivity(session.clientId), getLastSeen(session.clientId),
     getRecentPublishedContentIds(session.clientId), getCurrentPlanCycle(session.clientId),
     getUpcomingPlanCycles(session.clientId),
     getSchedule(session.clientId),
     getContentRequests(session.clientId),
+    getClientProposals(session.clientId),
   ])
   // "new since your last visit": an event the OTHER party logged after you were last here.
   const isNew = (a: { created_at: string; actor_name: string }) =>
@@ -122,7 +124,8 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
   const communication = activity.filter((a) => a.event_type === 'meeting_email_note_added')
   const firstName = session.name ? session.name.split(' ')[0] : ''
   const planWaiting = currentPlan.cycle?.status === 'submitted' || currentPlan.cycle?.status === 'change_requested'
-  const approvalCount = needs.length + (planWaiting ? 1 : 0)
+  const awaitingProposals = proposals.filter((proposal) => proposal.status === 'awaiting_decision')
+  const approvalCount = needs.length + (planWaiting ? 1 : 0) + awaitingProposals.length
   const calendarDays: Record<string, WeekCalendarChip[]> = {}
   for (const row of schedule) {
     if (!row.planned_date) continue
@@ -175,7 +178,14 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
                   </span>
                 </Link>
               )}
-              {needs.length === 0 && !planWaiting ? (
+              {awaitingProposals.map((proposal) => <Link key={proposal.id} className={styles.row}
+                href={`/client/${encodeURIComponent(slug)}/requests/proposals/${encodeURIComponent(proposal.proposal_key)}`}>
+                <span className={styles.marker}><Dot fill="yellow" size={8} /></span><span className={styles.rowMain}>
+                  <Text as="span" size="md" tone="black">{proposal.title}</Text>
+                  <span className={styles.chipRow}><span className={styles.chip}>proposal</span><span className={styles.chip}>your decision</span></span>
+                </span>
+              </Link>)}
+              {needs.length === 0 && !planWaiting && awaitingProposals.length === 0 ? (
                 <div className={styles.emptyRow}><Text size="md" tone="graphite">Nothing is waiting on your approval right now.</Text></div>
               ) : (
                 needs.map((it) => {
