@@ -5,7 +5,7 @@ import { serviceSchema, faqPageSchema, breadcrumbSchema } from '@/lib/service-sc
 
 const slug = 'workflow-automation';
 const schemaDescription =
-  'We map the manual, repetitive steps in your client and admin workflows and automate them end to end, connecting your CRM, accounting, scheduling and intake tools so routine work runs itself.';
+  'We automate the manual, repetitive steps in your client and admin workflows, connecting the CRM, accounting and scheduling tools you already run. Ontario workflow automation.';
 
 const data: ServicePageData = {
   eyebrow: 'Workflow Automation',

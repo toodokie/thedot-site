@@ -5,7 +5,7 @@ import { serviceSchema, faqPageSchema, breadcrumbSchema } from '@/lib/service-sc
 
 const slug = 'managed-website-growth';
 const schemaDescription =
-  'Ongoing website optimization for Ontario businesses: performance and Core Web Vitals, conversion, SEO and AI-visibility upkeep, and accessibility maintenance, so your site keeps improving after launch.';
+  'Ongoing website optimization for Ontario businesses: performance, conversion, SEO, AI-visibility and accessibility upkeep, so your site keeps improving after launch.';
 
 const data: ServicePageData = {
   eyebrow: 'Managed Growth',

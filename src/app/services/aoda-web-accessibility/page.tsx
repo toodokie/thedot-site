@@ -5,7 +5,7 @@ import { serviceSchema, faqPageSchema, breadcrumbSchema } from '@/lib/service-sc
 
 const slug = 'aoda-web-accessibility';
 const schemaDescription =
-  'AODA / WCAG web accessibility for Ontario organizations: accessible design and development built in from the start, plus practical audits and prioritized fix lists for existing sites.';
+  'AODA / WCAG accessibility for Ontario organizations: accessible design built in from the start, plus practical audits with a prioritized fix list for existing sites.';
 
 const data: ServicePageData = {
   eyebrow: 'AODA Accessibility',

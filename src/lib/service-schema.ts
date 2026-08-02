@@ -4,8 +4,24 @@
 
 const ORIGIN = 'https://www.thedotcreative.co';
 
+// Strip HTML tags AND decode the entities used in our copy, so the schema text
+// matches the RENDERED visible text (Google's FAQ policy: they must match).
 function stripHtml(s: string): string {
-  return s.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+  return s
+    .replace(/<[^>]+>/g, '')
+    .replace(/&mdash;/g, '—')
+    .replace(/&ndash;/g, '–')
+    .replace(/&rsquo;/g, '’')
+    .replace(/&lsquo;/g, '‘')
+    .replace(/&ldquo;/g, '“')
+    .replace(/&rdquo;/g, '”')
+    .replace(/&agrave;/g, 'à')
+    .replace(/&rarr;/g, '→')
+    .replace(/&quot;/g, '"')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 export function serviceSchema(opts: {

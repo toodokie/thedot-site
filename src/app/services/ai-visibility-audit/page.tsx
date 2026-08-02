@@ -6,7 +6,7 @@ import { breadcrumbSchema } from '@/lib/service-schema';
 export const metadata: Metadata = {
   title: 'AI-Visibility (GEO) Audit: Get Recommended by ChatGPT | The Dot Creative',
   description:
-    'Get found when customers ask ChatGPT, Gemini and Perplexity for a business like yours. An AI-visibility / GEO audit for Ontario businesses: free check, then a full audit and fixes from The Dot Creative.',
+    'Find out whether ChatGPT, Gemini and Perplexity recommend your business, and fix what keeps AI from naming you. An AI-visibility (GEO) audit for Ontario businesses.',
   keywords:
     'AI visibility audit, GEO, generative engine optimization, AEO, answer engine optimization, get recommended by ChatGPT, AI search optimization Ontario, Toronto GEO agency',
   alternates: { canonical: 'https://www.thedotcreative.co/services/ai-visibility-audit' },
@@ -64,7 +64,7 @@ const faqSchema = {
     },
     {
       '@type': 'Question',
-      name: 'Can you guarantee I will appear in ChatGPT?',
+      name: 'Can you guarantee I’ll appear in ChatGPT?',
       acceptedAnswer: {
         '@type': 'Answer',
         text: 'No, and be wary of anyone who does. AI answers are probabilistic and change over time. We remove the reasons AI overlooks you and measure the change with documented prompts, dates and sources.',

@@ -1,0 +1,37 @@
+# The Dot Creative Agency
+
+> Web design and connected business systems for growing Ontario businesses. We build accessible, conversion-focused websites, connect them to the CRM, accounting, scheduling and intake tools you already run, automate the busywork, and help you get recommended by AI search (GEO).
+
+The Dot Creative is a boutique agency based in Ontario, Canada. We combine web design and development with business systems integration, workflow automation, AODA accessibility, and AI-visibility (Generative Engine Optimization).
+
+## Services
+
+- [Web Design + Business Systems](https://www.thedotcreative.co/services/web-design-business-systems): Accessible, conversion-focused websites connected to your CRM, accounting, scheduling and intake tools. One connected system.
+- [Workflow Automation](https://www.thedotcreative.co/services/workflow-automation): Automate the manual client and admin workflows that eat your week. Typically saves 10 to 20 hours a month.
+- [AODA Web Accessibility](https://www.thedotcreative.co/services/aoda-web-accessibility): AODA / WCAG accessible design built in from the start, plus practical audits for existing Ontario sites.
+- [Managed Website Growth](https://www.thedotcreative.co/services/managed-website-growth): Ongoing performance, conversion, SEO, AI-visibility and accessibility upkeep after launch.
+- [AI-Visibility (GEO) Audit](https://www.thedotcreative.co/services/ai-visibility-audit): Find out whether ChatGPT, Gemini and Perplexity recommend your business, and fix what keeps AI from naming you.
+
+## Tools
+
+- [Free AI-Visibility Check](https://www.thedotcreative.co/tools/ai-visibility): See whether AI recommends your business by name and by need, in about two minutes.
+
+## Resources
+
+- [Services overview](https://www.thedotcreative.co/services)
+- [Blog](https://www.thedotcreative.co/blog): Articles on web design, business systems, and AI visibility.
+- [Contact](https://www.thedotcreative.co/contacts)
+
+## Pricing
+
+- Professional Foundation (website): 2,500 to 4,500 CAD
+- Connected Business System (site plus integration plus automation): 5,500 to 7,500 CAD
+- Design and Consulting (audits, brand, add-ons): from 350 CAD
+
+## Area served
+
+Ontario, Canada, including the Greater Toronto Area.
+
+## Notes
+
+The Dot Creative does not guarantee placement in AI answers; AI results are probabilistic and change over time. Accessibility (AODA) obligations depend on an organization's size and sector and should be confirmed against current Ontario requirements.
