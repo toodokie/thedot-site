@@ -140,26 +140,31 @@ export default function ServicesPage() {
           <div className="dot-caps">
             <p className="dot-caps-lead">What we do — packaged into the tiers below</p>
             <div className="dot-caps-grid">
-              <div className="dot-cap">
+              <a href="/services/web-design-business-systems" className="dot-cap dot-cap--link">
                 <span className="dot-cap-dot" aria-hidden="true" />
-                <h3 className="dot-cap-title">Web Design &amp; Development</h3>
+                <h3 className="dot-cap-title">Web Design &amp; Development <span className="dot-cap-arrow" aria-hidden="true">&rarr;</span></h3>
                 <p className="dot-cap-text">Custom, accessible, conversion-focused websites for Ontario businesses.</p>
-              </div>
-              <div className="dot-cap">
+              </a>
+              <a href="/services/web-design-business-systems" className="dot-cap dot-cap--link">
                 <span className="dot-cap-dot" aria-hidden="true" />
-                <h3 className="dot-cap-title">Business Systems Integration</h3>
+                <h3 className="dot-cap-title">Business Systems Integration <span className="dot-cap-arrow" aria-hidden="true">&rarr;</span></h3>
                 <p className="dot-cap-text">Connect your site to the CRM, accounting, scheduling and intake tools you already run.</p>
-              </div>
-              <div className="dot-cap">
+              </a>
+              <a href="/services/workflow-automation" className="dot-cap dot-cap--link">
                 <span className="dot-cap-dot" aria-hidden="true" />
-                <h3 className="dot-cap-title">Workflow Automation</h3>
+                <h3 className="dot-cap-title">Workflow Automation <span className="dot-cap-arrow" aria-hidden="true">&rarr;</span></h3>
                 <p className="dot-cap-text">Automate the manual client and admin busywork that eats your week.</p>
-              </div>
-              <div className="dot-cap">
+              </a>
+              <a href="/services/aoda-web-accessibility" className="dot-cap dot-cap--link">
                 <span className="dot-cap-dot" aria-hidden="true" />
-                <h3 className="dot-cap-title">AODA Accessibility</h3>
+                <h3 className="dot-cap-title">AODA Accessibility <span className="dot-cap-arrow" aria-hidden="true">&rarr;</span></h3>
                 <p className="dot-cap-text">Compliance built in &mdash; plus practical audits for sites you already have.</p>
-              </div>
+              </a>
+              <a href="/services/managed-website-growth" className="dot-cap dot-cap--link">
+                <span className="dot-cap-dot" aria-hidden="true" />
+                <h3 className="dot-cap-title">Managed Growth <span className="dot-cap-arrow" aria-hidden="true">&rarr;</span></h3>
+                <p className="dot-cap-text">Ongoing performance, SEO, AI-visibility and accessibility upkeep after launch.</p>
+              </a>
               <a href="/services/ai-visibility-audit" className="dot-cap dot-cap--link">
                 <span className="dot-cap-dot" aria-hidden="true" />
                 <h3 className="dot-cap-title">AI Visibility (GEO) <span className="dot-cap-arrow" aria-hidden="true">&rarr;</span></h3>
