@@ -92,3 +92,6 @@ About to write a `<button>` or a hex color? **STOP — use the design system.**
 - `src/components/BlogPage.tsx` / `BlogPostPage.tsx` — blog index / single post.
 - `src/app/api/blog/*` — Notion blog API. `src/app/api/ai-visibility/route.ts` — the tool API.
 - `next.config.ts` — images.remotePatterns, ignoreBuildErrors. `src/middleware.ts` — bot-block (allows GPTBot/ClaudeBot/OAI-SearchBot; blocks curl/scrapers → use a browser UA when curling prod), HTTPS + non-www→www redirect, canonical header, `/client` portal session.
+
+<!-- pnpm-policy -->
+Package manager is pnpm. Never use npm or yarn. Install with `pnpm install`, add packages with `pnpm add`, run scripts with `pnpm run`.

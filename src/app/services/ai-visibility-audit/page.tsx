@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import AiVisibilityAuditPage from '@/components/AiVisibilityAuditPage';
 import Footer from '@/components/Footer';
+import { breadcrumbSchema } from '@/lib/service-schema';
 
 export const metadata: Metadata = {
   title: 'AI-Visibility (GEO) Audit: Get Recommended by ChatGPT | The Dot Creative',
@@ -93,6 +94,7 @@ export default function AiVisibilityAuditRoute() {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema('ai-visibility-audit', 'AI-Visibility Audit')) }} />
       <AiVisibilityAuditPage />
       <Footer />
     </>

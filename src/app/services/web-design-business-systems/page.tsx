@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import ServicePageLayout, { ServicePageData } from '@/components/ServicePageLayout';
 import Footer from '@/components/Footer';
-import { serviceSchema, faqPageSchema } from '@/lib/service-schema';
+import { serviceSchema, faqPageSchema, breadcrumbSchema } from '@/lib/service-schema';
 
 const slug = 'web-design-business-systems';
 
@@ -75,6 +75,7 @@ export default function Route() {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema({ slug, name: 'Web Design & Business Systems Integration', serviceType: 'Web design and business systems integration', description: 'Accessible, conversion-focused websites connected to your CRM, accounting, scheduling and intake tools. One connected business system for Ontario businesses.' })) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqPageSchema(data.faqs.items)) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema(slug, 'Web Design + Business Systems')) }} />
       <ServicePageLayout {...data} />
       <Footer />
     </>

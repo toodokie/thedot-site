@@ -79,5 +79,8 @@ ds-bundle/
 # agent scratch (dev server log, one-off screenshot/query scripts, transcripts)
 .work/
 
+# installed agent skills (Higgsfield etc. — run with full agent permissions, not source)
+.agents/skills/
+
 # update-portal runtime log (local, not source)
 .update-portal.log

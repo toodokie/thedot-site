@@ -42,7 +42,7 @@ export function applyCanonicalEdit(
   const block = parsed.copy_blocks.find((candidate) => candidate.key === patch.blockKey)
   if (!block) throw new Error('Requested copy block no longer exists')
   if (checksum(block.body) !== patch.originalChecksum) throw new Error('Requested copy block checksum is stale')
-  const proposed = patch.proposedText.trim()
+  const proposed = patch.proposedText.replace(/\r\n?/g, '\n').trim()
   if (!proposed || proposed === block.body.trim()) throw new Error('Proposed copy is empty or unchanged')
 
   const { before: publicPart, suffix } = internalSuffix(raw)

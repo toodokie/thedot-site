@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import ServicePageLayout, { ServicePageData } from '@/components/ServicePageLayout';
 import Footer from '@/components/Footer';
-import { serviceSchema, faqPageSchema } from '@/lib/service-schema';
+import { serviceSchema, faqPageSchema, breadcrumbSchema } from '@/lib/service-schema';
 
 const slug = 'aoda-web-accessibility';
 const schemaDescription =
@@ -80,6 +80,7 @@ export default function Route() {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema({ slug, name: 'AODA Web Accessibility', serviceType: 'AODA / WCAG web accessibility', description: schemaDescription })) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqPageSchema(data.faqs.items)) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema(slug, 'AODA Accessibility')) }} />
       <ServicePageLayout {...data} />
       <Footer />
     </>

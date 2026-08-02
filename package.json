@@ -26,7 +26,8 @@
     "portal-inbox": "tsx scripts/portal-inbox.ts",
     "portal-history": "tsx scripts/import-portal-history.ts",
     "sync-content": "tsx scripts/sync-content-to-supabase.ts",
-    "sync-content:fixtures": "PORTAL_CONTENT_DIR=content/portal tsx scripts/sync-content-to-supabase.ts"
+    "sync-content:fixtures": "PORTAL_CONTENT_DIR=content/portal tsx scripts/sync-content-to-supabase.ts",
+    "preinstall": "npx only-allow pnpm"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.3",
@@ -69,5 +70,6 @@
     "tsx": "^4.20.3",
     "typescript": "^5",
     "vitest": "^2.1.9"
-  }
+  },
+  "packageManager": "pnpm@11.18.0"
 }

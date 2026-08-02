@@ -27,6 +27,18 @@ export function serviceSchema(opts: {
   };
 }
 
+export function breadcrumbSchema(slug: string, name: string) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: `${ORIGIN}/` },
+      { '@type': 'ListItem', position: 2, name: 'Services', item: `${ORIGIN}/services` },
+      { '@type': 'ListItem', position: 3, name, item: `${ORIGIN}/services/${slug}` },
+    ],
+  };
+}
+
 export function faqPageSchema(faqs: { q: string; a: string }[]) {
   return {
     '@context': 'https://schema.org',
