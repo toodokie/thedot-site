@@ -36,6 +36,7 @@
 .proposalBlock p, .proposalBlock li { white-space: pre-wrap; overflow-wrap: anywhere; font: 400 16px/1.6 var(--dot-font-text); }
 .proposalBlock ul { margin: 10px 0 0; padding-left: 22px; display: grid; gap: 8px; }
 .proposal_callout { background: var(--dot-cream); border: 2px solid var(--dot-black); padding: 16px; }
+.proposalBlock:first-child.proposal_callout { border: 2px solid var(--dot-black); padding: 16px; }
 .proposal_quote { border-left: 3px solid var(--dot-yellow); padding-left: 16px; }
 .proposalLinks { list-style: none; padding-left: 0 !important; }
 .proposalLinks a { color: inherit; text-decoration: underline; }
