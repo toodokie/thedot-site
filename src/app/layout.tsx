@@ -1,6 +1,7 @@
 // app/layout.tsx
 import type { Metadata } from "next";
 import ConditionalHeader from '@/components/ConditionalHeader';
+import StyledJsxRegistry from './StyledJsxRegistry';
 import GoogleAnalytics from '@/components/GoogleAnalytics';
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
@@ -250,8 +251,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <GoogleAnalytics />
         <SpeedInsights />
         <Analytics />
-        <ConditionalHeader />
-        {children}
+        <StyledJsxRegistry>
+          <ConditionalHeader />
+          {children}
+        </StyledJsxRegistry>
       </body>
     </html>
   );

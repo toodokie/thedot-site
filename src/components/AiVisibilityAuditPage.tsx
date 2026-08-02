@@ -185,6 +185,10 @@ export default function AiVisibilityAuditPage() {
         .geo-hero { padding: clamp(4rem, 9vw, 8rem) 0 clamp(2.5rem, 5vw, 4rem); }
         .geo-section { padding: clamp(2.5rem, 5vw, 4rem) 0; }
 
+        /* Reset the global "section h1/h2/h3 { padding … !important }" (≤1239px) that
+           indents headings inside <section> off the vertical line. */
+        .geo-h1, .geo-h2, .geo-card-title, .geo-step-t, .geo-note-t, .geo-faq-q { padding: 0 !important; }
+
         .geo-eyebrow {
           display: inline-flex; align-items: center; gap: 0.6rem;
           font-family: ff-real-text-pro, sans-serif; font-size: 0.85rem; font-weight: 500;

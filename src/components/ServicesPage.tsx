@@ -212,7 +212,9 @@ export default function ServicesPage() {
               text-transform: none !important;
               color: #35332f;
               margin: 0 0 0.6rem 0;
-              padding: 0;
+              /* !important resets the global "section h3 { padding … !important }"
+                 (≤1239px) that indents the title off the vertical line on mobile. */
+              padding: 0 !important;
             }
             .dot-cap-text {
               font-family: ff-real-text-pro, sans-serif;

@@ -37,22 +37,6 @@ export interface ServicePageData {
   final: { heading: string; body: string };
 }
 
-function CtaRow({ ctas, location }: { ctas: ServiceCta[]; location: string }) {
-  return (
-    <div className="sp-cta-row">
-      {ctas.map((c) => (
-        <a
-          key={c.href + c.label}
-          href={c.href}
-          className={c.kind === 'link' ? 'sp-link' : 'services-cta-button'}
-          onClick={() => trackNavigation.ctaClick(c.track?.text || c.label, c.track?.location || location, c.href)}
-          dangerouslySetInnerHTML={{ __html: c.label }}
-        />
-      ))}
-    </div>
-  );
-}
-
 export default function ServicePageLayout(data: ServicePageData) {
   return (
     <main className="sp dot-root">
@@ -61,7 +45,17 @@ export default function ServicePageLayout(data: ServicePageData) {
           <div className="sp-eyebrow"><span className="sp-dot" aria-hidden="true" />{data.eyebrow}</div>
           <h1 className="sp-h1" dangerouslySetInnerHTML={{ __html: data.h1 }} />
           <p className="sp-lede" dangerouslySetInnerHTML={{ __html: data.lede }} />
-          <CtaRow ctas={data.ctas} location="Service Hero" />
+          <div className="sp-cta-row">
+            {data.ctas.map((c) => (
+              <a
+                key={c.href + c.label}
+                href={c.href}
+                className={c.kind === 'link' ? 'sp-link' : 'services-cta-button'}
+                onClick={() => trackNavigation.ctaClick(c.track?.text || c.label, 'Service Hero', c.href)}
+                dangerouslySetInnerHTML={{ __html: c.label }}
+              />
+            ))}
+          </div>
         </div>
       </section>
 
@@ -135,7 +129,17 @@ export default function ServicePageLayout(data: ServicePageData) {
         <div className="sp-wrap">
           <h2 className="sp-h2" dangerouslySetInnerHTML={{ __html: data.final.heading }} />
           <p className="sp-body" dangerouslySetInnerHTML={{ __html: data.final.body }} />
-          <CtaRow ctas={data.ctas} location="Service Footer" />
+          <div className="sp-cta-row">
+            {data.ctas.map((c) => (
+              <a
+                key={c.href + c.label}
+                href={c.href}
+                className={c.kind === 'link' ? 'sp-link' : 'services-cta-button'}
+                onClick={() => trackNavigation.ctaClick(c.track?.text || c.label, 'Service Footer', c.href)}
+                dangerouslySetInnerHTML={{ __html: c.label }}
+              />
+            ))}
+          </div>
         </div>
       </section>
 
@@ -144,6 +148,10 @@ export default function ServicePageLayout(data: ServicePageData) {
         .sp-wrap { max-width: 62rem; margin: 0 auto; padding: 0 2.5rem; }
         .sp-hero { padding: clamp(4rem, 9vw, 8rem) 0 clamp(2.5rem, 5vw, 4rem); }
         .sp-section { padding: clamp(2.5rem, 5vw, 4rem) 0; }
+
+        /* Reset the aggressive global "section h1/h2/h3 { padding … !important }"
+           rule (≤1239px) that indents headings inside <section> off the vertical line. */
+        .sp-h1, .sp-h2, .sp-card-title, .sp-step-t, .sp-note-t, .sp-faq-q { padding: 0 !important; }
 
         .sp-eyebrow { display: inline-flex; align-items: center; gap: 0.6rem; font-family: ff-real-text-pro, sans-serif; font-size: 0.85rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: #7a776f; margin: 0 0 1.4rem; }
         .sp-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: #daff00; display: inline-block; flex: 0 0 auto; }
