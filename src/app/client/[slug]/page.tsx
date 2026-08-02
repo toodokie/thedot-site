@@ -3,7 +3,7 @@ import { getClientSession } from '@/lib/portal/auth'
 import { redirect } from 'next/navigation'
 import { getContent, getActivity, type ContentRow as ContentRowType } from '@/lib/portal/data'
 import { getRecentPublishedContentIds } from '@/lib/portal/publication'
-import { getCurrentPlanCycle, getUpcomingPlanCycles } from '@/lib/portal/plan-cycle'
+import { getOpenPlanCycles, getUpcomingPlanCycles } from '@/lib/portal/plan-cycle'
 import { getSchedule, routesToPiecePage, statusAccent } from '@/lib/portal/schedule'
 import { clientStateLabel } from '@/lib/portal/state'
 import { getLastSeen } from '@/lib/portal/seen'
@@ -75,9 +75,9 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
   const session = await getClientSession(slug)
   if (!session) redirect('/client/login')
 
-  const [items, activity, lastSeen, recentPublishedIds, currentPlan, upcomingPlans, schedule, requests, proposals] = await Promise.all([
+  const [items, activity, lastSeen, recentPublishedIds, openPlans, upcomingPlans, schedule, requests, proposals] = await Promise.all([
     getContent(session.clientId), getActivity(session.clientId), getLastSeen(session.clientId),
-    getRecentPublishedContentIds(session.clientId), getCurrentPlanCycle(session.clientId),
+    getRecentPublishedContentIds(session.clientId), getOpenPlanCycles(session.clientId),
     getUpcomingPlanCycles(session.clientId),
     getSchedule(session.clientId),
     getContentRequests(session.clientId),
@@ -124,13 +124,13 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
   const inProgress = items.filter((i) => !BUCKETED_STATES.has(i.state))
   const communication = activity.filter((a) => a.event_type === 'meeting_email_note_added')
   const firstName = session.name ? session.name.split(' ')[0] : ''
-  const planWaiting = currentPlan.cycle?.status === 'submitted' || currentPlan.cycle?.status === 'change_requested'
+  const planWaiting = openPlans.length > 0
   const awaitingProposals = proposals.filter((proposal) => proposal.status === 'awaiting_decision')
   const latestProposalReply = new Map<string, { author_name: string; body: string }>()
   for (const message of proposalMessages) {
     if (message.author_type === 'anastasia') latestProposalReply.set(message.proposal_id, message)
   }
-  const approvalCount = needs.length + (planWaiting ? 1 : 0) + awaitingProposals.length
+  const approvalCount = needs.length + openPlans.length + awaitingProposals.length
   const calendarDays: Record<string, WeekCalendarChip[]> = {}
   for (const row of schedule) {
     if (!row.planned_date) continue
@@ -170,19 +170,19 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
               label="Waiting on review"
               note={planWaiting
                 ? needs.length > 0
-                  ? 'Your content plan and released pieces are ready for your approval.'
-                  : 'Your content plan is ready for your approval.'
+                  ? 'Your content plans and released pieces are ready for your approval.'
+                  : 'Your content plans are ready for your approval.'
                 : 'Fact-checked (Confirmed) is our gate; Approve is yours.'}
             >
-              {planWaiting && currentPlan.cycle && (
-                <Link className={styles.row} href={`/client/${encodeURIComponent(slug)}/plan`}>
+              {openPlans.map(({ cycle }) => (
+                <Link key={cycle.id} className={styles.row} href={`/client/${encodeURIComponent(slug)}/plan`}>
                   <span className={styles.marker}><Dot fill="yellow" size={8} /></span>
                   <span className={styles.rowMain}>
-                    <Text as="span" size="md" tone="black">{currentPlan.cycle.title}</Text>
-                    <span className={styles.chipRow}><span className={styles.chip}>content plan</span></span>
+                    <Text as="span" size="md" tone="black">{cycle.title}</Text>
+                    <span className={styles.chipRow}><span className={styles.chip}>content plan</span><span className={styles.chip}>week of {cycle.week_start}</span></span>
                   </span>
                 </Link>
-              )}
+              ))}
               {awaitingProposals.map((proposal) => <Link key={proposal.id} className={styles.row}
                 href={`/client/${encodeURIComponent(slug)}/requests/proposals/${encodeURIComponent(proposal.proposal_key)}`}>
                 <span className={styles.marker}><Dot fill="yellow" size={8} /></span><span className={styles.rowMain}>

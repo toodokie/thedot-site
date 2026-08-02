@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getClientSession } from '@/lib/portal/auth'
 import { getSchedule, statusAccent, belongsOnPlanSurface, type ScheduleRow } from '@/lib/portal/schedule'
-import { getCurrentPlanCycle, getPlanCycleDecisions, getUpcomingPlanCycles, type PlanCycleItem } from '@/lib/portal/plan-cycle'
+import { getOpenPlanCycles, getPlanCycleDecisions, getUpcomingPlanCycles, type PlanCycleItem } from '@/lib/portal/plan-cycle'
 import { getContent, type ContentRow } from '@/lib/portal/data'
 import { Eyebrow, Heading, Text } from '@thedot/design-system'
 import PlanDecideForm from './PlanDecideForm'
@@ -75,12 +75,16 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
   ])
   const contentById = new Map(content.map((item) => [item.content_id, item]))
 
-  // The current weekly plan cycle (the direction Maria approves as a batch). A missing projection
-  // throws PortalDataError -> the route error boundary, never a silent "empty approved plan".
-  const { cycle, items: cycleItems } = await getCurrentPlanCycle(session.clientId)
-  const upcomingCycles = await getUpcomingPlanCycles(session.clientId)
-  const cycleDecisions = cycle ? await getPlanCycleDecisions(session.clientId, cycle.id) : []
-  const lastChangeNote = cycleDecisions.find((d) => d.decision === 'change_requested')?.note ?? null
+  // A client may be asked to approve multiple future weeks at once. This is a queue, not
+  // a single "current" plan. A missing projection still throws into the route boundary.
+  const [openCycles, upcomingCycles] = await Promise.all([
+    getOpenPlanCycles(session.clientId),
+    getUpcomingPlanCycles(session.clientId),
+  ])
+  const decisionsByCycle = new Map(await Promise.all(openCycles.map(async ({ cycle }) => [
+    cycle.id,
+    await getPlanCycleDecisions(session.clientId, cycle.id),
+  ] as const)))
 
   // The plan surface is the quiet pipeline only (audit B1): ideas and drafts still with
   // The Dot. A released-for-review piece (client_state needs_review) is already the
@@ -132,8 +136,9 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
     <div className={styles.wrap}>
       <div className={styles.eyebrow}><Eyebrow tone="grey">Kanset · Plan</Eyebrow></div>
 
-      {cycle && (
-        <section className={styles.cycleCard} aria-label={`This week's plan: ${cycle.title}`}>
+      {openCycles.map(({ cycle, items: cycleItems }) => {
+        const lastChangeNote = decisionsByCycle.get(cycle.id)?.find((d) => d.decision === 'change_requested')?.note ?? null
+        return <section key={cycle.id} className={styles.cycleCard} aria-label={`Plan awaiting review: ${cycle.title}`}>
           <div className={styles.cycleHead}>
             <Heading level={2}>{cycle.title}</Heading>
             <span className={`${styles.statusBadge} ${
@@ -160,7 +165,7 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
 
           {cycle.status === 'approved' ? (
             <p className={styles.decisionApproved} role="status">
-              You approved this plan{cycle.decided_at ? ` on ${fmtDay(cycle.decided_at)}` : ''}. We are producing these pieces now. A separate final decision comes once copy and design are ready together.
+              You approved this plan{cycle.decided_at ? ` on ${fmtDay(cycle.decided_at)}` : ''}. I am producing these pieces now. A separate final decision comes once copy and design are ready together.
             </p>
           ) : cycle.status === 'change_requested' ? (
             <div className={styles.decisionChanges} role="status">
@@ -171,14 +176,14 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
             </div>
           ) : session.canDecide ? (
             <div className={styles.decisionOpen}>
-              <Text as="p" size="md" tone="black">Review the week&rsquo;s direction, then approve it or request changes. Where fact-checked copy is available, you can open it and leave feedback now. We will return with a linked design for the separate final package decision.</Text>
+              <Text as="p" size="md" tone="black">Review the week&rsquo;s direction, then approve it or request changes. Where fact-checked copy is available, you can open it and leave feedback now. I will return with a linked design for the separate final package decision.</Text>
               <PlanDecideForm slug={slug} cycleId={cycle.id} revision={cycle.revision} />
             </div>
           ) : (
             <p className={styles.decisionMuted} role="status">This plan is awaiting approval from your account&rsquo;s decision-maker.</p>
           )}
         </section>
-      )}
+      })}
 
       {upcomingCycles.map(({ cycle: upcoming, items }) => (
         <section key={upcoming.id} className={styles.cycleCard} aria-label={`Coming up: ${upcoming.title}`}>
@@ -198,13 +203,13 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
             </ol>
           )}
           <p className={styles.decisionMuted} role="status">
-            This is coming up. We are still building the week, so there is nothing for you to approve yet.
+            This is coming up. I am still building the week, so there is nothing for you to approve yet.
           </p>
         </section>
       ))}
 
       <div className={styles.head}>
-        <Heading level={cycle ? 3 : 2}>What we are planning next</Heading>
+        <Heading level={openCycles.length ? 3 : 2}>What I am planning next</Heading>
       </div>
       <div className={styles.sub}>
         <Text size="lg" tone="graphite">Ideas and drafts in the pipeline, before they come to you for approval.</Text>

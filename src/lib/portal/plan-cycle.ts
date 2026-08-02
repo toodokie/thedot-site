@@ -1,6 +1,6 @@
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { PortalDataError } from '@/lib/portal/data'
-import { selectCurrentPlanCycle, torontoToday } from './plan-cycle-selection'
+import { selectCurrentPlanCycle, selectOpenPlanCycles, torontoToday } from './plan-cycle-selection'
 
 export type PlanCycle = {
   id: string
@@ -155,6 +155,21 @@ export async function getCurrentPlanCycle(clientId: string): Promise<{ cycle: Pl
   const cycle = selectCurrentPlanCycle(cycles)
   if (!cycle) return { cycle: null, items: [] }
   return { cycle, items: await getPlanCycleItems(clientId, cycle.id) }
+}
+
+/**
+ * The client approval queue. A content plan may be prepared and submitted more than one
+ * week ahead, so this deliberately returns every non-expired open cycle rather than
+ * collapsing the queue to the nearest one.
+ */
+export async function getOpenPlanCycles(
+  clientId: string,
+): Promise<Array<{ cycle: PlanCycle; items: PlanCycleItem[] }>> {
+  const cycles = selectOpenPlanCycles(await getPlanCycles(clientId))
+  return Promise.all(cycles.map(async (cycle) => ({
+    cycle,
+    items: await getPlanCycleItems(clientId, cycle.id),
+  })))
 }
 
 /**
