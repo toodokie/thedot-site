@@ -1,6 +1,6 @@
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { PortalDataError } from '@/lib/portal/data'
-import { selectCurrentPlanCycle, selectOpenPlanCycles, torontoToday } from './plan-cycle-selection'
+import { selectActivePlanCycles, selectCurrentPlanCycle, selectOpenPlanCycles, torontoToday } from './plan-cycle-selection'
 
 export type PlanCycle = {
   id: string
@@ -166,6 +166,21 @@ export async function getOpenPlanCycles(
   clientId: string,
 ): Promise<Array<{ cycle: PlanCycle; items: PlanCycleItem[] }>> {
   const cycles = selectOpenPlanCycles(await getPlanCycles(clientId))
+  return Promise.all(cycles.map(async (cycle) => ({
+    cycle,
+    items: await getPlanCycleItems(clientId, cycle.id),
+  })))
+}
+
+/**
+ * Client-visible cycle snapshots that contribute idea-stage rows to the calendar. This
+ * is intentionally broader than the approval queue: approved plans keep appearing while
+ * their pieces are still being produced.
+ */
+export async function getActivePlanCycles(
+  clientId: string,
+): Promise<Array<{ cycle: PlanCycle; items: PlanCycleItem[] }>> {
+  const cycles = selectActivePlanCycles(await getPlanCycles(clientId))
   return Promise.all(cycles.map(async (cycle) => ({
     cycle,
     items: await getPlanCycleItems(clientId, cycle.id),

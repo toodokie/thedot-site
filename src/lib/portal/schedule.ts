@@ -2,7 +2,7 @@ import { createSupabaseServer } from '@/lib/supabase/server'
 import { PortalDataError } from './data'
 import { parseClientState, type ContentStatus, type ClientState } from './state'
 import type { ScheduleState } from './data'
-import { getCurrentPlanCycle } from './plan-cycle'
+import { getActivePlanCycles } from './plan-cycle'
 
 // Read model for the Calendar + Plan surfaces. Mirrors data.ts (createSupabaseServer,
 // the content_with_state view, PortalDataError on failure) but selects only the columns the
@@ -61,13 +61,13 @@ const SELECT = 'id, content_id, title, format, pillar, platforms, status, client
 
 export async function getSchedule(clientId: string): Promise<ScheduleRow[]> {
   const supabase = await createSupabaseServer()
-  const [contentResult, calendarResult, currentPlan] = await Promise.all([
+  const [contentResult, calendarResult, activePlans] = await Promise.all([
     supabase.from('content_calendar_client').select(SELECT).eq('client_id', clientId)
       .order('planned_date', { ascending: true, nullsFirst: false }).order('content_id', { ascending: true }),
     supabase.from('calendar_events_client')
       .select('content_id,content_version,event_html_link,sync_status,sync_label,event_role')
       .eq('client_id', clientId).eq('event_role','editorial_plan'),
-    getCurrentPlanCycle(clientId),
+    getActivePlanCycles(clientId),
   ])
   if (contentResult.error) throw new PortalDataError(contentResult.error.message)
   if (calendarResult.error) throw new PortalDataError(calendarResult.error.message)
@@ -87,7 +87,16 @@ export async function getSchedule(clientId: string): Promise<ScheduleRow[]> {
       calendar_event_link: calendar?.event_html_link ?? null }
   }) as unknown as ScheduleRow[]
   const releasedIds = new Set(released.map((row) => row.id))
-  const ideas = currentPlan.items.flatMap((value) => {
+  // A schedule can span more than one approved or submitted plan cycle. Deduplicate a
+  // rolling item by its freshest plan snapshot so one identity cannot render twice.
+  const activePlanItems = new Map<string, typeof activePlans[number]['items'][number]>()
+  for (const { items } of activePlans) {
+    for (const item of items) {
+      const previous = activePlanItems.get(item.content_item_id)
+      if (!previous || item.updated_at > previous.updated_at) activePlanItems.set(item.content_item_id, item)
+    }
+  }
+  const ideas = [...activePlanItems.values()].flatMap((value) => {
     if (releasedIds.has(value.content_item_id)) return []
     return [{
       id: value.content_item_id,

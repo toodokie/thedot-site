@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { selectCurrentPlanCycle, selectOpenPlanCycles } from './plan-cycle-selection'
+import { selectActivePlanCycles, selectCurrentPlanCycle, selectOpenPlanCycles } from './plan-cycle-selection'
 
 const cycle = (id: string, weekStart: string, weekEnd: string, status: string, revision = 1) => ({
   id, week_start: weekStart, week_end: weekEnd, status, revision,
@@ -61,5 +61,14 @@ describe('selectCurrentPlanCycle', () => {
       cycle('aug-10', '2026-08-10', '2026-08-14', 'change_requested'),
       cycle('draft', '2026-08-24', '2026-08-28', 'draft'),
     ], '2026-08-02').map((row) => row.id)).toEqual(['aug-3', 'aug-10', 'aug-17'])
+  })
+
+  it('keeps approved and submitted weeks on the calendar, but not drafts', () => {
+    expect(selectActivePlanCycles([
+      cycle('approved-current', '2026-08-03', '2026-08-07', 'approved'),
+      cycle('submitted-next', '2026-08-10', '2026-08-14', 'submitted'),
+      cycle('draft-later', '2026-08-17', '2026-08-21', 'draft'),
+      cycle('closed', '2026-08-03', '2026-08-07', 'closed'),
+    ], '2026-08-02').map((row) => row.id)).toEqual(['approved-current', 'submitted-next'])
   })
 })

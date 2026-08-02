@@ -56,3 +56,17 @@ export function selectOpenPlanCycles<T extends PlanCycleSelectionRow>(
     .filter((cycle) => OPEN_FOR_DECISION.has(cycle.status) && cycle.week_end >= today)
     .sort(compareCycles)
 }
+
+/**
+ * The calendar needs every still-relevant client-visible plan, including an already
+ * approved current week and any submitted future weeks. Drafts remain planning-only and
+ * are intentionally excluded until they are submitted for client review.
+ */
+export function selectActivePlanCycles<T extends PlanCycleSelectionRow>(
+  cycles: readonly T[],
+  today = torontoToday(),
+): T[] {
+  return cycles
+    .filter((cycle) => LIVE_PLAN_STATUSES.has(cycle.status) && cycle.week_end >= today)
+    .sort(compareCycles)
+}
