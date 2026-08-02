@@ -52,7 +52,7 @@ const assertNoteGrammarSafe = (value: string | null, field: string) => {
 
 async function main() {
   const [command, inputPath, ...rest] = process.argv.slice(2)
-  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|proposal-draft|proposal-submit|proposal-reply|external-decision|courtesy-release|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|plan-cycle|plan-cycle-stage|plan-cycle-close|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
+  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|proposal-draft|proposal-revise|proposal-submit|proposal-reply|external-decision|courtesy-release|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|plan-cycle|plan-cycle-stage|plan-cycle-close|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
   const dryRun = rest.includes('--dry-run')
   const packIndex = rest.indexOf('--pack')
   const packPath = packIndex >= 0 ? rest[packIndex + 1] ?? null : null
@@ -145,6 +145,11 @@ async function main() {
     if (!/^[a-z0-9][a-z0-9._-]*$/.test(proposalKey)) throw new Error('proposalKey is invalid')
     rpc = 'submit_client_proposal'; args = { p_client_id: null, p_proposal_key: proposalKey,
       p_revision: integer(payload.revision, 'revision', 1), p_actor_key: actor, p_idempotency_key: idempotency }
+  } else if (command === 'proposal-revise') {
+    const proposalKey = requiredText(payload.proposalKey, 'proposalKey', 200)
+    if (!/^[a-z0-9][a-z0-9._-]*$/.test(proposalKey)) throw new Error('proposalKey is invalid')
+    rpc = 'revise_client_proposal_draft'; args = { p_client_id: null, p_proposal_key: proposalKey,
+      p_actor_key: actor, p_idempotency_key: idempotency }
   } else if (command === 'proposal-reply') {
     const proposalId = requiredText(payload.proposalId, 'proposalId', 36)
     if (!/^[0-9a-f-]{36}$/i.test(proposalId)) throw new Error('proposalId is invalid')

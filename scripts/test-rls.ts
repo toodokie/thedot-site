@@ -3113,13 +3113,29 @@ async function main(): Promise<void> {
         p_summary: 'A client-safe proposal fixture.', p_blocks: [
           { kind: 'heading', title: 'Decision needed' },
           { kind: 'paragraph', body: 'Please review this client-safe proposal.' },
-          { kind: 'checklist', title: 'Choices', items: ['Approve the direction', 'Request changes'] },
+          { kind: 'callout', title: 'Choices', items: ['Approve the direction', 'Request changes'] },
         ], p_actor_key: 'thedot-admin', p_idempotency_key: `rls-proposal-draft-${RUN_ID}`,
       }
       const drafted = await admin.rpc('upsert_client_proposal_draft', draftArgs)
       const submitted = await admin.rpc('submit_client_proposal', {
         p_client_id: bClientId, p_proposal_key: proposalKey, p_revision: 1,
         p_actor_key: 'thedot-admin', p_idempotency_key: `rls-proposal-submit-${RUN_ID}`,
+      })
+      const clientProposalRevision = await bClient.rpc('revise_client_proposal_draft', {
+        p_client_id: bClientId, p_proposal_key: proposalKey, p_actor_key: 'thedot-admin', p_idempotency_key: `rls-proposal-client-revise-${RUN_ID}`,
+      })
+      const revised = await admin.rpc('revise_client_proposal_draft', {
+        p_client_id: bClientId, p_proposal_key: proposalKey, p_actor_key: 'thedot-admin', p_idempotency_key: `rls-proposal-revise-${RUN_ID}`,
+      })
+      const revisedRetry = await admin.rpc('revise_client_proposal_draft', {
+        p_client_id: bClientId, p_proposal_key: proposalKey, p_actor_key: 'thedot-admin', p_idempotency_key: `rls-proposal-revise-${RUN_ID}`,
+      })
+      const redrafted = await admin.rpc('upsert_client_proposal_draft', {
+        ...draftArgs, p_summary: 'A revised client-safe proposal fixture.', p_idempotency_key: `rls-proposal-redraft-${RUN_ID}`,
+      })
+      const resubmitted = await admin.rpc('submit_client_proposal', {
+        p_client_id: bClientId, p_proposal_key: proposalKey, p_revision: 2,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-proposal-resubmit-${RUN_ID}`,
       })
       const ownProposal = await bClient.from('client_proposals_client').select('id,title,status,blocks')
         .eq('proposal_key', proposalKey).maybeSingle()
@@ -3133,7 +3149,7 @@ async function main(): Promise<void> {
       const reply = proposalId ? await bClient.rpc('reply_to_client_proposal_as_client', {
         p_proposal_id: proposalId, p_body: 'Could we make the opening warmer?', p_idempotency_key: randomUUID(),
       }) : { data: null, error: new Error('proposal missing') }
-      const decisionArgs = proposalId ? { p_proposal_id: proposalId, p_revision: 1, p_decision: 'approved',
+      const decisionArgs = proposalId ? { p_proposal_id: proposalId, p_revision: 2, p_decision: 'approved',
         p_note: 'Approved for the RLS test.', p_idempotency_key: randomUUID() } : null
       const decision = decisionArgs ? await bClient.rpc('record_client_proposal_decision', decisionArgs) : { data: null, error: new Error('proposal missing') }
       const decisionRetry = decisionArgs && decision.data
@@ -3143,16 +3159,21 @@ async function main(): Promise<void> {
         .eq('id', proposalId).maybeSingle() : { data: null, error: new Error('proposal missing') }
       const ownMessages = proposalId ? await bClient.from('client_proposal_messages_client').select('author_type,body')
         .eq('proposal_id', proposalId) : { data: [], error: new Error('proposal missing') }
-      check('PR1: submitted proposal is tenant-scoped, browser-write-denied, and decision/reply writers are durable and idempotent',
-        !drafted.error && !submitted.error && !ownProposal.error && ownProposal.data?.status === 'awaiting_decision'
+      check('PR1: submitted proposal is tenant-scoped, browser-write-denied, revision-safe, and decision/reply writers are durable and idempotent',
+        !drafted.error && !submitted.error && !!clientProposalRevision.error && !revised.error && !revisedRetry.error
+          && !redrafted.error && !resubmitted.error && (revised.data as { revision?: number } | null)?.revision === 2
+          && (revisedRetry.data as { revision?: number } | null)?.revision === 2
+          && !ownProposal.error && ownProposal.data?.status === 'awaiting_decision'
           && !crossProposal.error && (crossProposal.data ?? []).length === 0 && !!directProposalWrite.error
           && !!agencyProposalWriter.error && !reply.error && !decision.error && !decisionRetry.error
           && !decidedProposal.error && decidedProposal.data?.status === 'approved'
           && !ownMessages.error && (ownMessages.data ?? []).some((row) => row.author_type === 'client'),
-        drafted.error?.message ?? submitted.error?.message ?? ownProposal.error?.message ?? crossProposal.error?.message
+        drafted.error?.message ?? submitted.error?.message ?? revised.error?.message
+          ?? revisedRetry.error?.message ?? redrafted.error?.message ?? resubmitted.error?.message ?? ownProposal.error?.message ?? crossProposal.error?.message
           ?? reply.error?.message ?? decision.error?.message ?? decisionRetry.error?.message
           ?? decidedProposal.error?.message ?? ownMessages.error?.message ?? JSON.stringify({ own: ownProposal.data, cross: crossProposal.data,
-            directDenied: Boolean(directProposalWrite.error), agencyDenied: Boolean(agencyProposalWriter.error),
+            directDenied: Boolean(directProposalWrite.error), agencyDenied: Boolean(agencyProposalWriter.error), clientRevisionDenied: Boolean(clientProposalRevision.error),
+            revised: revised.data, revisedRetry: revisedRetry.data, redrafted: redrafted.data, resubmitted: resubmitted.data,
             reply: reply.data, decision: decision.data, retry: decisionRetry.data, decided: decidedProposal.data, messages: ownMessages.data }))
     }
 
