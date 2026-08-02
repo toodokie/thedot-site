@@ -99,29 +99,35 @@ export const viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const structuredData = {
     "@context": "https://schema.org",
-    "@type": "LocalBusiness",
+    "@type": "ProfessionalService",
     "@id": "https://www.thedotcreative.co/#organization",
     "name": "The Dot Creative Agency",
     "alternateName": "The Dot Creative",
-    "description": "Web design and development, business systems integration, workflow automation, AODA accessibility, and AI-visibility services for growing Ontario businesses.",
+    "description": "Web design and development, business systems integration, workflow automation, AODA accessibility, and AI-visibility services for growing businesses across Ontario and Canada.",
     "url": "https://www.thedotcreative.co",
     "telephone": "+1-647-402-4420",
     "email": "info@thedotcreative.co",
     "address": {
       "@type": "PostalAddress",
-      "addressLocality": "Ontario", 
+      "addressLocality": "Newmarket",
       "addressRegion": "ON",
       "addressCountry": "CA"
     },
     "geo": {
       "@type": "GeoCoordinates",
-      "latitude": "43.7",
-      "longitude": "-79.4"
+      "latitude": "44.056",
+      "longitude": "-79.461"
     },
-    "areaServed": {
-      "@type": "State",
-      "name": "Ontario"
-    },
+    "areaServed": [
+      {
+        "@type": "AdministrativeArea",
+        "name": "Ontario"
+      },
+      {
+        "@type": "Country",
+        "name": "Canada"
+      }
+    ],
     "image": "https://www.thedotcreative.co/images/logo.png",
     "logo": "https://www.thedotcreative.co/images/logo.png",
     "sameAs": [
