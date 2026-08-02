@@ -59,7 +59,7 @@ export default function ServicePageLayout(data: ServicePageData) {
       <section className="sp-hero">
         <div className="sp-wrap">
           <div className="sp-eyebrow"><span className="sp-dot" aria-hidden="true" />{data.eyebrow}</div>
-          <h1 className="sp-h1">{data.h1}</h1>
+          <h1 className="sp-h1" dangerouslySetInnerHTML={{ __html: data.h1 }} />
           <p className="sp-lede" dangerouslySetInnerHTML={{ __html: data.lede }} />
           <CtaRow ctas={data.ctas} location="Service Hero" />
         </div>
@@ -68,7 +68,7 @@ export default function ServicePageLayout(data: ServicePageData) {
       {data.why && (
         <section className="sp-section sp-why">
           <div className="sp-wrap">
-            <h2 className="sp-h2">{data.why.heading}</h2>
+            <h2 className="sp-h2" dangerouslySetInnerHTML={{ __html: data.why.heading }} />
             <p className="sp-body" dangerouslySetInnerHTML={{ __html: data.why.body }} />
           </div>
         </section>
@@ -76,12 +76,12 @@ export default function ServicePageLayout(data: ServicePageData) {
 
       <section className="sp-section">
         <div className="sp-wrap">
-          <h2 className="sp-h2">{data.covers.heading}</h2>
+          <h2 className="sp-h2" dangerouslySetInnerHTML={{ __html: data.covers.heading }} />
           <div className="sp-grid">
             {data.covers.cards.map((c) => (
               <div className="sp-card" key={c.title}>
                 <span className="sp-dot" aria-hidden="true" />
-                <h3 className="sp-card-title">{c.title}</h3>
+                <h3 className="sp-card-title" dangerouslySetInnerHTML={{ __html: c.title }} />
                 <p className="sp-card-text" dangerouslySetInnerHTML={{ __html: c.body }} />
               </div>
             ))}
@@ -92,13 +92,13 @@ export default function ServicePageLayout(data: ServicePageData) {
       {data.how && (
         <section className="sp-section sp-process">
           <div className="sp-wrap">
-            <h2 className="sp-h2">{data.how.heading}</h2>
+            <h2 className="sp-h2" dangerouslySetInnerHTML={{ __html: data.how.heading }} />
             <ol className="sp-steps">
               {data.how.steps.map((s, i) => (
                 <li key={s.title}>
                   <span className="sp-step-n">{i + 1}</span>
                   <div>
-                    <h3 className="sp-step-t">{s.title}</h3>
+                    <h3 className="sp-step-t" dangerouslySetInnerHTML={{ __html: s.title }} />
                     <p className="sp-step-p" dangerouslySetInnerHTML={{ __html: s.body }} />
                   </div>
                 </li>
@@ -112,7 +112,7 @@ export default function ServicePageLayout(data: ServicePageData) {
         <section className="sp-section">
           <div className="sp-wrap">
             <div className="sp-note">
-              <h3 className="sp-note-t">{data.note.title}</h3>
+              <h3 className="sp-note-t" dangerouslySetInnerHTML={{ __html: data.note.title }} />
               <p className="sp-note-p" dangerouslySetInnerHTML={{ __html: data.note.body }} />
             </div>
           </div>
@@ -121,10 +121,10 @@ export default function ServicePageLayout(data: ServicePageData) {
 
       <section className="sp-section sp-faq">
         <div className="sp-wrap">
-          <h2 className="sp-h2">{data.faqs.heading}</h2>
+          <h2 className="sp-h2" dangerouslySetInnerHTML={{ __html: data.faqs.heading }} />
           {data.faqs.items.map((f) => (
             <div className="sp-faq-item" key={f.q}>
-              <h3 className="sp-faq-q">{f.q}</h3>
+              <h3 className="sp-faq-q" dangerouslySetInnerHTML={{ __html: f.q }} />
               <p className="sp-faq-a" dangerouslySetInnerHTML={{ __html: f.a }} />
             </div>
           ))}
@@ -133,7 +133,7 @@ export default function ServicePageLayout(data: ServicePageData) {
 
       <section className="sp-section sp-final">
         <div className="sp-wrap">
-          <h2 className="sp-h2">{data.final.heading}</h2>
+          <h2 className="sp-h2" dangerouslySetInnerHTML={{ __html: data.final.heading }} />
           <p className="sp-body" dangerouslySetInnerHTML={{ __html: data.final.body }} />
           <CtaRow ctas={data.ctas} location="Service Footer" />
         </div>
