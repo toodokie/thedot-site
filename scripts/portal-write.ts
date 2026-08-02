@@ -120,7 +120,7 @@ async function main() {
     const clientActorName=requiredText(payload.clientActorName,'clientActorName',200)
     assertClientSafeAgencyText({title,summary,clientActorName})
     rpc='log_portal_communication'; args={p_client_id:null,p_communication_key:requiredText(payload.communicationKey,'communicationKey',200),
-      p_channel:stringArray(payload.channel,'channel',['email','call','meeting']),p_occurred_at:timestamp(payload.occurredAt,'occurredAt'),
+      p_channel:stringArray(payload.channel,'channel',['email','call','meeting','text']),p_occurred_at:timestamp(payload.occurredAt,'occurredAt'),
       p_title:title,p_summary:summary,p_actor_name:clientActorName,
       p_source_ref:requiredText(payload.sourceRef,'sourceRef',500),p_actor_key:actor,p_idempotency_key:idempotency}
   } else if (command === 'external-decision') {
