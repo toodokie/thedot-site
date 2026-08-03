@@ -76,6 +76,13 @@ async function main(): Promise<void> {
   })
   if (error) throw new Error(`Notification audit unavailable: ${error.message}`)
   const rows = (data ?? []) as NotificationRow[]
+  const { data: volumeTasks, error: volumeTaskError } = await admin
+    .from('ops_tasks')
+    .select('id,title,due_date,trigger_note,status')
+    .eq('client_id', client.id)
+    .eq('status', 'open')
+    .ilike('title', '%notification volume%')
+  if (volumeTaskError) throw new Error(`Notification Ops task unavailable: ${volumeTaskError.message}`)
 
   const emailRows = rows.filter((row) => row.channel === 'email')
   const inAppRows = rows.filter((row) => row.channel === 'in_app')
@@ -102,6 +109,7 @@ async function main(): Promise<void> {
   console.log(`Policy: client email only for decisions, invoices, and direct replies; maximum ${VOLUME_LIMIT} in rolling 24 hours.`)
   console.log(`Email rows: ${emailRows.length} · sent: ${delivered.length} · active: ${active.length} · held: ${held.length}`)
   console.log(`Portal-only events: ${portalOnly.length} · current rolling volume: ${rollingEligible.length}/${VOLUME_LIMIT}`)
+  console.log(`Open notification-volume Ops task: ${(volumeTasks ?? []).length ? 'yes' : 'no'}`)
 
   console.log('\nEMAIL TRACE')
   if (!emailRows.length) console.log('none')
@@ -124,8 +132,10 @@ async function main(): Promise<void> {
 
   const needsReview = held.length > 0 || active.some((row) => row.status === 'failed')
     || drift.length > 0 || overLimitDays.length > 0 || rollingEligible.length > VOLUME_LIMIT
+    || (held.length > 0 && !(volumeTasks ?? []).length)
   console.log(`\nMONITOR: ${needsReview ? 'REVIEW' : 'OK'}`)
-  if (held.length) console.log(`- ${held.length} email(s) were held by policy; an internal Ops task should be open.`)
+  if (held.length) console.log(`- ${held.length} email(s) were held by policy.`)
+  if (held.length && !(volumeTasks ?? []).length) console.log('- Held email has no open notification-volume Ops task.')
   if (active.length) console.log(`- Active delivery rows: ${active.map((row) => row.status).join(', ')}.`)
   if (drift.length) console.log(`- ${drift.length} activity email row(s) fall outside the quiet allowlist.`)
   for (const [day, count] of overLimitDays) console.log(`- ${day}: ${count} eligible client emails.`)
