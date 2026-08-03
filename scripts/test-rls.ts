@@ -1037,7 +1037,7 @@ async function main(): Promise<void> {
       const overrideContentId = `rls-agency-override-${RUN_ID}`
       const [overrideSync] = await sync([
         snapshot(bClientId, overrideContentId, 1, 'Agency override short', 'Agency-produced short body', 'youtube-short', {
-          platforms: ['youtube'], producer: 'the_dot', fact_check_scope: 'not_applicable',
+          platforms: ['instagram'], producer: 'the_dot', fact_check_scope: 'not_applicable',
           fact_check_exemption: 'Agency-produced brand clip with no regulated claim.', fact_check_ledger: [],
         }),
       ])
@@ -1056,14 +1056,26 @@ async function main(): Promise<void> {
       })
       const overrideApproval = await admin.from('approvals').select('id')
         .eq('content_id', overrideSync.item_id).eq('content_version', 1)
+      const overrideDestinationKey = randomUUID()
+      const overrideDestinationArgs = {
+        p_content_id: overrideSync.item_id, p_content_version: 1, p_destination: 'youtube',
+        p_reason: 'Agency override authorized by Anastasia: public provider reality includes this additional destination.',
+        p_actor_key: 'thedot-admin', p_idempotency_key: overrideDestinationKey,
+      }
+      const browserOverrideDestination = await bClient.rpc('add_content_agency_override_destination', overrideDestinationArgs)
+      const overrideDestination = await admin.rpc('add_content_agency_override_destination', overrideDestinationArgs)
+      const overrideDestinationRetry = await admin.rpc('add_content_agency_override_destination', overrideDestinationArgs)
       const overrideTarget = await admin.from('content_publication_targets').select('id,destination')
-        .eq('content_id', overrideSync.item_id).eq('content_version', 1).single()
+        .eq('content_id', overrideSync.item_id).eq('content_version', 1).eq('destination', 'youtube').single()
       check('R18: The Dot content needs an explicit Anastasia override and never fabricates Maria approval',
         !overrideReady.error && !!implicitOverride.error && !explicitOverride.error
           && !overrideApproval.error && overrideApproval.data?.length === 0
+          && !!browserOverrideDestination.error && !overrideDestination.error && !overrideDestinationRetry.error
+          && overrideDestination.data?.schedule_target_id === overrideDestinationRetry.data?.schedule_target_id
           && !overrideTarget.error && overrideTarget.data?.destination === 'youtube',
         overrideReady.error?.message ?? implicitOverride.error?.message ?? explicitOverride.error?.message
-          ?? overrideApproval.error?.message ?? overrideTarget.error?.message
+          ?? overrideApproval.error?.message ?? browserOverrideDestination.error?.message
+          ?? overrideDestination.error?.message ?? overrideDestinationRetry.error?.message ?? overrideTarget.error?.message
           ?? JSON.stringify({ approval: overrideApproval.data, target: overrideTarget.data }))
     }
 
