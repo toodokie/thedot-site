@@ -103,7 +103,7 @@ function compatibleBlockKeys(blockKey:string){
 }
 function validateEditPackageCandidate(
   raw:string,sourcePath:string,base:ParsedContent,requests:Array<{blockKey:string;proposedText:string}>,
-  expectedPlannedDate:string|null,
+  expectedPlannedDate:string|null,allowPartialCandidate=false,
 ):ParsedContent{
   const candidate=parseContentFile(raw,sourcePath)
   if(candidate.content_id!==base.content_id||candidate.client!==base.client)
@@ -127,8 +127,22 @@ function validateEditPackageCandidate(
     // reviewed shared social package. This is the only allowed key transition, and
     // the requested text still has to match the receiving block exactly.
     const block=candidate.copy_blocks.find((row)=>compatibleBlockKeys(request.blockKey).includes(row.key))
-    if(!block||normalText(block.body)!==normalText(request.proposedText))
-      throw new Error('Package candidate does not include Maria\'s exact requested copy edit')
+    const candidateText=block?normalText(block.body):''
+    const requestedText=normalText(request.proposedText)
+    const exact=candidateText===requestedText
+    // Maria sometimes edits only the first sentence/field in the portal. In that case the
+    // proposed text is an exact leading segment within the reviewed block, not a replacement
+    // for the whole block. This mode is deliberately explicit and still prints the complete package
+    // diff before apply, so the agency reviews every retained/additional line.
+    const exactLeadingSegment=allowPartialCandidate&&requestedText.length>=20&&(
+      candidateText.startsWith(`${requestedText} `)
+      ||candidateText.startsWith(`${requestedText}\n`)
+      ||candidateText.includes(`\n${requestedText} `)
+      ||candidateText.includes(`\n${requestedText}\n`)
+      ||candidateText.endsWith(`\n${requestedText}`)
+    )
+    if(!block||(!exact&&!exactLeadingSegment))
+      throw new Error('Package candidate does not include Maria\'s requested copy as an exact block or leading segment')
     if(matchedKeys.has(block.key)) throw new Error('Package candidate maps two requests to the same copy block')
     matchedKeys.add(block.key)
   }
@@ -180,7 +194,10 @@ async function reconcileEdit(client:{id:string;slug:string},requestId:string,app
   if(prepared.error)throw new Error(prepared.error.message)
   console.log(`Prepared edit request ${request.id} at ${commit}. Release review is still required.`)
 }
-async function reconcileEditBundle(client:{id:string;slug:string},requestIds:string[],apply:boolean,candidatePath:string|null){
+async function reconcileEditBundle(
+  client:{id:string;slug:string},requestIds:string[],apply:boolean,candidatePath:string|null,
+  allowPartialCandidate=false,
+){
   const requests=await Promise.all(requestIds.map((requestId)=>changeRequest(client.id,requestId)))
   if(requests.length<2||new Set(requests.map((request)=>request.id)).size!==requests.length)
     throw new Error('A bundled edit needs two or more distinct request IDs')
@@ -203,13 +220,19 @@ async function reconcileEditBundle(client:{id:string;slug:string},requestIds:str
   const {data:item,error:itemError}=await admin.from('content_items').select('planned_date')
     .eq('id',lead.content_id).eq('client_id',client.id).single()
   if(itemError||!item) throw new Error(`content item unavailable: ${itemError?.message??'missing'}`)
-  const {dir}=canonicalRoot(); const path=canonicalFile(dir,snapshot.source_path)
-  const raw=readFileSync(path,'utf8'); const base=parseContentFile(raw,snapshot.source_path)
-  const generated=applyCanonicalEdits(raw,snapshot.source_path,lead.base_version,patches)
+  const {dir,head}=canonicalRoot(); const path=canonicalFile(dir,snapshot.source_path)
+  git(dir,['merge-base','--is-ancestor',snapshot.source_commit_sha,head])
+  const currentRaw=readFileSync(path,'utf8')
+  const baseRaw=candidatePath
+    ?git(dir,['show',`${snapshot.source_commit_sha}:${snapshot.source_path}`])
+    :currentRaw
+  const base=parseContentFile(baseRaw,snapshot.source_path)
+  const generated=applyCanonicalEdits(baseRaw,snapshot.source_path,lead.base_version,patches)
   const candidateRaw=candidatePath?candidateFile(candidatePath):generated.raw
   const parsed=candidatePath
     ?validateEditPackageCandidate(candidateRaw,snapshot.source_path,base,
-      patches.map(({blockKey,proposedText})=>({blockKey,proposedText})),item.planned_date??null)
+      patches.map(({blockKey,proposedText})=>({blockKey,proposedText})),item.planned_date??null,
+      allowPartialCandidate)
     :parseContentFile(candidateRaw,snapshot.source_path)
   if(!candidatePath&&parsed.scheduled_date!==(item.planned_date??null))
     throw new Error('Canonical source has a stale scheduled_date; provide a candidate that matches the current portal planned date')
@@ -224,8 +247,17 @@ async function reconcileEditBundle(client:{id:string;slug:string},requestIds:str
   })
   if(begin.error) throw new Error(begin.error.message)
   atomicWrite(path,candidateRaw);git(dir,['diff','--check','--',snapshot.source_path])
-  git(dir,['add','--',snapshot.source_path]);git(dir,['commit','-m',`Apply portal edit requests ${requests.map((request)=>request.id).join(', ')}`],'inherit')
-  git(dir,['push','origin','HEAD'],'inherit');const commit=git(dir,['rev-parse','HEAD'])
+  const changed=git(dir,['status','--porcelain=v1','--',snapshot.source_path])
+  let commit:string
+  if(changed){
+    git(dir,['add','--',snapshot.source_path]);git(dir,['commit','-m',`Apply portal edit requests ${requests.map((request)=>request.id).join(', ')}`],'inherit')
+    git(dir,['push','origin','HEAD'],'inherit');commit=git(dir,['rev-parse','HEAD'])
+  }else{
+    commit=git(dir,['rev-parse','HEAD'])
+    if(git(dir,['show',`${commit}:${snapshot.source_path}`])!==candidateRaw.trimEnd())
+      throw new Error('Unchanged canonical file does not match the reviewed package candidate')
+    console.log(`Adopting already committed package candidate at ${commit}.`)
+  }
   const synced=await admin.rpc('sync_content_item_versions',{p_items:[syncRow(parsed,client.id,commit)]})
   if(synced.error) throw new Error(synced.error.message)
   const prepared=await admin.rpc('mark_content_request_bundle_prepared',{
@@ -334,23 +366,28 @@ function parseEditFlags(args:string[]):{apply:boolean;candidatePath:string|null}
   }
   return {apply,candidatePath}
 }
-function parseBatchEditArgs(firstRequestId:string|undefined,args:string[]):{requestIds:string[];apply:boolean;candidatePath:string|null}{
+function parseBatchEditArgs(firstRequestId:string|undefined,args:string[]):{
+  requestIds:string[];apply:boolean;candidatePath:string|null;allowPartialCandidate:boolean
+}{
   const requestIds:string[]=[]; if(firstRequestId) requestIds.push(firstRequestId)
-  let apply=false;let candidatePath:string|null=null
+  let apply=false;let candidatePath:string|null=null;let allowPartialCandidate=false
   for(let index=0;index<args.length;index+=1){
     const arg=args[index]
     if(arg==='--apply'){apply=true;continue}
+    if(arg==='--partial-candidate'){allowPartialCandidate=true;continue}
     if(arg==='--candidate'){
       const value=args[index+1]
       if(!value||value.startsWith('--')||candidatePath) throw new Error('apply-edit-batch accepts one --candidate <absolute-path>')
       candidatePath=value;index+=1;continue
     }
-    if(arg.startsWith('--')) throw new Error('apply-edit-batch accepts request IDs, --apply, and optional --candidate <absolute-path>')
+    if(arg.startsWith('--')) throw new Error('apply-edit-batch accepts request IDs, --apply, --partial-candidate, and optional --candidate <absolute-path>')
     requestIds.push(arg)
   }
   if(requestIds.length<2||new Set(requestIds).size!==requestIds.length)
     throw new Error('apply-edit-batch needs two or more distinct request IDs')
-  return {requestIds,apply,candidatePath}
+  if(allowPartialCandidate&&!candidatePath)
+    throw new Error('--partial-candidate requires an explicit reviewed --candidate file')
+  return {requestIds,apply,candidatePath,allowPartialCandidate}
 }
 
 async function main(){
@@ -385,7 +422,7 @@ async function main(){
     await reconcileEdit(client,value,flags.apply,flags.candidatePath)
   }else if(command==='apply-edit-batch'){
     const flags=parseBatchEditArgs(value,rest)
-    await reconcileEditBundle(client,flags.requestIds,flags.apply,flags.candidatePath)
+    await reconcileEditBundle(client,flags.requestIds,flags.apply,flags.candidatePath,flags.allowPartialCandidate)
   }else if(command==='resume-edit'){
     if(!value||rest.length!==1||rest[0]!=='--apply')
       throw new Error('usage: portal-inbox resume-edit <clientSlug> <request-uuid> --apply')
