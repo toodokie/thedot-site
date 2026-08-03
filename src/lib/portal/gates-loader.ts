@@ -85,7 +85,16 @@ function buildPieces(
     const rawPlatforms = Array.isArray(version?.platforms)
       ? version.platforms
       : Array.isArray(item.platforms) ? item.platforms : []
-    const platforms = canonicalDestinations(rawPlatforms)
+    // Audited override destinations can reflect provider reality that was omitted
+    // from the immutable released frontmatter. Treat required schedule/publication
+    // targets for this exact version as authoritative destinations too.
+    const targetPlatforms = workingVersion === null ? [] : [
+      ...schedules.filter((target) => target.content_id === item.id
+        && target.content_version === workingVersion && target.required).map((target) => target.destination),
+      ...publications.filter((target) => target.content_id === item.id
+        && target.content_version === workingVersion && target.required).map((target) => target.destination),
+    ]
+    const platforms = canonicalDestinations([...rawPlatforms, ...targetPlatforms])
     const exceptions = rawPlatforms
       .filter((raw) => canonicalScheduleDestination(raw) === null)
       .map((raw) => ({ kind: 'unsupported_destination', note: raw }))
