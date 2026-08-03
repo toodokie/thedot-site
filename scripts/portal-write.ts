@@ -167,8 +167,10 @@ async function main() {
   } else if (command === 'courtesy-release') {
     // A courtesy release is an explicit agency policy for this exact released snapshot.
     // It is deliberately NOT an external/client approval and must never be used to
-    // backfill a missing Maria decision. The DB re-checks release completeness,
+    // impersonate a Maria decision. The DB re-checks release completeness,
     // current-version identity, agency_mutations, and the absence of any decision.
+    // The Dot-produced content additionally requires the client-safe reason prefix
+    // "Agency override authorized by Anastasia:" so the exception is explicit in audit.
     const reason = requiredText(payload.reason, 'reason', 2000)
     assertClientSafeAgencyText({ reason })
     if (reason.length < 10) throw new Error('reason must be at least 10 characters')

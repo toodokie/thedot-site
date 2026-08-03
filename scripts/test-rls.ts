@@ -1033,6 +1033,38 @@ async function main(): Promise<void> {
           ?? courtesyRows.error?.message ?? browserCourtesyRows.error?.message ?? courtesySchedule.error?.message
           ?? courtesyPublication.error?.message ?? courtesyEvidenceError?.message ?? courtesyPublicationWrite.error?.message
           ?? JSON.stringify({ view: courtesyView.data, approvals: courtesyApproval.data, rows: courtesyRows.data }))
+
+      const overrideContentId = `rls-agency-override-${RUN_ID}`
+      const [overrideSync] = await sync([
+        snapshot(bClientId, overrideContentId, 1, 'Agency override short', 'Agency-produced short body', 'youtube-short', {
+          platforms: ['youtube'], producer: 'the_dot', fact_check_scope: 'not_applicable',
+          fact_check_exemption: 'Agency-produced brand clip with no regulated claim.', fact_check_ledger: [],
+        }),
+      ])
+      const overrideReady = await admin.rpc('mark_content_ready', {
+        p_content_id: overrideSync.item_id, p_content_version: 1,
+      })
+      const implicitOverride = await admin.rpc('record_content_courtesy_release', {
+        p_content_id: overrideSync.item_id, p_content_version: 1,
+        p_reason: 'Publish without another client review.', p_actor_key: 'thedot-admin',
+        p_idempotency_key: randomUUID(),
+      })
+      const explicitOverride = await admin.rpc('record_content_courtesy_release', {
+        p_content_id: overrideSync.item_id, p_content_version: 1,
+        p_reason: 'Agency override authorized by Anastasia: client declined another review of this exact revision.',
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const overrideApproval = await admin.from('approvals').select('id')
+        .eq('content_id', overrideSync.item_id).eq('content_version', 1)
+      const overrideTarget = await admin.from('content_publication_targets').select('id,destination')
+        .eq('content_id', overrideSync.item_id).eq('content_version', 1).single()
+      check('R18: The Dot content needs an explicit Anastasia override and never fabricates Maria approval',
+        !overrideReady.error && !!implicitOverride.error && !explicitOverride.error
+          && !overrideApproval.error && overrideApproval.data?.length === 0
+          && !overrideTarget.error && overrideTarget.data?.destination === 'youtube',
+        overrideReady.error?.message ?? implicitOverride.error?.message ?? explicitOverride.error?.message
+          ?? overrideApproval.error?.message ?? overrideTarget.error?.message
+          ?? JSON.stringify({ approval: overrideApproval.data, target: overrideTarget.data }))
     }
 
     console.log('\n--- Slice 3 scheduling/rescheduling ---')
