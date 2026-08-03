@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { parseContentFile } from './frontmatter'
 
-type EditPatch = {
+export type EditPatch = {
   blockKey: string
   originalChecksum: string
   proposedText: string
@@ -31,38 +31,53 @@ function internalSuffix(raw: string): { before: string; suffix: string } {
   return { before: raw.slice(0, matches[0].index), suffix: raw.slice(matches[0].index) }
 }
 
-export function applyCanonicalEdit(
+export function applyCanonicalEdits(
   raw: string,
   sourcePath: string,
   expectedVersion: number,
-  patch: EditPatch,
-): { raw: string; version: number; before: string; after: string } {
+  patches: EditPatch[],
+): { raw: string; version: number; changes: Array<{ blockKey: string; before: string; after: string }> } {
   const parsed = parseContentFile(raw, sourcePath)
   if (parsed.version !== expectedVersion) throw new Error('Canonical file version no longer matches the request')
-  const block = parsed.copy_blocks.find((candidate) => candidate.key === patch.blockKey)
-  if (!block) throw new Error('Requested copy block no longer exists')
-  if (checksum(block.body) !== patch.originalChecksum) throw new Error('Requested copy block checksum is stale')
-  const proposed = patch.proposedText.replace(/\r\n?/g, '\n').trim()
-  if (!proposed || proposed === block.body.trim()) throw new Error('Proposed copy is empty or unchanged')
+  if (!patches.length) throw new Error('At least one client edit is required')
+
+  const changes = patches.map((patch) => {
+    const block = parsed.copy_blocks.find((candidate) => candidate.key === patch.blockKey)
+    if (!block) throw new Error('Requested copy block no longer exists')
+    if (checksum(block.body) !== patch.originalChecksum) throw new Error('Requested copy block checksum is stale')
+    const after = patch.proposedText.replace(/\r\n?/g, '\n').trim()
+    if (!after || after === block.body.trim()) throw new Error('Proposed copy is empty or unchanged')
+    return { blockKey: patch.blockKey, before: block.body, after }
+  })
+  if (new Set(changes.map((change) => change.blockKey)).size !== changes.length) {
+    throw new Error('A bundled reconciliation cannot apply two edits to the same copy block')
+  }
 
   const { before: publicPart, suffix } = internalSuffix(raw)
   const newline = raw.includes('\r\n') ? '\r\n' : '\n'
-  const control = new RegExp(
-    `(^[ \\t]*<!--\\s*portal-block:${escapeRegExp(patch.blockKey)}\\s*-->[ \\t]*\\r?\\n##[ \\t]+[^\\r\\n]+\\r?\\n)`,
-    'm',
-  )
-  const match = control.exec(publicPart)
-  if (!match || match.index === undefined) throw new Error('Requested copy block source is malformed')
-  const bodyStart = match.index + match[0].length
-  const nextControl = /\r?\n[ \t]*<!--\s*portal-block:[a-z0-9][a-z0-9_-]{0,63}\s*-->[ \t]*(?:\r?\n|$)/g
-  nextControl.lastIndex = bodyStart
-  const next = nextControl.exec(publicPart)
-  const bodyEnd = next?.index ?? publicPart.length
-  const rawBody = publicPart.slice(bodyStart, bodyEnd)
-  const trailing = rawBody.match(/(?:\r?\n[ \t]*)+$/)?.[0] ?? newline + newline
-  const normalizedProposal = proposed.replace(/\r?\n/g, newline)
-  const editedPublic = publicPart.slice(0, bodyStart) + normalizedProposal + trailing
-    + publicPart.slice(bodyEnd)
+  const ranges = changes.map((change) => {
+    const control = new RegExp(
+      `(^[ \\t]*<!--\\s*portal-block:${escapeRegExp(change.blockKey)}\\s*-->[ \\t]*\\r?\\n##[ \\t]+[^\\r\\n]+\\r?\\n)`,
+      'm',
+    )
+    const match = control.exec(publicPart)
+    if (!match || match.index === undefined) throw new Error('Requested copy block source is malformed')
+    const bodyStart = match.index + match[0].length
+    const nextControl = /\r?\n[ \t]*<!--\s*portal-block:[a-z0-9][a-z0-9_-]{0,63}\s*-->[ \t]*(?:\r?\n|$)/g
+    nextControl.lastIndex = bodyStart
+    const next = nextControl.exec(publicPart)
+    const bodyEnd = next?.index ?? publicPart.length
+    const rawBody = publicPart.slice(bodyStart, bodyEnd)
+    const trailing = rawBody.match(/(?:\r?\n[ \t]*)+$/)?.[0] ?? newline + newline
+    return { ...change, bodyStart, bodyEnd, trailing }
+  }).sort((left, right) => right.bodyStart - left.bodyStart)
+
+  let editedPublic = publicPart
+  for (const range of ranges) {
+    editedPublic = editedPublic.slice(0, range.bodyStart)
+      + range.after.replace(/\r?\n/g, newline) + range.trailing
+      + editedPublic.slice(range.bodyEnd)
+  }
   const versionPattern = /^([ \t]*version:[ \t]*)\d+([ \t]*)$/gm
   const versionMatches = [...editedPublic.matchAll(versionPattern)]
   if (versionMatches.length !== 1) throw new Error('Canonical frontmatter must contain exactly one numeric version')
@@ -72,10 +87,21 @@ export function applyCanonicalEdit(
   if (!result.endsWith(suffix)) throw new Error('Internal section preservation failed')
   const reparsed = parseContentFile(result, sourcePath)
   if (reparsed.version !== nextVersion
-      || reparsed.copy_blocks.find((candidate) => candidate.key === patch.blockKey)?.body !== proposed) {
+      || changes.some((change) => reparsed.copy_blocks.find((candidate) => candidate.key === change.blockKey)?.body !== change.after)) {
     throw new Error('Reconciled canonical source failed round-trip validation')
   }
-  return { raw: result, version: nextVersion, before: block.body, after: proposed }
+  return { raw: result, version: nextVersion, changes }
+}
+
+export function applyCanonicalEdit(
+  raw: string,
+  sourcePath: string,
+  expectedVersion: number,
+  patch: EditPatch,
+): { raw: string; version: number; before: string; after: string } {
+  const result = applyCanonicalEdits(raw, sourcePath, expectedVersion, [patch])
+  const change = result.changes[0]
+  return { raw: result.raw, version: result.version, before: change.before, after: change.after }
 }
 
 export function buildCanonicalCreate(

@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { closeSync, existsSync, lstatSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { join, relative, resolve, sep } from 'node:path'
-import { applyCanonicalEdit, buildCanonicalCreate } from '../src/lib/portal/canonical-request-reconciler'
+import { applyCanonicalEdit, applyCanonicalEdits, buildCanonicalCreate, type EditPatch } from '../src/lib/portal/canonical-request-reconciler'
 import { inspectCanonicalContentRoot } from '../src/lib/portal/canonical-content-root'
 import { parseContentFile, type ParsedContent } from '../src/lib/portal/frontmatter'
 
@@ -96,8 +96,13 @@ async function startJob(request:ChangeRequest,contentId:string|null,file:string|
   if(result.error) throw new Error(result.error.message)
 }
 function normalText(value:string){return value.replace(/\r\n?/g,'\n').trim()}
+function compatibleBlockKeys(blockKey:string){
+  return blockKey==='ig-caption'||blockKey==='fb-caption'
+    ? [blockKey,'ig-facebook-caption','social-caption']
+    : [blockKey]
+}
 function validateEditPackageCandidate(
-  raw:string,sourcePath:string,base:ParsedContent,request:{blockKey:string;proposedText:string},
+  raw:string,sourcePath:string,base:ParsedContent,requests:Array<{blockKey:string;proposedText:string}>,
   expectedPlannedDate:string|null,
 ):ParsedContent{
   const candidate=parseContentFile(raw,sourcePath)
@@ -116,15 +121,17 @@ function validateEditPackageCandidate(
   // version, but it must never choose a different one or resurrect stale source metadata.
   if(candidate.scheduled_date!==expectedPlannedDate)
     throw new Error('Package candidate scheduled_date must exactly match the current portal planned date')
-  // A legacy single-platform caption may be intentionally consolidated into the
-  // reviewed shared social package. This is the only allowed key transition, and
-  // the requested text still has to match the receiving block exactly.
-  const compatibleKeys=request.blockKey==='ig-caption'||request.blockKey==='fb-caption'
-    ? [request.blockKey,'ig-facebook-caption','social-caption']
-    : [request.blockKey]
-  const block=candidate.copy_blocks.find((row)=>compatibleKeys.includes(row.key))
-  if(!block||normalText(block.body)!==normalText(request.proposedText))
-    throw new Error('Package candidate does not include Maria\'s exact requested copy edit')
+  const matchedKeys=new Set<string>()
+  for(const request of requests){
+    // A legacy single-platform caption may be intentionally consolidated into the
+    // reviewed shared social package. This is the only allowed key transition, and
+    // the requested text still has to match the receiving block exactly.
+    const block=candidate.copy_blocks.find((row)=>compatibleBlockKeys(request.blockKey).includes(row.key))
+    if(!block||normalText(block.body)!==normalText(request.proposedText))
+      throw new Error('Package candidate does not include Maria\'s exact requested copy edit')
+    if(matchedKeys.has(block.key)) throw new Error('Package candidate maps two requests to the same copy block')
+    matchedKeys.add(block.key)
+  }
   return candidate
 }
 async function reconcileEdit(client:{id:string;slug:string},requestId:string,apply:boolean,candidatePath:string|null){
@@ -145,7 +152,7 @@ async function reconcileEdit(client:{id:string;slug:string},requestId:string,app
   const edited=applyCanonicalEdit(raw,snapshot.source_path,request.base_version,{blockKey,originalChecksum,proposedText})
   const candidateRaw=candidatePath?candidateFile(candidatePath):edited.raw
   const parsed=candidatePath
-    ?validateEditPackageCandidate(candidateRaw,snapshot.source_path,base,{blockKey,proposedText},item.planned_date??null)
+    ?validateEditPackageCandidate(candidateRaw,snapshot.source_path,base,[{blockKey,proposedText}],item.planned_date??null)
     :parseContentFile(candidateRaw,snapshot.source_path)
   if(!candidatePath&&parsed.scheduled_date!==(item.planned_date??null))
     throw new Error('Canonical source has a stale scheduled_date; provide a candidate that matches the current portal planned date')
@@ -173,6 +180,61 @@ async function reconcileEdit(client:{id:string;slug:string},requestId:string,app
   if(prepared.error)throw new Error(prepared.error.message)
   console.log(`Prepared edit request ${request.id} at ${commit}. Release review is still required.`)
 }
+async function reconcileEditBundle(client:{id:string;slug:string},requestIds:string[],apply:boolean,candidatePath:string|null){
+  const requests=await Promise.all(requestIds.map((requestId)=>changeRequest(client.id,requestId)))
+  if(requests.length<2||new Set(requests.map((request)=>request.id)).size!==requests.length)
+    throw new Error('A bundled edit needs two or more distinct request IDs')
+  const lead=requests[0]
+  if(!lead.content_id||!lead.base_version||requests.some((request)=>request.request_type!=='edit'
+    ||request.content_id!==lead.content_id||request.base_version!==lead.base_version||request.status!=='pending'))
+    throw new Error('Bundled requests must be pending edits for the same content version')
+  const patches:EditPatch[]=requests.map((request)=>{
+    const blockKey=text(request.payload,'block_key'), originalChecksum=text(request.payload,'original_checksum')
+    const proposedText=text(request.payload,'proposed_text')
+    if(!blockKey||!originalChecksum||!proposedText) throw new Error('edit request payload is invalid')
+    return {blockKey,originalChecksum,proposedText}
+  })
+  if(new Set(patches.map((patch)=>patch.blockKey)).size!==patches.length)
+    throw new Error('Bundled requests must address distinct copy blocks')
+  const {data:snapshot,error}=await admin.from('content_item_versions')
+    .select('source_path,source_commit_sha').eq('content_item_id',lead.content_id)
+    .eq('client_id',client.id).eq('version',lead.base_version).single()
+  if(error||!snapshot) throw new Error(`canonical provenance unavailable: ${error?.message??'missing'}`)
+  const {data:item,error:itemError}=await admin.from('content_items').select('planned_date')
+    .eq('id',lead.content_id).eq('client_id',client.id).single()
+  if(itemError||!item) throw new Error(`content item unavailable: ${itemError?.message??'missing'}`)
+  const {dir}=canonicalRoot(); const path=canonicalFile(dir,snapshot.source_path)
+  const raw=readFileSync(path,'utf8'); const base=parseContentFile(raw,snapshot.source_path)
+  const generated=applyCanonicalEdits(raw,snapshot.source_path,lead.base_version,patches)
+  const candidateRaw=candidatePath?candidateFile(candidatePath):generated.raw
+  const parsed=candidatePath
+    ?validateEditPackageCandidate(candidateRaw,snapshot.source_path,base,
+      patches.map(({blockKey,proposedText})=>({blockKey,proposedText})),item.planned_date??null)
+    :parseContentFile(candidateRaw,snapshot.source_path)
+  if(!candidatePath&&parsed.scheduled_date!==(item.planned_date??null))
+    throw new Error('Canonical source has a stale scheduled_date; provide a candidate that matches the current portal planned date')
+  if(candidatePath){
+    printSafePackageDiff(base,parsed)
+    console.log(`Package candidate accepted: ${candidatePath}. Every requested block is exact.`)
+  }else printSafePackageDiff(base,parsed)
+  if(!apply){console.log('Preview only. Re-run with --apply after reviewing this client-visible bundle diff.');return}
+  await startJob(lead,null,null,null)
+  const begin=await admin.rpc('begin_content_request_revision',{
+    p_request_id:lead.id,p_content_id:lead.content_id,p_content_version:lead.base_version,
+  })
+  if(begin.error) throw new Error(begin.error.message)
+  atomicWrite(path,candidateRaw);git(dir,['diff','--check','--',snapshot.source_path])
+  git(dir,['add','--',snapshot.source_path]);git(dir,['commit','-m',`Apply portal edit requests ${requests.map((request)=>request.id).join(', ')}`],'inherit')
+  git(dir,['push','origin','HEAD'],'inherit');const commit=git(dir,['rev-parse','HEAD'])
+  const synced=await admin.rpc('sync_content_item_versions',{p_items:[syncRow(parsed,client.id,commit)]})
+  if(synced.error) throw new Error(synced.error.message)
+  const prepared=await admin.rpc('mark_content_request_bundle_prepared',{
+    p_request_ids:requests.map((request)=>request.id),p_commit_sha:commit,
+    p_actor_key:'thedot-admin',p_idempotency_key:randomUUID(),
+  })
+  if(prepared.error) throw new Error(prepared.error.message)
+  console.log(`Prepared ${requests.length} edit requests at ${commit}. Release review is still required.`)
+}
 async function resumeEdit(client:{id:string;slug:string},requestId:string,apply:boolean){
   const request=await changeRequest(client.id,requestId)
   if(request.request_type!=='edit'||!request.content_id||!request.base_version)
@@ -189,9 +251,9 @@ async function resumeEdit(client:{id:string;slug:string},requestId:string,apply:
   const {dir,head}=canonicalRoot(); const path=canonicalFile(dir,snapshot.source_path)
   git(dir,['merge-base','--is-ancestor',snapshot.source_commit_sha,head])
   const base=parseContentFile(git(dir,['show',`${snapshot.source_commit_sha}:${snapshot.source_path}`]),snapshot.source_path)
-  const parsed=validateEditPackageCandidate(readFileSync(path,'utf8'),snapshot.source_path,base,{
+  const parsed=validateEditPackageCandidate(readFileSync(path,'utf8'),snapshot.source_path,base,[{
     blockKey:text(request.payload,'block_key')??'',proposedText:text(request.payload,'proposed_text')??'',
-  },item.planned_date??null)
+  }],item.planned_date??null)
   printSafePackageDiff(base,parsed)
   if(!apply){console.log('Resume preview only. Re-run with --apply after reviewing this client-visible diff.');return}
   if(request.status==='conflicted'){
@@ -272,6 +334,24 @@ function parseEditFlags(args:string[]):{apply:boolean;candidatePath:string|null}
   }
   return {apply,candidatePath}
 }
+function parseBatchEditArgs(firstRequestId:string|undefined,args:string[]):{requestIds:string[];apply:boolean;candidatePath:string|null}{
+  const requestIds:string[]=[]; if(firstRequestId) requestIds.push(firstRequestId)
+  let apply=false;let candidatePath:string|null=null
+  for(let index=0;index<args.length;index+=1){
+    const arg=args[index]
+    if(arg==='--apply'){apply=true;continue}
+    if(arg==='--candidate'){
+      const value=args[index+1]
+      if(!value||value.startsWith('--')||candidatePath) throw new Error('apply-edit-batch accepts one --candidate <absolute-path>')
+      candidatePath=value;index+=1;continue
+    }
+    if(arg.startsWith('--')) throw new Error('apply-edit-batch accepts request IDs, --apply, and optional --candidate <absolute-path>')
+    requestIds.push(arg)
+  }
+  if(requestIds.length<2||new Set(requestIds).size!==requestIds.length)
+    throw new Error('apply-edit-batch needs two or more distinct request IDs')
+  return {requestIds,apply,candidatePath}
+}
 
 async function main(){
   const [command='list',slug='kanset',value,...rest]=process.argv.slice(2)
@@ -303,6 +383,9 @@ async function main(){
     if(!value)throw new Error('usage: portal-inbox apply-edit <clientSlug> <request-uuid> [--candidate <absolute-path>] [--apply]')
     const flags=parseEditFlags(rest)
     await reconcileEdit(client,value,flags.apply,flags.candidatePath)
+  }else if(command==='apply-edit-batch'){
+    const flags=parseBatchEditArgs(value,rest)
+    await reconcileEditBundle(client,flags.requestIds,flags.apply,flags.candidatePath)
   }else if(command==='resume-edit'){
     if(!value||rest.length!==1||rest[0]!=='--apply')
       throw new Error('usage: portal-inbox resume-edit <clientSlug> <request-uuid> --apply')
@@ -327,6 +410,6 @@ async function main(){
     const result=await admin.rpc('resolve_content_request',{p_request_id:request.id,p_status:'rejected',
       p_reason:reason,p_actor_key:'thedot-admin',p_idempotency_key:randomUUID()})
     if(result.error)throw new Error(result.error.message);console.log(`Rejected request ${request.id}.`)
-  }else throw new Error('usage: portal-inbox <list|show|ack|apply-edit|resume-edit|apply-create|apply-archive|supersede|reject|retry-projections> <clientSlug> [value]')
+  }else throw new Error('usage: portal-inbox <list|show|ack|apply-edit|apply-edit-batch|resume-edit|apply-create|apply-archive|supersede|reject|retry-projections> <clientSlug> [value]')
 }
 main().catch((error)=>{console.error(`FAILED: ${error?.message ?? error}`);process.exit(1)})

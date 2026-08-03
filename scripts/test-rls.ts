@@ -52,6 +52,7 @@ const B_CONTENT_ID = 'rls-test-piece'
 const B_LEAK_ID = 'rls-test-leak'
 const B_HIDDEN_ID = 'rls-test-hidden'
 const B_REQUEST_ID = 'rls-test-request'
+const B_BUNDLE_ID = 'rls-test-request-bundle'
 const KANSET_SLUG = 'kanset'
 const KANSET_EMAIL = 'info@thedotcreative.co'
 
@@ -266,18 +267,25 @@ async function main(): Promise<void> {
       if (enabled.error) throw new Error(`enable ${feature}: ${enabled.error.message}`)
     }
 
+    const bundleV1 = snapshot(bClientId, B_BUNDLE_ID, 1, 'Bundled request workflow v1', 'Caption base', 'caption')
+    bundleV1.copy_blocks = [
+      { key: 'caption', label: 'Caption', body: 'Caption base' },
+      { key: 'script', label: 'Script', body: 'Script base' },
+    ]
     const initial = await sync([
       snapshot(bClientId, B_CONTENT_ID, 1, 'Visible main v1', 'Visible main body', 'main'),
       snapshot(bClientId, B_LEAK_ID, 1, 'Released leak v1', 'Released body v1', 'leak'),
       snapshot(bClientId, B_HIDDEN_ID, 1, 'Hidden working v1', 'TOP SECRET UNRELEASED', 'hidden'),
       snapshot(bClientId, B_REQUEST_ID, 1, 'Request workflow v1', 'Original request body', 'caption'),
+      bundleV1,
     ])
     const byId = new Map(initial.map((row) => [row.content_id, row]))
     const bItemId = byId.get(B_CONTENT_ID)?.item_id
     const bLeakItemId = byId.get(B_LEAK_ID)?.item_id
     const bHiddenItemId = byId.get(B_HIDDEN_ID)?.item_id
     const bRequestItemId = byId.get(B_REQUEST_ID)?.item_id
-    if (!bItemId || !bLeakItemId || !bHiddenItemId || !bRequestItemId) throw new Error('sync did not return all item IDs')
+    const bBundleItemId = byId.get(B_BUNDLE_ID)?.item_id
+    if (!bItemId || !bLeakItemId || !bHiddenItemId || !bRequestItemId || !bBundleItemId) throw new Error('sync did not return all item IDs')
 
     const hostParityPayloads = PRIMARY_SOURCE_HOSTS.map((host, index) => {
       const payload = snapshot(
@@ -291,7 +299,7 @@ async function main(): Promise<void> {
     check('S0: TypeScript primary-source hosts all pass the database validator', !hostParity.error,
       hostParity.error?.message ?? `hosts=${PRIMARY_SOURCE_HOSTS.length}`)
 
-    for (const itemId of [bItemId, bLeakItemId, bRequestItemId]) {
+    for (const itemId of [bItemId, bLeakItemId, bRequestItemId, bBundleItemId]) {
       const { error } = await admin.rpc('mark_content_ready', { p_content_id: itemId, p_content_version: 1 })
       if (error) throw new Error(`mark_content_ready: ${error.message}`)
     }
@@ -352,7 +360,7 @@ async function main(): Promise<void> {
       p_idempotency_key: `viewer-reschedule-${RUN_ID}`,
     })
     check('A2: same-tenant viewer can read but cannot idea/comment/decide/schedule',
-      !viewerRead.error && viewerRead.data?.length === 3
+      !viewerRead.error && viewerRead.data?.length === 4
         && viewerRead.data.every((row) => row.client_id === bClientId)
         && !!viewerIdea.error && !!viewerComment.error && !!viewerDecision.error
         && !!viewerPlan.error && !!viewerReschedule.error,
@@ -670,6 +678,56 @@ async function main(): Promise<void> {
           && appliedRow.data?.canonical_version === 2 && nowV2.data?.version === 2
           && nowV2.data?.client_body === 'Prepared request body v2',
         release.error?.message ?? appliedRow.error?.message ?? JSON.stringify(nowV2.data))
+
+      const bundleCaption = await bClient.rpc('request_content_edit', {
+        p_content_id: bBundleItemId, p_content_version: 1, p_block_key: 'caption',
+        p_proposed_text: 'Caption requested by Maria.', p_idempotency_key: randomUUID(),
+      })
+      const bundleScript = await bClient.rpc('request_content_edit', {
+        p_content_id: bBundleItemId, p_content_version: 1, p_block_key: 'script',
+        p_proposed_text: 'Script requested by Maria.', p_idempotency_key: randomUUID(),
+      })
+      const bundleCaptionId = (bundleCaption.data as { id?: string } | null)?.id
+      const bundleScriptId = (bundleScript.data as { id?: string } | null)?.id
+      if (!bundleCaptionId || !bundleScriptId) throw new Error(`bundle requests unavailable: ${bundleCaption.error?.message ?? bundleScript.error?.message ?? 'missing IDs'}`)
+      const bundleStart = await admin.rpc('start_content_request_reconciliation', {
+        p_request_id: bundleCaptionId, p_requested_content_id: null, p_canonical_object_key: null,
+        p_expected_base_commit: null, p_actor_key: 'thedot-admin', p_idempotency_key: bundleCaptionId,
+      })
+      const bundleBegin = await admin.rpc('begin_content_request_revision', {
+        p_request_id: bundleCaptionId, p_content_id: bBundleItemId, p_content_version: 1,
+      })
+      const bundleV2 = snapshot(bClientId, B_BUNDLE_ID, 2, 'Bundled request workflow v2', 'Caption requested by Maria.', 'caption')
+      bundleV2.copy_blocks = [
+        { key: 'caption', label: 'Caption', body: 'Caption requested by Maria.' },
+        { key: 'script', label: 'Script', body: 'Script requested by Maria.' },
+      ]
+      bundleV2.source_commit_sha = '3'.repeat(40)
+      const bundleSync = await sync([bundleV2])
+      const browserBundleWriter = await bClient.rpc('mark_content_request_bundle_prepared', {
+        p_request_ids: [bundleCaptionId, bundleScriptId], p_commit_sha: '3'.repeat(40),
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const bundlePrepared = await admin.rpc('mark_content_request_bundle_prepared', {
+        p_request_ids: [bundleCaptionId, bundleScriptId], p_commit_sha: '3'.repeat(40),
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const bundleRows = await bClient.from('content_change_requests_client')
+        .select('id,status,canonical_version').in('id', [bundleCaptionId, bundleScriptId])
+      const bundleRelease = await admin.rpc('mark_content_ready', {
+        p_content_id: bBundleItemId, p_content_version: 2,
+      })
+      const bundleApplied = await bClient.from('content_change_requests_client')
+        .select('id,status,canonical_version').in('id', [bundleCaptionId, bundleScriptId])
+      check('R6b: two same-version edits are prepared and released as one exact audited revision',
+        !bundleStart.error && !bundleBegin.error && bundleSync.length === 1 && !!browserBundleWriter.error
+          && !bundlePrepared.error && bundleRows.data?.length === 2
+          && bundleRows.data.every((row) => row.status === 'prepared' && row.canonical_version === 2)
+          && !bundleRelease.error && bundleApplied.data?.length === 2
+          && bundleApplied.data.every((row) => row.status === 'applied' && row.canonical_version === 2),
+        bundleStart.error?.message ?? bundleBegin.error?.message ?? browserBundleWriter.error?.message
+          ?? bundlePrepared.error?.message ?? bundleRelease.error?.message
+          ?? JSON.stringify({ prepared: bundleRows.data, applied: bundleApplied.data }))
     }
 
     {

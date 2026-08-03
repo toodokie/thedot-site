@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
-import { applyCanonicalEdit, buildCanonicalCreate } from './canonical-request-reconciler'
+import { applyCanonicalEdit, applyCanonicalEdits, buildCanonicalCreate } from './canonical-request-reconciler'
 import { parseContentFile } from './frontmatter'
 
 const source = `---
@@ -52,6 +52,40 @@ describe('canonical request reconciler', () => {
     expect(() => applyCanonicalEdit(source, 'test-piece.md', 2, request)).toThrow(/checksum/)
     expect(() => applyCanonicalEdit(source, 'test-piece.md', 1, { ...request })).toThrow(/version/)
     expect(() => applyCanonicalEdit(source, 'test-piece.md', 2, { ...request, blockKey: 'missing' })).toThrow(/no longer exists/)
+  })
+
+  it('bundles distinct client edits into one version without touching internal notes', () => {
+    const internal = source.slice(source.indexOf('<!-- internal -->'))
+    const blocks = parseContentFile(source, 'test-piece.md').copy_blocks
+    const result = applyCanonicalEdits(source, 'test-piece.md', 2, [
+      {
+        blockKey: 'caption',
+        originalChecksum: createHash('sha256').update(blocks[0].body).digest('hex'),
+        proposedText: 'Maria caption.',
+      },
+      {
+        blockKey: 'title',
+        originalChecksum: createHash('sha256').update(blocks[1].body).digest('hex'),
+        proposedText: 'Maria title.',
+      },
+    ])
+    expect(result.version).toBe(3)
+    expect(result.raw.endsWith(internal)).toBe(true)
+    expect(parseContentFile(result.raw, 'test-piece.md').copy_blocks).toEqual([
+      { key: 'caption', label: 'Caption', body: 'Maria caption.' },
+      { key: 'title', label: 'Title', body: 'Maria title.' },
+    ])
+  })
+
+  it('fails closed when a bundled request duplicates a block or has a stale checksum', () => {
+    const original = parseContentFile(source, 'test-piece.md').copy_blocks[0].body
+    const patch = {
+      blockKey: 'caption', originalChecksum: createHash('sha256').update(original).digest('hex'), proposedText: 'Changed.',
+    }
+    expect(() => applyCanonicalEdits(source, 'test-piece.md', 2, [patch, { ...patch, proposedText: 'Again.' }]))
+      .toThrow(/two edits to the same copy block/)
+    expect(() => applyCanonicalEdits(source, 'test-piece.md', 2, [{ ...patch, originalChecksum: '0'.repeat(64) }]))
+      .toThrow(/checksum/)
   })
 
   it('creates a parser-valid unreleased working draft that cannot claim confirmed evidence', () => {
