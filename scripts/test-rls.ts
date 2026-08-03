@@ -1946,6 +1946,49 @@ async function main(): Promise<void> {
         reply.error?.message ?? rows.error?.message ?? JSON.stringify(rows.data))
       check('N6: authenticated client cannot read recipient email', !!deniedRecipient.error,
         deniedRecipient.error?.message ?? 'recipient_email was readable')
+
+      // 0063: client email has a hard rolling-volume ceiling. The third additional
+      // direct reply is retained in-app, receives a traceable skipped email row, and
+      // opens one agency-only Ops task instead of sending a fourth message.
+      const volumeBodies = [1, 2, 3].map((index) => `client-volume-guard-${RUN_ID}-${index}`)
+      const volumeReplies: Array<{ error: { message: string } | null }> = []
+      for (const body of volumeBodies) {
+        volumeReplies.push(await admin.rpc('add_agency_comment', {
+          p_content_id: bItemId, p_body: body, p_author_name: 'The Dot',
+        }))
+      }
+      const volumeRows = await admin.from('notification_outbox')
+        .select('channel,status,last_error,body')
+        .eq('client_id', bClientId)
+        .in('body', volumeBodies)
+      const volumeOps = await admin.from('ops_tasks')
+        .select('title,status,trigger_note')
+        .eq('client_id', bClientId)
+        .eq('title', 'Review client notification volume')
+      const volumeData = volumeRows.data ?? []
+      check('N7: rolling client-email guard keeps the fourth alert in-app and opens one internal task',
+        volumeReplies.every((result) => !result.error)
+          && !volumeRows.error && !volumeOps.error
+          && volumeData.filter((row) => row.channel === 'in_app' && row.status === 'succeeded').length === 3
+          && volumeData.filter((row) => row.channel === 'email' && row.status === 'pending').length === 2
+          && volumeData.filter((row) => row.channel === 'email' && row.status === 'skipped'
+            && row.last_error === 'Held in portal by the client email 24-hour volume guard').length === 1
+          && (volumeOps.data ?? []).length === 1
+          && volumeOps.data?.[0]?.status === 'open',
+        volumeReplies.find((result) => result.error)?.error?.message
+          ?? volumeRows.error?.message ?? volumeOps.error?.message
+          ?? JSON.stringify({ volumeData, volumeOps: volumeOps.data }))
+      const clientAuditDenied = await bClient.rpc('read_client_notification_audit', {
+        p_client_id: bClientId, p_since: new Date(Date.now() - 86_400_000).toISOString(), p_limit: 100,
+      })
+      const serviceAudit = await admin.rpc('read_client_notification_audit', {
+        p_client_id: bClientId, p_since: new Date(Date.now() - 86_400_000).toISOString(), p_limit: 1000,
+      })
+      check('N8: notification trace is complete for service and unavailable to the client browser',
+        !!clientAuditDenied.error && !serviceAudit.error
+          && (serviceAudit.data ?? []).some((row) => row.status === 'skipped'
+            && row.activity_event_type === null && row.source_kind === 'comment'),
+        clientAuditDenied.error?.message ?? serviceAudit.error?.message ?? JSON.stringify(serviceAudit.data))
     }
 
     {
