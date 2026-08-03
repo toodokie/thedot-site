@@ -2441,20 +2441,29 @@ async function main(): Promise<void> {
         p_actor_key: 'thedot-admin', p_idempotency_key: `rls-design-link-${RUN_ID}`,
       })
       const viewRow = await bClient.from('content_with_state')
-        .select('canva_url, drive_url').eq('content_id', B_CONTENT_ID).single()
+        .select('title, canva_url, drive_url').eq('content_id', B_CONTENT_ID).single()
       const checksumAfter = await admin.from('content_item_versions')
         .select('content_checksum').eq('content_item_id', itemId).eq('version', 1).single()
       const versionCount = await admin.from('content_item_versions')
         .select('id', { count: 'exact', head: true }).eq('content_item_id', itemId)
+      const designAlerts = await admin.from('notification_outbox')
+        .select('channel,recipient_kind,subject')
+        .eq('client_id', bClientId)
+        .eq('subject', `Design link updated: ${viewRow.data?.title ?? B_CONTENT_ID}`)
+      const designAlertRows = designAlerts.data ?? []
       check('DL1: item-level design links render in the client view with the released checksum untouched',
         !!itemId && !setLinks.error
           && viewRow.data?.canva_url === 'https://www.canva.com/design/TESTDESIGN/view'
           && viewRow.data?.drive_url === 'https://drive.google.com/open?id=TESTFILE'
           && !checksumBefore.error && !checksumAfter.error
           && checksumBefore.data?.content_checksum === checksumAfter.data?.content_checksum
-          && (versionCount.count ?? 0) === 1,
+          && (versionCount.count ?? 0) === 1
+          && !designAlerts.error
+          && designAlertRows.some((row) => row.channel === 'in_app' && row.recipient_kind === 'client')
+          && !designAlertRows.some((row) => row.channel === 'email' && row.recipient_kind === 'client'),
         setLinks.error?.message ?? viewRow.error?.message
-          ?? `view=${JSON.stringify(viewRow.data)} checksum=${checksumBefore.data?.content_checksum === checksumAfter.data?.content_checksum} versions=${versionCount.count}`)
+          ?? designAlerts.error?.message
+          ?? `view=${JSON.stringify(viewRow.data)} checksum=${checksumBefore.data?.content_checksum === checksumAfter.data?.content_checksum} versions=${versionCount.count} alerts=${JSON.stringify(designAlertRows)}`)
 
       // DL2: fingerprinted idempotency: exact retry returns the receipt, a reused key
       // with a different payload is rejected.
