@@ -1947,9 +1947,8 @@ async function main(): Promise<void> {
       check('N6: authenticated client cannot read recipient email', !!deniedRecipient.error,
         deniedRecipient.error?.message ?? 'recipient_email was readable')
 
-      // 0063: client email has a hard rolling-volume ceiling. The third additional
-      // direct reply is retained in-app, receives a traceable skipped email row, and
-      // opens one agency-only Ops task instead of sending a fourth message.
+      // 0065: volume monitoring is soft. The third email opens one agency-only Ops
+      // task, while the fourth important direct reply still enters normal delivery.
       const volumeBodies = [1, 2, 3].map((index) => `client-volume-guard-${RUN_ID}-${index}`)
       const volumeReplies: Array<{ error: { message: string } | null }> = []
       for (const body of volumeBodies) {
@@ -1966,13 +1965,12 @@ async function main(): Promise<void> {
         .eq('client_id', bClientId)
         .eq('title', 'Review client notification volume')
       const volumeData = volumeRows.data ?? []
-      check('N7: rolling client-email guard keeps the fourth alert in-app and opens one internal task',
+      check('N7: soft volume monitor warns at three without holding the fourth client email',
         volumeReplies.every((result) => !result.error)
           && !volumeRows.error && !volumeOps.error
           && volumeData.filter((row) => row.channel === 'in_app' && row.status === 'succeeded').length === 3
-          && volumeData.filter((row) => row.channel === 'email' && row.status === 'pending').length === 2
-          && volumeData.filter((row) => row.channel === 'email' && row.status === 'skipped'
-            && row.last_error === 'Held in portal by the client email 24-hour volume guard').length === 1
+          && volumeData.filter((row) => row.channel === 'email' && row.status === 'pending').length === 3
+          && !volumeData.some((row) => row.channel === 'email' && row.status === 'skipped')
           && (volumeOps.data ?? []).length === 1
           && volumeOps.data?.[0]?.status === 'open',
         volumeReplies.find((result) => result.error)?.error?.message
@@ -1986,7 +1984,7 @@ async function main(): Promise<void> {
       })
       check('N8: notification trace is complete for service and unavailable to the client browser',
         !!clientAuditDenied.error && !serviceAudit.error
-          && (serviceAudit.data ?? []).some((row) => row.status === 'skipped'
+          && (serviceAudit.data ?? []).some((row) => row.status === 'pending'
             && row.activity_event_type === null && row.source_kind === 'comment'),
         clientAuditDenied.error?.message ?? serviceAudit.error?.message ?? JSON.stringify(serviceAudit.data))
     }

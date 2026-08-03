@@ -14,7 +14,7 @@ const QUIET_ACTIVITY_EMAIL_EVENTS = new Set([
   'needs_review', 'plan_cycle_submitted', 'proposal_submitted', 'proposal_revised',
   'invoice_issued', 'request_replied', 'proposal_message',
 ])
-const VOLUME_LIMIT = 3
+const VOLUME_REVIEW_THRESHOLD = 3
 
 type NotificationRow = {
   notification_id: string
@@ -103,12 +103,12 @@ async function main(): Promise<void> {
     const day = torontoDay(row.created_at)
     byDay.set(day, (byDay.get(day) ?? 0) + 1)
   }
-  const overLimitDays = [...byDay.entries()].filter(([, count]) => count > VOLUME_LIMIT)
+  const reviewDays = [...byDay.entries()].filter(([, count]) => count >= VOLUME_REVIEW_THRESHOLD)
 
   console.log(`CLIENT NOTIFICATION AUDIT · ${client.name} · last ${days} day(s)`)
-  console.log(`Policy: client email only for decisions, invoices, and direct replies; maximum ${VOLUME_LIMIT} in rolling 24 hours.`)
+  console.log(`Policy: client email only for decisions, invoices, and direct replies; internal review at ${VOLUME_REVIEW_THRESHOLD} in rolling 24 hours, with no hard delivery cap.`)
   console.log(`Email rows: ${emailRows.length} · sent: ${delivered.length} · active: ${active.length} · held: ${held.length}`)
-  console.log(`Portal-only events: ${portalOnly.length} · current rolling volume: ${rollingEligible.length}/${VOLUME_LIMIT}`)
+  console.log(`Portal-only events: ${portalOnly.length} · current rolling volume: ${rollingEligible.length} · review threshold: ${VOLUME_REVIEW_THRESHOLD}`)
   console.log(`Open notification-volume Ops task: ${(volumeTasks ?? []).length ? 'yes' : 'no'}`)
 
   console.log('\nEMAIL TRACE')
@@ -131,14 +131,14 @@ async function main(): Promise<void> {
   }
 
   const needsReview = held.length > 0 || active.some((row) => row.status === 'failed')
-    || drift.length > 0 || overLimitDays.length > 0 || rollingEligible.length > VOLUME_LIMIT
+    || drift.length > 0 || reviewDays.length > 0 || rollingEligible.length >= VOLUME_REVIEW_THRESHOLD
     || (held.length > 0 && !(volumeTasks ?? []).length)
   console.log(`\nMONITOR: ${needsReview ? 'REVIEW' : 'OK'}`)
   if (held.length) console.log(`- ${held.length} email(s) were held by policy.`)
   if (held.length && !(volumeTasks ?? []).length) console.log('- Held email has no open notification-volume Ops task.')
   if (active.length) console.log(`- Active delivery rows: ${active.map((row) => row.status).join(', ')}.`)
   if (drift.length) console.log(`- ${drift.length} activity email row(s) fall outside the quiet allowlist.`)
-  for (const [day, count] of overLimitDays) console.log(`- ${day}: ${count} eligible client emails.`)
+  for (const [day, count] of reviewDays) console.log(`- ${day}: ${count} eligible client emails.`)
 
   if (strict && needsReview) process.exitCode = 2
 }
