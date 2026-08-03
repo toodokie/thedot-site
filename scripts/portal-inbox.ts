@@ -201,10 +201,13 @@ async function reconcileEditBundle(
   const requests=await Promise.all(requestIds.map((requestId)=>changeRequest(client.id,requestId)))
   if(requests.length<2||new Set(requests.map((request)=>request.id)).size!==requests.length)
     throw new Error('A bundled edit needs two or more distinct request IDs')
-  const lead=requests[0]
+  const applying=requests.filter((request)=>request.status==='applying')
+  if(applying.length>1) throw new Error('A bundled edit cannot have more than one applying lead request')
+  const lead=applying[0]??requests[0]
   if(!lead.content_id||!lead.base_version||requests.some((request)=>request.request_type!=='edit'
-    ||request.content_id!==lead.content_id||request.base_version!==lead.base_version||request.status!=='pending'))
-    throw new Error('Bundled requests must be pending edits for the same content version')
+    ||request.content_id!==lead.content_id||request.base_version!==lead.base_version
+    ||!['pending','applying'].includes(request.status)))
+    throw new Error('Bundled requests must be pending edits, with at most one applying lead, for the same content version')
   const patches:EditPatch[]=requests.map((request)=>{
     const blockKey=text(request.payload,'block_key'), originalChecksum=text(request.payload,'original_checksum')
     const proposedText=text(request.payload,'proposed_text')
@@ -241,7 +244,8 @@ async function reconcileEditBundle(
     console.log(`Package candidate accepted: ${candidatePath}. Every requested block is exact.`)
   }else printSafePackageDiff(base,parsed)
   if(!apply){console.log('Preview only. Re-run with --apply after reviewing this client-visible bundle diff.');return}
-  await startJob(lead,null,null,null)
+  if(lead.status==='pending') await startJob(lead,null,null,null)
+  else console.log(`Resuming applying bundle lead ${lead.id}.`)
   const begin=await admin.rpc('begin_content_request_revision',{
     p_request_id:lead.id,p_content_id:lead.content_id,p_content_version:lead.base_version,
   })
