@@ -681,11 +681,11 @@ async function main(): Promise<void> {
 
       const bundleCaption = await bClient.rpc('request_content_edit', {
         p_content_id: bBundleItemId, p_content_version: 1, p_block_key: 'caption',
-        p_proposed_text: 'Caption requested by Maria.', p_idempotency_key: randomUUID(),
+        p_proposed_text: 'Caption requested by Maria.\r\nSecond line.', p_idempotency_key: randomUUID(),
       })
       const bundleScript = await bClient.rpc('request_content_edit', {
         p_content_id: bBundleItemId, p_content_version: 1, p_block_key: 'script',
-        p_proposed_text: 'Script requested by Maria.', p_idempotency_key: randomUUID(),
+        p_proposed_text: 'Script requested by Maria.\r\nSecond line.', p_idempotency_key: randomUUID(),
       })
       const bundleCaptionId = (bundleCaption.data as { id?: string } | null)?.id
       const bundleScriptId = (bundleScript.data as { id?: string } | null)?.id
@@ -699,8 +699,8 @@ async function main(): Promise<void> {
       })
       const bundleV2 = snapshot(bClientId, B_BUNDLE_ID, 2, 'Bundled request workflow v2', 'Caption requested by Maria.', 'caption')
       bundleV2.copy_blocks = [
-        { key: 'caption', label: 'Caption', body: 'Caption requested by Maria.' },
-        { key: 'script', label: 'Script', body: 'Script requested by Maria.' },
+        { key: 'caption', label: 'Caption', body: 'Caption requested by Maria.\nSecond line.' },
+        { key: 'script', label: 'Script', body: 'Script requested by Maria.\nSecond line.' },
       ]
       bundleV2.source_commit_sha = '3'.repeat(40)
       const bundleSync = await sync([bundleV2])
