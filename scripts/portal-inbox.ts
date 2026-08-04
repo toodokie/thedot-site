@@ -95,7 +95,12 @@ async function startJob(request:ChangeRequest,contentId:string|null,file:string|
     p_actor_key:'thedot-admin',p_idempotency_key:request.id})
   if(result.error) throw new Error(result.error.message)
 }
-function normalText(value:string){return value.replace(/\r\n?/g,'\n').trim()}
+function normalText(value:string){
+  // Portal textareas can retain invisible end-of-line spaces, while the canonical
+  // repository correctly rejects them via `git diff --check`. Treat only that
+  // non-rendering whitespace as equivalent so a visible verbatim edit can reconcile.
+  return value.replace(/\r\n?/g,'\n').replace(/[ \t]+$/gm,'').trim()
+}
 function compatibleBlockKeys(blockKey:string){
   return blockKey==='ig-caption'||blockKey==='fb-caption'
     ? [blockKey,'ig-facebook-caption','social-caption']
