@@ -218,6 +218,46 @@
 }
 .websiteGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
+.pathIntro { max-width: 76ch; margin: -2px 0 18px; font-size: 0.92rem; }
+.stagePath { display: flex; flex-direction: column; gap: 8px; }
+.stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+  padding: 17px 20px;
+  border: 1px solid var(--report-rule);
+  background: var(--report-panel);
+}
+.stage[data-width="2"] { width: 88%; }
+.stage[data-width="3"] { width: 76%; }
+.stage[data-width="4"] { width: 65%; }
+.stage[data-width="5"] { width: 54%; }
+.stage h3 { margin-bottom: 4px; font-size: 1rem; }
+.stage p { margin: 0; font-size: 0.78rem; line-height: 1.42; }
+.stageResult { display: flex; align-items: baseline; gap: 8px; color: var(--report-muted); white-space: nowrap; }
+.stageResult strong {
+  color: var(--report-ink);
+  font-family: var(--dot-font-display);
+  font-size: 1.7rem;
+  font-weight: var(--dot-weight-medium);
+  line-height: 1;
+}
+.stageResult em,
+.signalResults em {
+  color: var(--report-river);
+  font-size: 0.75rem;
+  font-style: normal;
+  font-weight: 700;
+}
+.signalResults { display: grid; gap: 5px; color: var(--report-muted); font-size: 0.8rem; white-space: nowrap; }
+.signalResults span { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.signalResults b { color: var(--report-ink); font-size: 0.9rem; }
+.stageGap { border: 2px dashed var(--report-rust); background: transparent; }
+.stageGap h3,
+.stageGap > strong { color: var(--report-rust); }
+.stageGap > strong { font-family: var(--dot-font-display); font-size: 1.15rem; font-weight: var(--dot-weight-medium); white-space: nowrap; }
+
 .findings { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .finding { padding: 22px; }
 .finding:first-child { grid-column: 1 / -1; }
@@ -264,6 +304,9 @@
   .limits { grid-template-columns: 1fr; }
   .finding:first-child { grid-column: auto; }
   .bridgeMetric { align-items: flex-start; flex-direction: column; }
+  .stage { width: 100% !important; grid-template-columns: 1fr; gap: 10px; }
+  .stageResult { justify-content: flex-start; }
+  .signalResults { white-space: normal; }
 }
 
 @media (max-width: 480px) {

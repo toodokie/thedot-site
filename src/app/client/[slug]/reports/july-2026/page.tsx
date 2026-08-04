@@ -97,7 +97,7 @@ export default async function JulyReport({ params }: { params: Promise<{ slug: s
       <section className={styles.hero}>
         <p className={styles.eyebrow}>Month one review</p>
         <h1>July built the audience. August needs to connect attention to consultations.</h1>
-        <p className={styles.lede}>Kanset's first full month of managed content, measured against the June baseline. Instagram and Facebook were effectively inactive before July, and Kanset Talks was new.</p>
+        <p className={styles.lede}>Kanset’s first full month of managed content, measured against the June baseline. Instagram and Facebook were effectively inactive before July, and Kanset Talks was new.</p>
       </section>
 
       <section className={styles.section} aria-labelledby="executive-summary">
@@ -173,6 +173,51 @@ export default async function JulyReport({ params }: { params: Promise<{ slug: s
         <p className={styles.context}>The contact page was the second most-viewed page in both July halves, with average time on page above two minutes. The first two articles drew 11 and 8 views in their opening reporting windows. That is too early to judge search value, which builds over months.</p>
       </section>
 
+      <section className={styles.section} aria-labelledby="measurement-path">
+        <h2 id="measurement-path">From attention to a booked consultation</h2>
+        <p className={styles.pathIntro}>A measurement path, not a tracked conversion funnel. Each row is a separate platform total, shown as June → July.</p>
+        <div className={styles.stagePath} role="list" aria-label="Measurement path from social attention to consultation booking">
+          <article className={styles.stage} data-width="1" role="listitem">
+            <div>
+              <h3>Social views across all three channels</h3>
+              <p>Documented baseline floor across native platform totals. Views are not people.</p>
+            </div>
+            <div className={styles.stageResult}><span>139</span><span aria-hidden="true">→</span><strong>12,811</strong><em>92×</em></div>
+          </article>
+          <article className={styles.stage} data-width="2" role="listitem">
+            <div>
+              <h3>Website visits</h3>
+              <p>Of these, visits attributed to social moved from 3 to 19.</p>
+            </div>
+            <div className={styles.stageResult}><span>351</span><span aria-hidden="true">→</span><strong>499</strong><em>+42%</em></div>
+          </article>
+          <article className={styles.stage} data-width="3" role="listitem">
+            <div>
+              <h3>Contact-page views</h3>
+              <p>Pageviews, not unique people. Average time on page was above two minutes in July.</p>
+            </div>
+            <div className={styles.stageResult}><span>99</span><span aria-hidden="true">→</span><strong>140</strong><em>+41%</em></div>
+          </article>
+          <article className={styles.stage} data-width="4" role="listitem">
+            <div>
+              <h3>Website action signals</h3>
+              <p>Separate event totals that may overlap. Button clicks include all site buttons, not only booking.</p>
+            </div>
+            <div className={styles.signalResults}>
+              <span>Forms <b>6 → 11</b> <em>+83%</em></span>
+              <span>Button clicks <b>26 → 38</b> <em>+46%</em></span>
+            </div>
+          </article>
+          <article className={`${styles.stage} ${styles.stageGap}`} data-width="5" role="listitem">
+            <div>
+              <h3>Consultations booked</h3>
+              <p>Add a required source field when the consultation is booked.</p>
+            </div>
+            <strong>Not recorded</strong>
+          </article>
+        </div>
+      </section>
+
       <section className={styles.section} aria-labelledby="findings">
         <h2 id="findings">What the numbers say</h2>
         <div className={styles.findings}>
@@ -197,7 +242,7 @@ export default async function JulyReport({ params }: { params: Promise<{ slug: s
           <article className={styles.finding}>
             <h3>YouTube has two different jobs</h3>
             <p>In H2, Shorts supplied 85% of views but only 12% of watch time. Long-form supplied 14% of views, 87% of watch time, and 7 of the 10 new subscribers from episode 1 alone.</p>
-            <p><strong>So what:</strong> keep Shorts as discovery, then point them toward the full episode. The podcast is the channel's depth and subscriber engine.</p>
+            <p><strong>So what:</strong> keep Shorts as discovery, then point them toward the full episode. The podcast is the channel’s depth and subscriber engine.</p>
           </article>
         </div>
       </section>
@@ -225,10 +270,12 @@ export default async function JulyReport({ params }: { params: Promise<{ slug: s
           <article className={styles.clientAction}>
             <h3>Close the attribution gap</h3>
             <ul>
-              <li>Ask new callers how they heard about Kanset and keep a rough monthly tally.</li>
-              <li>Or share the number of consultations booked in June and July, if that count already exists.</li>
+              <li>Create a shared Microsoft Bookings service for initial consultations.</li>
+              <li>Add “How did you first hear about Kanset?” as a required single-choice field.</li>
+              <li>Have reception record the answer with every appointment, then export consultation sources monthly.</li>
+              <li>Test one staff-created booking first. Microsoft documents the required field for client bookings, but does not explicitly confirm that staff-created bookings enforce it.</li>
             </ul>
-            <p className={styles.actionMeta}>Owner: Maria · Review: late August</p>
+            <p className={styles.actionMeta}>Owner: Maria + reception · Review: late August</p>
           </article>
         </div>
       </section>
@@ -239,7 +286,7 @@ export default async function JulyReport({ params }: { params: Promise<{ slug: s
           <article>
             <h3>How it was measured</h3>
             <ul>
-              <li>Every number traces to Instagram Insights, Meta Business Suite, YouTube Studio, Squarespace, or the portal's verified publication record.</li>
+              <li>Every number traces to Instagram Insights, Meta Business Suite, YouTube Studio, Squarespace, or the portal’s verified publication record.</li>
               <li>Additive totals were recalculated from native exports where the platform exposed them.</li>
               <li>Format analysis covers 40 comparable Meta post records. It excludes the duplicate Facebook share and the single link post, and is not a count of unique content pieces.</li>
               <li>The June social figure is the documented pre-launch floor, not a like-for-like monthly export.</li>
