@@ -3,7 +3,10 @@ import {
   classifyAssistantRequest,
   detectPersonalIdentifiers,
   isAllowedCitationUrl,
+  isContentPlanQuestion,
   isPerformanceReportQuestion,
+  isRecentContentQuestion,
+  isReviewQueueQuestion,
   isUpcomingContentQuestion,
   reportPlatformFromQuestion,
   validateAssistantOutput,
@@ -25,6 +28,31 @@ describe('upcoming-content retrieval intent', () => {
     expect(isUpcomingContentQuestion('Show me my scheduled posts')).toBe(false)
     expect(isUpcomingContentQuestion('What did the last report say about reels?')).toBe(false)
     expect(isUpcomingContentQuestion('What is next?')).toBe(false)
+  })
+})
+
+describe('structured portal workspace retrieval intent', () => {
+  it('recognizes the client review queue, including Maria wording and the observed typo', () => {
+    expect(isReviewQueueQuestion('what maria has to reivew')).toBe(true)
+    expect(isReviewQueueQuestion("u don't see what i have to review?")).toBe(true)
+    expect(isReviewQueueQuestion('What is waiting for my approval?')).toBe(true)
+  })
+
+  it('does not turn general review wording into the decision queue', () => {
+    expect(isReviewQueueQuestion('Review the July report')).toBe(false)
+    expect(isReviewQueueQuestion('What did the last report say?')).toBe(false)
+  })
+
+  it('recognizes content-plan and recent-piece inventory questions', () => {
+    expect(isContentPlanQuestion('Show me our recent content plans')).toBe(true)
+    expect(isContentPlanQuestion('What is in the current weekly plan?')).toBe(true)
+    expect(isRecentContentQuestion('What are our recent pieces?')).toBe(true)
+    expect(isRecentContentQuestion('Show me the latest posts')).toBe(true)
+  })
+
+  it('keeps next-item questions on the chronological route', () => {
+    expect(isContentPlanQuestion("What's the next post about?")).toBe(false)
+    expect(isRecentContentQuestion("What's the next post about?")).toBe(false)
   })
 })
 

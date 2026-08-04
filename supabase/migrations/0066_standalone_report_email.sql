@@ -243,7 +243,7 @@ revoke all on function public.portal_client_activity_email_required(text),
   from public, anon, authenticated, service_role;
 grant execute on function public.portal_client_activity_email_required(text),
   public.portal_enqueue_notification(uuid,text,text,text,uuid,text,text,text),
-  public.notify_portal_report_ready(uuid,text,text,text,text,text,text,text,text,text,text,text)
+  public.notify_portal_report_ready(uuid,text,text,text,text,text,text,text,text,text,text)
   to service_role;
 
 create function public.assert_portal_standalone_report_email_security()

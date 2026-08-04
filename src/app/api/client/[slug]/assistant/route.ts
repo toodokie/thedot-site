@@ -11,7 +11,10 @@ import {
   NO_WEB_GROUNDING_MESSAGE,
   WITHHELD_MESSAGE,
   ASSISTANT_PROMPT_VERSION,
+  isContentPlanQuestion,
   isPerformanceReportQuestion,
+  isRecentContentQuestion,
+  isReviewQueueQuestion,
   isUpcomingContentQuestion,
   reportPlatformFromQuestion,
 } from '@/lib/portal/assistant-guardrails'
@@ -27,6 +30,17 @@ import {
   type TranscriptTurn,
 } from '@/lib/portal/assistant'
 import { getFeaturedReportChunk } from '@/lib/portal/featured-report-context'
+import {
+  buildPlanContextChunks,
+  buildRecentContentChunks,
+  buildReviewQueueChunks,
+  type PlanContextRow,
+  type PlanItemContextRow,
+  type RecentContentRow,
+  type ReviewContentRow,
+  type ReviewPlanRow,
+  type ReviewProposalRow,
+} from '@/lib/portal/assistant-workspace-context'
 
 // The Client Work Assistant request path (spec 5.6, steps 1-11):
 //   1. same-origin + IP shell + session (tenant identity)
@@ -341,7 +355,43 @@ export async function POST(
   // ---- portal path ----------------------------------------------------------
   if (classification.mode === 'portal_workspace' || classification.mode === 'mixed') {
     let chunks: RetrievedChunk[]
-    if (isUpcomingContentQuestion(question)) {
+    let emptyPortalNotice: string | null = null
+    if (isReviewQueueQuestion(question)) {
+      // Match the Overview's Waiting on review bucket exactly: final content packages
+      // with a released design, every non-expired open plan, and pending proposals.
+      const today = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(new Date())
+      const [content, plans, proposals] = await Promise.all([
+        supabase.from('content_with_state')
+          .select('id,content_id,title,planned_date,platforms,canva_url,drive_url')
+          .eq('client_id', clientId).eq('client_state', 'needs_review')
+          .order('planned_date', { ascending: true, nullsFirst: false }),
+        supabase.from('plan_cycles_client')
+          .select('id,title,week_start,week_end,revision,status')
+          .eq('client_id', clientId).gte('week_end', today)
+          .in('status', ['submitted', 'change_requested'])
+          .order('week_start', { ascending: true }).order('revision', { ascending: false }),
+        supabase.from('client_proposals_client')
+          .select('id,proposal_key,title,revision,status')
+          .eq('client_id', clientId).eq('status', 'awaiting_decision')
+          .order('submitted_at', { ascending: false }),
+      ])
+      const lookupError = content.error ?? plans.error ?? proposals.error
+      if (lookupError) {
+        console.error('assistant review-queue lookup failed:', lookupError.message)
+        await logRun({ clientId, userId, mode: 'portal_workspace', queryHmac, outcome: 'error' })
+        return json({ error: 'Something went wrong. Please try again.' }, 500)
+      }
+      chunks = buildReviewQueueChunks({
+        content: (content.data ?? []) as ReviewContentRow[],
+        plans: (plans.data ?? []) as ReviewPlanRow[],
+        proposals: (proposals.data ?? []) as ReviewProposalRow[],
+      })
+      if (chunks.length === 0) {
+        emptyPortalNotice = 'Nothing is waiting on Maria\'s review right now. The live Overview review queue is clear.'
+      }
+    } else if (isUpcomingContentQuestion(question)) {
       // Chronology is not a keyword-search problem. Read the same client-visible weekly
       // plan used by the Plan surface, under the caller's own JWT and RLS, then preserve
       // its date + position order for the model. Only the client-facing planning snapshot
@@ -408,6 +458,56 @@ export async function POST(
           }
         })
       }
+    } else if (isContentPlanQuestion(question)) {
+      // Plans were added after the original full-text index and are structured, ordered
+      // workflow records. Read the client projection directly, favoring current and future
+      // cycles, then join their visible items without exposing agency-only working fields.
+      const today = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(new Date())
+      const cyclesResult = await supabase.from('plan_cycles_client')
+        .select('id,title,week_start,week_end,revision,status,direction_summary')
+        .eq('client_id', clientId)
+        .in('status', ['draft', 'submitted', 'approved', 'change_requested'])
+        .order('week_start', { ascending: false }).order('revision', { ascending: false })
+        .limit(8)
+      if (cyclesResult.error) {
+        console.error('assistant content-plan lookup failed:', cyclesResult.error.message)
+        await logRun({ clientId, userId, mode: 'portal_workspace', queryHmac, outcome: 'error' })
+        return json({ error: 'Something went wrong. Please try again.' }, 500)
+      }
+      const allCycles = (cyclesResult.data ?? []) as PlanContextRow[]
+      const liveCycles = allCycles.filter((cycle) => cycle.week_end >= today)
+      const cycles = (liveCycles.length > 0 ? liveCycles : allCycles).slice(0, 4)
+      if (cycles.length === 0) {
+        chunks = []
+      } else {
+        const itemsResult = await supabase.from('plan_cycle_items_client')
+          .select('id,plan_cycle_id,content_id,position,planned_date,title,format,platforms,direction_note')
+          .eq('client_id', clientId).in('plan_cycle_id', cycles.map((cycle) => cycle.id))
+          .order('planned_date', { ascending: false, nullsFirst: false })
+          .order('position', { ascending: true }).limit(20)
+        if (itemsResult.error) {
+          console.error('assistant content-plan items lookup failed:', itemsResult.error.message)
+          await logRun({ clientId, userId, mode: 'portal_workspace', queryHmac, outcome: 'error' })
+          return json({ error: 'Something went wrong. Please try again.' }, 500)
+        }
+        chunks = buildPlanContextChunks(cycles, (itemsResult.data ?? []) as PlanItemContextRow[])
+      }
+      if (chunks.length === 0) emptyPortalNotice = 'There are no client-visible content plans in the portal right now.'
+    } else if (isRecentContentQuestion(question)) {
+      const recent = await supabase.from('content_with_state')
+        .select('id,content_id,title,planned_date,platforms,format,client_state')
+        .eq('client_id', clientId).not('planned_date', 'is', null)
+        .order('planned_date', { ascending: false }).order('content_id', { ascending: true })
+        .limit(8)
+      if (recent.error) {
+        console.error('assistant recent-content lookup failed:', recent.error.message)
+        await logRun({ clientId, userId, mode: 'portal_workspace', queryHmac, outcome: 'error' })
+        return json({ error: 'Something went wrong. Please try again.' }, 500)
+      }
+      chunks = buildRecentContentChunks((recent.data ?? []) as RecentContentRow[])
+      if (chunks.length === 0) emptyPortalNotice = 'There are no recent client-visible pieces in the portal right now.'
     } else if (isPerformanceReportQuestion(question)) {
       // "IG performance" is a report lookup, not a literal keyword search. Read the same
       // schema-v1 client-visible snapshots as the Reports page under the caller's JWT/RLS,
@@ -432,7 +532,7 @@ export async function POST(
         ? (reports.data ?? []).slice(0, 1)
         : (reports.data ?? []).filter((row, index, rows) =>
             rows.findIndex((candidate) => candidate.platform === row.platform) === index)
-      const snapshotChunks = latest.map((row, index) => {
+      const snapshotChunks: RetrievedChunk[] = latest.map((row, index) => {
         const summary = typeof row.summary === 'string' ? row.summary : ''
         const metrics = row.metrics && typeof row.metrics === 'object'
           ? JSON.stringify(row.metrics)
@@ -475,7 +575,7 @@ export async function POST(
       await logRun({
         clientId, userId, mode: 'portal_workspace', queryHmac, outcome: 'no_grounding',
       })
-      notices.push(NO_GROUNDING_MESSAGE)
+      notices.push(emptyPortalNotice ?? NO_GROUNDING_MESSAGE)
     } else {
       const reserved = await reserveRun({
         clientId, userId, mode: 'portal_workspace', queryHmac,

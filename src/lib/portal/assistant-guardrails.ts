@@ -24,7 +24,7 @@
 // oai-3: navigation-only blocks must be assembled from the cited document's own metadata
 // words; public-mode citations are demanded per SENTENCE (matches the round-3 semantic
 // and sentence-level server validation).
-export const ASSISTANT_PROMPT_VERSION = 'oai-6'
+export const ASSISTANT_PROMPT_VERSION = 'oai-7'
 
 // ---- fixed client-safe responses --------------------------------------------
 
@@ -122,6 +122,39 @@ export function isUpcomingContentQuestion(question: string): boolean {
   const hasContent =
     /\b(post|posts|piece|pieces|content|reel|reels|carousel|carousels|video|videos|story|stories|schedule|scheduled|publish|published)\b/i.test(question)
   return hasSequence && hasContent
+}
+
+// Workflow questions are not keyword-search questions. The Overview builds Maria's
+// decision queue from released final packages, submitted weekly plans, and proposals.
+// Recognize natural first-person wording and the observed review/reivew transposition so
+// the route can read those same structured client-safe projections directly.
+export function isReviewQueueQuestion(question: string): boolean {
+  const normalized = question.replace(/\breivew\b/gi, 'review')
+  const hasReviewWord = /\b(review|approval|approve|decision)\b/i.test(normalized)
+  const hasQueueFrame =
+    /\b(what|which|anything|something|items?|pieces?|posts?|plans?|proposals?)\b/i.test(normalized) &&
+    /\b(have|has|need|needs|waiting|left|pending|ready|do|does|see)\b/i.test(normalized)
+  const explicitWaiting =
+    /\b(waiting|pending|ready)\b.{0,30}\b(review|approval|decision)\b/i.test(normalized)
+  const personalAction =
+    /\b(i|me|my|maria|she|her|we|us|our)\b/i.test(normalized) &&
+    /\b(have|has|need|needs|do|does)\b.{0,24}\b(review|approve|decision)\b/i.test(normalized)
+  return hasReviewWord && (hasQueueFrame || explicitWaiting || personalAction)
+}
+
+export function isContentPlanQuestion(question: string): boolean {
+  if (isUpcomingContentQuestion(question)) return false
+  const hasPlan = /\b(content plan|content plans|weekly plan|weekly plans|plan for (the )?week)\b/i.test(question)
+  const hasInventoryFrame = /\b(show|what|which|where|current|recent|latest|have|see|overview)\b/i.test(question)
+  return hasPlan && hasInventoryFrame
+}
+
+export function isRecentContentQuestion(question: string): boolean {
+  if (isUpcomingContentQuestion(question) || isPerformanceReportQuestion(question)) return false
+  const hasRecency = /\b(recent|recently|latest|last|newest)\b/i.test(question)
+  const hasContent =
+    /\b(post|posts|piece|pieces|content|reel|reels|carousel|carousels|video|videos|story|stories)\b/i.test(question)
+  return hasRecency && hasContent
 }
 
 export type ReportPlatform = 'instagram' | 'facebook' | 'youtube' | 'website'
