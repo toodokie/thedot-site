@@ -1,4 +1,5 @@
 import { transporter } from '@/lib/email'
+import { renderReportNotificationHtml } from './report-email'
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) =>
@@ -39,4 +40,18 @@ export async function sendPortalNotificationEmail(opts: {
       ${link ? `<p style="margin: 0;"><a href="${escapeHtml(link)}" style="color:#35332f;">Open in the portal</a></p>` : ''}
     </div>`
   await transporter.sendMail({ from, to: opts.to, subject: opts.subject, html })
+}
+
+export async function sendPortalReportEmail(opts: {
+  to: string
+  subject: string
+  bodyText: string
+  url?: string | null
+}): Promise<void> {
+  const from = process.env.FROM_EMAIL || process.env.SMTP_USER
+  if (!from) throw new Error('FROM_EMAIL/SMTP_USER not configured')
+  const html = renderReportNotificationHtml(opts)
+  const link = safeHttpsUrl(opts.url)
+  const text = [opts.bodyText, link ? `View the report: ${link}` : null].filter(Boolean).join('\n\n')
+  await transporter.sendMail({ from, to: opts.to, subject: opts.subject, text, html })
 }

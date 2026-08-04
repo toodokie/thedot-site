@@ -9,6 +9,7 @@ import {
   optionalText, requiredText, sha256,
 } from '../src/lib/portal/agency-write'
 import { parseProposalBlocks } from '../src/lib/portal/proposals'
+import { buildReportNotificationCopy } from '../src/lib/portal/report-email'
 
 loadEnvConfig(process.cwd())
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -52,7 +53,7 @@ const assertNoteGrammarSafe = (value: string | null, field: string) => {
 
 async function main() {
   const [command, inputPath, ...rest] = process.argv.slice(2)
-  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|communication|proposal-draft|proposal-revise|proposal-submit|proposal-reply|external-decision|courtesy-release|override-destination|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|plan-cycle|plan-cycle-stage|plan-cycle-close|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
+  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|report-notify|communication|proposal-draft|proposal-revise|proposal-submit|proposal-reply|external-decision|courtesy-release|override-destination|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|plan-cycle|plan-cycle-stage|plan-cycle-close|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
   const dryRun = rest.includes('--dry-run')
   const packIndex = rest.indexOf('--pack')
   const packPath = packIndex >= 0 ? rest[packIndex + 1] ?? null : null
@@ -116,6 +117,27 @@ async function main() {
       p_collected_at:timestamp(payload.collectedAt,'collectedAt'),p_source_type:stringArray(payload.sourceType,'sourceType',['platform_export','platform_ui','manual_calculation']),
       p_source_ref:requiredText(payload.sourceRef,'sourceRef',500),p_source_checksum:requiredText(payload.sourceChecksum ?? sha256(metrics),'sourceChecksum',64),
       p_actor_key:actor,p_idempotency_key:idempotency}
+  } else if (command === 'report-notify') {
+    const reportKey = requiredText(payload.reportKey, 'reportKey', 100)
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(reportKey)) {
+      throw new Error('reportKey must use lowercase letters, numbers, and hyphens')
+    }
+    const periodLabel = requiredText(payload.periodLabel, 'periodLabel', 80)
+    const recipientName = requiredText(payload.recipientName, 'recipientName', 80)
+    const reportUrl = assertReviewedHttpsUrl(payload.reportUrl)
+    const copy = buildReportNotificationCopy({ periodLabel, recipientName })
+    assertClientSafeAgencyText({ title: copy.subject, body: copy.bodyText })
+    rpc = 'notify_portal_report_ready'; args = {
+      p_client_id: null,
+      p_report_key: reportKey,
+      p_period_label: periodLabel,
+      p_recipient_name: recipientName,
+      p_subject: copy.subject,
+      p_body: copy.bodyText,
+      p_report_url: reportUrl,
+      p_actor_key: actor,
+      p_idempotency_key: idempotency,
+    }
   } else if (command === 'communication') {
     const title=requiredText(payload.title,'title',300); const summary=requiredText(payload.summary,'summary',4000)
     const clientActorName=requiredText(payload.clientActorName,'clientActorName',200)

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { sendPortalNotificationEmail } from './notify'
+import { sendPortalNotificationEmail, sendPortalReportEmail } from './notify'
 
 type NotificationRow = {
   id: string
@@ -10,6 +10,7 @@ type NotificationRow = {
   subject: string
   body: string
   related_url: string | null
+  template_key: 'generic' | 'report'
 }
 
 export type NotificationDrainResult = {
@@ -61,7 +62,10 @@ export async function drainPortalNotifications(
             : 'AGENCY_EMAIL is not configured',
         )
       }
-      await sendPortalNotificationEmail({
+      const sendEmail = row.template_key === 'report'
+        ? sendPortalReportEmail
+        : sendPortalNotificationEmail
+      await sendEmail({
         to: recipient,
         subject: row.subject,
         bodyText: row.body,

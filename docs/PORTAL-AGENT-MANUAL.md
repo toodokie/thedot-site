@@ -399,6 +399,10 @@ The 22-post history is already imported.
   or authoring the canonical Markdown pack. Email is drained by `scripts/portal-notification-consumer.ts` or the hourly
   `/api/cron/portal-notifications` route. Production needs `AGENCY_EMAIL`, SMTP settings, and
   `CRON_SECRET`; missing `AGENCY_EMAIL` returns a failing health response and leaves rows pending.
+  A completed standalone monthly report uses `npm run portal-write -- report-notify <payload.json>`
+  after the report page is live. This writes one idempotent `monthly_report_ready` activity and one
+  dedicated client email with a direct report link. Individual `report` snapshot writes remain
+  portal-only and never trigger client email.
 - **Projections (`0016`):** `projection_outbox` drains to Notion via
   `scripts/portal-projection-consumer.ts` + `src/lib/portal/notion-projection*.ts`. **No dual writes:**
   integrations call one shared surface (`portal-write` / `portal-inbox`), never independent
