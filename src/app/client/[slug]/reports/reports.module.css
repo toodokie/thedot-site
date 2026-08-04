@@ -18,6 +18,29 @@
 .header { margin: 0 0 8px; }
 .intro { margin: 0 0 32px; max-width: 60ch; }
 
+.featured {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  margin: 0 0 44px;
+  padding: 24px 26px;
+  border: 1px solid var(--dot-hairline);
+  border-left: 6px solid var(--dot-yellow);
+  background: var(--dot-cream);
+}
+.featured > div:first-child { max-width: 64ch; }
+.featuredKicker {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--dot-grey);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.featured h3 { margin-bottom: 7px; }
+
 /* One section per view: the latest-by-platform row first, then earlier periods. */
 .period { margin: 0 0 44px; scroll-margin-top: 24px; }
 .historyHead {
@@ -218,6 +241,7 @@
 @media (max-width: 760px) {
   .wrap { padding: 32px 20px 64px; }
   .periodHead { align-items: baseline; }
+  .featured { align-items: flex-start; flex-direction: column; }
 }
 
 @media (max-width: 600px) {

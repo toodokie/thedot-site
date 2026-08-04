@@ -15,28 +15,43 @@ const fmtPct = (n: number) => `${nf.format(Math.abs(n))}%`
 
 // Curated labels for the metrics we expect most; anything else is humanised.
 const METRIC_LABELS: Record<string, string> = {
+  followers: 'Followers',
   reach: 'Reach',
-  engagement: 'Engagement',
+  interactions: 'Interactions',
   saves: 'Saves',
   profile_visits: 'Profile visits',
-  follower_growth: 'Follower growth',
-  traffic: 'Traffic',
-  contact_clicks: 'Contact clicks',
-  impressions: 'Impressions',
   views: 'Views',
-  likes: 'Likes',
   comments: 'Comments',
   shares: 'Shares',
-  clicks: 'Clicks',
-  new_followers: 'New followers',
-  subscribers: 'Subscribers',
-  watch_time: 'Watch time',
+  messaging_contacts: 'Message inquiries',
+  views_reels: 'Reel views',
+  views_posts: 'Post views',
+  views_stories: 'Story views',
+  watch_time_hours: 'Watch time (hours)',
+  avg_view_duration_seconds: 'Average view (seconds)',
+  subscribers_gained: 'Subscribers gained',
+  views_shorts: 'Shorts views',
+  views_videos: 'Video views',
+  sessions: 'Visits',
+  social_referral_visits: 'Social referral visits',
+  contact_page_views: 'Contact-page views',
+  news_article_views: 'New article views',
+  form_submissions: 'Form submissions',
+  button_clicks: 'Site button clicks',
+}
+const PLATFORM_METRIC_LABELS: Record<string, Record<string, string>> = {
+  website: {
+    reach: 'Unique visitors',
+    views: 'Pageviews',
+  },
 }
 // Preferred display order; present keys not listed here follow, alphabetically.
 const KNOWN_ORDER = [
-  'reach', 'impressions', 'views', 'engagement', 'saves', 'likes', 'comments', 'shares',
-  'profile_visits', 'clicks', 'contact_clicks', 'follower_growth', 'new_followers',
-  'subscribers', 'watch_time', 'traffic',
+  'followers', 'reach', 'views', 'interactions', 'comments', 'shares', 'saves',
+  'profile_visits', 'messaging_contacts', 'sessions', 'social_referral_visits',
+  'contact_page_views', 'news_article_views', 'form_submissions', 'button_clicks',
+  'watch_time_hours', 'avg_view_duration_seconds', 'subscribers_gained',
+  'views_reels', 'views_posts', 'views_stories', 'views_shorts', 'views_videos',
 ]
 // Keys handled by their own renderers, not the scalar tile grid.
 const SPECIAL_KEYS = new Set(['top_posts', 'top_pages', 'summary'])
@@ -122,13 +137,14 @@ function asScalar(v: unknown): Scalar | null {
 }
 
 type Tile = { key: string; label: string; value: number; prev?: number }
-function scalarTiles(metrics: Record<string, unknown>): Tile[] {
+function scalarTiles(metrics: Record<string, unknown>, platform: string): Tile[] {
   const tiles: Tile[] = []
   for (const [key, raw] of Object.entries(metrics)) {
     if (SPECIAL_KEYS.has(key)) continue
     const s = asScalar(raw)
     if (!s) continue // skip unknown / unrenderable shapes and empties
-    tiles.push({ key, label: METRIC_LABELS[key] ?? humanize(key), value: s.value, prev: s.prev })
+    const platformLabel = PLATFORM_METRIC_LABELS[platform]?.[key]
+    tiles.push({ key, label: platformLabel ?? METRIC_LABELS[key] ?? humanize(key), value: s.value, prev: s.prev })
   }
   const rank = (k: string) => {
     const i = KNOWN_ORDER.indexOf(k)
@@ -231,7 +247,7 @@ function TopList({
 
 function PlatformCard({ row }: { row: ReportRow }) {
   const metrics = (row.metrics ?? {}) as Record<string, unknown>
-  const tiles = scalarTiles(metrics)
+  const tiles = scalarTiles(metrics, row.platform)
   const posts = topPosts(metrics.top_posts).map((p) => ({
     label: p.title ?? p.url ?? '',
     href: p.url && isHttp(p.url) ? p.url : undefined,
@@ -320,6 +336,22 @@ export default async function Reports({ params }: { params: Promise<{ slug: stri
           pulled and reviewed by hand, so treat them as a directional signal, not a live dashboard.
         </Text>
       </div>
+
+      {slug === 'kanset' && (
+        <section className={styles.featured} aria-label="July 2026 performance report">
+          <div>
+            <span className={styles.featuredKicker}>Monthly review · Published August 4</span>
+            <Heading level={3}>July 2026 performance report</Heading>
+            <Text tone="graphite">
+              The first full month of managed content, including the June baseline, website activity,
+              the creative findings, and the August actions.
+            </Text>
+          </div>
+          <Button as="a" href={`/client/${encodeURIComponent(slug)}/reports/july-2026`} variant="black" size="sm">
+            Open July report
+          </Button>
+        </section>
+      )}
 
       {rows.length === 0 ? (
         <div className={styles.empty}>
