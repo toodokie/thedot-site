@@ -1,8 +1,10 @@
 import type { RetrievedChunk } from './assistant'
 
 const KANSET_JULY_2026_REPORT: RetrievedChunk = {
-  chunk_id: 'featured-report-kanset-july-2026',
-  document_id: 'featured-report-kanset-july-2026',
+  // Assistant run telemetry stores retrieved and cited chunk IDs in uuid[] columns.
+  // Synthetic featured context therefore needs the same UUID shape as database chunks.
+  chunk_id: 'c4aa28f7-4efb-4e54-88ee-7f55107d521a',
+  document_id: 'c4aa28f7-4efb-4e54-88ee-7f55107d521a',
   source_type: 'report',
   title: 'July 2026 performance report',
   related_route: 'reports/july-2026',

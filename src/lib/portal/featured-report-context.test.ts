@@ -6,6 +6,8 @@ describe('featured report assistant context', () => {
     const chunk = getFeaturedReportChunk('kanset')
 
     expect(chunk).not.toBeNull()
+    expect(chunk?.chunk_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
+    expect(chunk?.document_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
     expect(chunk?.related_route).toBe('reports/july-2026')
     expect(chunk?.answer_eligibility).toBe('grounded_answer')
     expect(chunk?.excerpt).toContain('12,811')
