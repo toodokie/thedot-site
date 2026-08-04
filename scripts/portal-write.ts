@@ -124,14 +124,18 @@ async function main() {
     }
     const periodLabel = requiredText(payload.periodLabel, 'periodLabel', 80)
     const recipientName = requiredText(payload.recipientName, 'recipientName', 80)
+    const headline = requiredText(payload.headline, 'headline', 80)
+    const highlight = requiredText(payload.highlight, 'highlight', 240)
     const reportUrl = assertReviewedHttpsUrl(payload.reportUrl)
-    const copy = buildReportNotificationCopy({ periodLabel, recipientName })
+    const copy = buildReportNotificationCopy({ periodLabel, recipientName, headline, highlight })
     assertClientSafeAgencyText({ title: copy.subject, body: copy.bodyText })
     rpc = 'notify_portal_report_ready'; args = {
       p_client_id: null,
       p_report_key: reportKey,
       p_period_label: periodLabel,
       p_recipient_name: recipientName,
+      p_headline: headline,
+      p_highlight: highlight,
       p_subject: copy.subject,
       p_body: copy.bodyText,
       p_report_url: reportUrl,

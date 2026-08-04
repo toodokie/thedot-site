@@ -134,6 +134,8 @@ create function public.notify_portal_report_ready(
   p_report_key text,
   p_period_label text,
   p_recipient_name text,
+  p_headline text,
+  p_highlight text,
   p_subject text,
   p_body text,
   p_report_url text,
@@ -164,12 +166,18 @@ begin
   if p_report_key !~ '^[a-z0-9][a-z0-9-]{0,99}$'
      or pg_catalog.char_length(pg_catalog.btrim(p_period_label)) not between 1 and 80
      or pg_catalog.char_length(pg_catalog.btrim(p_recipient_name)) not between 1 and 80
+     or pg_catalog.char_length(pg_catalog.btrim(p_headline)) not between 1 and 80
+     or pg_catalog.char_length(pg_catalog.btrim(p_highlight)) not between 1 and 240
      or p_period_label ~ '[\r\n]'
      or p_recipient_name ~ '[\r\n]'
+     or p_headline ~ '[\r\n]'
+     or p_highlight ~ '[\r\n]'
      or pg_catalog.char_length(pg_catalog.btrim(p_subject)) not between 1 and 300
      or pg_catalog.char_length(pg_catalog.btrim(p_body)) not between 1 and 2000
      or not public.portal_client_summary_shape_valid(p_period_label)
      or not public.portal_client_summary_shape_valid(p_recipient_name)
+     or not public.portal_client_summary_shape_valid(p_headline)
+     or not public.portal_client_summary_shape_valid(p_highlight)
      or not public.portal_client_summary_shape_valid(p_subject)
      or not public.portal_client_summary_shape_valid(p_body)
      or p_report_url <> v_expected_url
@@ -182,6 +190,8 @@ begin
       'report_key', p_report_key,
       'period_label', p_period_label,
       'recipient_name', p_recipient_name,
+      'headline', p_headline,
+      'highlight', p_highlight,
       'subject', p_subject,
       'body', p_body,
       'report_url', p_report_url
@@ -229,11 +239,11 @@ $$;
 
 revoke all on function public.portal_client_activity_email_required(text),
   public.portal_enqueue_notification(uuid,text,text,text,uuid,text,text,text),
-  public.notify_portal_report_ready(uuid,text,text,text,text,text,text,text,text)
+  public.notify_portal_report_ready(uuid,text,text,text,text,text,text,text,text,text,text)
   from public, anon, authenticated, service_role;
 grant execute on function public.portal_client_activity_email_required(text),
   public.portal_enqueue_notification(uuid,text,text,text,uuid,text,text,text),
-  public.notify_portal_report_ready(uuid,text,text,text,text,text,text,text,text)
+  public.notify_portal_report_ready(uuid,text,text,text,text,text,text,text,text,text,text,text)
   to service_role;
 
 create function public.assert_portal_standalone_report_email_security()
@@ -257,15 +267,15 @@ begin
     raise exception 'standalone report email routing drifted';
   end if;
 
-  if pg_catalog.has_function_privilege('anon','public.notify_portal_report_ready(uuid,text,text,text,text,text,text,text,text)','EXECUTE')
-     or pg_catalog.has_function_privilege('authenticated','public.notify_portal_report_ready(uuid,text,text,text,text,text,text,text,text)','EXECUTE')
-     or not pg_catalog.has_function_privilege('service_role','public.notify_portal_report_ready(uuid,text,text,text,text,text,text,text,text)','EXECUTE') then
+  if pg_catalog.has_function_privilege('anon','public.notify_portal_report_ready(uuid,text,text,text,text,text,text,text,text,text,text)','EXECUTE')
+     or pg_catalog.has_function_privilege('authenticated','public.notify_portal_report_ready(uuid,text,text,text,text,text,text,text,text,text,text)','EXECUTE')
+     or not pg_catalog.has_function_privilege('service_role','public.notify_portal_report_ready(uuid,text,text,text,text,text,text,text,text,text,text)','EXECUTE') then
     raise exception 'standalone report email grants are unsafe';
   end if;
 
   if not exists (
     select 1 from pg_catalog.pg_proc p
-    where p.oid = 'public.notify_portal_report_ready(uuid,text,text,text,text,text,text,text,text)'::pg_catalog.regprocedure
+    where p.oid = 'public.notify_portal_report_ready(uuid,text,text,text,text,text,text,text,text,text,text)'::pg_catalog.regprocedure
       and p.prosecdef
       and coalesce(p.proconfig, '{}'::text[]) @> array['search_path=""']
   ) then

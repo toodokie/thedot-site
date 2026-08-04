@@ -52,6 +52,6 @@ export async function sendPortalReportEmail(opts: {
   if (!from) throw new Error('FROM_EMAIL/SMTP_USER not configured')
   const html = renderReportNotificationHtml(opts)
   const link = safeHttpsUrl(opts.url)
-  const text = [opts.bodyText, link ? `View the report: ${link}` : null].filter(Boolean).join('\n\n')
+  const text = [opts.bodyText, link ? `View the full report: ${link}` : null].filter(Boolean).join('\n\n')
   await transporter.sendMail({ from, to: opts.to, subject: opts.subject, text, html })
 }

@@ -3,13 +3,22 @@ import { buildReportNotificationCopy, renderReportNotificationHtml } from './rep
 
 describe('report email', () => {
   it('builds the concise point-form client copy', () => {
-    expect(buildReportNotificationCopy({ periodLabel: 'July 2026', recipientName: 'Maria' })).toEqual({
-      subject: 'Your July 2026 performance report is ready',
+    expect(buildReportNotificationCopy({
+      periodLabel: 'July 2026',
+      recipientName: 'Maria',
+      headline: '12,811 social views',
+      highlight: 'Social views reached 12,811 in July, 92× the pre-engagement baseline.',
+    })).toEqual({
+      subject: '12,811 social views: your July 2026 report is ready ✨',
       bodyText: [
         'Hi Maria,',
         '',
-        '• Your July 2026 social media and website performance report is ready.',
-        '• It compares each platform with the pre-engagement baseline and covers the strongest content, key takeaways, and next actions.',
+        'One result worth celebrating:',
+        '',
+        '• Social views reached 12,811 in July, 92× the pre-engagement baseline.',
+        '• The full report shows what worked on each platform and where we are focusing next.',
+        '',
+        "Thank you for trusting me with Kanset's social presence.",
         '',
         'Anastasia',
       ].join('\n'),
@@ -25,14 +34,15 @@ describe('report email', () => {
       subject: 'Report ready', bodyText: 'Hi Maria,', url: 'https://example.com/report',
     })
 
-    expect(valid).toContain('View the report')
+    expect(valid).toContain('View the full report')
     expect(valid).toContain('PERFORMANCE REPORT')
-    expect(invalid).not.toContain('View the report')
+    expect(invalid).not.toContain('View the full report')
   })
 
   it('rejects multi-line labels before they can enter the template', () => {
     expect(() => buildReportNotificationCopy({
       periodLabel: 'July 2026\nBcc: someone@example.com', recipientName: 'Maria',
+      headline: '12,811 social views', highlight: 'A verified result.',
     })).toThrow('single-line')
   })
 })

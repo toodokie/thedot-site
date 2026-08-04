@@ -6,20 +6,30 @@ export type ReportNotificationCopy = {
 export function buildReportNotificationCopy(options: {
   periodLabel: string
   recipientName: string
+  headline: string
+  highlight: string
 }): ReportNotificationCopy {
   const periodLabel = options.periodLabel.trim()
   const recipientName = options.recipientName.trim()
-  if (!periodLabel || !recipientName || /[\r\n]/.test(periodLabel) || /[\r\n]/.test(recipientName)) {
+  const headline = options.headline.trim()
+  const highlight = options.highlight.trim()
+  if (!periodLabel || !recipientName || !headline || !highlight
+      || /[\r\n]/.test(periodLabel) || /[\r\n]/.test(recipientName)
+      || /[\r\n]/.test(headline) || /[\r\n]/.test(highlight)) {
     throw new Error('Report email labels must be non-empty single-line text')
   }
 
   return {
-    subject: `Your ${periodLabel} performance report is ready`,
+    subject: `${headline}: your ${periodLabel} report is ready ✨`,
     bodyText: [
       `Hi ${recipientName},`,
       '',
-      `• Your ${periodLabel} social media and website performance report is ready.`,
-      '• It compares each platform with the pre-engagement baseline and covers the strongest content, key takeaways, and next actions.',
+      'One result worth celebrating:',
+      '',
+      `• ${highlight}`,
+      '• The full report shows what worked on each platform and where we are focusing next.',
+      '',
+      "Thank you for trusting me with Kanset's social presence.",
       '',
       'Anastasia',
     ].join('\n'),
@@ -57,7 +67,7 @@ export function renderReportNotificationHtml(options: {
         <p style="font-size:12px; font-weight:700; letter-spacing:0.12em; margin:0 0 14px; color:#777268;">PERFORMANCE REPORT</p>
         <h1 style="font-size:26px; line-height:1.25; font-weight:600; margin:0 0 20px; color:#35332f;">${escapeHtml(options.subject)}</h1>
         <div style="font-size:16px; line-height:1.65; white-space:pre-line; color:#47453f;">${escapeHtml(options.bodyText)}</div>
-        ${reportUrl ? `<p style="margin:28px 0 0;"><a href="${escapeHtml(reportUrl)}" style="display:inline-block; background:#35332f; color:#ffffff; text-decoration:none; font-size:15px; font-weight:600; padding:13px 20px; border-radius:8px;">View the report</a></p>` : ''}
+        ${reportUrl ? `<p style="margin:28px 0 0;"><a href="${escapeHtml(reportUrl)}" style="display:inline-block; background:#35332f; color:#ffffff; text-decoration:none; font-size:15px; font-weight:600; padding:13px 20px; border-radius:8px;">View the full report</a></p>` : ''}
       </div>
     </div>`
 }
