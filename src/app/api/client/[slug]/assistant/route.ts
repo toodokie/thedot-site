@@ -26,6 +26,7 @@ import {
   type RetrievedChunk,
   type TranscriptTurn,
 } from '@/lib/portal/assistant'
+import { getFeaturedReportChunk } from '@/lib/portal/featured-report-context'
 
 // The Client Work Assistant request path (spec 5.6, steps 1-11):
 //   1. same-origin + IP shell + session (tenant identity)
@@ -431,7 +432,7 @@ export async function POST(
         ? (reports.data ?? []).slice(0, 1)
         : (reports.data ?? []).filter((row, index, rows) =>
             rows.findIndex((candidate) => candidate.platform === row.platform) === index)
-      chunks = latest.map((row, index) => {
+      const snapshotChunks = latest.map((row, index) => {
         const summary = typeof row.summary === 'string' ? row.summary : ''
         const metrics = row.metrics && typeof row.metrics === 'object'
           ? JSON.stringify(row.metrics)
@@ -453,6 +454,8 @@ export async function POST(
           rank: 1000 - index,
         }
       })
+      const featuredReport = getFeaturedReportChunk(slug)
+      chunks = featuredReport ? [featuredReport, ...snapshotChunks] : snapshotChunks
     } else {
       // General tenant-scoped safe retrieval under the caller's own JWT.
       const search = await supabase.rpc('portal_assistant_search', {

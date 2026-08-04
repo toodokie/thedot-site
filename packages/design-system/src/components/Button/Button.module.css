@@ -3,7 +3,34 @@
   cursor: pointer; text-decoration: none; line-height: 1; transition: background .2s, color .2s; }
 .md { font-size: 0.8rem; padding: 14px 30px; }
 .sm { font-size: 0.72rem; padding: 10px 20px; }
-.black { background: var(--dot-black); color: var(--dot-cream); }
-.yellow { background: var(--dot-yellow); color: var(--dot-black); border-color: var(--dot-black); }
-.ghost { background: transparent; color: var(--dot-black); }
-.ghost:hover { background: var(--dot-black); color: var(--dot-cream); }
+.black,
+.black:link,
+.black:visited,
+.black:focus,
+.black:active {
+  background: var(--dot-black);
+  color: var(--dot-cream);
+  text-decoration: none;
+}
+.black:hover { background: var(--dot-graphite); color: var(--dot-cream); text-decoration: none; }
+.yellow,
+.yellow:link,
+.yellow:visited,
+.yellow:focus,
+.yellow:active {
+  background: var(--dot-yellow);
+  color: var(--dot-black);
+  border-color: var(--dot-black);
+  text-decoration: none;
+}
+.yellow:hover { background: var(--dot-yellow-pale); color: var(--dot-black); text-decoration: none; }
+.ghost,
+.ghost:link,
+.ghost:visited,
+.ghost:focus,
+.ghost:active {
+  background: transparent;
+  color: var(--dot-black);
+  text-decoration: none;
+}
+.ghost:hover { background: var(--dot-black); color: var(--dot-cream); text-decoration: none; }

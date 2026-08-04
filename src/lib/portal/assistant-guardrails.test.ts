@@ -31,6 +31,7 @@ describe('upcoming-content retrieval intent', () => {
 describe('performance-report retrieval intent', () => {
   it('recognizes concise client language and common platform aliases', () => {
     expect(isPerformanceReportQuestion("how's my IG performance?")).toBe(true)
+    expect(isPerformanceReportQuestion('What does the July report say?')).toBe(true)
     expect(reportPlatformFromQuestion("how's my IG performance?")).toBe('instagram')
     expect(reportPlatformFromQuestion('Show me the latest FB analytics')).toBe('facebook')
     expect(reportPlatformFromQuestion('How is YouTube performing?')).toBe('youtube')
