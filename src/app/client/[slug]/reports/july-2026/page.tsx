@@ -136,7 +136,7 @@ export default async function JulyReport({ params }: { params: Promise<{ slug: s
       <section className={styles.section} aria-labelledby="channel-detail">
         <h2 id="channel-detail">Channel by channel</h2>
         <div className={styles.channelGrid}>
-          <ChannelCard name="Instagram" handle="@kansetimmigration" note="Two thirds of H2 views came from people who did not follow Kanset yet, up from 61% in H1.">
+          <ChannelCard name="Instagram" handle="@kansetimmigration" note="Two thirds of views from July 16–31 came from people who did not follow Kanset yet, up from 61% during July 1–15.">
             <span className={`${styles.subhead} ${styles.baselineHead}`}>Pre-engagement baseline → July</span>
             <ChannelRow label="Followers" before="56" after="71" change="+27%" />
             <ChannelRow label="Views" before="22" after="5,004" change="227×" />
@@ -145,7 +145,7 @@ export default async function JulyReport({ params }: { params: Promise<{ slug: s
             <ChannelRow label="Interactions" before="130" after="148" change="+14%" />
           </ChannelCard>
 
-          <ChannelCard name="Facebook" handle="/kansetimmigration" note="The H2 increase reflects 9 active posting days in H1 against 16 in H2. Views per active day moved only 4%, from 236 to 246.">
+          <ChannelCard name="Facebook" handle="/kansetimmigration" note="The increase from July 16–31 reflects 16 active posting days, compared with 9 during July 1–15. Views per active day moved only 4%, from 236 to 246.">
             <span className={`${styles.subhead} ${styles.baselineHead}`}>Pre-engagement baseline → July</span>
             <ChannelRow label="Followers" before="959" after="960" change="+1" />
             <ChannelRow label="Views" before="117" after="6,059" change="52×" />
@@ -154,7 +154,7 @@ export default async function JulyReport({ params }: { params: Promise<{ slug: s
             <ChannelRow label="Interactions" before="77" after="138" change="+79%" />
           </ChannelCard>
 
-          <ChannelCard name="YouTube" handle="Kanset Talks" note="In H2, episode 1 brought 7 of 10 new subscribers and 84% of watch time from 126 views.">
+          <ChannelCard name="YouTube" handle="Kanset Talks" note="From July 16–31, episode 1 brought 7 of 10 new subscribers and 84% of watch time from 126 views.">
             <span className={`${styles.subhead} ${styles.baselineHead}`}>Pre-engagement baseline → July</span>
             <ChannelRow label="Subscribers" before="0" after="20" change="new" />
             <ChannelRow label="Views" before="0" after="1,748" change="new" />
@@ -241,7 +241,7 @@ export default async function JulyReport({ params }: { params: Promise<{ slug: s
 
           <article className={styles.finding}>
             <h3>YouTube has two different jobs</h3>
-            <p>In H2, Shorts supplied 85% of views but only 12% of watch time. Long-form supplied 14% of views, 87% of watch time, and 7 of the 10 new subscribers from episode 1 alone.</p>
+            <p>From July 16–31, Shorts supplied 85% of views but only 12% of watch time. Long-form supplied 14% of views, 87% of watch time, and 7 of the 10 new subscribers from episode 1 alone.</p>
             <p><strong>So what:</strong> keep Shorts as discovery, then point them toward the full episode. The podcast is the channel’s depth and subscriber engine.</p>
           </article>
         </div>

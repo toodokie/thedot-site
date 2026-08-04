@@ -63,6 +63,10 @@ import {
 // Raw questions/answers are never persisted; telemetry is HMAC + ids + outcome only.
 
 export const runtime = 'nodejs'
+// Portal answers include two moderation calls, tenant-safe retrieval, generation, and
+// durable accounting. Give the route enough wall-clock time for a cold production
+// invocation while the OpenAI client keeps its stricter 60-second provider timeout.
+export const maxDuration = 60
 
 const MAX_QUESTION_CHARS = 2000
 const MAX_TRANSCRIPT_ENTRIES = 40
