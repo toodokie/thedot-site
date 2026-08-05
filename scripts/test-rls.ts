@@ -1909,6 +1909,39 @@ async function main(): Promise<void> {
     }
 
     {
+      // 0067 report receipts: each signed-in seat sees only its own receipt. A preview-seat
+      // visit cannot dismiss the primary client's overview card, and direct writes stay denied.
+      const reportKey = '2026-07'
+      const beforeViewer = await bViewerClient.from('portal_report_views')
+        .select('report_key,viewed_at').eq('client_id', bClientId).eq('report_key', reportKey)
+      const marked = await bClient.rpc('mark_portal_report_viewed', {
+        p_client_id: bClientId, p_report_key: reportKey,
+      })
+      const ownReceipt = await bClient.from('portal_report_views')
+        .select('client_id,report_key,viewed_at').eq('client_id', bClientId).eq('report_key', reportKey).maybeSingle()
+      const viewerStillEmpty = await bViewerClient.from('portal_report_views')
+        .select('report_key,viewed_at').eq('client_id', bClientId).eq('report_key', reportKey)
+      const crossTenant = await kansetClient.from('portal_report_views')
+        .select('report_key').eq('client_id', bClientId).eq('report_key', reportKey)
+      const foreignMark = await bClient.rpc('mark_portal_report_viewed', {
+        p_client_id: kanset.id, p_report_key: reportKey,
+      })
+      const directInsert = await bClient.from('portal_report_views').insert({
+        auth_user_id: bUserId, client_id: bClientId, report_key: '2026-08',
+      })
+      check('RV1: report receipts are durable, per-seat, tenant-scoped, and RPC-only',
+        !beforeViewer.error && (beforeViewer.data ?? []).length === 0
+          && !marked.error && !ownReceipt.error && !!ownReceipt.data?.viewed_at
+          && !viewerStillEmpty.error && (viewerStillEmpty.data ?? []).length === 0
+          && !crossTenant.error && (crossTenant.data ?? []).length === 0
+          && !!foreignMark.error && !!directInsert.error,
+        marked.error?.message ?? ownReceipt.error?.message ?? viewerStillEmpty.error?.message
+          ?? crossTenant.error?.message ?? (!foreignMark.error ? 'foreign mark unexpectedly allowed' : null)
+          ?? (!directInsert.error ? 'direct insert unexpectedly allowed' : null)
+          ?? JSON.stringify({ ownReceipt: ownReceipt.data, viewer: viewerStillEmpty.data }))
+    }
+
+    {
       // 0038 client alerts: the switch enables one tenant-resolved email row for agency activity,
       // while the recipient address remains unavailable to an authenticated client JWT.
       for (const [scope, key] of [

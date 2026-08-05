@@ -9,6 +9,7 @@ import { clientStateLabel } from '@/lib/portal/state'
 import { getLastSeen } from '@/lib/portal/seen'
 import { getContentRequests } from '@/lib/portal/requests'
 import { getClientProposalMessages, getClientProposals } from '@/lib/portal/proposals'
+import { getReportViewedAt } from '@/lib/portal/report-views'
 import { reReviewContext } from '@/lib/portal/re-review'
 import WeekCalendar, { type WeekCalendarChip } from '@/components/portal/WeekCalendar'
 import MarkSeen from './MarkSeen'
@@ -75,13 +76,14 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
   const session = await getClientSession(slug)
   if (!session) redirect('/client/login')
 
-  const [items, activity, lastSeen, recentPublishedIds, openPlans, upcomingPlans, schedule, requests, proposals] = await Promise.all([
+  const [items, activity, lastSeen, recentPublishedIds, openPlans, upcomingPlans, schedule, requests, proposals, julyReportViewedAt] = await Promise.all([
     getContent(session.clientId), getActivity(session.clientId), getLastSeen(session.clientId),
     getRecentPublishedContentIds(session.clientId), getOpenPlanCycles(session.clientId),
     getUpcomingPlanCycles(session.clientId),
     getSchedule(session.clientId),
     getContentRequests(session.clientId),
     getClientProposals(session.clientId),
+    getReportViewedAt(session.clientId, '2026-07'),
   ])
   const proposalMessages = await getClientProposalMessages(session.clientId, proposals.map((proposal) => proposal.id))
   // "new since your last visit": an event the OTHER party logged after you were last here.
@@ -156,6 +158,21 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
         <div className={styles.greeting}>
           <Heading level={1} variant="display">Good day{firstName ? `, ${firstName}` : ''}.</Heading>
         </div>
+        {slug === 'kanset' && !julyReportViewedAt && (
+          <section className={styles.reportCard} aria-label="July 2026 performance report">
+            <div className={styles.reportCardCopy}>
+              <span className={styles.reportKicker}>Monthly review · Published August 4</span>
+              <Heading level={3}>July 2026 performance report</Heading>
+              <Text tone="graphite">
+                The first full month of managed content, including the June baseline, website activity,
+                the creative findings, and the August actions.
+              </Text>
+            </div>
+            <Button as="a" href={`/client/${encodeURIComponent(slug)}/reports/july-2026`} variant="black" size="sm">
+              View July report
+            </Button>
+          </section>
+        )}
         <div className={styles.status}>
           <Text size="lg" tone="graphite">
             {approvalCount === 0

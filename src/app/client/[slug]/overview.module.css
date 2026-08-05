@@ -15,6 +15,29 @@
 .eyebrow { margin: 0 0 20px; }
 .greeting { margin: 0 0 16px; }
 .status { margin: 0 0 44px; }
+
+.reportCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  margin: 8px 0 32px;
+  padding: 24px 26px;
+  border: 1px solid var(--dot-hairline);
+  border-left: 6px solid var(--dot-yellow);
+  background: var(--dot-cream);
+}
+.reportCardCopy { max-width: 64ch; }
+.reportCardCopy h3 { margin-bottom: 7px; }
+.reportKicker {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--dot-grey);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
 .statusCount {
   color: var(--dot-black);
   font-weight: var(--dot-weight-medium);
@@ -124,6 +147,7 @@ a.row:hover { padding-left: 6px; }
 
 @media (max-width: 760px) {
   .wrap { padding: 40px 20px 64px; }
+  .reportCard { align-items: flex-start; flex-direction: column; gap: 18px; }
   .grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
 }
 

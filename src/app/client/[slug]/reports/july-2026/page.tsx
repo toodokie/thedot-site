@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { getClientSession } from '@/lib/portal/auth'
+import MarkReportViewed from '../MarkReportViewed'
 import styles from './report.module.css'
 
 export const metadata = {
@@ -85,6 +86,7 @@ export default async function JulyReport({ params }: { params: Promise<{ slug: s
 
   return (
     <main className={styles.page}>
+      <MarkReportViewed slug={slug} reportKey="2026-07" />
       <nav className={styles.back} aria-label="Report navigation">
         <Link href={`/client/${encodeURIComponent(slug)}/reports`}>← Performance reports</Link>
       </nav>
