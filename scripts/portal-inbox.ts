@@ -99,7 +99,8 @@ function normalText(value:string){
   // Portal textareas can retain invisible end-of-line spaces, while the canonical
   // repository correctly rejects them via `git diff --check`. Treat only that
   // non-rendering whitespace as equivalent so a visible verbatim edit can reconcile.
-  return value.replace(/\r\n?/g,'\n').replace(/[ \t]+$/gm,'').trim()
+  return value.replace(/\r\n?/g,'\n').replace(/[ \t]+$/gm,'')
+    .replace(/^[ \t\n]+|[ \t\n]+$/g,'')
 }
 function compatibleBlockKeys(blockKey:string){
   return blockKey==='ig-caption'||blockKey==='fb-caption'

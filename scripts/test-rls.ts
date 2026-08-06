@@ -691,15 +691,24 @@ async function main(): Promise<void> {
 
       const bundleCaption = await bClient.rpc('request_content_edit', {
         p_content_id: bBundleItemId, p_content_version: 1, p_block_key: 'caption',
-        p_proposed_text: 'Caption requested by Maria.\r\nSecond line.', p_idempotency_key: randomUUID(),
+        p_proposed_text: '  Caption requested by Maria. \t\r\nSecond line.  ', p_idempotency_key: randomUUID(),
       })
       const bundleScript = await bClient.rpc('request_content_edit', {
         p_content_id: bBundleItemId, p_content_version: 1, p_block_key: 'script',
-        p_proposed_text: 'Script requested by Maria.\r\nSecond line.', p_idempotency_key: randomUUID(),
+        p_proposed_text: 'Script requested by Maria.\r\nSecond line.\t', p_idempotency_key: randomUUID(),
       })
       const bundleCaptionId = (bundleCaption.data as { id?: string } | null)?.id
       const bundleScriptId = (bundleScript.data as { id?: string } | null)?.id
       if (!bundleCaptionId || !bundleScriptId) throw new Error(`bundle requests unavailable: ${bundleCaption.error?.message ?? bundleScript.error?.message ?? 'missing IDs'}`)
+      const normalizedIntake = await admin.from('content_change_requests')
+        .select('id,payload').in('id', [bundleCaptionId, bundleScriptId])
+      const normalizedById = new Map((normalizedIntake.data ?? []).map((row) => [row.id, row.payload as { proposed_text?: string }]))
+      check('R6a: edit intake removes invisible line-end whitespace before persistence',
+        !normalizedIntake.error
+          && normalizedById.get(bundleCaptionId)?.proposed_text === 'Caption requested by Maria.\nSecond line.'
+          && normalizedById.get(bundleScriptId)?.proposed_text === 'Script requested by Maria.\nSecond line.',
+        normalizedIntake.error?.message ?? JSON.stringify(normalizedIntake.data))
+
       const bundleStart = await admin.rpc('start_content_request_reconciliation', {
         p_request_id: bundleCaptionId, p_requested_content_id: null, p_canonical_object_key: null,
         p_expected_base_commit: null, p_actor_key: 'thedot-admin', p_idempotency_key: bundleCaptionId,
