@@ -5,7 +5,7 @@ actually built" reference: architecture, code map, data/security model, the cont
 design system, the deploy discipline, and the hard-won lessons. Read this top to bottom once;
 after that use the table of contents.
 
-**Last verified against the codebase:** 2026-08-06 (migrations `0001`–`0069`).
+**Last verified against the codebase:** 2026-08-06 (migrations `0001`–`0070`).
 
 > This manual documents the **code** (the `~/thedot-site` repo). The **business/engagement**
 > context (client, pricing, content strategy, cadence, brand voice) lives in the `~/Kanset`
@@ -56,9 +56,11 @@ The portal is **two surfaces built from one Next.js app and one Supabase databas
 Google Calendar, and the `~/Kanset` markdown docs are **one-way projections**, not inputs. The
 portal is the source of truth; everything else mirrors it.
 
-**Live status (2026-08-06):** production has migrations `0001`–`0069` applied. LinkedIn is a
+**Live status (2026-08-06):** production has migrations `0001`–`0070` applied. LinkedIn is a
 first-class destination, while weekly LinkedIn adaptations and website articles remain independent
 content identities. Unresolved client edits immediately project their released pieces as `with_dot`.
+Client edit intake and legacy bundle reconciliation now share canonical line-ending and invisible
+line-end whitespace normalization, while canonical Git writes keep `git diff --check` strict.
 Maria's live seat is active at `maria@kanset.com`; `toodokie@gmail.com` remains
 a separate preview seat. The client and admin portals are live, with Supabase holding workflow,
 report, notification, and per-seat view state.
@@ -159,7 +161,7 @@ multi-tenant, and the security model is defended in-migration.
 
 ---
 
-## 5. The migration ledger (`0001`–`0069`)
+## 5. The migration ledger (`0001`–`0070`)
 
 Each file's top comment states its purpose. Summary:
 
@@ -190,6 +192,7 @@ Each file's top comment states its purpose. Summary:
 | `0067_report_view_receipts` | — | Per-seat durable report views for overview prompts; authenticated RPC-only writes. |
 | `0068_linkedin_destination` | — | LinkedIn destination constraints, mapping, provider URLs, requests, reports, and guarded agency tooling. |
 | `0069_open_edit_client_state` | n/a | Pending, applying, and prepared client edits project the released piece as `with_dot` while preserving its released snapshot and design-link overlay. |
+| `0070_client_copy_whitespace_normalization` | n/a | Canonicalizes browser line endings and invisible line-end whitespace at edit intake and legacy bundle reconciliation without relaxing Git whitespace checks. |
 
 **Full v1 architecture + phasing spec:** `~/Kanset/portal-integration-task.md`.
 **Gate-system spec:** `docs/superpowers/specs/2026-07-21-portal-gate-system-design.md`.
