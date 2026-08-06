@@ -597,6 +597,14 @@ async function main(): Promise<void> {
         first.error?.message ?? second.error?.message ?? `id=${editId} delta=${(after.count ?? 0)-(before.count ?? 0)}`)
       if (!editId) throw new Error('edit request id missing')
 
+      const pendingEditState = await bClient.from('content_with_state')
+        .select('client_state,current_decision,revision_in_progress').eq('id', bRequestItemId).single()
+      check('R2b: a pending client edit immediately returns the released piece to The Dot',
+        !pendingEditState.error && pendingEditState.data?.client_state === 'with_dot'
+          && pendingEditState.data?.current_decision === null
+          && pendingEditState.data?.revision_in_progress === false,
+        pendingEditState.error?.message ?? JSON.stringify(pendingEditState.data))
+
       const ownRows = await bClient.from('content_change_requests_client')
         .select('id,client_id,request_type,status,payload').eq('id', editId)
       const otherRows = await kansetClient.from('content_change_requests_client').select('id').eq('id', editId)
@@ -657,12 +665,13 @@ async function main(): Promise<void> {
         p_idempotency_key: randomUUID(),
       })
       const stillV1 = await bClient.from('content_with_state')
-        .select('version,client_body').eq('id', bRequestItemId).single()
+        .select('version,client_body,client_state').eq('id', bRequestItemId).single()
       const preparedRow = await bClient.from('content_change_requests_client')
         .select('status,canonical_content_key').eq('id', editId).single()
       check('R5: prepared edit keeps released v1 body visible while the request stays in progress',
         !prepared.error && !stillV1.error && stillV1.data?.version === 1
           && stillV1.data?.client_body === 'Original request body'
+          && stillV1.data?.client_state === 'with_dot'
           && preparedRow.data?.status === 'prepared' && preparedRow.data?.canonical_content_key === B_REQUEST_ID,
         prepared.error?.message ?? stillV1.error?.message ?? JSON.stringify(preparedRow.data))
       const release = await admin.rpc('mark_content_ready', {
@@ -670,13 +679,14 @@ async function main(): Promise<void> {
       })
       const appliedRow = await bClient.from('content_change_requests_client')
         .select('status,canonical_content_key,canonical_version').eq('id', editId).single()
-      const nowV2 = await bClient.from('content_with_state').select('version,client_body')
+      const nowV2 = await bClient.from('content_with_state').select('version,client_body,client_state')
         .eq('id', bRequestItemId).single()
       check('R6: release gate atomically makes prepared edit applied and links exact v2',
         !release.error && appliedRow.data?.status === 'applied'
           && appliedRow.data?.canonical_content_key === B_REQUEST_ID
           && appliedRow.data?.canonical_version === 2 && nowV2.data?.version === 2
-          && nowV2.data?.client_body === 'Prepared request body v2',
+          && nowV2.data?.client_body === 'Prepared request body v2'
+          && nowV2.data?.client_state === 'needs_review',
         release.error?.message ?? appliedRow.error?.message ?? JSON.stringify(nowV2.data))
 
       const bundleCaption = await bClient.rpc('request_content_edit', {
