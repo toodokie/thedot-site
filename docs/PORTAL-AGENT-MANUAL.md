@@ -56,10 +56,11 @@ The portal is **two surfaces built from one Next.js app and one Supabase databas
 Google Calendar, and the `~/Kanset` markdown docs are **one-way projections**, not inputs. The
 portal is the source of truth; everything else mirrors it.
 
-**Live status (2026-08-06):** production has migrations `0001`–`0067` applied. Migration `0068`
-adds LinkedIn as a first-class destination and is pending production apply. Maria's live seat is
-active at `maria@kanset.com`; `toodokie@gmail.com` remains a separate preview seat. The client and
-admin portals are live, with Supabase holding workflow, report, notification, and per-seat view state.
+**Live status (2026-08-06):** production has migrations `0001`–`0068` applied. LinkedIn is a
+first-class destination, while weekly LinkedIn adaptations and website articles remain independent
+content identities. Maria's live seat is active at `maria@kanset.com`; `toodokie@gmail.com` remains
+a separate preview seat. The client and admin portals are live, with Supabase holding workflow,
+report, notification, and per-seat view state.
 
 ---
 
