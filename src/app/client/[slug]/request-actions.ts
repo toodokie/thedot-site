@@ -110,7 +110,7 @@ export async function requestNewContent(
   const desiredDate = textField(formData, 'desiredDate')
   const idempotencyKey = textField(formData, 'idempotencyKey')
   const platforms = formData.getAll('platforms').filter((value): value is string => typeof value === 'string')
-  const allowed = new Set(['instagram', 'facebook', 'youtube', 'squarespace', 'other'])
+  const allowed = new Set(['instagram', 'facebook', 'youtube', 'linkedin', 'squarespace', 'other'])
   if (!context || !validKey(idempotencyKey)) return { error: 'This form expired. Please reload and try again.' }
   if (!context.session.canSubmitRequests) return { error: 'Your account cannot submit content requests.' }
   if (!title || title.length > 300) return { error: 'Add a title of no more than 300 characters.' }

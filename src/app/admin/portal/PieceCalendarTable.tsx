@@ -10,7 +10,9 @@ import styles from './portal-admin.module.css'
 // untruncated on a sub-line, the whole title an accessible link into the piece page.
 // Reads the broad agency calendar loader so unreleased pipeline pieces show too.
 
-const PLATFORM_SHORT: Record<string, string> = { instagram: 'IG', facebook: 'FB', youtube: 'YT', squarespace: 'Web' }
+const PLATFORM_SHORT: Record<string, string> = {
+  instagram: 'IG', facebook: 'FB', youtube: 'YT', linkedin: 'LinkedIn', squarespace: 'Web',
+}
 const PRODUCER_LABEL: Record<string, string> = { the_dot: 'The Dot', studio: 'Studio' }
 
 // UTC-based so the week never shifts under the viewer's timezone.

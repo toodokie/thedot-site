@@ -11,7 +11,7 @@ export type HistoryMapping = {
   piece: string
   content_id: string
   destinations: Array<{
-    destination: 'instagram' | 'facebook' | 'youtube' | 'squarespace' | 'other'
+    destination: 'instagram' | 'facebook' | 'youtube' | 'linkedin' | 'squarespace' | 'other'
     published_at: string
     provenance: 'yt_check' | 'public_url' | 'legacy_unverified'
     live_url?: string | null
@@ -59,7 +59,7 @@ export function parseHistoryMappings(value: unknown): HistoryMapping[] {
       }
       const item = destination as Record<string, unknown>
       if (typeof item.destination !== 'string'
-        || !['instagram','facebook','youtube','squarespace','other'].includes(item.destination)
+        || !['instagram','facebook','youtube','linkedin','squarespace','other'].includes(item.destination)
         || typeof item.published_at !== 'string' || Number.isNaN(Date.parse(item.published_at))
         || typeof item.provenance !== 'string'
         || !['yt_check','public_url','legacy_unverified'].includes(item.provenance)) {

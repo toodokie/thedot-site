@@ -93,6 +93,8 @@ const SCHEDULE_DESTINATION_MAP: Record<string, string> = {
   'youtube shorts': 'youtube',
   youtube_shorts: 'youtube',
   'youtube-shorts': 'youtube',
+  linkedin: 'linkedin',
+  'linked in': 'linkedin',
   squarespace: 'squarespace',
   website: 'squarespace',
   blog: 'squarespace',

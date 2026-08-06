@@ -57,7 +57,7 @@ const KNOWN_ORDER = [
 const SPECIAL_KEYS = new Set(['top_posts', 'top_pages', 'summary'])
 
 const PLATFORM_LABELS: Record<string, string> = {
-  instagram: 'Instagram', facebook: 'Facebook', youtube: 'YouTube', website: 'Website',
+  instagram: 'Instagram', facebook: 'Facebook', youtube: 'YouTube', linkedin: 'LinkedIn', website: 'Website',
 }
 
 function humanize(key: string) {
@@ -103,7 +103,7 @@ function formatWindow(startIso: string, endIso: string): string | null {
 
 // The primary view is ONE card per platform: the platform's newest snapshot, preferring
 // real v1 snapshots over the retiring v0 demo rows whenever both exist.
-const PLATFORM_ORDER = ['instagram', 'facebook', 'youtube', 'website']
+const PLATFORM_ORDER = ['instagram', 'facebook', 'youtube', 'linkedin', 'website']
 function latestByPlatform(rows: ReportRow[]): ReportRow[] {
   const best = new Map<string, ReportRow>()
   for (const row of rows) {

@@ -737,7 +737,7 @@ async function main(): Promise<void> {
       const desiredDate = tomorrow.toISOString().slice(0, 10)
       const created = await bClient.rpc('request_content_create', {
         p_client_id: bClientId, p_title: 'Requested from the portal',
-        p_brief: 'A safe client brief for a new piece.', p_platforms: ['instagram','facebook'],
+        p_brief: 'A safe client brief for a new piece.', p_platforms: ['linkedin'],
         p_desired_date: desiredDate, p_notes: null, p_idempotency_key: createKey,
       })
       const createId = (created.data as { id?: string } | null)?.id
@@ -2866,21 +2866,21 @@ async function main(): Promise<void> {
 
       // PG9 (Codex round-3 blocker, extended round 4): the loader canonicalizes raw
       // frontmatter platforms to the schedule/publication destination vocabulary. Synced
-      // with alias platforms (youtube_shorts + website) AND an UNSUPPORTED one (tiktok),
+      // with alias platforms (youtube_shorts + website), LinkedIn, AND an UNSUPPORTED one (tiktok),
       // the loaded StagePiece must carry only the canonical SUPPORTED destinations
-      // (instagram + youtube + squarespace) that content_schedule_targets /
+      // (instagram + youtube + linkedin + squarespace) that content_schedule_targets /
       // content_publication_targets are stored under: the alias collapses correctly and
       // tiktok is DROPPED (no phantom destination). Also carries the tenant name (fix 2).
       const canonSync = await sync([snapshot(bClientId, 'rls-canon-piece', 1,
         'Canonicalization piece', 'body', 'main',
-        { platforms: ['instagram', 'youtube_shorts', 'tiktok', 'website'] })])
+        { platforms: ['instagram', 'youtube_shorts', 'linkedin', 'tiktok', 'website'] })])
       const canonPiece = canonSync[0]?.item_id
         ? await loadAgencyStagePiece(admin, bClientId, 'rls-canon-piece') : null
       const canonNine = canonPiece ? renderStatusGatesBlock(canonPiece, '2026-07-21') : ''
       check('PG9: the loader canonicalizes to supported destinations and drops unsupported ones',
         canonPiece !== null
-          && JSON.stringify(canonPiece.platforms) === JSON.stringify(['instagram', 'youtube', 'squarespace'])
-          && canonPiece.dests.every((d) => ['instagram', 'youtube', 'squarespace'].includes(d.destination))
+          && JSON.stringify(canonPiece.platforms) === JSON.stringify(['instagram', 'youtube', 'linkedin', 'squarespace'])
+          && canonPiece.dests.every((d) => ['instagram', 'youtube', 'linkedin', 'squarespace'].includes(d.destination))
           && !canonNine.includes('tiktok') // no phantom tiktok gate line
           && canonPiece.clientName === 'RLS Test Co',
         `platforms=${JSON.stringify(canonPiece?.platforms)} tiktok=${canonNine.includes('tiktok')} client=${canonPiece?.clientName}`)

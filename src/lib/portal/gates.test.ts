@@ -427,6 +427,8 @@ describe('canonicalScheduleDestination (mirror of the SQL mapping)', () => {
       ['youtube shorts', 'youtube'],
       ['YouTube Shorts', 'youtube'], // case + trim insensitive, like lower(btrim())
       ['  facebook  ', 'facebook'],
+      ['linkedin', 'linkedin'],
+      ['Linked In', 'linkedin'],
       ['website', 'squarespace'],
       ['blog', 'squarespace'],
       ['squarespace', 'squarespace'],
@@ -461,7 +463,6 @@ describe('canonicalScheduleDestination (mirror of the SQL mapping)', () => {
   // passthrough, so it can never invent a phantom destination the SQL would not schedule.
   it('an unsupported platform canonicalizes to null, not a passthrough', () => {
     expect(canonicalScheduleDestination('tiktok')).toBeNull()
-    expect(canonicalScheduleDestination('linkedin')).toBeNull()
     expect(canonicalScheduleDestination('!!garbage!!')).toBeNull()
     expect(canonicalScheduleDestination('')).toBeNull()
   })
@@ -471,7 +472,7 @@ describe('canonicalScheduleDestination (mirror of the SQL mapping)', () => {
     expect(canonicalDestinations(['!!garbage!!', 'nowhere'])).toEqual([])
     // supported survive, unsupported drop, order + distinctness preserved
     expect(canonicalDestinations(['instagram', 'tiktok', 'youtube_shorts', 'linkedin']))
-      .toEqual(['instagram', 'youtube'])
+      .toEqual(['instagram', 'youtube', 'linkedin'])
   })
 
   it('a piece whose platforms canonicalize to an empty set derives + tasks without crashing', () => {

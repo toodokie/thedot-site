@@ -33,4 +33,14 @@ describe('groupReviewCopy', () => {
     expect(groups.map((group) => group.id)).toEqual(['social', 'creative'])
     expect(groups[0].blocks[0].body).toBe('Legacy social copy')
   })
+
+  it('keeps a LinkedIn adaptation in its own review group', () => {
+    const groups = groupReviewCopy([
+      { key: 'linkedin-post', label: 'LinkedIn post', body: 'Employer-focused adaptation' },
+    ], ['linkedin'])
+
+    expect(groups.map((group) => group.id)).toEqual(['linkedin'])
+    expect(groups[0].title).toBe('LinkedIn post')
+    expect(groups[0].description).toContain('its own piece')
+  })
 })

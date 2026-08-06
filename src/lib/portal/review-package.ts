@@ -5,7 +5,7 @@ export type ReviewCopyBlock = {
 }
 
 export type ReviewGroup = {
-  id: 'social' | 'youtube' | 'creative' | 'copy'
+  id: 'social' | 'linkedin' | 'youtube' | 'creative' | 'copy'
   title: string
   description: string
   blocks: ReviewCopyBlock[]
@@ -29,6 +29,12 @@ function isYoutube(block: ReviewCopyBlock): boolean {
   const key = normalized(block.key)
   const label = normalized(block.label)
   return key.includes('youtube') || label.includes('youtube')
+}
+
+function isLinkedIn(block: ReviewCopyBlock): boolean {
+  const key = normalized(block.key)
+  const label = normalized(block.label)
+  return key.includes('linkedin') || label.includes('linkedin')
 }
 
 function isCreative(block: ReviewCopyBlock): boolean {
@@ -68,12 +74,14 @@ export function groupReviewCopy(
   platforms: string[],
 ): ReviewGroup[] {
   const social: ReviewCopyBlock[] = []
+  const linkedin: ReviewCopyBlock[] = []
   const youtube: ReviewCopyBlock[] = []
   const creative: ReviewCopyBlock[] = []
   const other: ReviewCopyBlock[] = []
 
   for (const block of blocks) {
     if (isYoutube(block)) youtube.push(block)
+    else if (isLinkedIn(block)) linkedin.push(block)
     else if (isSocial(block, platforms)) social.push(block)
     else if (isCreative(block)) creative.push(block)
     else other.push(block)
@@ -85,6 +93,12 @@ export function groupReviewCopy(
       title: 'Social caption',
       description: socialDescription(social),
       blocks: social,
+    },
+    linkedin.length > 0 && {
+      id: 'linkedin' as const,
+      title: 'LinkedIn post',
+      description: 'This LinkedIn adaptation is reviewed and scheduled as its own piece.',
+      blocks: linkedin,
     },
     youtube.length > 0 && {
       id: 'youtube' as const,

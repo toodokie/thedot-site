@@ -58,7 +58,7 @@ function platformLabel(platform: string) {
   return platform.charAt(0).toUpperCase() + platform.slice(1)
 }
 
-const PLATFORM_ORDER = ['instagram', 'facebook', 'youtube', 'website']
+const PLATFORM_ORDER = ['instagram', 'facebook', 'youtube', 'linkedin', 'website']
 function latestByPlatform(rows: ReportRow[]): ReportRow[] {
   const best = new Map<string, ReportRow>()
   for (const row of rows) {

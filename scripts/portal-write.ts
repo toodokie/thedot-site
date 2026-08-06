@@ -112,7 +112,7 @@ async function main() {
     const metrics=assertReportMetrics(payload.metrics); const summary=optionalText(payload.summary,'summary',4000)
     assertClientSafeAgencyText({summary})
     rpc='upsert_portal_report_snapshot'; args={p_client_id:null,p_period_start:requiredText(payload.periodStart,'periodStart',10),
-      p_period_end:requiredText(payload.periodEnd,'periodEnd',10),p_platform:stringArray(payload.platform,'platform',['instagram','facebook','youtube','website']),
+      p_period_end:requiredText(payload.periodEnd,'periodEnd',10),p_platform:stringArray(payload.platform,'platform',['instagram','facebook','youtube','linkedin','website']),
       p_schema_version:integer(payload.schemaVersion ?? 1,'schemaVersion',1),p_metrics:metrics,p_summary:summary,
       p_collected_at:timestamp(payload.collectedAt,'collectedAt'),p_source_type:stringArray(payload.sourceType,'sourceType',['platform_export','platform_ui','manual_calculation']),
       p_source_ref:requiredText(payload.sourceRef,'sourceRef',500),p_source_checksum:requiredText(payload.sourceChecksum ?? sha256(metrics),'sourceChecksum',64),
@@ -214,7 +214,7 @@ async function main() {
     rpc = 'add_content_agency_override_destination'; args = {
       p_content_id: null, p_content_version: externalContentVersion,
       p_destination: stringArray(payload.destination, 'destination',
-        ['instagram', 'facebook', 'youtube', 'squarespace']),
+        ['instagram', 'facebook', 'youtube', 'linkedin', 'squarespace']),
       p_reason: reason, p_actor_key: actor, p_idempotency_key: idempotency,
     }
   } else if (command === 'publication-confirm') {
@@ -226,7 +226,7 @@ async function main() {
       contentId: requiredText(payload.contentId, 'contentId', 200),
       contentVersion: integer(payload.contentVersion, 'contentVersion', 1),
       destination: stringArray(payload.destination, 'destination',
-        ['instagram', 'facebook', 'youtube', 'squarespace']),
+        ['instagram', 'facebook', 'youtube', 'linkedin', 'squarespace']),
       liveUrl,
       publishedAt: timestamp(payload.publishedAt, 'publishedAt'),
       capturedAt: timestamp(payload.capturedAt ?? new Date().toISOString(), 'capturedAt'),
@@ -251,7 +251,7 @@ async function main() {
       contentId: requiredText(payload.contentId, 'contentId', 200),
       contentVersion: integer(payload.contentVersion, 'contentVersion', 1),
       destination: stringArray(payload.destination, 'destination',
-        ['instagram', 'facebook', 'youtube', 'squarespace']),
+        ['instagram', 'facebook', 'youtube', 'linkedin', 'squarespace']),
       scheduledAt: timestamp(payload.scheduledAt, 'scheduledAt'),
       externalUrl,
       externalId,

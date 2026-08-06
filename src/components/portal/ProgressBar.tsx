@@ -8,7 +8,7 @@ import styles from './ProgressBar.module.css'
 // only signal: every node also carries a glyph + its plain-English label.
 
 const PLATFORM_SHORT: Record<string, string> = {
-  instagram: 'IG', facebook: 'FB', youtube: 'YT', squarespace: 'Web',
+  instagram: 'IG', facebook: 'FB', youtube: 'YT', linkedin: 'LinkedIn', squarespace: 'Web',
 }
 
 function Dot({ node }: { node: StageNode }) {

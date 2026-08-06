@@ -37,7 +37,7 @@ export default function NewContentRequestForm({ slug, initialKey }: { slug: stri
     <fieldset className={styles.field}>
       <legend className={styles.label}>Destinations</legend>
       <div className={styles.checks}>
-        {['instagram', 'facebook', 'youtube', 'squarespace', 'other'].map((platform) =>
+        {['instagram', 'facebook', 'youtube', 'linkedin', 'squarespace', 'other'].map((platform) =>
           <label className={styles.check} key={platform}>
             <input type="checkbox" name="platforms" value={platform} />
             <span>{platform === 'squarespace' ? 'Website' : platform[0].toUpperCase() + platform.slice(1)}</span>

@@ -5,7 +5,7 @@ actually built" reference: architecture, code map, data/security model, the cont
 design system, the deploy discipline, and the hard-won lessons. Read this top to bottom once;
 after that use the table of contents.
 
-**Last verified against the codebase:** 2026-08-04 (migrations `0001`–`0067`).
+**Last verified against the codebase:** 2026-08-06 (migrations `0001`–`0068`).
 
 > This manual documents the **code** (the `~/thedot-site` repo). The **business/engagement**
 > context (client, pricing, content strategy, cadence, brand voice) lives in the `~/Kanset`
@@ -56,7 +56,8 @@ The portal is **two surfaces built from one Next.js app and one Supabase databas
 Google Calendar, and the `~/Kanset` markdown docs are **one-way projections**, not inputs. The
 portal is the source of truth; everything else mirrors it.
 
-**Live status (2026-08-04):** production has migrations `0001`–`0067` applied. Maria's live seat is
+**Live status (2026-08-06):** production has migrations `0001`–`0067` applied. Migration `0068`
+adds LinkedIn as a first-class destination and is pending production apply. Maria's live seat is
 active at `maria@kanset.com`; `toodokie@gmail.com` remains a separate preview seat. The client and
 admin portals are live, with Supabase holding workflow, report, notification, and per-seat view state.
 
@@ -156,7 +157,7 @@ multi-tenant, and the security model is defended in-migration.
 
 ---
 
-## 5. The migration ledger (`0001`–`0067`)
+## 5. The migration ledger (`0001`–`0068`)
 
 Each file's top comment states its purpose. Summary:
 
@@ -185,6 +186,7 @@ Each file's top comment states its purpose. Summary:
 | `0021_design_link_index` | — | Design links become the 13th assistant-indexed source. |
 | `0022_production_gates` | — | Production gates + ops tasks (gate-system phase 1). |
 | `0067_report_view_receipts` | — | Per-seat durable report views for overview prompts; authenticated RPC-only writes. |
+| `0068_linkedin_destination` | — | LinkedIn destination constraints, mapping, provider URLs, requests, reports, and guarded agency tooling. |
 
 **Full v1 architecture + phasing spec:** `~/Kanset/portal-integration-task.md`.
 **Gate-system spec:** `docs/superpowers/specs/2026-07-21-portal-gate-system-design.md`.
@@ -351,6 +353,13 @@ is the human mirror of this; `renderStatusGatesBlock` generates it.
 ## 10. Publication, evidence & the historical importer
 
 **A scheduled time is not proof.** The publication model separates intent from truth:
+
+- Instagram, Facebook, YouTube, LinkedIn, and Squarespace are independent destination records.
+- A weekly LinkedIn adaptation always has its own `content_id`. Do not add LinkedIn to the
+  Instagram/Facebook/YouTube piece, even when its topic or creative is adapted from that piece.
+- Every website article has its own `content_id` and `platforms: [squarespace]`. A podcast episode
+  and its companion article are separate pieces with separate approval, schedule, and publication
+  evidence.
 
 - `content_schedule_targets` (`0008`) — per-destination schedule intent. RPCs `confirm_schedule_target`,
   `request_content_reschedule`, `mark_schedule_target_failed`, `portal_ensure_schedule_targets`,
