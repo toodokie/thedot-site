@@ -5,7 +5,7 @@ actually built" reference: architecture, code map, data/security model, the cont
 design system, the deploy discipline, and the hard-won lessons. Read this top to bottom once;
 after that use the table of contents.
 
-**Last verified against the codebase:** 2026-08-07 (migrations `0001` through `0073`; production remains through `0072` until the reviewed `0073` rollout).
+**Last verified against the codebase and production:** 2026-08-07 (migrations `0001` through `0073`).
 
 > This manual documents the **code** (the `~/thedot-site` repo). The **business/engagement**
 > context (client, pricing, content strategy, cadence, brand voice) lives in the `~/Kanset`
@@ -161,7 +161,7 @@ multi-tenant, and the security model is defended in-migration.
 
 ---
 
-## 5. The migration ledger (`0001`–`0072`)
+## 5. The migration ledger (`0001`–`0073`)
 
 Each file's top comment states its purpose. Summary:
 
