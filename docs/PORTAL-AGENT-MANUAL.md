@@ -5,7 +5,7 @@ actually built" reference: architecture, code map, data/security model, the cont
 design system, the deploy discipline, and the hard-won lessons. Read this top to bottom once;
 after that use the table of contents.
 
-**Last verified against the codebase:** 2026-08-06 (migrations `0001`–`0070`).
+**Last verified against the codebase:** 2026-08-07 (migrations `0001`–`0071`).
 
 > This manual documents the **code** (the `~/thedot-site` repo). The **business/engagement**
 > context (client, pricing, content strategy, cadence, brand voice) lives in the `~/Kanset`
@@ -56,7 +56,7 @@ The portal is **two surfaces built from one Next.js app and one Supabase databas
 Google Calendar, and the `~/Kanset` markdown docs are **one-way projections**, not inputs. The
 portal is the source of truth; everything else mirrors it.
 
-**Live status (2026-08-06):** production has migrations `0001`–`0070` applied. LinkedIn is a
+**Live status (2026-08-07):** production has migrations `0001`–`0071` applied. LinkedIn is a
 first-class destination, while weekly LinkedIn adaptations and website articles remain independent
 content identities. Unresolved client edits immediately project their released pieces as `with_dot`.
 Client edit intake and legacy bundle reconciliation now share canonical line-ending and invisible
@@ -161,7 +161,7 @@ multi-tenant, and the security model is defended in-migration.
 
 ---
 
-## 5. The migration ledger (`0001`–`0070`)
+## 5. The migration ledger (`0001`–`0071`)
 
 Each file's top comment states its purpose. Summary:
 
@@ -193,6 +193,7 @@ Each file's top comment states its purpose. Summary:
 | `0068_linkedin_destination` | — | LinkedIn destination constraints, mapping, provider URLs, requests, reports, and guarded agency tooling. |
 | `0069_open_edit_client_state` | n/a | Pending, applying, and prepared client edits project the released piece as `with_dot` while preserving its released snapshot and design-link overlay. |
 | `0070_client_copy_whitespace_normalization` | n/a | Canonicalizes browser line endings and invisible line-end whitespace at edit intake and legacy bundle reconciliation without relaxing Git whitespace checks. |
+| `0071_content_request_base_copy_reader` | n/a | Gives an authenticated client a narrow tenant-scoped read of the exact historical copy block referenced by their own edit request, without opening historical version rows generally. |
 
 **Full v1 architecture + phasing spec:** `~/Kanset/portal-integration-task.md`.
 **Gate-system spec:** `docs/superpowers/specs/2026-07-21-portal-gate-system-design.md`.
@@ -217,7 +218,7 @@ Each file's top comment states its purpose. Summary:
 | `plan` | `plan/` | The plan-direction approval + schedule. |
 | `ideas` | `ideas/` | Shared idea board (client can add). |
 | `reports` | `reports/` | Report snapshots (metrics). |
-| `requests` | `requests/` | Change requests she has raised. |
+| `requests` | `requests/` | Change requests she has raised, with the edited area named in client language and a high-contrast before/requested comparison bound to the exact base and applied versions. |
 | `strategy` | `strategy/` | Recommendations. |
 | `library` | `library/` | Brand + video links. |
 | `billing` | `billing/` | Invoices (Date / Amount / Status / Document). |
