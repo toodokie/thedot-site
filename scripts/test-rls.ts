@@ -689,6 +689,32 @@ async function main(): Promise<void> {
           && nowV2.data?.client_state === 'needs_review',
         release.error?.message ?? appliedRow.error?.message ?? JSON.stringify(nowV2.data))
 
+      const ownBaseCopy = await bClient.rpc('get_content_request_base_copies', {
+        p_request_ids: [editId],
+      })
+      const crossBaseCopy = await kansetClient.rpc('get_content_request_base_copies', {
+        p_request_ids: [editId],
+      })
+      const anonBaseCopy = await anonClient.rpc('get_content_request_base_copies', {
+        p_request_ids: [editId],
+      })
+      const directHistoricalVersions = await bClient.from('content_item_versions')
+        .select('version,client_body').eq('content_item_id', bRequestItemId)
+      check('R6c: request history exposes only the tenant-owned base block without opening historical versions',
+        !ownBaseCopy.error
+          && ownBaseCopy.data?.length === 1
+          && ownBaseCopy.data[0]?.request_id === editId
+          && ownBaseCopy.data[0]?.base_copy === 'Original request body'
+          && !crossBaseCopy.error && (crossBaseCopy.data ?? []).length === 0
+          && !!anonBaseCopy.error
+          && !directHistoricalVersions.error
+          && directHistoricalVersions.data?.length === 1
+          && directHistoricalVersions.data[0]?.version === 2,
+        ownBaseCopy.error?.message ?? crossBaseCopy.error?.message
+          ?? anonBaseCopy.error?.message ?? directHistoricalVersions.error?.message
+          ?? JSON.stringify({ own: ownBaseCopy.data, cross: crossBaseCopy.data,
+            versions: directHistoricalVersions.data }))
+
       const bundleCaption = await bClient.rpc('request_content_edit', {
         p_content_id: bBundleItemId, p_content_version: 1, p_block_key: 'caption',
         p_proposed_text: '  Caption requested by Maria. \t\r\nSecond line.  ', p_idempotency_key: randomUUID(),

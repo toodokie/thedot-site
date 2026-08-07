@@ -30,6 +30,7 @@ export type ContentRequestRow = {
   canonical_version: number | null
   resolution_note: string | null
   canonical_content_key: string | null
+  base_copy_text?: string | null
 }
 
 const SELECT = 'id, client_id, content_id, request_type, base_version, payload, status, requester_name, created_at, updated_at, reconciled_at, reconciled_by, canonical_version, resolution_note, canonical_content_key'
@@ -61,7 +62,28 @@ export async function getContentRequests(
   if (contentUuid) query = query.eq('content_id', contentUuid)
   const { data, error } = await query
   if (error) throw new PortalDataError(error.message)
-  return (data ?? []).map(mapRequest)
+  const requests = (data ?? []).map(mapRequest)
+  const editRequestIds = requests
+    .filter((request) => request.request_type === 'edit')
+    .map((request) => request.id)
+  if (!editRequestIds.length) return requests.map((request) => ({ ...request, base_copy_text: null }))
+  const { data: baseCopies, error: baseCopyError } = await supabase.rpc(
+    'get_content_request_base_copies',
+    { p_request_ids: editRequestIds },
+  )
+  if (baseCopyError) throw new PortalDataError(baseCopyError.message)
+  const baseCopyByRequest = new Map<string, string>()
+  for (const value of baseCopies ?? []) {
+    if (!value || typeof value !== 'object') continue
+    const row = value as Record<string, unknown>
+    if (typeof row.request_id === 'string' && typeof row.base_copy === 'string') {
+      baseCopyByRequest.set(row.request_id, row.base_copy)
+    }
+  }
+  return requests.map((request) => ({
+    ...request,
+    base_copy_text: baseCopyByRequest.get(request.id) ?? null,
+  }))
 }
 
 export async function getContentRequestMessages(
