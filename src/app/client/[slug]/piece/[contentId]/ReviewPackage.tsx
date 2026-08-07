@@ -47,7 +47,7 @@ export default function ReviewPackage({
       <div style={{ marginTop: 24 }}>
         {groups.length === 0 ? <Text tone="grey">No copy for this piece yet.</Text> : groups.map((group) => (
           <section key={group.id} aria-labelledby={`review-group-${group.id}`} style={{ marginTop: 24 }}>
-            <Heading level={4} id={`review-group-${group.id}`}>{group.title}</Heading>
+            <div id={`review-group-${group.id}`}><Heading level={4}>{group.title}</Heading></div>
             <Text size="sm" tone="grey">{group.description}</Text>
             <div style={{ marginTop: 12 }}>
               {group.blocks.map((block, index) => (

@@ -179,6 +179,42 @@ fact_check_ledger: []`)
     expect(parsed.client_body).not.toContain('Internal only')
   })
 
+  it('requires separately editable copy surfaces for podcast packs', () => {
+    const podcast = document().replace('format: carousel', 'format: podcast')
+      .replace(`<!-- portal-block:caption -->
+## Caption
+Client copy.`, `<!-- portal-block:social-caption -->
+## Instagram and Facebook caption
+Social copy.
+
+<!-- portal-block:youtube-title -->
+## YouTube title
+Episode title
+
+<!-- portal-block:youtube-description -->
+## YouTube description
+Episode description
+
+<!-- portal-block:youtube-tags -->
+## YouTube tags
+Kanset Talks, Canadian immigration`)
+    expect(parseContentFile(podcast, 'podcast.md').format).toBe('podcast')
+    expect(() => parseContentFile(
+      podcast.replace('<!-- portal-block:youtube-tags -->', '<!-- portal-block:other-tags -->'),
+      'podcast-missing.md',
+    )).toThrow(/youtube-tags/)
+  })
+
+  it('requires an article body for a podcast website companion', () => {
+    const article = document().replace('format: carousel', 'format: podcast_article')
+      .replace('portal-block:caption', 'portal-block:article-body')
+    expect(parseContentFile(article, 'article.md').format).toBe('podcast_article')
+    expect(() => parseContentFile(
+      article.replace('portal-block:article-body', 'portal-block:article-seo'),
+      'article-missing.md',
+    )).toThrow(/article-body/)
+  })
+
   it('rejects coercion and bounded-field violations', () => {
     expect(() => parseContentFile(document().replace('title: "Test piece"', 'title: 123'), 'p.md')).toThrow(/title/)
     expect(() => parseContentFile(document().replace('claim: "OINP Employer Job Offer streams require an eligible Ontario job offer."', `claim: "${'x'.repeat(501)}"`), 'p.md')).toThrow(/claim/)

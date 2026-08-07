@@ -78,8 +78,8 @@ export default function CommentThread({
               ...(isAgency ? { borderLeft: '2px solid var(--dot-yellow)', paddingLeft: 14, marginLeft: 12 } : {}),
             }}>
               {c.target_kind === 'design' && <div style={{ ...quoteBox, borderLeftColor: 'var(--dot-black)' }}>
-                <Text size="sm" tone="graphite">Design feedback</Text>
-                {c.target_url && <a href={c.target_url} target="_blank" rel="noreferrer" style={{ display: 'block', marginTop: 4, color: 'var(--dot-black)' }}>Open the referenced design</a>}
+                <Text size="sm" tone="graphite">Asset feedback</Text>
+                {c.target_url && <a href={c.target_url} target="_blank" rel="noreferrer" style={{ display: 'block', marginTop: 4, color: 'var(--dot-black)' }}>Open the referenced asset</a>}
               </div>}
               {c.target_kind !== 'design' && c.quoted_text && <div style={quoteBox}><Text size="md" tone="graphite">{c.quoted_text}</Text></div>}
               {isAgency ? (
@@ -108,7 +108,7 @@ export default function CommentThread({
 
       {canComment && designLinks && designLinks.length > 0 && (
         <div style={{ marginTop: 10 }}>
-          <Text size="sm" tone="grey">Leave feedback on a linked design</Text>
+          <Text size="sm" tone="grey">Leave feedback on a linked asset</Text>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
             {designLinks.map((link) => <Button key={link.url} as="button" variant="ghost" size="sm"
               onClick={() => { setTargetKind('design'); setTargetUrl(link.url); setQuote(null) }}>
@@ -126,7 +126,7 @@ export default function CommentThread({
         <input type="hidden" name="targetKind" value={targetKind} />
         <input type="hidden" name="designUrl" value={targetKind === 'design' ? (targetUrl ?? '') : ''} />
         {targetKind === 'design' && <div style={{ ...quoteBox, borderLeftColor: 'var(--dot-black)' }}>
-          <Text size="sm" tone="graphite">Commenting on the selected design</Text>
+          <Text size="sm" tone="graphite">Commenting on the selected asset</Text>
           {targetUrl && <a href={targetUrl} target="_blank" rel="noreferrer" style={{ display: 'block', marginTop: 4, color: 'var(--dot-black)' }}>Open it</a>}
           <button type="button" onClick={() => { setTargetKind('copy'); setTargetUrl(null) }} style={{ marginLeft: 10, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dot-graphite)', fontSize: 12 }}>switch to copy</button>
         </div>}

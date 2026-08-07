@@ -2062,7 +2062,9 @@ async function main(): Promise<void> {
       })
       check('N8: notification trace is complete for service and unavailable to the client browser',
         !!clientAuditDenied.error && !serviceAudit.error
-          && (serviceAudit.data ?? []).some((row) => row.status === 'pending'
+          && (serviceAudit.data ?? []).some((row: {
+            status: string; activity_event_type: string | null; source_kind: string
+          }) => row.status === 'pending'
             && row.activity_event_type === null && row.source_kind === 'comment'),
         clientAuditDenied.error?.message ?? serviceAudit.error?.message ?? JSON.stringify(serviceAudit.data))
     }
@@ -2718,6 +2720,125 @@ async function main(): Promise<void> {
           && (retracted.data?.length ?? 0) === 0,
         dl6Set.error?.message ?? dl6Clear.error?.message
           ?? `projected=${projected.data?.length} eligibility=${projectedDoc.data?.answer_eligibility} retracted=${retracted.data?.length}`)
+    }
+
+    console.log('\n--- 0073 podcast review packs ---')
+
+    {
+      const PODCAST_ID = `rls-podcast-${RUN_ID}`
+      const podcastSnapshot = snapshot(
+        bClientId, PODCAST_ID, 1, 'Podcast review fixture',
+        'Complete podcast review fixture.', 'social-caption',
+        { format: 'podcast', platforms: ['instagram', 'facebook', 'youtube'] },
+      )
+      podcastSnapshot.copy_blocks = [
+        { key: 'social-caption', label: 'Instagram and Facebook caption', body: 'Social caption.' },
+        { key: 'youtube-title', label: 'YouTube title', body: 'Podcast review fixture' },
+        { key: 'youtube-description', label: 'YouTube description', body: 'YouTube description.' },
+        { key: 'youtube-tags', label: 'YouTube tags', body: 'kanset, immigration' },
+      ]
+      const podcastSync = await sync([podcastSnapshot])
+      const podcastItemId = podcastSync[0]?.item_id
+      const podcastRelease = await admin.rpc('mark_content_ready', {
+        p_content_id: podcastItemId, p_content_version: 1,
+      })
+      if (!podcastItemId || podcastRelease.error) {
+        throw new Error(podcastRelease.error?.message ?? 'podcast fixture release failed')
+      }
+
+      const incompleteDecision = await bClient.rpc('record_content_decision', {
+        p_content_id: podcastItemId, p_content_version: 1, p_decision: 'approved', p_note: null,
+      })
+      const directWrite = await bClient.from('content_review_assets').insert({
+        client_id: bClientId, content_item_id: podcastItemId, content_version: 1,
+        asset_key: 'forged', label: 'Forged', channel: 'social', asset_kind: 'cover',
+        url: 'https://drive.google.com/open?id=FORGED', width_px: 1080, height_px: 1920,
+      })
+      const eventRead = await bClient.from('content_review_asset_events').select('id').limit(1)
+      check('PR1: incomplete podcast approval fails closed and browser writes stay denied',
+        !!incompleteDecision.error && !!directWrite.error && !!eventRead.error,
+        incompleteDecision.error?.message ?? directWrite.error?.message
+          ?? eventRead.error?.message ?? 'unexpected access')
+
+      const reviewAssetInputs = [
+        {
+          assetKey: 'social-cover', label: 'Instagram and Facebook reel cover',
+          channel: 'social', assetKind: 'cover', url: 'https://www.canva.com/design/PODCASTSOCIAL/view',
+          widthPx: 1080, heightPx: 1920, captionStatus: 'not_applicable',
+        },
+        {
+          assetKey: 'social-teaser', label: 'Captioned teaser video',
+          channel: 'social', assetKind: 'video', url: 'https://drive.google.com/open?id=PODCASTTEASER',
+          widthPx: 1080, heightPx: 1920, captionStatus: 'burned_in_verified',
+        },
+        {
+          assetKey: 'youtube-cover', label: 'YouTube horizontal cover',
+          channel: 'youtube', assetKind: 'cover', url: 'https://www.canva.com/design/PODCASTYOUTUBE/view',
+          widthPx: 1280, heightPx: 720, captionStatus: 'not_applicable',
+        },
+      ] as const
+      for (const asset of reviewAssetInputs) {
+        const result = await admin.rpc('set_content_review_asset', {
+          p_client_id: bClientId,
+          p_content_id: PODCAST_ID,
+          p_content_version: 1,
+          p_asset_key: asset.assetKey,
+          p_label: asset.label,
+          p_channel: asset.channel,
+          p_asset_kind: asset.assetKind,
+          p_url: asset.url,
+          p_width_px: asset.widthPx,
+          p_height_px: asset.heightPx,
+          p_caption_status: asset.captionStatus,
+          p_review_note: null,
+          p_actor_key: 'thedot-admin',
+          p_idempotency_key: `rls-review-asset-${asset.assetKey}-${RUN_ID}`,
+        })
+        if (result.error) throw new Error(`set review asset: ${result.error.message}`)
+      }
+
+      const ownAssets = await bClient.from('content_review_assets')
+        .select('asset_key,caption_status').eq('content_item_id', podcastItemId)
+      const crossAssets = await kansetClient.from('content_review_assets')
+        .select('asset_key').eq('content_item_id', podcastItemId)
+      const assetComment = await bClient.rpc('add_design_comment', {
+        p_content_id: podcastItemId,
+        p_body: 'Please make the teaser opening warmer.',
+        p_design_url: 'https://drive.google.com/open?id=PODCASTTEASER',
+      })
+      const approved = await bClient.rpc('record_content_decision', {
+        p_content_id: podcastItemId, p_content_version: 1, p_decision: 'approved', p_note: null,
+      })
+      check('PR2: Maria reads and comments on exact tenant assets, then approves the complete pack',
+        !ownAssets.error && (ownAssets.data?.length ?? 0) === 3
+          && !crossAssets.error && (crossAssets.data?.length ?? 0) === 0
+          && !assetComment.error && !approved.error,
+        ownAssets.error?.message ?? crossAssets.error?.message
+          ?? assetComment.error?.message ?? approved.error?.message
+          ?? `own=${ownAssets.data?.length} cross=${crossAssets.data?.length}`)
+
+      const youtubeTarget = await admin.from('content_schedule_targets')
+        .select('id').eq('client_id', bClientId).eq('content_id', podcastItemId)
+        .eq('content_version', 1).eq('destination', 'youtube').single()
+      const scheduledAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      const schedule = await admin.rpc('confirm_schedule_target', {
+        p_schedule_target_id: youtubeTarget.data?.id,
+        p_scheduled_at: scheduledAt,
+        p_external_url: null,
+        p_external_id: null,
+        p_evidence_id: null,
+        p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-podcast-schedule-${RUN_ID}`,
+      })
+      const transcriptTasks = await admin.from('ops_tasks')
+        .select('title,source,status').eq('idempotency_key', `podcast-transcript:${podcastItemId}:1`)
+      check('PR3: a confirmed YouTube upload opens one transcript-proof task',
+        !youtubeTarget.error && !schedule.error && !transcriptTasks.error
+          && transcriptTasks.data?.length === 1
+          && transcriptTasks.data[0]?.status === 'open'
+          && transcriptTasks.data[0]?.source.includes('correct them in YouTube Studio'),
+        youtubeTarget.error?.message ?? schedule.error?.message ?? transcriptTasks.error?.message
+          ?? JSON.stringify(transcriptTasks.data))
     }
 
     console.log('\n--- 0022 production gates + ops tasks (agency-only) ---')

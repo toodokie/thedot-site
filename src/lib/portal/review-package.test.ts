@@ -43,4 +43,18 @@ describe('groupReviewCopy', () => {
     expect(groups[0].title).toBe('LinkedIn post')
     expect(groups[0].description).toContain('its own piece')
   })
+
+  it('shows podcast metadata as separately editable YouTube blocks', () => {
+    const groups = groupReviewCopy([
+      { key: 'youtube-title', label: 'YouTube title', body: 'Episode title' },
+      { key: 'youtube-description', label: 'YouTube description', body: 'Episode description' },
+      { key: 'youtube-tags', label: 'YouTube tags', body: 'Kanset Talks, Canadian immigration' },
+      { key: 'article-body', label: 'Website article', body: 'Article copy' },
+    ], ['youtube', 'squarespace'])
+
+    expect(groups.map((group) => group.id)).toEqual(['youtube', 'website'])
+    expect(groups[0].blocks.map((block) => block.key)).toEqual([
+      'youtube-title', 'youtube-description', 'youtube-tags',
+    ])
+  })
 })

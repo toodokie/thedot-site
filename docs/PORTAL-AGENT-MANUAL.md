@@ -5,7 +5,7 @@ actually built" reference: architecture, code map, data/security model, the cont
 design system, the deploy discipline, and the hard-won lessons. Read this top to bottom once;
 after that use the table of contents.
 
-**Last verified against the codebase:** 2026-08-07 (migrations `0001`–`0072`).
+**Last verified against the codebase:** 2026-08-07 (migrations `0001` through `0073`; production remains through `0072` until the reviewed `0073` rollout).
 
 > This manual documents the **code** (the `~/thedot-site` repo). The **business/engagement**
 > context (client, pricing, content strategy, cadence, brand voice) lives in the `~/Kanset`
@@ -195,6 +195,7 @@ Each file's top comment states its purpose. Summary:
 | `0070_client_copy_whitespace_normalization` | n/a | Canonicalizes browser line endings and invisible line-end whitespace at edit intake and legacy bundle reconciliation without relaxing Git whitespace checks. |
 | `0071_content_request_base_copy_reader` | n/a | Gives an authenticated client a narrow tenant-scoped read of the exact historical copy block referenced by their own edit request, without opening historical version rows generally. |
 | `0072_client_visible_canada_sources` | n/a | Permits reviewed `canada.ca` and subdomain citations in client-visible canonical copy while preserving dot-boundary rejection of lookalike hosts. |
+| `0073_podcast_review_packs` | n/a | Adds version-bound multi-asset review packs, fail-closed podcast and podcast-article readiness, exact asset comments, and automatic YouTube transcript-review tasks. |
 
 **Full v1 architecture + phasing spec:** `~/Kanset/portal-integration-task.md`.
 **Gate-system spec:** `docs/superpowers/specs/2026-07-21-portal-gate-system-design.md`.
@@ -230,6 +231,11 @@ Each file's top comment states its purpose. Summary:
 `idea-actions`, `request-actions`, `schedule-actions`, `seen-actions`). They call the guarded RPCs
 (`add_comment`, `add_idea`, `request_content_reschedule`, `mark_notification_seen`, …) through the
 RLS-enforced server client. **Client code never touches the service-role client.**
+
+Podcast pieces add version-bound rows from `content_review_assets` to this same page. The episode
+piece shows the social cover, captioned teaser, and YouTube cover beside separately editable social
+caption, YouTube title, description, and tags blocks. The website companion stays a separate
+`podcast_article` item with its own 1500x1000 cover, article block, and client decision.
 
 **Domain logic** for the client read paths is in `src/lib/portal/`: `data.ts` (content + activity
 fetch), `state.ts` (`clientStateLabel`, state machine), `seen.ts` (last-seen tracking),
@@ -368,6 +374,11 @@ is the human mirror of this; `renderStatusGatesBlock` generates it.
 - Every website article has its own `content_id` and `platforms: [squarespace]`. A podcast episode
   and its companion article are separate pieces with separate approval, schedule, and publication
   evidence.
+- New podcast episodes use `format: podcast`. Their final decision fails closed until
+  `social-cover`, `social-teaser`, and `youtube-cover` review assets are attached to the exact
+  released version, the teaser is marked `burned_in_verified`, and the social caption plus separate
+  YouTube title, description, and tags blocks exist. The companion article uses
+  `format: podcast_article` and requires `article-body` plus `website-cover`.
 
 - `content_schedule_targets` (`0008`) — per-destination schedule intent. RPCs `confirm_schedule_target`,
   `request_content_reschedule`, `mark_schedule_target_failed`, `portal_ensure_schedule_targets`,
@@ -381,6 +392,10 @@ is the human mirror of this; `renderStatusGatesBlock` generates it.
   Upload flow: `evidence/upload` (signed URL) → browser `uploadToSignedUrl` → `evidence/finalize`.
 - **Admin UI:** `PublicationAdmin.tsx` — per-destination "Confirm / correct" form (confirm scheduled,
   confirm live, mark failed/unavailable/removed) with proof upload or reviewed link.
+- **Podcast transcript follow-up (`0073`):** when a `podcast` YouTube target is first confirmed
+  scheduled, or first confirmed live when it skipped scheduling, a deterministic open Ops task asks
+  the agent to review and correct YouTube automatic captions. The task is idempotent across both
+  triggers and remains agency-only.
 
 **Historical importer** (`scripts/import-portal-history.ts` + `src/lib/portal/history-import.ts`):
 brings the pre-portal timeline in with **honest provenance** (D1): YouTube rows get real
@@ -633,6 +648,11 @@ email date; log it in the approvals ledger. Post-launch she clicks Approve → `
 **Confirm a publication:** bring the **verified live URL** to the Publication surface (or the confirm
 tooling in `scripts/`), attach evidence, record the observation. **Do not** edit repo files to add a
 link — the DB is the record.
+
+**Attach a podcast review asset:** run `portal-write review-asset` with the exact `contentVersion`,
+stable `assetKey`, channel, kind, Canva or Drive URL, pixel dimensions, and caption status. Use
+`burned_in_verified` only after the teaser captions were proofed. A generic item-level design link
+does not satisfy the podcast readiness contract.
 
 **Deploy a display change:** §15 worktree recipe.
 

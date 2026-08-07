@@ -19,6 +19,9 @@ import RemovalRequestForm from './RemovalRequestForm'
 import ProgressBar from '@/components/portal/ProgressBar'
 import { clientProgress } from '@/lib/portal/progress-bar-model'
 import { reReviewContext } from '@/lib/portal/re-review'
+import { getReviewAssets } from '@/lib/portal/review-assets'
+import { reviewPackageReadiness } from '@/lib/portal/podcast-review'
+import ReviewAssets from './ReviewAssets'
 
 const chip: CSSProperties = {
   fontFamily: 'var(--dot-font-text)', fontSize: 11, color: 'var(--dot-graphite)',
@@ -49,11 +52,12 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
   if (!session) redirect('/client/login')
   const item = await getContentItem(session.clientId, contentId)
   if (!item) redirect(`/client/${slug}`)
-  const [comments, schedule, publication, requests] = await Promise.all([
+  const [comments, schedule, publication, requests, reviewAssets] = await Promise.all([
     getComments(session.clientId, item.id),
     getScheduleDetails(session.clientId, item.id, item.version),
     getPublicationDetails(session.clientId, item.id, item.version),
     getContentRequests(session.clientId, item.id),
+    getReviewAssets(session.clientId, item.id, item.version),
   ])
   const requestMessages = await getContentRequestMessages(
     session.clientId, requests.map((request) => request.id),
@@ -78,7 +82,17 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
     item.canva_url && /^https:\/\//i.test(item.canva_url) ? { label: 'Canva', url: item.canva_url } : null,
     item.drive_url && /^https:\/\//i.test(item.drive_url) ? { label: 'Google Drive', url: item.drive_url } : null,
   ].filter((link): link is { label: string; url: string } => Boolean(link))
-  const finalDecisionAvailable = item.state === 'needs_review' && designLinks.length > 0
+  const readiness = reviewPackageReadiness(
+    item.format,
+    blocks,
+    reviewAssets,
+    designLinks.length > 0,
+  )
+  const finalDecisionAvailable = item.state === 'needs_review' && readiness.ready
+  const commentAssets = [
+    ...reviewAssets.map((asset) => ({ label: asset.label, url: asset.url })),
+    ...designLinks,
+  ].filter((link, index, rows) => rows.findIndex((row) => row.url === link.url) === index)
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: '40px 32px' }}>
@@ -107,7 +121,7 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
         marginBottom: 28, padding: '20px', border: '1px solid var(--dot-hairline)', background: 'var(--dot-yellow-pale)',
       }}>
         <Eyebrow tone="grey">{reReview.mode === 'decision' ? 'Updated for re-review' : 'Updated after your feedback'}</Eyebrow>
-        <div style={{ marginTop: 8 }}><Heading level={3} id="re-review-heading">We updated this after your feedback.</Heading></div>
+        <div id="re-review-heading" style={{ marginTop: 8 }}><Heading level={3}>We updated this after your feedback.</Heading></div>
         <Text tone="graphite">
           We updated the {listAreas(reReview.changedAreas)}. This is version {item.version}, updated from version {reReview.previousVersion}. {reReview.mode === 'decision'
             ? 'Please review the current package, then approve it when ready or request further changes.'
@@ -118,6 +132,7 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
       <nav aria-label="Review package sections" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '8px 14px', marginBottom: 28 }}>
         <span style={{ color: 'var(--dot-grey)', fontSize: 13 }}>Jump to:</span>
         <a href="#review-copy" style={sectionLink}>Copy</a>
+        {reviewAssets.length > 0 && <a href="#review-assets" style={sectionLink}>Assets</a>}
         {designLinks.length > 0 && <a href="#review-design" style={sectionLink}>Design</a>}
         <a href="#review-facts" style={sectionLink}>Facts</a>
         <a href="#review-comments" style={sectionLink}>Comments</a>
@@ -134,10 +149,22 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
         finalDecisionAvailable={finalDecisionAvailable}
       />
 
+      {reviewAssets.length > 0 && <ReviewAssets assets={reviewAssets} />}
+
+      {item.state === 'needs_review' && !readiness.ready && <section aria-labelledby="pack-incomplete-heading" style={{
+        marginBottom: 28, padding: '20px', border: '1px solid var(--dot-black)', background: 'var(--dot-yellow-pale)',
+      }}>
+        <div id="pack-incomplete-heading"><Heading level={3}>Package still being assembled</Heading></div>
+        <Text tone="graphite">The final decision will appear when The Dot adds:</Text>
+        <ul style={{ margin: '10px 0 0', paddingLeft: 22, fontFamily: 'var(--dot-font-text)', fontSize: 16, lineHeight: 1.55 }}>
+          {readiness.missing.map((item) => <li key={item}>{item}</li>)}
+        </ul>
+      </section>}
+
       {designLinks.length > 0 && <section id="review-design" aria-labelledby="review-design-heading" style={{
         marginBottom: 28, padding: '20px', border: '1px solid var(--dot-hairline)', background: 'var(--dot-cream)',
       }}>
-        <Heading level={3} id="review-design-heading">Design review</Heading>
+        <div id="review-design-heading"><Heading level={3}>Design review</Heading></div>
         <Text tone="graphite">Open the current design, then return here to leave a design comment for The Dot. Approving the package below approves this linked design and its copy together.</Text>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
           {designLinks.map((link, index) => <Button key={link.url} as="a" href={link.url} target="_blank" rel="noreferrer"
@@ -159,7 +186,7 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
       <div id="review-comments">
         <CommentThread slug={slug} contentId={item.content_id} comments={comments}
         canComment={session.canComment}
-        designLinks={designLinks} />
+        designLinks={commentAssets} />
       </div>
 
       {/* The progress bar under the title carries the state. This remains one atomic
@@ -168,7 +195,7 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
       {finalDecisionAvailable && <section id="review-decision" aria-labelledby="review-decision-heading" style={{
         marginTop: 32, padding: '20px', border: '1px solid var(--dot-black)', background: 'var(--dot-cream)',
       }}>
-        <Heading level={3} id="review-decision-heading">{session.canDecide ? (reReview?.mode === 'decision' ? 'Your re-review decision' : 'Your decision') : 'Package decision'}</Heading>
+        <div id="review-decision-heading"><Heading level={3}>{session.canDecide ? (reReview?.mode === 'decision' ? 'Your re-review decision' : 'Your decision') : 'Package decision'}</Heading></div>
         {session.canDecide
           ? <DecideForm slug={slug} contentId={item.content_id} />
           : <Text tone="grey">Only Maria, the primary decision-maker, can approve this package or request changes. Your comments are still part of the review.</Text>}

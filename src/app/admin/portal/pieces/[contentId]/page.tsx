@@ -53,6 +53,18 @@ export default async function AdminPiecePage({ params }: { params: Promise<{ con
     .select('canva_url, drive_url')
     .eq('client_id', client.data.id).eq('content_item_id', itemRow.data.id).maybeSingle() : null
   const designLink = designRow?.data as { canva_url: string | null; drive_url: string | null } | null | undefined
+  const reviewAssetRows = itemRow.data?.id && itemRow.data.working_version != null
+    ? await admin.from('content_review_assets')
+      .select('id, asset_key, label, channel, asset_kind, url, width_px, height_px, caption_status, review_note')
+      .eq('client_id', client.data.id)
+      .eq('content_item_id', itemRow.data.id)
+      .eq('content_version', itemRow.data.working_version)
+      .order('channel').order('asset_key')
+    : null
+  const reviewAssets = (reviewAssetRows?.data ?? []) as Array<{
+    id: string; asset_key: string; label: string; channel: string; asset_kind: string
+    url: string; width_px: number; height_px: number; caption_status: string; review_note: string | null
+  }>
   const blocks = Array.isArray(content?.copy_blocks)
     ? content!.copy_blocks as Array<{ key: string | null; label: string; body: string }> : []
   const canvaRaw = designLink?.canva_url ?? content?.canva_url ?? null
@@ -64,7 +76,7 @@ export default async function AdminPiecePage({ params }: { params: Promise<{ con
       loadAdminComments({ clientId: client.data.id, contentUuid: itemRow.data.id }),
       loadRequests({ clientId: client.data.id, contentUuid: itemRow.data.id }),
     ])
-    : [[], []] as const
+    : [[], []]
 
   const model = agencyProgress(piece)
   const gates = resolveNineGates(piece)
@@ -123,6 +135,32 @@ export default async function AdminPiecePage({ params }: { params: Promise<{ con
           <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
             {canva && <Button as="a" href={canva} target="_blank" rel="noreferrer" variant="yellow" size="sm">Open design in Canva</Button>}
             {drive && <Button as="a" href={drive} target="_blank" rel="noreferrer" variant="ghost" size="sm">Open in Drive</Button>}
+          </div>
+        )}
+        {reviewAssets.length > 0 && (
+          <div style={{ marginTop: 22 }}>
+            <div style={{ fontFamily: 'var(--dot-font-text)', fontSize: 12,
+              textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--dot-graphite)', marginBottom: 6 }}>
+              Review assets
+            </div>
+            {reviewAssets.map((asset) => (
+              <div key={asset.id} style={{ borderTop: '1px solid var(--dot-hairline)', padding: '12px 0' }}>
+                <div style={{ fontFamily: 'var(--dot-font-text)', fontSize: 15, color: 'var(--dot-black)' }}>
+                  {asset.label}
+                </div>
+                <div style={{ fontFamily: 'var(--dot-font-text)', fontSize: 12, color: 'var(--dot-grey)', marginTop: 3 }}>
+                  {asset.channel} · {asset.asset_kind} · {asset.width_px} × {asset.height_px}px
+                  {asset.caption_status !== 'not_applicable' ? ` · ${asset.caption_status.replaceAll('_', ' ')}` : ''}
+                </div>
+                {asset.review_note && <div style={{ fontFamily: 'var(--dot-font-text)', fontSize: 13,
+                  color: 'var(--dot-graphite)', marginTop: 4 }}>{asset.review_note}</div>}
+                <div style={{ marginTop: 8 }}>
+                  <Button as="a" href={asset.url} target="_blank" rel="noreferrer" variant="ghost" size="sm">
+                    Open asset
+                  </Button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </section>

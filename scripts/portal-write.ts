@@ -53,7 +53,7 @@ const assertNoteGrammarSafe = (value: string | null, field: string) => {
 
 async function main() {
   const [command, inputPath, ...rest] = process.argv.slice(2)
-  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|report-notify|communication|proposal-draft|proposal-revise|proposal-submit|proposal-reply|external-decision|courtesy-release|override-destination|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|plan-cycle|plan-cycle-stage|plan-cycle-close|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
+  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|report-notify|communication|proposal-draft|proposal-revise|proposal-submit|proposal-reply|external-decision|courtesy-release|override-destination|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|review-asset|plan-cycle|plan-cycle-stage|plan-cycle-close|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
   const dryRun = rest.includes('--dry-run')
   const packIndex = rest.indexOf('--pack')
   const packPath = packIndex >= 0 ? rest[packIndex + 1] ?? null : null
@@ -322,6 +322,36 @@ async function main() {
       p_content_id: requiredText(payload.contentId, 'contentId', 200),
       p_canva_url: canvaUrl, p_drive_url: driveUrl,
       p_actor_key: actor, p_idempotency_key: idempotency }
+  } else if (command === 'review-asset') {
+    // Version-bound asset in a multi-asset review package (migration 0073).
+    // Covers and videos remain presentation metadata, but unlike the legacy pair
+    // each link has a stable purpose, dimensions, and caption-proof state.
+    const assetUrl = requiredText(payload.url, 'url', 2048)
+    const assetHost = new URL(assetUrl).hostname.toLowerCase()
+    if (!/^https:\/\//.test(assetUrl)
+      || !['canva.com', 'www.canva.com', 'drive.google.com'].includes(assetHost)) {
+      throw new Error('url must be an https Canva or Google Drive link')
+    }
+    const label = requiredText(payload.label, 'label', 120)
+    const reviewNote = optionalText(payload.reviewNote, 'reviewNote', 500)
+    assertClientSafeAgencyText({ label, reviewNote })
+    rpc = 'set_content_review_asset'; args = {
+      p_client_id: null,
+      p_content_id: requiredText(payload.contentId, 'contentId', 200),
+      p_content_version: integer(payload.contentVersion, 'contentVersion', 1),
+      p_asset_key: requiredText(payload.assetKey, 'assetKey', 64),
+      p_label: label,
+      p_channel: stringArray(payload.channel, 'channel', ['social', 'youtube', 'website']),
+      p_asset_kind: stringArray(payload.assetKind, 'assetKind', ['cover', 'video', 'document']),
+      p_url: assetUrl,
+      p_width_px: integer(payload.widthPx, 'widthPx', 100),
+      p_height_px: integer(payload.heightPx, 'heightPx', 100),
+      p_caption_status: stringArray(payload.captionStatus ?? 'not_applicable', 'captionStatus',
+        ['not_applicable', 'burned_in_pending', 'burned_in_verified']),
+      p_review_note: reviewNote,
+      p_actor_key: actor,
+      p_idempotency_key: idempotency,
+    }
   } else if (command === 'idea') {
     // Audited agency idea entry (agency_add_idea, migration 0019). authorType records
     // WHOSE idea it is (Maria's emailed ideas stay hers); the receipt + activity trail

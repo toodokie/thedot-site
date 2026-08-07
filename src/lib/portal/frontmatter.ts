@@ -134,6 +134,28 @@ function parseCopyBlocks(clientBody: string, source: string): { key: string; lab
   return blocks
 }
 
+function validateSpecialPackBlocks(
+  format: string | null,
+  blocks: { key: string }[],
+  source: string,
+): void {
+  const keys = new Set(blocks.map((block) => block.key))
+  if (format === 'podcast') {
+    const missing = [
+      !['social-caption', 'ig-facebook-caption'].some((key) => keys.has(key))
+        ? 'social-caption' : null,
+      ...['youtube-title', 'youtube-description', 'youtube-tags']
+        .filter((key) => !keys.has(key)),
+    ].filter((key): key is string => key !== null)
+    if (missing.length > 0) {
+      throw new Error(`Podcast pack is missing required portal blocks (${missing.join(', ')}) in ${source}`)
+    }
+  }
+  if (format === 'podcast_article' && !keys.has('article-body')) {
+    throw new Error(`Podcast article is missing required portal block (article-body) in ${source}`)
+  }
+}
+
 // scheduled_date MUST be a quoted "YYYY-MM-DD" string. gray-matter's YAML turns an UNQUOTED date
 // into a JS Date and silently rolls over invalid components (2026-02-31 -> Mar 3, a full timestamp
 // shifts by timezone), which could move a publication date with no error. So we reject non-strings
@@ -330,6 +352,7 @@ export function parseContentFile(raw: string, sourcePath: string): ParsedContent
   const internal = content.slice(idx + matches[0][0].length)
   if (!rawClientBody.trim()) throw new Error(`Empty client body in ${sourcePath}`)
   const copy_blocks = parseCopyBlocks(rawClientBody, sourcePath)
+  validateSpecialPackBlocks(format, copy_blocks, sourcePath)
   const client_body = rawClientBody
     .split('\n')
     .filter((line) => !/^\s*<!--\s*portal-block:[^>]+-->\s*$/.test(line))

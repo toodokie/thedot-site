@@ -5,7 +5,7 @@ export type ReviewCopyBlock = {
 }
 
 export type ReviewGroup = {
-  id: 'social' | 'linkedin' | 'youtube' | 'creative' | 'copy'
+  id: 'social' | 'linkedin' | 'youtube' | 'website' | 'creative' | 'copy'
   title: string
   description: string
   blocks: ReviewCopyBlock[]
@@ -35,6 +35,13 @@ function isLinkedIn(block: ReviewCopyBlock): boolean {
   const key = normalized(block.key)
   const label = normalized(block.label)
   return key.includes('linkedin') || label.includes('linkedin')
+}
+
+function isWebsite(block: ReviewCopyBlock): boolean {
+  const key = normalized(block.key)
+  const label = normalized(block.label)
+  return key.includes('article') || key.includes('website')
+    || label.includes('article') || label.includes('website')
 }
 
 function isCreative(block: ReviewCopyBlock): boolean {
@@ -76,12 +83,14 @@ export function groupReviewCopy(
   const social: ReviewCopyBlock[] = []
   const linkedin: ReviewCopyBlock[] = []
   const youtube: ReviewCopyBlock[] = []
+  const website: ReviewCopyBlock[] = []
   const creative: ReviewCopyBlock[] = []
   const other: ReviewCopyBlock[] = []
 
   for (const block of blocks) {
     if (isYoutube(block)) youtube.push(block)
     else if (isLinkedIn(block)) linkedin.push(block)
+    else if (isWebsite(block)) website.push(block)
     else if (isSocial(block, platforms)) social.push(block)
     else if (isCreative(block)) creative.push(block)
     else other.push(block)
@@ -103,8 +112,14 @@ export function groupReviewCopy(
     youtube.length > 0 && {
       id: 'youtube' as const,
       title: 'YouTube package',
-      description: 'This is the title and description prepared for YouTube. It is included in the same review decision.',
+      description: 'Review the title, description, tags, and any chapters prepared for YouTube. Each labelled block can be edited separately.',
       blocks: youtube,
+    },
+    website.length > 0 && {
+      id: 'website' as const,
+      title: 'Website article',
+      description: 'The article and its publishing details belong to the separate website piece and its own approval.',
+      blocks: website,
     },
     creative.length > 0 && {
       id: 'creative' as const,
