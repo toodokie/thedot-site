@@ -5,7 +5,7 @@ actually built" reference: architecture, code map, data/security model, the cont
 design system, the deploy discipline, and the hard-won lessons. Read this top to bottom once;
 after that use the table of contents.
 
-**Last verified against the codebase:** 2026-08-07 (migrations `0001`–`0071`).
+**Last verified against the codebase:** 2026-08-07 (migrations `0001`–`0072`).
 
 > This manual documents the **code** (the `~/thedot-site` repo). The **business/engagement**
 > context (client, pricing, content strategy, cadence, brand voice) lives in the `~/Kanset`
@@ -161,7 +161,7 @@ multi-tenant, and the security model is defended in-migration.
 
 ---
 
-## 5. The migration ledger (`0001`–`0071`)
+## 5. The migration ledger (`0001`–`0072`)
 
 Each file's top comment states its purpose. Summary:
 
@@ -194,6 +194,7 @@ Each file's top comment states its purpose. Summary:
 | `0069_open_edit_client_state` | n/a | Pending, applying, and prepared client edits project the released piece as `with_dot` while preserving its released snapshot and design-link overlay. |
 | `0070_client_copy_whitespace_normalization` | n/a | Canonicalizes browser line endings and invisible line-end whitespace at edit intake and legacy bundle reconciliation without relaxing Git whitespace checks. |
 | `0071_content_request_base_copy_reader` | n/a | Gives an authenticated client a narrow tenant-scoped read of the exact historical copy block referenced by their own edit request, without opening historical version rows generally. |
+| `0072_client_visible_canada_sources` | n/a | Permits reviewed `canada.ca` and subdomain citations in client-visible canonical copy while preserving dot-boundary rejection of lookalike hosts. |
 
 **Full v1 architecture + phasing spec:** `~/Kanset/portal-integration-task.md`.
 **Gate-system spec:** `docs/superpowers/specs/2026-07-21-portal-gate-system-design.md`.

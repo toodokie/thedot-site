@@ -10,6 +10,9 @@ export const PUBLIC_RCIC_NUMBERS = ['508325'] as const
 // facebook.com/kansetimmigration and linkedin.com/company/kanset-services.
 export const CLIENT_VISIBLE_LINK_HOSTS = [
   'kanset.com',
+  // Official IRCC citations belong in website-article copy. The suffix matcher
+  // also covers reviewed subdomains such as www.canada.ca and ircc.canada.ca.
+  'canada.ca',
   'canva.com',
   'drive.google.com',
   'docs.google.com',

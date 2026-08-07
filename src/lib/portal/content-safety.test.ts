@@ -103,6 +103,25 @@ describe('client content safety', () => {
     }))).toEqual([])
   })
 
+  it('allows official Canada citations in article copy while rejecting lookalike hosts', () => {
+    expect(findContentSafetyFindings(content({
+      platforms: ['squarespace'],
+      format: 'website_article',
+      client_body: [
+        'Read the [IRCC guidance](https://www.canada.ca/en/immigration-refugees-citizenship.html).',
+        'Check the [application status tool](https://ircc.canada.ca/english/helpcentre/answer.asp?qnum=022).',
+      ].join('\n'),
+    }))).toEqual([])
+    expect(findContentSafetyFindings(content({
+      platforms: ['squarespace'],
+      format: 'website_article',
+      client_body: 'Do not trust https://evilcanada.ca/immigration or https://canada.ca.evil.example.',
+    }))).toEqual([
+      { code: 'unsafe_link', field: 'client_body' },
+      { code: 'unsafe_link', field: 'client_body' },
+    ])
+  })
+
   it('uses the primary-source policy, not the copy-link policy, for ledger evidence', () => {
     const safe = content()
     safe.fact_check_ledger[0].source_title = 'Ontario.ca program update'
