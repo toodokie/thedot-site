@@ -94,7 +94,8 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
   const needs = items.filter((i) => i.state === 'needs_review' && Boolean(i.canva_url || i.drive_url))
   const copyReady = items.filter((i) => i.state === 'needs_review' && !i.canva_url && !i.drive_url)
   const reReviewByContentId = new Map(items.flatMap((item) => {
-    const context = reReviewContext(item.version, item.state, requests.filter((request) => request.content_id === item.id))
+    const context = reReviewContext(item.version, item.state, item.current_decision,
+      requests.filter((request) => request.content_id === item.id))
     return context ? [[item.id, context] as const] : []
   }))
   const withDot = items.filter((i) => i.state === 'with_dot')

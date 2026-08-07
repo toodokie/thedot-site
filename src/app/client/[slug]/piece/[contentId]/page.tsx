@@ -58,7 +58,7 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
   const requestMessages = await getContentRequestMessages(
     session.clientId, requests.map((request) => request.id),
   )
-  const reReview = reReviewContext(item.version, item.state, requests)
+  const reReview = reReviewContext(item.version, item.state, item.current_decision, requests)
 
   const progress = clientProgress({
     clientState: item.state,
@@ -106,10 +106,12 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
       {reReview && <section aria-labelledby="re-review-heading" style={{
         marginBottom: 28, padding: '20px', border: '1px solid var(--dot-hairline)', background: 'var(--dot-yellow-pale)',
       }}>
-        <Eyebrow tone="grey">Updated for re-review</Eyebrow>
+        <Eyebrow tone="grey">{reReview.mode === 'decision' ? 'Updated for re-review' : 'Updated after your feedback'}</Eyebrow>
         <div style={{ marginTop: 8 }}><Heading level={3} id="re-review-heading">We updated this after your feedback.</Heading></div>
         <Text tone="graphite">
-          We updated the {listAreas(reReview.changedAreas)}. This is version {item.version}, updated from version {reReview.previousVersion}. Please review the current package, then approve it when ready or request further changes.
+          We updated the {listAreas(reReview.changedAreas)}. This is version {item.version}, updated from version {reReview.previousVersion}. {reReview.mode === 'decision'
+            ? 'Please review the current package, then approve it when ready or request further changes.'
+            : 'This updated package is the current released version.'}
         </Text>
       </section>}
 
@@ -166,7 +168,7 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
       {finalDecisionAvailable && <section id="review-decision" aria-labelledby="review-decision-heading" style={{
         marginTop: 32, padding: '20px', border: '1px solid var(--dot-black)', background: 'var(--dot-cream)',
       }}>
-        <Heading level={3} id="review-decision-heading">{session.canDecide ? (reReview ? 'Your re-review decision' : 'Your decision') : 'Package decision'}</Heading>
+        <Heading level={3} id="review-decision-heading">{session.canDecide ? (reReview?.mode === 'decision' ? 'Your re-review decision' : 'Your decision') : 'Package decision'}</Heading>
         {session.canDecide
           ? <DecideForm slug={slug} contentId={item.content_id} />
           : <Text tone="grey">Only Maria, the primary decision-maker, can approve this package or request changes. Your comments are still part of the review.</Text>}

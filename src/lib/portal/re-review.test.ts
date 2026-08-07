@@ -15,20 +15,35 @@ function request(overrides: Partial<ContentRequestRow> = {}): ContentRequestRow 
 
 describe('reReviewContext', () => {
   it('labels a released version built from resolved client edit feedback', () => {
-    expect(reReviewContext(4, 'needs_review', [request(), request({ id: 'request-2', status: 'superseded', payload: { block_key: 'graphic' } })]))
-      .toEqual({ previousVersion: 3, changeCount: 2, changedAreas: ['social caption', 'graphic'] })
+    expect(reReviewContext(4, 'needs_review', null, [request(), request({ id: 'request-2', status: 'superseded', payload: { block_key: 'graphic' } })]))
+      .toEqual({ previousVersion: 3, changeCount: 2, changedAreas: ['social caption', 'graphic copy'], mode: 'decision' })
   })
 
   it('does not label a first review or an agency-only revision as a re-review', () => {
-    expect(reReviewContext(4, 'needs_review', [])).toBeNull()
-    expect(reReviewContext(4, 'approved', [request()])).toBeNull()
-    expect(reReviewContext(4, 'needs_review', [request({ canonical_version: 3 })])).toBeNull()
+    expect(reReviewContext(4, 'needs_review', null, [])).toBeNull()
+    expect(reReviewContext(4, 'needs_review', null, [request({ canonical_version: 3 })])).toBeNull()
   })
 
   it('uses clear material names for the review banner', () => {
-    expect(reReviewContext(4, 'needs_review', [request({ payload: { block_key: 'graphic' } })]))
-      .toMatchObject({ changedAreas: ['graphic'] })
-    expect(reReviewContext(4, 'needs_review', [request({ payload: { block_key: 'unexpected' } })]))
+    expect(reReviewContext(4, 'needs_review', null, [request({ payload: { block_key: 'graphic' } })]))
+      .toMatchObject({ changedAreas: ['graphic copy'] })
+    expect(reReviewContext(4, 'needs_review', null, [request({ payload: { block_key: 'reel-script' } })]))
+      .toMatchObject({ changedAreas: ['on-screen reel copy'] })
+    expect(reReviewContext(4, 'needs_review', null, [request({ payload: { block_key: 'unexpected' } })]))
       .toMatchObject({ changedAreas: ['review package'] })
+  })
+
+  it('keeps the feedback update visible after an agency courtesy release', () => {
+    expect(reReviewContext(4, 'approved', null, [request()]))
+      .toEqual({ previousVersion: 3, changeCount: 1, changedAreas: ['social caption'], mode: 'released' })
+    expect(reReviewContext(4, 'scheduled', null, [request()]))
+      .toMatchObject({ mode: 'released' })
+    expect(reReviewContext(4, 'live', null, [request()]))
+      .toMatchObject({ mode: 'released' })
+  })
+
+  it('stops showing the courtesy-release context after a client decision', () => {
+    expect(reReviewContext(4, 'approved', 'approved', [request()])).toBeNull()
+    expect(reReviewContext(4, 'with_dot', 'change_requested', [request()])).toBeNull()
   })
 })
