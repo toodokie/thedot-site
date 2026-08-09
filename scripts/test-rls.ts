@@ -1312,6 +1312,50 @@ async function main(): Promise<void> {
     }
 
     {
+      const placeholderId = `rls-plan-placeholder-${RUN_ID}`
+      const placeholderCycle = await admin.rpc('agency_upsert_plan_cycle', {
+        p_client_id: bClientId,
+        p_cycle_key: `rls-placeholder-week-${RUN_ID}`,
+        p_week_start: '2027-08-02',
+        p_week_end: '2027-08-06',
+        p_title: 'RLS placeholder week',
+        p_direction_summary: 'A plan-only placeholder for the plan-date regression.',
+        p_items: [{
+          content_id: placeholderId,
+          title: 'Plan-only placeholder without authored copy',
+          format: 'carousel',
+          pillar: 'employer',
+          platforms: ['instagram', 'facebook'],
+          producer: 'the_dot',
+          planned_date: '2027-08-04',
+          direction_note: 'Defer this placeholder.',
+          position: 1,
+        }],
+        p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-placeholder-plan-${RUN_ID}`,
+      })
+      const cleared = await admin.rpc('agency_set_content_plan_date', {
+        p_client_id: bClientId,
+        p_content_id: placeholderId,
+        p_planned_date: null,
+        p_note: 'Deferred before authored copy existed.',
+        p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-placeholder-clear-${RUN_ID}`,
+      })
+      const placeholder = await admin.from('content_items')
+        .select('planned_date,working_version,client_visible_version')
+        .eq('client_id', bClientId).eq('content_id', placeholderId).single()
+      check('T17: agency plan-date writer clears a plan-only placeholder without inventing a version',
+        !placeholderCycle.error && !cleared.error
+          && cleared.data?.outcome === 'cleared'
+          && !placeholder.error && placeholder.data?.planned_date === null
+          && placeholder.data?.working_version === null
+          && placeholder.data?.client_visible_version === null,
+        placeholderCycle.error?.message ?? cleared.error?.message ?? placeholder.error?.message
+          ?? JSON.stringify({ cleared: cleared.data, placeholder: placeholder.data }))
+    }
+
+    {
       const multiPayload = snapshot(
         bClientId, 'rls-multi-target', 1, 'Multi-target fixture', 'Multi-target body', 'caption',
       )
