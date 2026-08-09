@@ -13,6 +13,7 @@ import { getReportViewedAt } from '@/lib/portal/report-views'
 import { reReviewContext } from '@/lib/portal/re-review'
 import { getCurrentReviewAssetsByItem } from '@/lib/portal/review-assets'
 import { contentReviewPackageReadiness } from '@/lib/portal/podcast-review'
+import { formatPlannedReviewDate } from '@/lib/portal/planned-review-date'
 import WeekCalendar, { type WeekCalendarChip } from '@/components/portal/WeekCalendar'
 import MarkSeen from './MarkSeen'
 import { Eyebrow, Heading, Text, Button, Dot } from '@thedot/design-system'
@@ -32,12 +33,19 @@ function Panel({ label, note, children }: { label: string; note?: string; childr
 
 // A clickable content row; `priority` shows a yellow dot marker (needs the client's eyes);
 // `note` renders a small grey qualifier after the title (e.g. partial verification).
-function ContentRow({ it, slug, priority, note }: { it: ContentRowType; slug: string; priority?: boolean; note?: string }) {
+function ContentRow({ it, slug, priority, note, plannedDay }: {
+  it: ContentRowType
+  slug: string
+  priority?: boolean
+  note?: string
+  plannedDay?: string | null
+}) {
   const platforms = it.platforms || []
   return (
     <Link className={styles.row} href={`/client/${encodeURIComponent(slug)}/piece/${encodeURIComponent(it.content_id)}`}>
       {priority && <span className={styles.marker}><Dot fill="yellow" size={8} /></span>}
       <span className={styles.rowMain}>
+        {plannedDay && <span className={styles.plannedDay}>{plannedDay}</span>}
         <Text as="span" size="md" tone="black">{it.title}</Text>
         {note && <>{' '}<Text as="span" size="sm" tone="grey">({note})</Text></>}
         {(platforms.length > 0 || it.fact_check) && (
@@ -144,6 +152,7 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
     if (message.author_type === 'anastasia') latestProposalReply.set(message.proposal_id, message)
   }
   const approvalCount = needs.length + openPlans.length + awaitingProposals.length
+  const todayIso = torontoTodayIso()
   const calendarDays: Record<string, WeekCalendarChip[]> = {}
   for (const row of schedule) {
     if (!row.planned_date) continue
@@ -227,6 +236,7 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
                 needs.map((it) => {
                   const reReview = reReviewByContentId.get(it.id)
                   return <ContentRow key={it.id} it={it} slug={slug} priority
+                    plannedDay={formatPlannedReviewDate(it.planned_date, todayIso)}
                     note={reReview ? `updated after your feedback · v${it.version}` : undefined} />
                 })
               )}
@@ -280,7 +290,7 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
 
           <aside>
             <Panel label="This week">
-              <WeekCalendar days={calendarDays} todayIso={torontoTodayIso()} label="Content calendar" />
+              <WeekCalendar days={calendarDays} todayIso={todayIso} label="Content calendar" />
             </Panel>
             <Panel label="Activity">
               {activity.length === 0 ? (

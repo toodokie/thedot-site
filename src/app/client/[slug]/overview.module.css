@@ -85,6 +85,16 @@
 a.row:hover { padding-left: 6px; }
 .rowMain { flex: 1 1 auto; min-width: 0; }
 .marker { flex: none; margin-top: 7px; line-height: 0; }
+.plannedDay {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--dot-graphite);
+  font-size: 12px;
+  font-weight: var(--dot-weight-demi);
+  letter-spacing: 0.06em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
 .emptyRow {
   border-top: 1px solid var(--dot-hairline);
   padding: 15px 2px;
