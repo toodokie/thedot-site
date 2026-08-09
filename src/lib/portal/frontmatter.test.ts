@@ -149,6 +149,34 @@ fact_check_ledger: []`)
     expect(parseContentFile(ircc, 'p.md').fact_check_ledger[0].source_url).toBe('https://ircc.canada.ca/page/x')
   })
 
+  it('accepts reviewed ranking and institutional research publishers without accepting lookalikes', () => {
+    const replaceUrl = (url: string) => document().replace(
+      'https://www.ontario.ca/page/oinp-employer-job-offer-streams',
+      url,
+    )
+    const reviewed = [
+      'https://www.henleyglobal.com/passport-index/ranking',
+      'https://www.usnews.com/news/best-countries/canada',
+      'https://data.worldbank.org/indicator/VA.EST.PER.RNK?locations=CA',
+      'https://www.who.int/data/gho/data/indicators',
+      'https://www.transparency.org/en/countries/canada',
+    ]
+    for (const url of reviewed) {
+      expect(parseContentFile(replaceUrl(url), 'ranking.md').fact_check_ledger[0].source_url)
+        .toBe(url)
+    }
+    for (const url of [
+      'https://henleyglobal.com.evil.example/passport-index',
+      'https://evilusnews.com/news',
+      'https://worldbank.org.evil.example/data',
+      'https://fakewho.int.example/data',
+      'https://eviltransparency.org/report',
+    ]) {
+      expect(() => parseContentFile(replaceUrl(url), 'ranking.md'))
+        .toThrow(/approved primary source/)
+    }
+  })
+
   it('rejects invalid, future, and unquoted checked dates', () => {
     expect(() => parseContentFile(document().replace('checked_at: "2026-07-18"', 'checked_at: "2026-02-31"'), 'p.md')).toThrow(/checked_at/)
     expect(() => parseContentFile(document().replace('checked_at: "2026-07-18"', 'checked_at: "2999-01-01"'), 'p.md')).toThrow(/future/)

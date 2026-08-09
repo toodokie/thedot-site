@@ -325,9 +325,12 @@ defines when the piece identity is created.
    `record_external_decision(...)` (evidence ledger:
    `~/Kanset/content/portal-external-approvals-ledger-2026-07-20.md`). Post-launch she clicks
    Approve and it calls `record_content_decision`.
-5. **Fact-check standard:** MG-authored (RCIC) content is `agency_attested` — owner-attested, NOT
-   re-verified against a government URL. **Agent-asserted IRCC facts still need a `primary_source`
-   canada.ca / ontario.ca URL** (`portal-allowlists.md §4`; `primary-source-policy.ts`).
+5. **Fact-check standard:** MG-authored (RCIC) content is `agency_attested`, owner-attested and NOT
+   re-verified against a government URL. **Agent-asserted IRCC facts still need an official
+   `primary_source` URL** from canada.ca, ontario.ca, gazette.gc.ca, or college-ic.ca. Reviewed
+   original research and ranking claims may use the separately governed Henley, U.S. News, World
+   Bank, WHO, or Transparency International host list. General news, blogs, and aggregators remain
+   excluded (`portal-allowlists.md §4`; `primary-source-policy.ts`; migration 0074).
 
 **One command for the day-to-day:** "update portal" reconciles new/changed/planned content
 per-change (not weekly), wired into the `kanset-production-workflow` skill. New post links enter via

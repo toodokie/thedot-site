@@ -1,11 +1,25 @@
-// Version-controlled primary-source hosts accepted in client-facing fact-check ledgers.
-// Keep this list in parity with the database allow-list added by the release-quality migration.
-// Host matching is exact or a real subdomain boundary; lookalikes such as evilcanada.ca fail.
-export const PRIMARY_SOURCE_HOSTS = [
+// Version-controlled source hosts accepted in client-facing fact-check ledgers.
+// Official regulatory sources and reviewed original research publishers stay separate so adding a
+// ranking publisher does not weaken the immigration-policy boundary. The exported union remains in
+// parity with the database validator. Host matching is exact or a real subdomain boundary.
+export const OFFICIAL_PRIMARY_SOURCE_HOSTS = [
   'canada.ca',
   'college-ic.ca',
   'gazette.gc.ca',
   'ontario.ca',
+] as const
+
+export const REVIEWED_RESEARCH_SOURCE_HOSTS = [
+  'henleyglobal.com',
+  'transparency.org',
+  'usnews.com',
+  'who.int',
+  'worldbank.org',
+] as const
+
+export const PRIMARY_SOURCE_HOSTS = [
+  ...OFFICIAL_PRIMARY_SOURCE_HOSTS,
+  ...REVIEWED_RESEARCH_SOURCE_HOSTS,
 ] as const
 
 export function isAllowedPrimarySourceHostname(hostname: string): boolean {
