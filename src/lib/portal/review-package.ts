@@ -47,8 +47,20 @@ function isWebsite(block: ReviewCopyBlock): boolean {
 function isCreative(block: ReviewCopyBlock): boolean {
   const key = normalized(block.key)
   const label = normalized(block.label)
-  return ['graphic', 'carousel', 'slides', 'slide', 'storyboard', 'creative'].some((term) =>
+  return [
+    'reel', 'onscreen', 'on-screen', 'on_screen',
+    'graphic', 'carousel', 'slides', 'slide', 'storyboard', 'creative',
+  ].some((term) =>
     key.includes(term) || label.includes(term))
+}
+
+function creativeTitle(blocks: ReviewCopyBlock[]): string {
+  const terms = blocks.flatMap((block) => [normalized(block.key), normalized(block.label)])
+  if (terms.some((value) => ['reel', 'onscreen', 'on-screen', 'on_screen']
+    .some((term) => value.includes(term)))) return 'Reel on-screen copy'
+  if (terms.some((value) => ['carousel', 'slides', 'slide']
+    .some((term) => value.includes(term)))) return 'Carousel copy'
+  return 'Design copy'
 }
 
 function isSocial(block: ReviewCopyBlock, platforms: string[]): boolean {
@@ -97,6 +109,12 @@ export function groupReviewCopy(
   }
 
   return [
+    creative.length > 0 && {
+      id: 'creative' as const,
+      title: creativeTitle(creative),
+      description: 'Review this first. This wording appears in the reel, carousel, or graphic.',
+      blocks: creative,
+    },
     social.length > 0 && {
       id: 'social' as const,
       title: 'Social caption',
@@ -120,12 +138,6 @@ export function groupReviewCopy(
       title: 'Website article',
       description: 'The article and its publishing details belong to the separate website piece and its own approval.',
       blocks: website,
-    },
-    creative.length > 0 && {
-      id: 'creative' as const,
-      title: 'Creative and on-asset copy',
-      description: 'This text appears in the graphic, carousel, or video treatment. Review it with the linked design below.',
-      blocks: creative,
     },
     other.length > 0 && {
       id: 'copy' as const,

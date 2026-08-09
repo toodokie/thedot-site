@@ -30,8 +30,22 @@ describe('groupReviewCopy', () => {
       { key: 'caption', label: 'Caption', body: 'Legacy social copy' },
     ], ['instagram'])
 
-    expect(groups.map((group) => group.id)).toEqual(['social', 'creative'])
-    expect(groups[0].blocks[0].body).toBe('Legacy social copy')
+    expect(groups.map((group) => group.id)).toEqual(['creative', 'social'])
+    expect(groups[0].title).toBe('Carousel copy')
+    expect(groups[1].blocks[0].body).toBe('Legacy social copy')
+  })
+
+  it('puts reel on-screen copy first instead of burying it as additional copy', () => {
+    const groups = groupReviewCopy([
+      { key: 'reel-script', label: 'Reel on-screen script', body: 'Frame copy' },
+      { key: 'social-caption', label: 'Instagram + Facebook caption', body: 'Shared caption' },
+      { key: 'youtube-package', label: 'YouTube package', body: 'Title and description' },
+    ], ['instagram', 'facebook', 'youtube'])
+
+    expect(groups.map((group) => group.id)).toEqual(['creative', 'social', 'youtube'])
+    expect(groups[0].title).toBe('Reel on-screen copy')
+    expect(groups[0].description).toContain('Review this first')
+    expect(groups[0].blocks[0].key).toBe('reel-script')
   })
 
   it('keeps a LinkedIn adaptation in its own review group', () => {
