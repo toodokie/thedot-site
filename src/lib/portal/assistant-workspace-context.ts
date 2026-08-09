@@ -8,6 +8,7 @@ export type ReviewContentRow = {
   platforms: string[] | null
   canva_url: string | null
   drive_url: string | null
+  review_ready: boolean
 }
 
 export type ReviewPlanRow = {
@@ -60,7 +61,7 @@ export function buildReviewQueueChunks(options: {
   proposals: ReviewProposalRow[]
 }): RetrievedChunk[] {
   const content = options.content
-    .filter((row) => Boolean(row.canva_url || row.drive_url))
+    .filter((row) => row.review_ready)
     .map((row, index): RetrievedChunk => ({
       chunk_id: row.id,
       document_id: row.id,

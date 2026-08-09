@@ -20,7 +20,7 @@ import ProgressBar from '@/components/portal/ProgressBar'
 import { clientProgress } from '@/lib/portal/progress-bar-model'
 import { reReviewContext } from '@/lib/portal/re-review'
 import { getReviewAssets } from '@/lib/portal/review-assets'
-import { reviewPackageReadiness } from '@/lib/portal/podcast-review'
+import { contentReviewPackageReadiness } from '@/lib/portal/podcast-review'
 import ReviewAssets from './ReviewAssets'
 
 const chip: CSSProperties = {
@@ -82,11 +82,9 @@ export default async function Piece({ params }: { params: Promise<{ slug: string
     item.canva_url && /^https:\/\//i.test(item.canva_url) ? { label: 'Canva', url: item.canva_url } : null,
     item.drive_url && /^https:\/\//i.test(item.drive_url) ? { label: 'Google Drive', url: item.drive_url } : null,
   ].filter((link): link is { label: string; url: string } => Boolean(link))
-  const readiness = reviewPackageReadiness(
-    item.format,
-    blocks,
+  const readiness = contentReviewPackageReadiness(
+    { ...item, copy_blocks: blocks },
     reviewAssets,
-    designLinks.length > 0,
   )
   const finalDecisionAvailable = item.state === 'needs_review' && readiness.ready
   const commentAssets = [

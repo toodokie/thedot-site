@@ -11,6 +11,8 @@ import { getContentRequests } from '@/lib/portal/requests'
 import { getClientProposalMessages, getClientProposals } from '@/lib/portal/proposals'
 import { getReportViewedAt } from '@/lib/portal/report-views'
 import { reReviewContext } from '@/lib/portal/re-review'
+import { getCurrentReviewAssetsByItem } from '@/lib/portal/review-assets'
+import { contentReviewPackageReadiness } from '@/lib/portal/podcast-review'
 import WeekCalendar, { type WeekCalendarChip } from '@/components/portal/WeekCalendar'
 import MarkSeen from './MarkSeen'
 import { Eyebrow, Heading, Text, Button, Dot } from '@thedot/design-system'
@@ -85,14 +87,22 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
     getClientProposals(session.clientId),
     getReportViewedAt(session.clientId, '2026-07'),
   ])
-  const proposalMessages = await getClientProposalMessages(session.clientId, proposals.map((proposal) => proposal.id))
+  const reviewCandidates = items.filter((item) => item.state === 'needs_review')
+  const [proposalMessages, reviewAssetsByItem] = await Promise.all([
+    getClientProposalMessages(session.clientId, proposals.map((proposal) => proposal.id)),
+    getCurrentReviewAssetsByItem(session.clientId, reviewCandidates),
+  ])
   // "new since your last visit": an event the OTHER party logged after you were last here.
   const isNew = (a: { created_at: string; actor_name: string }) =>
     Boolean(lastSeen) && a.created_at > (lastSeen as string) && a.actor_name !== session.name
   // A fact-checked released copy can be available during the plan-direction phase,
   // before a design exists. It is deliberately NOT a final package approval ask.
-  const needs = items.filter((i) => i.state === 'needs_review' && Boolean(i.canva_url || i.drive_url))
-  const copyReady = items.filter((i) => i.state === 'needs_review' && !i.canva_url && !i.drive_url)
+  const needs = reviewCandidates.filter((item) => contentReviewPackageReadiness(
+    item, reviewAssetsByItem.get(item.id) ?? [],
+  ).ready)
+  const copyReady = reviewCandidates.filter((item) => !contentReviewPackageReadiness(
+    item, reviewAssetsByItem.get(item.id) ?? [],
+  ).ready)
   const reReviewByContentId = new Map(items.flatMap((item) => {
     const context = reReviewContext(item.version, item.state, item.current_decision,
       requests.filter((request) => request.content_id === item.id))

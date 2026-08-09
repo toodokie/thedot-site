@@ -47,3 +47,20 @@ export function reviewPackageReadiness(
 
   return { ready: missing.length === 0, missing }
 }
+
+export function contentReviewPackageReadiness(
+  item: {
+    format: string | null
+    copy_blocks: CopyBlock[]
+    canva_url: string | null
+    drive_url: string | null
+  },
+  assets: ReviewAsset[],
+): ReviewReadiness {
+  return reviewPackageReadiness(
+    item.format,
+    item.copy_blocks,
+    assets,
+    Boolean(item.canva_url || item.drive_url),
+  )
+}

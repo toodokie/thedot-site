@@ -41,6 +41,8 @@ import {
   type ReviewPlanRow,
   type ReviewProposalRow,
 } from '@/lib/portal/assistant-workspace-context'
+import { contentReviewPackageReadiness } from '@/lib/portal/podcast-review'
+import type { ReviewAsset } from '@/lib/portal/review-assets'
 
 // The Client Work Assistant request path (spec 5.6, steps 1-11):
 //   1. same-origin + IP shell + session (tenant identity)
@@ -368,7 +370,7 @@ export async function POST(
       }).format(new Date())
       const [content, plans, proposals] = await Promise.all([
         supabase.from('content_with_state')
-          .select('id,content_id,title,planned_date,platforms,canva_url,drive_url')
+          .select('id,content_id,title,planned_date,platforms,format,copy_blocks,version,canva_url,drive_url')
           .eq('client_id', clientId).eq('client_state', 'needs_review')
           .order('planned_date', { ascending: true, nullsFirst: false }),
         supabase.from('plan_cycles_client')
@@ -387,8 +389,32 @@ export async function POST(
         await logRun({ clientId, userId, mode: 'portal_workspace', queryHmac, outcome: 'error' })
         return json({ error: 'Something went wrong. Please try again.' }, 500)
       }
+      const contentRows = (content.data ?? []) as Array<ReviewContentRow & {
+        format: string | null
+        copy_blocks: Array<{ key: string | null }>
+        version: number
+      }>
+      const assetLookup = contentRows.length === 0
+        ? { data: [], error: null }
+        : await supabase.from('content_review_assets')
+          .select('content_item_id,id,content_version,asset_key,label,channel,asset_kind,url,width_px,height_px,caption_status,review_note')
+          .in('content_item_id', contentRows.map((row) => row.id))
+      if (assetLookup.error) {
+        console.error('assistant review-asset lookup failed:', assetLookup.error.message)
+        await logRun({ clientId, userId, mode: 'portal_workspace', queryHmac, outcome: 'error' })
+        return json({ error: 'Something went wrong. Please try again.' }, 500)
+      }
+      const assetRows = (assetLookup.data ?? []) as Array<ReviewAsset & { content_item_id: string }>
+      const contentWithReadiness = contentRows.map((row): ReviewContentRow => ({
+        ...row,
+        review_ready: contentReviewPackageReadiness(
+          row,
+          assetRows.filter((asset) => asset.content_item_id === row.id
+            && asset.content_version === row.version),
+        ).ready,
+      }))
       chunks = buildReviewQueueChunks({
-        content: (content.data ?? []) as ReviewContentRow[],
+        content: contentWithReadiness,
         plans: (plans.data ?? []) as ReviewPlanRow[],
         proposals: (proposals.data ?? []) as ReviewProposalRow[],
       })

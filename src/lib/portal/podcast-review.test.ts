@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { reviewPackageReadiness } from './podcast-review'
+import { contentReviewPackageReadiness, reviewPackageReadiness } from './podcast-review'
 import type { ReviewAsset } from './review-assets'
 
 function asset(
@@ -67,5 +67,14 @@ describe('podcast review-package readiness', () => {
   it('preserves legacy design readiness for ordinary pieces', () => {
     expect(reviewPackageReadiness('reel', [], [], true).ready).toBe(true)
     expect(reviewPackageReadiness('reel', [], [], false).missing).toEqual(['linked design'])
+  })
+
+  it('treats a current review asset as a ready ordinary package', () => {
+    expect(contentReviewPackageReadiness({
+      format: 'reel',
+      copy_blocks: [],
+      canva_url: null,
+      drive_url: null,
+    }, [asset('social-cover', 'social', 'cover')])).toEqual({ ready: true, missing: [] })
   })
 })

@@ -9,8 +9,8 @@ describe('assistant workspace context', () => {
   it('matches the Overview review queue and excludes copy-only packages', () => {
     const chunks = buildReviewQueueChunks({
       content: [
-        { id: '1', content_id: 'ready', title: 'Ready piece', planned_date: '2026-08-05', platforms: ['Instagram'], canva_url: 'https://canva.com/x', drive_url: null },
-        { id: '2', content_id: 'copy-only', title: 'Copy only', planned_date: '2026-08-06', platforms: [], canva_url: null, drive_url: null },
+        { id: '1', content_id: 'ready', title: 'Ready piece', planned_date: '2026-08-05', platforms: ['Instagram'], canva_url: null, drive_url: null, review_ready: true },
+        { id: '2', content_id: 'copy-only', title: 'Copy only', planned_date: '2026-08-06', platforms: [], canva_url: null, drive_url: null, review_ready: false },
       ],
       plans: [{ id: '3', title: 'August week one', week_start: '2026-08-03', week_end: '2026-08-09', revision: 2, status: 'submitted' }],
       proposals: [{ id: '4', proposal_key: 'measurement', title: 'Measurement plan', revision: 1, status: 'awaiting_decision' }],
