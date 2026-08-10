@@ -5,7 +5,7 @@ actually built" reference: architecture, code map, data/security model, the cont
 design system, the deploy discipline, and the hard-won lessons. Read this top to bottom once;
 after that use the table of contents.
 
-**Last verified against the codebase:** 2026-08-10 (migration `0079` prepared; production remains through `0078` until the reviewed migration is applied).
+**Last verified against the codebase and production:** 2026-08-10 (migrations `0001` through `0079`).
 
 > This manual documents the **code** (the `~/thedot-site` repo). The **business/engagement**
 > context (client, pricing, content strategy, cadence, brand voice) lives in the `~/Kanset`
@@ -56,7 +56,7 @@ The portal is **two surfaces built from one Next.js app and one Supabase databas
 Google Calendar, and the `~/Kanset` markdown docs are **one-way projections**, not inputs. The
 portal is the source of truth; everything else mirrors it.
 
-**Live status (2026-08-10):** production has migrations `0001` through `0078` applied. LinkedIn is a
+**Live status (2026-08-10):** production has migrations `0001` through `0079` applied. LinkedIn is a
 first-class destination, while weekly LinkedIn adaptations and website articles remain independent
 content identities. Unresolved client edits immediately project their released pieces as `with_dot`.
 Client edit intake and legacy bundle reconciliation now share canonical line-ending and invisible
