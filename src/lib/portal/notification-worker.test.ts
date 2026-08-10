@@ -1,10 +1,15 @@
 import { describe, expect, it, vi } from 'vitest'
 
-const { sendMail, sendReport } = vi.hoisted(() => ({
+const { sendMail, sendReport, sendAgencyDigest } = vi.hoisted(() => ({
   sendMail: vi.fn().mockResolvedValue(undefined),
   sendReport: vi.fn().mockResolvedValue(undefined),
+  sendAgencyDigest: vi.fn().mockResolvedValue(undefined),
 }))
-vi.mock('./notify', () => ({ sendPortalNotificationEmail: sendMail, sendPortalReportEmail: sendReport }))
+vi.mock('./notify', () => ({
+  sendPortalAgencyPieceDigestEmail: sendAgencyDigest,
+  sendPortalNotificationEmail: sendMail,
+  sendPortalReportEmail: sendReport,
+}))
 
 import { drainPortalNotifications } from './notification-worker'
 
@@ -56,6 +61,32 @@ describe('drainPortalNotifications', () => {
     expect(sendReport).toHaveBeenCalledWith(expect.objectContaining({
       to: 'maria@kanset.com',
       url: 'https://www.thedotcreative.co/client/kanset/reports/july-2026',
+    }))
+    expect(sendMail).not.toHaveBeenCalled()
+  })
+
+  it('uses one linked agency digest delivery for a settled piece-editing session', async () => {
+    sendMail.mockClear()
+    sendAgencyDigest.mockClear()
+    const admin = adminFor([
+      {
+        id: 'digest-1', claim_token: 41, recipient_kind: 'agency', recipient_email: null,
+        subject: 'Maria updated: August news roundup',
+        body: '3 copy edits and 1 comment received.',
+        related_url: 'https://www.thedotcreative.co/admin/portal/pieces/kanset-2026-08-mon-news-roundup',
+        template_key: 'agency_piece_digest',
+      },
+    ])
+
+    const result = await drainPortalNotifications(admin as never, {
+      agencyEmail: 'info@thedotcreative.co',
+    })
+
+    expect(result).toMatchObject({ claimed: 1, delivered: 1, failed: 0 })
+    expect(sendAgencyDigest).toHaveBeenCalledTimes(1)
+    expect(sendAgencyDigest).toHaveBeenCalledWith(expect.objectContaining({
+      to: 'info@thedotcreative.co',
+      url: 'https://www.thedotcreative.co/admin/portal/pieces/kanset-2026-08-mon-news-roundup',
     }))
     expect(sendMail).not.toHaveBeenCalled()
   })

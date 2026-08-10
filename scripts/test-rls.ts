@@ -726,6 +726,23 @@ async function main(): Promise<void> {
       const bundleCaptionId = (bundleCaption.data as { id?: string } | null)?.id
       const bundleScriptId = (bundleScript.data as { id?: string } | null)?.id
       if (!bundleCaptionId || !bundleScriptId) throw new Error(`bundle requests unavailable: ${bundleCaption.error?.message ?? bundleScript.error?.message ?? 'missing IDs'}`)
+      const bundleDigests = await admin.from('notification_outbox')
+        .select('template_key,status,next_attempt_at,related_url,bundle_event_count,bundle_edit_count,bundle_comment_count,bundle_targets')
+        .eq('client_id', bClientId)
+        .eq('bundle_key', `piece-edit:${bBundleItemId}`)
+      const bundleDigestRows = bundleDigests.data ?? []
+      check('R6aa: same-piece edits share one linked agency digest with a rolling quiet window',
+        !bundleDigests.error
+          && bundleDigestRows.length === 1
+          && bundleDigestRows[0]?.template_key === 'agency_piece_digest'
+          && bundleDigestRows[0]?.status === 'pending'
+          && bundleDigestRows[0]?.bundle_event_count === 2
+          && bundleDigestRows[0]?.bundle_edit_count === 2
+          && bundleDigestRows[0]?.bundle_comment_count === 0
+          && bundleDigestRows[0]?.related_url === `https://www.thedotcreative.co/admin/portal/pieces/${B_BUNDLE_ID}`
+          && new Set(bundleDigestRows[0]?.bundle_targets ?? []).size === 2
+          && new Date(bundleDigestRows[0]?.next_attempt_at ?? 0).getTime() > Date.now(),
+        bundleDigests.error?.message ?? JSON.stringify(bundleDigestRows))
       const normalizedIntake = await admin.from('content_change_requests')
         .select('id,payload').in('id', [bundleCaptionId, bundleScriptId])
       const normalizedById = new Map((normalizedIntake.data ?? []).map((row) => [row.id, row.payload as { proposed_text?: string }]))
@@ -2104,13 +2121,26 @@ async function main(): Promise<void> {
       const serviceAudit = await admin.rpc('read_client_notification_audit', {
         p_client_id: bClientId, p_since: new Date(Date.now() - 86_400_000).toISOString(), p_limit: 1000,
       })
+      const agencyAuditDenied = await bClient.rpc('read_notification_audit', {
+        p_client_id: bClientId, p_since: new Date(Date.now() - 86_400_000).toISOString(), p_limit: 100,
+      })
+      const fullServiceAudit = await admin.rpc('read_notification_audit', {
+        p_client_id: bClientId, p_since: new Date(Date.now() - 86_400_000).toISOString(), p_limit: 5000,
+      })
       check('N8: notification trace is complete for service and unavailable to the client browser',
-        !!clientAuditDenied.error && !serviceAudit.error
+        !!clientAuditDenied.error && !!agencyAuditDenied.error && !serviceAudit.error && !fullServiceAudit.error
           && (serviceAudit.data ?? []).some((row: {
             status: string; activity_event_type: string | null; source_kind: string
           }) => row.status === 'pending'
-            && row.activity_event_type === null && row.source_kind === 'comment'),
-        clientAuditDenied.error?.message ?? serviceAudit.error?.message ?? JSON.stringify(serviceAudit.data))
+            && row.activity_event_type === null && row.source_kind === 'comment')
+          && (fullServiceAudit.data ?? []).some((row: {
+            recipient_kind: string; template_key: string; related_url: string | null
+          }) => row.recipient_kind === 'agency'
+            && row.template_key === 'agency_piece_digest'
+            && row.related_url === `https://www.thedotcreative.co/admin/portal/pieces/${B_BUNDLE_ID}`),
+        clientAuditDenied.error?.message ?? agencyAuditDenied.error?.message
+          ?? serviceAudit.error?.message ?? fullServiceAudit.error?.message
+          ?? JSON.stringify(fullServiceAudit.data))
     }
 
     {

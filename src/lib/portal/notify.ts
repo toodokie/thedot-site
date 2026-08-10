@@ -42,6 +42,28 @@ export async function sendPortalNotificationEmail(opts: {
   await transporter.sendMail({ from, to: opts.to, subject: opts.subject, html })
 }
 
+export async function sendPortalAgencyPieceDigestEmail(opts: {
+  to: string
+  subject: string
+  bodyText: string
+  url?: string | null
+}): Promise<void> {
+  const from = process.env.FROM_EMAIL || process.env.SMTP_USER
+  if (!from) throw new Error('FROM_EMAIL/SMTP_USER not configured')
+  const link = safeHttpsUrl(opts.url)
+  if (!link || !link.startsWith('https://www.thedotcreative.co/admin/portal/pieces/')) {
+    throw new Error('agency piece digest requires a valid Ops piece URL')
+  }
+  const html = `
+    <div style="font-family: Arial, sans-serif; color: #35332f; max-width: 560px;">
+      <p style="font-size: 18px; font-weight: 600; margin: 0 0 12px;">${escapeHtml(opts.subject)}</p>
+      <p style="color:#47453f; line-height:1.5; margin:0 0 20px; white-space:pre-wrap;">${escapeHtml(opts.bodyText)}</p>
+      <p style="margin:0;"><a href="${escapeHtml(link)}" style="display:inline-block; background:#35332f; color:#fff; padding:10px 16px; border-radius:6px; text-decoration:none;">Review this piece</a></p>
+    </div>`
+  const text = `${opts.bodyText}\n\nReview this piece: ${link}`
+  await transporter.sendMail({ from, to: opts.to, subject: opts.subject, text, html })
+}
+
 export async function sendPortalReportEmail(opts: {
   to: string
   subject: string

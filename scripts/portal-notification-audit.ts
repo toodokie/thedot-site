@@ -1,5 +1,5 @@
-// Read-only client notification trace. Shows email attempts, portal-only events, policy holds,
-// and volume drift without claiming or sending any notification rows.
+// Read-only notification trace. Shows client policy health plus agency digest delivery without
+// claiming or sending any notification rows.
 import { loadEnvConfig } from '@next/env'
 import { createClient } from '@supabase/supabase-js'
 
@@ -12,20 +12,29 @@ if (!url || !key) throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL / SUPABASE_S
 const admin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
 const QUIET_ACTIVITY_EMAIL_EVENTS = new Set([
   'needs_review', 'plan_cycle_submitted', 'proposal_submitted', 'proposal_revised',
-  'invoice_issued', 'request_replied', 'proposal_message',
+  'invoice_issued', 'request_replied', 'proposal_message', 'monthly_report_ready',
 ])
 const VOLUME_REVIEW_THRESHOLD = 3
 
 type NotificationRow = {
   notification_id: string
+  recipient_kind: 'agency' | 'client'
   channel: 'email' | 'in_app'
   event_key: string
   source_kind: 'activity' | 'comment'
   source_activity_id: string | null
   activity_event_type: string | null
   subject: string
+  related_url: string | null
+  template_key: 'generic' | 'report' | 'agency_piece_digest'
   status: string
+  attempts: number
+  next_attempt_at: string | null
   last_error: string | null
+  bundle_event_count: number
+  bundle_edit_count: number
+  bundle_comment_count: number
+  bundle_last_event_at: string | null
   created_at: string
   completed_at: string | null
 }
@@ -54,13 +63,13 @@ function torontoDay(value: string): string {
 }
 
 function sourceIdentity(row: NotificationRow): string {
-  return row.event_key.replace(/:client:(email|in_app)$/, '')
+  return row.event_key.replace(/:(client|agency):(email|in_app)$/, '')
 }
 
 async function main(): Promise<void> {
   const slug = process.argv[2]
   if (!slug || slug.startsWith('--')) {
-    throw new Error('Usage: npm run portal-notification-audit -- <client-slug> [--days 7] [--strict]')
+    throw new Error('Usage: pnpm portal-notification-audit -- <client-slug> [--days 7] [--strict]')
   }
   const days = optionNumber('--days', 7, 1, 90)
   const strict = process.argv.includes('--strict')
@@ -71,7 +80,7 @@ async function main(): Promise<void> {
     .from('clients').select('id,name,slug').eq('slug', slug).single()
   if (clientError || !client) throw new Error(`Client unavailable: ${clientError?.message ?? slug}`)
 
-  const { data, error } = await admin.rpc('read_client_notification_audit', {
+  const { data, error } = await admin.rpc('read_notification_audit', {
     p_client_id: client.id, p_since: since, p_limit: 5000,
   })
   if (error) throw new Error(`Notification audit unavailable: ${error.message}`)
@@ -84,8 +93,10 @@ async function main(): Promise<void> {
     .ilike('title', '%notification volume%')
   if (volumeTaskError) throw new Error(`Notification Ops task unavailable: ${volumeTaskError.message}`)
 
-  const emailRows = rows.filter((row) => row.channel === 'email')
-  const inAppRows = rows.filter((row) => row.channel === 'in_app')
+  const clientRows = rows.filter((row) => row.recipient_kind === 'client')
+  const agencyRows = rows.filter((row) => row.recipient_kind === 'agency')
+  const emailRows = clientRows.filter((row) => row.channel === 'email')
+  const inAppRows = clientRows.filter((row) => row.channel === 'in_app')
   const emailSources = new Set(emailRows.map(sourceIdentity))
   const portalOnly = inAppRows.filter((row) => !emailSources.has(sourceIdentity(row)))
   const held = emailRows.filter((row) => row.status === 'skipped')
@@ -130,17 +141,50 @@ async function main(): Promise<void> {
     console.log(`${eventType}: ${count}`)
   }
 
-  const needsReview = held.length > 0 || active.some((row) => row.status === 'failed')
+  const clientNeedsReview = held.length > 0 || active.some((row) => row.status === 'failed')
     || drift.length > 0 || reviewDays.length > 0 || rollingEligible.length >= VOLUME_REVIEW_THRESHOLD
     || (held.length > 0 && !(volumeTasks ?? []).length)
-  console.log(`\nMONITOR: ${needsReview ? 'REVIEW' : 'OK'}`)
+  console.log(`\nCLIENT MONITOR: ${clientNeedsReview ? 'REVIEW' : 'OK'}`)
   if (held.length) console.log(`- ${held.length} email(s) were held by policy.`)
   if (held.length && !(volumeTasks ?? []).length) console.log('- Held email has no open notification-volume Ops task.')
   if (active.length) console.log(`- Active delivery rows: ${active.map((row) => row.status).join(', ')}.`)
   if (drift.length) console.log(`- ${drift.length} activity email row(s) fall outside the quiet allowlist.`)
   for (const [day, count] of reviewDays) console.log(`- ${day}: ${count} eligible client emails.`)
 
-  if (strict && needsReview) process.exitCode = 2
+  const agencyEmailRows = agencyRows.filter((row) => row.channel === 'email')
+  const agencyDelivered = agencyEmailRows.filter((row) => row.status === 'succeeded')
+  const agencyActive = agencyEmailRows.filter((row) => ['pending', 'processing', 'failed'].includes(row.status))
+  const now = Date.now()
+  const staleAgency = agencyActive.filter((row) => row.status === 'failed'
+    || (row.status === 'pending' && row.next_attempt_at
+      && new Date(row.next_attempt_at).getTime() < now - 5 * 60_000))
+  const abandonedAgency = agencyEmailRows.filter((row) => row.status === 'abandoned')
+  const agencyNeedsReview = staleAgency.length > 0 || abandonedAgency.length > 0
+
+  console.log(`\nAGENCY NOTIFICATION AUDIT · ${client.name} · last ${days} day(s)`)
+  console.log('Policy: piece edits and comments are grouped by a five-minute quiet window, then delivered as one linked digest.')
+  console.log(`Email rows: ${agencyEmailRows.length} · sent: ${agencyDelivered.length} · active: ${agencyActive.length} · abandoned: ${abandonedAgency.length}`)
+
+  console.log('\nAGENCY EMAIL TRACE')
+  if (!agencyEmailRows.length) console.log('none')
+  for (const row of agencyEmailRows) {
+    const eventType = row.activity_event_type ?? row.source_kind
+    const bundle = row.template_key === 'agency_piece_digest'
+      ? ` · digest ${row.bundle_event_count} (${row.bundle_edit_count} edits, ${row.bundle_comment_count} comments)`
+      : ''
+    const due = row.status === 'pending' && row.next_attempt_at
+      ? ` · due ${torontoStamp(row.next_attempt_at)}`
+      : ''
+    const link = row.related_url ? ` · ${row.related_url}` : ''
+    const detail = row.last_error ? ` · ${row.last_error}` : ''
+    console.log(`${torontoStamp(row.created_at)} · ${row.status} · ${eventType} · ${row.subject}${bundle}${due}${link}${detail}`)
+  }
+
+  console.log(`\nAGENCY MONITOR: ${agencyNeedsReview ? 'REVIEW' : 'OK'}`)
+  if (staleAgency.length) console.log(`- ${staleAgency.length} agency delivery row(s) are failed or overdue.`)
+  if (abandonedAgency.length) console.log(`- ${abandonedAgency.length} agency delivery row(s) were abandoned.`)
+
+  if (strict && (clientNeedsReview || agencyNeedsReview)) process.exitCode = 2
 }
 
 main().catch((error) => {

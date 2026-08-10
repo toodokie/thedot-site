@@ -5,7 +5,7 @@ actually built" reference: architecture, code map, data/security model, the cont
 design system, the deploy discipline, and the hard-won lessons. Read this top to bottom once;
 after that use the table of contents.
 
-**Last verified against the codebase and production:** 2026-08-07 (migrations `0001` through `0073`).
+**Last verified against the codebase and production:** 2026-08-10 (migrations `0001` through `0078`).
 
 > This manual documents the **code** (the `~/thedot-site` repo). The **business/engagement**
 > context (client, pricing, content strategy, cadence, brand voice) lives in the `~/Kanset`
@@ -21,7 +21,7 @@ after that use the table of contents.
 2. Repo map
 3. Tech stack
 4. Data & security model (Supabase) — the part to respect most
-5. The migration ledger (`0001`–`0022`)
+5. The migration ledger (`0001` through `0078`)
 6. The client portal (`/client/[slug]`)
 7. The admin ops portal (`/admin/portal`)
 8. The content lifecycle — canonical repo → portal
@@ -56,7 +56,7 @@ The portal is **two surfaces built from one Next.js app and one Supabase databas
 Google Calendar, and the `~/Kanset` markdown docs are **one-way projections**, not inputs. The
 portal is the source of truth; everything else mirrors it.
 
-**Live status (2026-08-07):** production has migrations `0001`–`0071` applied. LinkedIn is a
+**Live status (2026-08-10):** production has migrations `0001` through `0078` applied. LinkedIn is a
 first-class destination, while weekly LinkedIn adaptations and website articles remain independent
 content identities. Unresolved client edits immediately project their released pieces as `with_dot`.
 Client edit intake and legacy bundle reconciliation now share canonical line-ending and invisible
@@ -64,6 +64,9 @@ line-end whitespace normalization, while canonical Git writes keep `git diff --c
 Maria's live seat is active at `maria@kanset.com`; `toodokie@gmail.com` remains
 a separate preview seat. The client and admin portals are live, with Supabase holding workflow,
 report, notification, and per-seat view state.
+Agency notifications now group one client's same-piece editing session into a linked digest after
+a five-minute quiet window. The worker checks every minute, and the notification audit includes
+both client and agency rows.
 
 ---
 
@@ -161,7 +164,7 @@ multi-tenant, and the security model is defended in-migration.
 
 ---
 
-## 5. The migration ledger (`0001`–`0073`)
+## 5. The migration ledger (`0001` through `0078`)
 
 Each file's top comment states its purpose. Summary:
 
@@ -196,6 +199,11 @@ Each file's top comment states its purpose. Summary:
 | `0071_content_request_base_copy_reader` | n/a | Gives an authenticated client a narrow tenant-scoped read of the exact historical copy block referenced by their own edit request, without opening historical version rows generally. |
 | `0072_client_visible_canada_sources` | n/a | Permits reviewed `canada.ca` and subdomain citations in client-visible canonical copy while preserving dot-boundary rejection of lookalike hosts. |
 | `0073_podcast_review_packs` | n/a | Adds version-bound multi-asset review packs, fail-closed podcast and podcast-article readiness, exact asset comments, and automatic YouTube transcript-review tasks. |
+| `0074_reviewed_research_source_hosts` | n/a | Extends reviewed primary-source hosts used by the client-safe fact ledger. |
+| `0075_plan_date_placeholder_audit` | n/a | Audits agency plan-date changes, including versionless plan placeholders. |
+| `0076_abandon_unrequested_aug9_review_emails` | n/a | Abandons narrowly identified unrequested client email rows while preserving portal history. |
+| `0077_abandon_unrequested_askkanset_v2_email` | n/a | Abandons the exact pending Ask Kanset v2 client email that was not authorized. |
+| `0078_agency_piece_edit_digests` | n/a | Groups same-piece client edits and comments into one linked agency digest after a five-minute quiet window, and exposes service-only agency notification audit rows. |
 
 **Full v1 architecture + phasing spec:** `~/Kanset/portal-integration-task.md`.
 **Gate-system spec:** `docs/superpowers/specs/2026-07-21-portal-gate-system-design.md`.
@@ -430,9 +438,13 @@ The 22-post history is already imported.
   batch-plan approval. Idea inbox promotion (`set_idea_status(..., 'became_piece', ...)`) emits an
   `idea_promoted` agency inbox event after `0035`; agents should consume it with
   `npm run portal-inbox -- list kanset`, inspect it with `show`, and acknowledge it after locating
-  or authoring the canonical Markdown pack. Email is drained by `scripts/portal-notification-consumer.ts` or the hourly
-  `/api/cron/portal-notifications` route. Production needs `AGENCY_EMAIL`, SMTP settings, and
+  or authoring the canonical Markdown pack. Email is drained by `scripts/portal-notification-consumer.ts` or the
+  `/api/cron/portal-notifications` route, which runs every minute. Client edits and piece comments
+  keep their immediate event-level portal notifications, but their agency email is grouped by piece
+  and sent after a five-minute quiet window. Production needs `AGENCY_EMAIL`, SMTP settings, and
   `CRON_SECRET`; missing `AGENCY_EMAIL` returns a failing health response and leaves rows pending.
+  `pnpm portal-notification-audit -- <slug> --days 7` reads both client and agency delivery rows.
+  Agency digest rows include counts, due time, attempts, status, and the exact Ops piece link.
   A completed standalone monthly report uses `npm run portal-write -- report-notify <payload.json>`
   after the report page is live. This writes one idempotent `monthly_report_ready` activity and one
   dedicated client email with a direct report link. Individual `report` snapshot writes remain
@@ -617,13 +629,13 @@ Set in Vercel (and `.env.local` for dev). Key vars:
 
 ## 17. Testing
 
-- `npm test` (vitest) — 186 tests as of this writing: gates, schedule, state, assistant guardrails,
+- `pnpm test` (vitest): gates, schedule, state, assistant guardrails,
   content-safety, frontmatter, history-import, agency-write, redirect, notion-projection, plus the
   design-system + the calendar MonthGrid component test. Run before every deploy.
 - `npx tsc --noEmit` — the repo has pre-existing errors in marketing routes; **grep the output for
   your files** and confirm they're clean.
-- `npm run test:rls` (`scripts/test-rls.ts`) — real-JWT two-tenant isolation. Mandatory after any
-  RLS/grant change. `npm run test:rls:seed-local` seeds a local two-tenant fixture.
+- `pnpm test:rls` (`scripts/test-rls.ts`): real-JWT two-tenant isolation. Mandatory after any
+  RLS/grant change. `pnpm test:rls:seed-local` seeds a local two-tenant fixture.
 - `npx next build` — full compile; catches JSX/route errors the unit tests don't.
 
 ---
