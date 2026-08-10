@@ -805,6 +805,27 @@ async function main(): Promise<void> {
           && normalizedById.get(bundleScriptId)?.proposed_text === 'Script requested by Maria.\nSecond line.',
         normalizedIntake.error?.message ?? JSON.stringify(normalizedIntake.data))
 
+      const bundleCaptionCandidate = await admin.rpc('upsert_content_request_review_candidate', {
+        p_request_id: bundleCaptionId,
+        p_candidate_text: 'Caption safe merge approved by The Dot.\nSecond line retained.',
+        p_change_summary: 'Keeps Maria\'s requested direction and restores the complete caption block.',
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const bundleScriptCandidate = await admin.rpc('upsert_content_request_review_candidate', {
+        p_request_id: bundleScriptId,
+        p_candidate_text: 'Script safe merge approved by The Dot.\nSecond line retained.',
+        p_change_summary: 'Keeps Maria\'s requested direction and restores the complete script block.',
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const bundleCaptionApproval = await admin.rpc('approve_content_request_review_candidate', {
+        p_request_id: bundleCaptionId, p_expected_revision: 1,
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const bundleScriptApproval = await admin.rpc('approve_content_request_review_candidate', {
+        p_request_id: bundleScriptId, p_expected_revision: 1,
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+
       const bundleStart = await admin.rpc('start_content_request_reconciliation', {
         p_request_id: bundleCaptionId, p_requested_content_id: null, p_canonical_object_key: null,
         p_expected_base_commit: null, p_actor_key: 'thedot-admin', p_idempotency_key: bundleCaptionId,
@@ -814,8 +835,8 @@ async function main(): Promise<void> {
       })
       const bundleV2 = snapshot(bClientId, B_BUNDLE_ID, 2, 'Bundled request workflow v2', 'Caption requested by Maria.', 'caption')
       bundleV2.copy_blocks = [
-        { key: 'caption', label: 'Caption', body: 'Caption requested by Maria.\nSecond line.' },
-        { key: 'script', label: 'Script', body: 'Script requested by Maria.\nSecond line.' },
+        { key: 'caption', label: 'Caption', body: 'Caption safe merge approved by The Dot.\nSecond line retained.' },
+        { key: 'script', label: 'Script', body: 'Script safe merge approved by The Dot.\nSecond line retained.' },
       ]
       bundleV2.source_commit_sha = '3'.repeat(40)
       const bundleSync = await sync([bundleV2])
@@ -835,12 +856,16 @@ async function main(): Promise<void> {
       const bundleApplied = await bClient.from('content_change_requests_client')
         .select('id,status,canonical_version').in('id', [bundleCaptionId, bundleScriptId])
       check('R6b: two same-version edits are prepared and released as one exact audited revision',
-        !bundleStart.error && !bundleBegin.error && bundleSync.length === 1 && !!browserBundleWriter.error
+        !bundleCaptionCandidate.error && !bundleScriptCandidate.error
+          && !bundleCaptionApproval.error && !bundleScriptApproval.error
+          && !bundleStart.error && !bundleBegin.error && bundleSync.length === 1 && !!browserBundleWriter.error
           && !bundlePrepared.error && bundleRows.data?.length === 2
           && bundleRows.data.every((row) => row.status === 'prepared' && row.canonical_version === 2)
           && !bundleRelease.error && bundleApplied.data?.length === 2
           && bundleApplied.data.every((row) => row.status === 'applied' && row.canonical_version === 2),
-        bundleStart.error?.message ?? bundleBegin.error?.message ?? browserBundleWriter.error?.message
+        bundleCaptionCandidate.error?.message ?? bundleScriptCandidate.error?.message
+          ?? bundleCaptionApproval.error?.message ?? bundleScriptApproval.error?.message
+          ?? bundleStart.error?.message ?? bundleBegin.error?.message ?? browserBundleWriter.error?.message
           ?? bundlePrepared.error?.message ?? bundleRelease.error?.message
           ?? JSON.stringify({ prepared: bundleRows.data, applied: bundleApplied.data }))
     }

@@ -5,7 +5,7 @@ actually built" reference: architecture, code map, data/security model, the cont
 design system, the deploy discipline, and the hard-won lessons. Read this top to bottom once;
 after that use the table of contents.
 
-**Last verified against the codebase and production:** 2026-08-10 (migrations `0001` through `0079`).
+**Last verified against the codebase and production:** 2026-08-10 (migrations `0001` through `0080`).
 
 > This manual documents the **code** (the `~/thedot-site` repo). The **business/engagement**
 > context (client, pricing, content strategy, cadence, brand voice) lives in the `~/Kanset`
@@ -21,7 +21,7 @@ after that use the table of contents.
 2. Repo map
 3. Tech stack
 4. Data & security model (Supabase) — the part to respect most
-5. The migration ledger (`0001` through `0079`)
+5. The migration ledger (`0001` through `0080`)
 6. The client portal (`/client/[slug]`)
 7. The admin ops portal (`/admin/portal`)
 8. The content lifecycle — canonical repo → portal
@@ -56,7 +56,7 @@ The portal is **two surfaces built from one Next.js app and one Supabase databas
 Google Calendar, and the `~/Kanset` markdown docs are **one-way projections**, not inputs. The
 portal is the source of truth; everything else mirrors it.
 
-**Live status (2026-08-10):** production has migrations `0001` through `0079` applied. LinkedIn is a
+**Live status (2026-08-10):** production has migrations `0001` through `0080` applied. LinkedIn is a
 first-class destination, while weekly LinkedIn adaptations and website articles remain independent
 content identities. Unresolved client edits immediately project their released pieces as `with_dot`.
 Client edit intake and legacy bundle reconciliation now share canonical line-ending and invisible
@@ -164,7 +164,7 @@ multi-tenant, and the security model is defended in-migration.
 
 ---
 
-## 5. The migration ledger (`0001` through `0079`)
+## 5. The migration ledger (`0001` through `0080`)
 
 Each file's top comment states its purpose. Summary:
 
@@ -205,6 +205,7 @@ Each file's top comment states its purpose. Summary:
 | `0077_abandon_unrequested_askkanset_v2_email` | n/a | Abandons the exact pending Ask Kanset v2 client email that was not authorized. |
 | `0078_agency_piece_edit_digests` | n/a | Groups same-piece client edits and comments into one linked agency digest after a five-minute quiet window, and exposes service-only agency notification audit rows. |
 | `0079_agency_edit_review_candidates` | n/a | Adds agency-only safe-merge drafts and internal approvals for client copy requests. Candidates stay invisible to the client and do not advance a request, canonical copy or release. |
+| `0080_reviewed_bundle_reconciliation` | n/a | Makes an approved complete safe-merge candidate the exact audited copy boundary for bundled edit reconciliation while preserving Maria's original proposal and the legacy exact-block path. |
 
 **Full v1 architecture + phasing spec:** `~/Kanset/portal-integration-task.md`.
 **Gate-system spec:** `docs/superpowers/specs/2026-07-21-portal-gate-system-design.md`.
@@ -345,7 +346,7 @@ defines when the piece identity is created.
 per-change (not weekly), wired into the `kanset-production-workflow` skill. New post links enter via
 the agency confirm/import tooling (§10), **not** by editing repo files.
 
-**Client edit pre-apply review (`0079`):** Agency Ops stores a private complete safe-merge candidate and change map beside each pending edit. Saving creates a draft. Internal approval records the exact candidate revision but does not touch the request status, canonical repository, released copy, activity or client notifications. The internal `~/Kanset/content/*.md` package mirrors the same complete current/requested/candidate comparison. When `portal-inbox` applies an explicit package candidate, it requires every block to match its approved Agency Ops candidate exactly.
+**Client edit pre-apply review (`0079` and `0080`):** Agency Ops stores a private complete safe-merge candidate and change map beside each pending edit. Saving creates a draft. Internal approval records the exact candidate revision but does not touch the request status, canonical repository, released copy, activity or client notifications. The internal `~/Kanset/content/*.md` package mirrors the same complete current/requested/candidate comparison. When `portal-inbox` applies an explicit package candidate, every block must match its approved Agency Ops candidate exactly. Bundled reconciliation then verifies the synced immutable version against those approved candidates while preserving Maria's original proposal as request history.
 
 ---
 
