@@ -1,19 +1,8 @@
 'use client'
 import { useState } from 'react'
-import { Text, Button } from '@thedot/design-system'
+import { Button } from '@thedot/design-system'
 import SuggestEditForm from './SuggestEditForm'
-
-// Client copy is authored in markdown, but the portal must NEVER render a literal asterisk.
-// Render **bold** as <strong>; strip any remaining asterisk so none can ever reach the screen.
-function renderCopy(body: string) {
-  return body.split(/\*\*/).map((seg, i) => {
-    const clean = seg.replace(/\*/g, '')
-    return i % 2 === 1 ? <strong key={i}>{clean}</strong> : <span key={i}>{clean}</span>
-  })
-}
-function stripMarkdown(body: string) {
-  return body.replace(/\*/g, '')
-}
+import MarkdownCopy, { plainTextFromMarkdown } from '@/components/portal/MarkdownCopy'
 
 // A labeled, copy-to-clipboard block of per-surface copy (IG/FB caption, YT title, etc.).
 export default function CopyBlock({ blockKey, label, body, slug, contentId, canRequest, idempotencyKey }: {
@@ -23,7 +12,7 @@ export default function CopyBlock({ blockKey, label, body, slug, contentId, canR
   const [copied, setCopied] = useState(false)
   async function copy() {
     try {
-      await navigator.clipboard.writeText(stripMarkdown(body))
+      await navigator.clipboard.writeText(plainTextFromMarkdown(body))
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
@@ -36,7 +25,7 @@ export default function CopyBlock({ blockKey, label, body, slug, contentId, canR
         <span style={{ fontFamily: 'var(--dot-font-display)', fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--dot-graphite)' }}>{label}</span>
         <Button as="button" variant="ghost" size="sm" onClick={copy}>{copied ? 'Copied' : 'Copy'}</Button>
       </div>
-      <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}><Text size="md" tone="black">{renderCopy(body)}</Text></div>
+      <MarkdownCopy body={body} />
       {canRequest && blockKey && slug && contentId && idempotencyKey && <div style={{ marginTop: 10 }}>
         <SuggestEditForm slug={slug} contentId={contentId} blockKey={blockKey} initialKey={idempotencyKey} />
       </div>}
