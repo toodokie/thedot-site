@@ -358,15 +358,19 @@ export async function loadRequests(scope: { clientId?: string; contentUuid?: str
     .select('id,request_id,author_type,author_name,body,created_at')
     .order('created_at', { ascending: true }).order('id', { ascending: true })
   if (scope.clientId) messageQuery = messageQuery.eq('client_id', scope.clientId)
-  const [clients, content, contentRequests, messages] = await Promise.all([
+  let candidateQuery = admin.from('content_request_review_candidates')
+    .select('request_id,client_id,candidate_text,change_summary,status,revision,approved_at,updated_at')
+  if (scope.clientId) candidateQuery = candidateQuery.eq('client_id', scope.clientId)
+  const [clients, content, contentRequests, messages, reviewCandidates] = await Promise.all([
     scope.clientId
       ? admin.from('clients').select('id,name,slug').eq('id', scope.clientId)
       : admin.from('clients').select('id,name,slug').order('name'),
     contentQuery,
     admin.rpc('list_content_change_requests', { p_client_id: scope.clientId ?? null }),
     messageQuery,
+    candidateQuery,
   ])
-  const failure = clients.error ?? content.error ?? contentRequests.error ?? messages.error
+  const failure = clients.error ?? content.error ?? contentRequests.error ?? messages.error ?? reviewCandidates.error
   if (failure) throw new Error(`Portal admin data unavailable: ${failure.message}`)
   const clientMap = new Map((clients.data ?? []).map((client) => [client.id, client]))
   const contentMap = new Map((content.data ?? []).map((item) => [
@@ -380,6 +384,7 @@ export async function loadRequests(scope: { clientId?: string; contentUuid?: str
   const messagesByRequest = new Map<string, Array<{
     id: string; authorType: 'client' | 'anastasia'; authorName: string; body: string; createdAt: string
   }>>()
+  const candidateByRequest = new Map((reviewCandidates.data ?? []).map((candidate) => [candidate.request_id, candidate]))
   for (const message of messages.data ?? []) {
     if ((message.author_type !== 'client' && message.author_type !== 'anastasia')
         || !message.request_id || !message.id || !message.author_name || !message.body || !message.created_at) continue
@@ -397,6 +402,7 @@ export async function loadRequests(scope: { clientId?: string; contentUuid?: str
     const blockKey = asText(request.payload.block_key)
     const block = blockKey ? parseCopyBlocks(item?.copy_blocks).find((candidate) => candidate.key === blockKey) : null
     const proposedText = asText(request.payload.proposed_text)
+    const reviewCandidate = candidateByRequest.get(request.id)
     return { id: request.id, clientName: clientMap.get(request.client_id)?.name ?? 'Unknown client',
       requestType: request.request_type, status: request.status, requesterName: request.requester_name,
       createdAt: request.created_at, contentUuid: request.content_id, baseVersion: request.base_version,
@@ -404,6 +410,12 @@ export async function loadRequests(scope: { clientId?: string; contentUuid?: str
       resolutionNote: request.resolution_note,
       edit: request.request_type === 'edit' && proposedText !== null
         ? { blockKey, blockLabel: block?.label ?? null, originalText: block?.body ?? null, proposedText }
+        : null,
+      reviewCandidate: reviewCandidate
+        && (reviewCandidate.status === 'draft' || reviewCandidate.status === 'approved')
+        ? { candidateText: reviewCandidate.candidate_text, changeSummary: reviewCandidate.change_summary,
+          status: reviewCandidate.status, revision: reviewCandidate.revision,
+          approvedAt: reviewCandidate.approved_at, updatedAt: reviewCandidate.updated_at }
         : null,
       messages: messagesByRequest.get(request.id) ?? [] }
   })

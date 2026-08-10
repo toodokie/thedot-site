@@ -107,8 +107,26 @@ function compatibleBlockKeys(blockKey:string){
     ? [blockKey,'ig-facebook-caption','social-caption']
     : [blockKey]
 }
+async function reviewCandidateTexts(
+  requests:ChangeRequest[],requireApproved:boolean,
+):Promise<Map<string,string>>{
+  const requestIds=requests.map((request)=>request.id)
+  const {data,error}=await admin.from('content_request_review_candidates')
+    .select('request_id,candidate_text,status').in('request_id',requestIds)
+  if(error) throw new Error(`Agency review candidates unavailable: ${error.message}`)
+  const rows=new Map((data??[]).map((row)=>[row.request_id,row]))
+  if(rows.size===0&&!requireApproved) return new Map()
+  for(const request of requests){
+    const row=rows.get(request.id)
+    if(!row) throw new Error('Save a safe-merge candidate for every request in Agency Ops before using a package candidate')
+    if(requireApproved&&row.status!=='approved')
+      throw new Error('Approve every safe-merge candidate in Agency Ops before applying the package candidate')
+  }
+  return new Map([...rows].map(([requestId,row])=>[requestId,row.candidate_text]))
+}
 function validateEditPackageCandidate(
-  raw:string,sourcePath:string,base:ParsedContent,requests:Array<{blockKey:string;proposedText:string}>,
+  raw:string,sourcePath:string,base:ParsedContent,
+  requests:Array<{requestId?:string;blockKey:string;proposedText:string;reviewText?:string}>,
   expectedPlannedDate:string|null,allowPartialCandidate=false,
 ):ParsedContent{
   const candidate=parseContentFile(raw,sourcePath)
@@ -135,12 +153,13 @@ function validateEditPackageCandidate(
     const block=candidate.copy_blocks.find((row)=>compatibleBlockKeys(request.blockKey).includes(row.key))
     const candidateText=block?normalText(block.body):''
     const requestedText=normalText(request.proposedText)
-    const exact=candidateText===requestedText
+    const reviewText=request.reviewText===undefined?null:normalText(request.reviewText)
+    const exact=reviewText===null?candidateText===requestedText:candidateText===reviewText
     // Maria sometimes edits only the first sentence/field in the portal. In that case the
     // proposed text is an exact leading segment within the reviewed block, not a replacement
     // for the whole block. This mode is deliberately explicit and still prints the complete package
     // diff before apply, so the agency reviews every retained/additional line.
-    const exactLeadingSegment=allowPartialCandidate&&requestedText.length>=20&&(
+    const exactLeadingSegment=reviewText===null&&allowPartialCandidate&&requestedText.length>=20&&(
       candidateText.startsWith(`${requestedText} `)
       ||candidateText.startsWith(`${requestedText}\n`)
       ||candidateText.includes(`\n${requestedText} `)
@@ -148,7 +167,9 @@ function validateEditPackageCandidate(
       ||candidateText.endsWith(`\n${requestedText}`)
     )
     if(!block||(!exact&&!exactLeadingSegment))
-      throw new Error('Package candidate does not include Maria\'s requested copy as an exact block or leading segment')
+      throw new Error(reviewText===null
+        ? 'Package candidate does not include Maria\'s requested copy as an exact block or leading segment'
+        : 'Package candidate does not match the saved Agency Ops recommendation')
     if(matchedKeys.has(block.key)) throw new Error('Package candidate maps two requests to the same copy block')
     matchedKeys.add(block.key)
   }
@@ -171,15 +192,20 @@ async function reconcileEdit(client:{id:string;slug:string},requestId:string,app
   const base=parseContentFile(raw,snapshot.source_path)
   const edited=applyCanonicalEdit(raw,snapshot.source_path,request.base_version,{blockKey,originalChecksum,proposedText})
   const candidateRaw=candidatePath?candidateFile(candidatePath):edited.raw
+  const reviewTexts=candidatePath?await reviewCandidateTexts([request],apply):new Map<string,string>()
   const parsed=candidatePath
-    ?validateEditPackageCandidate(candidateRaw,snapshot.source_path,base,[{blockKey,proposedText}],item.planned_date??null)
+    ?validateEditPackageCandidate(candidateRaw,snapshot.source_path,base,[{
+      requestId:request.id,blockKey,proposedText,reviewText:reviewTexts.get(request.id),
+    }],item.planned_date??null)
     :parseContentFile(candidateRaw,snapshot.source_path)
   if(!candidatePath&&parsed.scheduled_date!==(item.planned_date??null))
     throw new Error('Canonical source has a stale scheduled_date; provide a candidate that matches the current portal planned date')
   const candidateBlock=parsed.copy_blocks.find((row)=>row.key===blockKey)
   if(candidatePath){
     printSafePackageDiff(base,parsed)
-    console.log(`Package candidate accepted: ${candidatePath}. Related copy changes are shown above, and Maria's requested block is exact.`)
+    console.log(reviewTexts.size
+      ? `Package candidate accepted: ${candidatePath}. It matches the saved Agency Ops recommendation.`
+      : `Package candidate accepted: ${candidatePath}. Related copy changes are shown above, and Maria's requested block is exact.`)
   }else printSafeEditDiff(edited.before,candidateBlock?.body??edited.after)
   if(!apply){console.log('Preview only. Re-run with --apply after reviewing this client-visible diff.');return}
   await startJob(request,null,null,null)
@@ -238,16 +264,20 @@ async function reconcileEditBundle(
   const base=parseContentFile(baseRaw,snapshot.source_path)
   const generated=applyCanonicalEdits(baseRaw,snapshot.source_path,lead.base_version,patches)
   const candidateRaw=candidatePath?candidateFile(candidatePath):generated.raw
+  const reviewTexts=candidatePath?await reviewCandidateTexts(requests,apply):new Map<string,string>()
   const parsed=candidatePath
     ?validateEditPackageCandidate(candidateRaw,snapshot.source_path,base,
-      patches.map(({blockKey,proposedText})=>({blockKey,proposedText})),item.planned_date??null,
+      patches.map(({blockKey,proposedText},index)=>({requestId:requests[index].id,blockKey,proposedText,
+        reviewText:reviewTexts.get(requests[index].id)})),item.planned_date??null,
       allowPartialCandidate)
     :parseContentFile(candidateRaw,snapshot.source_path)
   if(!candidatePath&&parsed.scheduled_date!==(item.planned_date??null))
     throw new Error('Canonical source has a stale scheduled_date; provide a candidate that matches the current portal planned date')
   if(candidatePath){
     printSafePackageDiff(base,parsed)
-    console.log(`Package candidate accepted: ${candidatePath}. Every requested block is exact.`)
+    console.log(reviewTexts.size
+      ? `Package candidate accepted: ${candidatePath}. Every block matches its saved Agency Ops recommendation.`
+      : `Package candidate accepted: ${candidatePath}. Every requested block is exact.`)
   }else printSafePackageDiff(base,parsed)
   if(!apply){console.log('Preview only. Re-run with --apply after reviewing this client-visible bundle diff.');return}
   if(lead.status==='pending') await startJob(lead,null,null,null)

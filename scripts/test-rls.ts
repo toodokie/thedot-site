@@ -627,6 +627,59 @@ async function main(): Promise<void> {
           && ownRows.data?.[0]?.payload?.proposed_text === 'Prepared request body v2',
         JSON.stringify(ownRows.data?.[0]?.payload))
 
+      const browserCandidate = await bClient.rpc('upsert_content_request_review_candidate', {
+        p_request_id: editId, p_candidate_text: 'Prepared request body v2',
+        p_change_summary: 'Accepted the requested wording.', p_actor_key: 'thedot-admin',
+        p_idempotency_key: randomUUID(),
+      })
+      const candidateKey = randomUUID()
+      const candidate = await admin.rpc('upsert_content_request_review_candidate', {
+        p_request_id: editId, p_candidate_text: 'Prepared request body v2',
+        p_change_summary: 'Accepted the requested wording.', p_actor_key: 'thedot-admin',
+        p_idempotency_key: candidateKey,
+      })
+      const candidateRetry = await admin.rpc('upsert_content_request_review_candidate', {
+        p_request_id: editId, p_candidate_text: 'Prepared request body v2',
+        p_change_summary: 'Accepted the requested wording.', p_actor_key: 'thedot-admin',
+        p_idempotency_key: candidateKey,
+      })
+      const hiddenCandidate = await bClient.from('content_request_review_candidates')
+        .select('request_id,status').eq('request_id', editId)
+      const crossCandidate = await kansetClient.from('content_request_review_candidates')
+        .select('request_id,status').eq('request_id', editId)
+      const candidateRow = await admin.from('content_request_review_candidates')
+        .select('request_id,status,revision,candidate_text,change_summary').eq('request_id', editId).single()
+      const browserApproval = await bClient.rpc('approve_content_request_review_candidate', {
+        p_request_id: editId, p_expected_revision: 1,
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const staleApproval = await admin.rpc('approve_content_request_review_candidate', {
+        p_request_id: editId, p_expected_revision: 2,
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const approval = await admin.rpc('approve_content_request_review_candidate', {
+        p_request_id: editId, p_expected_revision: 1,
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const approvedCandidate = await admin.from('content_request_review_candidates')
+        .select('status,revision,approved_at').eq('request_id', editId).single()
+      const requestAfterApproval = await bClient.from('content_change_requests_client')
+        .select('status').eq('id', editId).single()
+      check('R4aa: agency-only candidate save is idempotent and invisible to both client tenants',
+        !!browserCandidate.error && !candidate.error && !candidateRetry.error
+          && !!hiddenCandidate.error && !!crossCandidate.error
+          && candidateRow.data?.status === 'draft' && candidateRow.data?.revision === 1
+          && candidateRow.data?.candidate_text === 'Prepared request body v2',
+        browserCandidate.error?.message ?? candidate.error?.message ?? candidateRetry.error?.message
+          ?? JSON.stringify({ own: hiddenCandidate.data, cross: crossCandidate.data, row: candidateRow.data }))
+      check('R4ab: only agency can approve the exact candidate revision without advancing the request',
+        !!browserApproval.error && !!staleApproval.error && !approval.error
+          && approvedCandidate.data?.status === 'approved'
+          && approvedCandidate.data?.revision === 1 && !!approvedCandidate.data?.approved_at
+          && requestAfterApproval.data?.status === 'pending',
+        browserApproval.error?.message ?? staleApproval.error?.message ?? approval.error?.message
+          ?? JSON.stringify({ candidate: approvedCandidate.data, request: requestAfterApproval.data }))
+
       const started = await admin.rpc('start_content_request_reconciliation', {
         p_request_id: editId, p_requested_content_id: null, p_canonical_object_key: null,
         p_expected_base_commit: null, p_actor_key: 'thedot-admin', p_idempotency_key: editId,

@@ -291,10 +291,17 @@
 .editReview { margin-top: 18px; border-top: 1px solid var(--admin-line); padding-top: 14px; }
 .editReview summary { cursor: pointer; color: var(--admin-ink); font-size: 17px; font-weight: var(--dot-weight-demi); }
 .editReviewHint { margin: 8px 0 14px; color: var(--admin-muted); font-size: 15px; line-height: 1.5; }
-.editReviewGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.editReviewGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; align-items: start; }
 .editReviewLabel { margin: 0 0 7px; color: var(--admin-muted); font-size: 13px; font-weight: var(--dot-weight-medium); letter-spacing: 0.06em; text-transform: uppercase; }
 .editReviewText { box-sizing: border-box; width: 100%; min-height: 96px; margin: 0; padding: 12px; overflow-wrap: anywhere; white-space: pre-wrap; font: inherit; font-size: 15px; line-height: 1.5; color: var(--admin-ink); background: var(--admin-ground); border: 1px solid var(--admin-line); }
 .editReviewMissing { margin: 0; padding: 12px; color: var(--admin-muted); font-size: 15px; line-height: 1.5; border: 1px solid var(--admin-line); }
+.safeMergeForm { display: grid; gap: 8px; min-width: 0; padding: 12px; background: var(--dot-yellow-pale); border: 1px solid var(--admin-line); }
+.safeMergeHead { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.safeMergeIntro, .safeMergeFoot { margin: 0; color: var(--admin-muted); font-size: 13px; line-height: 1.45; }
+.safeMergeInput { box-sizing: border-box; width: 100%; resize: vertical; padding: 10px; color: var(--admin-ink); background: var(--dot-white); border: 1px solid var(--admin-line); font: inherit; font-size: 15px; line-height: 1.5; }
+.safeMergeActions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+.safeMergeApprove { background: var(--admin-ink); color: var(--admin-ground); }
+.safeMergeSummary { margin: 10px 0 0; padding: 10px 12px; white-space: pre-wrap; color: var(--admin-graphite); background: var(--dot-yellow-pale); border-left: 3px solid var(--dot-yellow); font-size: 14px; line-height: 1.5; }
 @media (max-width: 760px) { .editReviewGrid { grid-template-columns: 1fr; } }
 .requestConversation { display: grid; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--admin-line); }
 .requestClientMessage, .requestAgencyMessage { padding: 10px 12px; background: var(--admin-ground); color: var(--admin-graphite); font-size: 15px; line-height: 1.5; }

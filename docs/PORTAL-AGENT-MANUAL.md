@@ -5,7 +5,7 @@ actually built" reference: architecture, code map, data/security model, the cont
 design system, the deploy discipline, and the hard-won lessons. Read this top to bottom once;
 after that use the table of contents.
 
-**Last verified against the codebase and production:** 2026-08-10 (migrations `0001` through `0078`).
+**Last verified against the codebase:** 2026-08-10 (migration `0079` prepared; production remains through `0078` until the reviewed migration is applied).
 
 > This manual documents the **code** (the `~/thedot-site` repo). The **business/engagement**
 > context (client, pricing, content strategy, cadence, brand voice) lives in the `~/Kanset`
@@ -21,7 +21,7 @@ after that use the table of contents.
 2. Repo map
 3. Tech stack
 4. Data & security model (Supabase) — the part to respect most
-5. The migration ledger (`0001` through `0078`)
+5. The migration ledger (`0001` through `0079`)
 6. The client portal (`/client/[slug]`)
 7. The admin ops portal (`/admin/portal`)
 8. The content lifecycle — canonical repo → portal
@@ -164,7 +164,7 @@ multi-tenant, and the security model is defended in-migration.
 
 ---
 
-## 5. The migration ledger (`0001` through `0078`)
+## 5. The migration ledger (`0001` through `0079`)
 
 Each file's top comment states its purpose. Summary:
 
@@ -204,6 +204,7 @@ Each file's top comment states its purpose. Summary:
 | `0076_abandon_unrequested_aug9_review_emails` | n/a | Abandons narrowly identified unrequested client email rows while preserving portal history. |
 | `0077_abandon_unrequested_askkanset_v2_email` | n/a | Abandons the exact pending Ask Kanset v2 client email that was not authorized. |
 | `0078_agency_piece_edit_digests` | n/a | Groups same-piece client edits and comments into one linked agency digest after a five-minute quiet window, and exposes service-only agency notification audit rows. |
+| `0079_agency_edit_review_candidates` | n/a | Adds agency-only safe-merge drafts and internal approvals for client copy requests. Candidates stay invisible to the client and do not advance a request, canonical copy or release. |
 
 **Full v1 architecture + phasing spec:** `~/Kanset/portal-integration-task.md`.
 **Gate-system spec:** `docs/superpowers/specs/2026-07-21-portal-gate-system-design.md`.
@@ -274,7 +275,7 @@ tokens**, so every routed page's cards inherit them (§13).
 | Publication | `/admin/portal/publication` | `PublicationAdmin` | `loadPublicationTargets()` |
 | Calendar | `/admin/portal/calendar` | `CalendarAdmin` | `loadCalendarData()` |
 | Billing | `/admin/portal/billing` | `BillingAdmin` | `loadInvoices()` |
-| Requests | `/admin/portal/requests` | `RequestAdmin` | `loadRequests()` |
+| Requests | `/admin/portal/requests` | `RequestAdmin` | `loadRequests()` with a three-way released/requested/safe-merge comparison and internal candidate approval. |
 
 Plus a quiet **Dashboard** link out to `/admin/dashboard`.
 
@@ -343,6 +344,8 @@ defines when the piece identity is created.
 **One command for the day-to-day:** "update portal" reconciles new/changed/planned content
 per-change (not weekly), wired into the `kanset-production-workflow` skill. New post links enter via
 the agency confirm/import tooling (§10), **not** by editing repo files.
+
+**Client edit pre-apply review (`0079`):** Agency Ops stores a private complete safe-merge candidate and change map beside each pending edit. Saving creates a draft. Internal approval records the exact candidate revision but does not touch the request status, canonical repository, released copy, activity or client notifications. The internal `~/Kanset/content/*.md` package mirrors the same complete current/requested/candidate comparison. When `portal-inbox` applies an explicit package candidate, it requires every block to match its approved Agency Ops candidate exactly.
 
 ---
 

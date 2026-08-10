@@ -8,8 +8,41 @@ export async function POST(request: Request) {
     await requireAdminSession()
     assertSameOriginRequest(request)
     const body = await request.json() as {
-      action?: 'resolve' | 'reply' | 'proposal-reply'
+      action?: 'resolve' | 'reply' | 'proposal-reply' | 'save-candidate' | 'approve-candidate'
       requestId?: string; status?: string; reason?: string; body?: string; close?: boolean; idempotencyKey?: string
+      candidateText?: string; changeSummary?: string; expectedRevision?: number
+    }
+    if (body.action === 'save-candidate') {
+      const candidateText = body.candidateText?.trim()
+      const changeSummary = body.changeSummary?.trim()
+      if (!body.requestId?.match(/^[0-9a-f-]{36}$/i)
+          || !candidateText || candidateText.length > 8000
+          || !changeSummary || changeSummary.length < 3 || changeSummary.length > 4000
+          || !body.idempotencyKey?.match(/^[0-9a-f-]{36}$/i)) {
+        return NextResponse.json({ error: 'Invalid safe-merge candidate.' }, { status: 400 })
+      }
+      const admin = createSupabaseAdmin()
+      const { data, error } = await admin.rpc('upsert_content_request_review_candidate', {
+        p_request_id: body.requestId, p_candidate_text: candidateText,
+        p_change_summary: changeSummary, p_actor_key: 'thedot-admin',
+        p_idempotency_key: body.idempotencyKey,
+      })
+      if (error) throw new Error(error.message)
+      return NextResponse.json({ result: data }, { headers: { 'Cache-Control': 'private, no-store' } })
+    }
+    if (body.action === 'approve-candidate') {
+      if (!body.requestId?.match(/^[0-9a-f-]{36}$/i)
+          || !Number.isInteger(body.expectedRevision) || (body.expectedRevision ?? 0) < 1
+          || !body.idempotencyKey?.match(/^[0-9a-f-]{36}$/i)) {
+        return NextResponse.json({ error: 'Invalid safe-merge approval.' }, { status: 400 })
+      }
+      const admin = createSupabaseAdmin()
+      const { data, error } = await admin.rpc('approve_content_request_review_candidate', {
+        p_request_id: body.requestId, p_expected_revision: body.expectedRevision,
+        p_actor_key: 'thedot-admin', p_idempotency_key: body.idempotencyKey,
+      })
+      if (error) throw new Error(error.message)
+      return NextResponse.json({ result: data }, { headers: { 'Cache-Control': 'private, no-store' } })
     }
     if (body.action === 'proposal-reply') {
       const reply = body.body?.trim()

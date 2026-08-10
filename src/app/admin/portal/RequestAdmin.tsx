@@ -13,6 +13,10 @@ export type AdminContentRequest = {
   edit: {
     blockKey: string | null; blockLabel: string | null; originalText: string | null; proposedText: string
   } | null
+  reviewCandidate: {
+    candidateText: string; changeSummary: string; status: 'draft' | 'approved'; revision: number
+    approvedAt: string | null; updatedAt: string
+  } | null
   messages: Array<{ id: string; authorType: 'client' | 'anastasia'; authorName: string; body: string; createdAt: string }>
 }
 
@@ -63,6 +67,84 @@ function RequestReplyForm({ request }: { request: AdminContentRequest }) {
       {state.message && <span className={state.kind === 'error' ? styles.commentError : styles.commentSuccess} role="status">{state.message}</span>}
       <button type="submit" className={styles.disclose} disabled={state.kind === 'sending' || !body.trim()}>{state.kind === 'sending' ? 'Posting…' : 'Reply'}</button>
     </div>
+  </form>
+}
+
+function SafeMergeReview({ request }: { request: AdminContentRequest }) {
+  const router = useRouter()
+  const saved = request.reviewCandidate
+  const [candidateText, setCandidateText] = useState(saved?.candidateText ?? '')
+  const [changeSummary, setChangeSummary] = useState(saved?.changeSummary ?? '')
+  const [state, setState] = useState<{ kind: 'idle' | 'saving' | 'approving' | 'saved' | 'error'; message?: string }>({ kind: 'idle' })
+  const dirty = candidateText !== (saved?.candidateText ?? '') || changeSummary !== (saved?.changeSummary ?? '')
+
+  async function mutate(payload: Record<string, unknown>) {
+    const response = await fetch('/api/admin/portal/requests', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ requestId: request.id, idempotencyKey: crypto.randomUUID(), ...payload }),
+    })
+    const body = await response.json() as { error?: string }
+    if (!response.ok) throw new Error(body.error ?? 'Candidate review update failed.')
+  }
+
+  async function save(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setState({ kind: 'saving' })
+    try {
+      await mutate({ action: 'save-candidate', candidateText: candidateText.trim(), changeSummary: changeSummary.trim() })
+      setState({ kind: 'saved', message: saved?.status === 'approved'
+        ? 'Candidate saved as a new draft. Its earlier approval was cleared.'
+        : 'Candidate draft saved.' })
+      router.refresh()
+    } catch (error) {
+      setState({ kind: 'error', message: error instanceof Error ? error.message : 'Candidate review update failed.' })
+    }
+  }
+
+  async function approve() {
+    if (!saved || dirty) return
+    setState({ kind: 'approving' })
+    try {
+      await mutate({ action: 'approve-candidate', expectedRevision: saved.revision })
+      setState({ kind: 'saved', message: 'Candidate approved internally. Maria’s request and the released copy are unchanged.' })
+      router.refresh()
+    } catch (error) {
+      setState({ kind: 'error', message: error instanceof Error ? error.message : 'Candidate approval failed.' })
+    }
+  }
+
+  return <form onSubmit={save} className={styles.safeMergeForm}>
+    <div className={styles.safeMergeHead}>
+      <div>
+        <h3 className={styles.editReviewLabel}>Safe merge candidate</h3>
+        <p className={styles.safeMergeIntro}>Agency-only draft. Saving and approving here do not apply copy or notify Maria.</p>
+      </div>
+      {saved && <StatusPill tone={saved.status === 'approved' && !dirty ? 'verified' : 'pending'}
+        label={dirty ? 'Unsaved changes' : saved.status === 'approved' ? 'Approved internally' : 'Draft'} />}
+    </div>
+    <label className={styles.fieldLabel} htmlFor={`candidate-copy-${request.id}`}>Recommended final copy</label>
+    <textarea id={`candidate-copy-${request.id}`} value={candidateText}
+      onChange={(event) => setCandidateText(event.target.value.slice(0, 8000))}
+      rows={12} maxLength={8000} className={styles.safeMergeInput}
+      placeholder="Write the complete recommended replacement, not only the changed sentence." />
+    <label className={styles.fieldLabel} htmlFor={`candidate-summary-${request.id}`}>Change map and reasons</label>
+    <textarea id={`candidate-summary-${request.id}`} value={changeSummary}
+      onChange={(event) => setChangeSummary(event.target.value.slice(0, 4000))}
+      rows={7} maxLength={4000} className={styles.safeMergeInput}
+      placeholder={'Accepted: …\nRephrased: … and why\nRemoved or retained: … and why'} />
+    {state.message && <span className={state.kind === 'error' ? styles.commentError : styles.commentSuccess} role="status">{state.message}</span>}
+    <div className={styles.safeMergeActions}>
+      <button type="submit" className={styles.btn}
+        disabled={state.kind === 'saving' || state.kind === 'approving' || !candidateText.trim() || changeSummary.trim().length < 3 || !dirty}>
+        {state.kind === 'saving' ? 'Saving…' : saved ? 'Save new draft' : 'Save candidate'}
+      </button>
+      <button type="button" className={`${styles.btn} ${styles.safeMergeApprove}`}
+        disabled={!saved || dirty || saved.status === 'approved' || state.kind === 'saving' || state.kind === 'approving'}
+        onClick={approve}>
+        {state.kind === 'approving' ? 'Approving…' : 'Approve candidate'}
+      </button>
+    </div>
+    <p className={styles.safeMergeFoot}>After approval, canonical reconciliation must use this exact candidate. Applying and releasing remain separate actions.</p>
   </form>
 }
 
@@ -133,7 +215,7 @@ export function RequestList({
         <div className={styles.metaLine}>{request.clientName} · {request.requestType} · {request.requesterName} · {request.createdAt.slice(0, 10)}{request.baseVersion ? ` · v${request.baseVersion}` : ''}</div>
         {request.edit && <details className={styles.editReview} open>
           <summary>Review edit to {request.edit.blockLabel ?? request.edit.blockKey ?? 'copy block'}</summary>
-          <p className={styles.editReviewHint}>Maria’s proposed replacement is shown beside the text she reviewed.</p>
+          <p className={styles.editReviewHint}>Compare the exact released text, Maria’s replacement, and the agency recommendation before any canonical change begins.</p>
           <div className={styles.editReviewGrid}>
             <section>
               <h3 className={styles.editReviewLabel}>Current text{request.baseVersion ? `, v${request.baseVersion}` : ''}</h3>
@@ -145,6 +227,16 @@ export function RequestList({
               <h3 className={styles.editReviewLabel}>Maria’s proposed text</h3>
               <pre className={styles.editReviewText}>{request.edit.proposedText}</pre>
             </section>
+            {request.status === 'pending' && <SafeMergeReview request={request} />}
+            {request.status !== 'pending' && request.reviewCandidate && <section>
+              <div className={styles.safeMergeHead}>
+                <h3 className={styles.editReviewLabel}>Safe merge candidate</h3>
+                <StatusPill tone={request.reviewCandidate.status === 'approved' ? 'verified' : 'pending'}
+                  label={request.reviewCandidate.status === 'approved' ? 'Approved internally' : 'Draft'} />
+              </div>
+              <pre className={styles.editReviewText}>{request.reviewCandidate.candidateText}</pre>
+              <p className={styles.safeMergeSummary}>{request.reviewCandidate.changeSummary}</p>
+            </section>}
           </div>
         </details>}
         {request.messages.length > 0 && <section className={styles.requestConversation} aria-label="Request conversation">
