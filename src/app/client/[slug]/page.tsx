@@ -151,7 +151,7 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
   for (const message of proposalMessages) {
     if (message.author_type === 'anastasia') latestProposalReply.set(message.proposal_id, message)
   }
-  const approvalCount = needs.length + openPlans.length + awaitingProposals.length
+  const approvalCount = needs.length + copyReady.length + openPlans.length + awaitingProposals.length
   const todayIso = torontoTodayIso()
   const calendarDays: Record<string, WeekCalendarChip[]> = {}
   for (const row of schedule) {
@@ -205,11 +205,7 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
           <div>
             <Panel
               label="Waiting on review"
-              note={planWaiting
-                ? needs.length > 0
-                  ? 'Your content plans and released pieces are ready for your approval.'
-                  : 'Your content plans are ready for your approval.'
-                : 'Fact-checked (Confirmed) is our gate; Approve is yours.'}
+              note="Review fact-checked copy now. Final approval stays closed until its design is linked."
             >
               {openPlans.map(({ cycle }) => (
                 <Link key={cycle.id} className={styles.row} href={`/client/${encodeURIComponent(slug)}/plan`}>
@@ -230,7 +226,7 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
                   </Text>}
                 </span>
               </Link>)}
-              {needs.length === 0 && !planWaiting && awaitingProposals.length === 0 ? (
+              {needs.length === 0 && copyReady.length === 0 && !planWaiting && awaitingProposals.length === 0 ? (
                 <div className={styles.emptyRow}><Text size="md" tone="graphite">Nothing is waiting on your review right now.</Text></div>
               ) : (
                 needs.map((it) => {
@@ -240,6 +236,9 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
                     note={reReview ? `updated after your feedback · v${it.version}` : undefined} />
                 })
               )}
+              {copyReady.map((it) => <ContentRow key={it.id} it={it} slug={slug} priority
+                plannedDay={formatPlannedReviewDate(it.planned_date, todayIso)}
+                note="copy ready · design coming" />)}
             </Panel>
 
             {upcomingPlans.length > 0 && (
@@ -255,12 +254,6 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
                     </span>
                   </Link>
                 ))}
-              </Panel>
-            )}
-
-            {copyReady.length > 0 && (
-              <Panel label="Copy ready for plan review" note="These fact-checked drafts are ready for your comments. Final approval opens when the linked design is ready.">
-                {copyReady.map((it) => <ContentRow key={it.id} it={it} slug={slug} priority />)}
               </Panel>
             )}
 
