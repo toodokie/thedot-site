@@ -1,6 +1,11 @@
 import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
-import { applyCanonicalEdit, applyCanonicalEdits, buildCanonicalCreate } from './canonical-request-reconciler'
+import {
+  applyCanonicalEdit,
+  applyCanonicalEdits,
+  buildCanonicalCreate,
+  resolveCanonicalEditCandidate,
+} from './canonical-request-reconciler'
 import { parseContentFile } from './frontmatter'
 
 const source = `---
@@ -86,6 +91,23 @@ describe('canonical request reconciler', () => {
       .toThrow(/two edits to the same copy block/)
     expect(() => applyCanonicalEdits(source, 'test-piece.md', 2, [{ ...patch, originalChecksum: '0'.repeat(64) }]))
       .toThrow(/checksum/)
+  })
+
+  it('does not parse rejected raw proposals when an approved package candidate is supplied', () => {
+    const original = parseContentFile(source, 'test-piece.md').copy_blocks[0].body
+    const approvedCandidate = source.replace('version: 2', 'version: 3').replace('Released copy.', 'Approved safe copy.')
+    const result = resolveCanonicalEditCandidate({
+      raw: source,
+      sourcePath: 'test-piece.md',
+      expectedVersion: 2,
+      patches: [{
+        blockKey: 'caption',
+        originalChecksum: createHash('sha256').update(original).digest('hex'),
+        proposedText: 'Rejected raw proposal: https://unsafe.example.invalid',
+      }],
+      approvedCandidateRaw: approvedCandidate,
+    })
+    expect(result).toBe(approvedCandidate)
   })
 
   it('creates a parser-valid unreleased working draft that cannot claim confirmed evidence', () => {

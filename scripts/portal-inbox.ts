@@ -4,7 +4,12 @@ import { randomUUID } from 'node:crypto'
 import { closeSync, existsSync, lstatSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { join, relative, resolve, sep } from 'node:path'
-import { applyCanonicalEdit, applyCanonicalEdits, buildCanonicalCreate, type EditPatch } from '../src/lib/portal/canonical-request-reconciler'
+import {
+  applyCanonicalEdit,
+  buildCanonicalCreate,
+  resolveCanonicalEditCandidate,
+  type EditPatch,
+} from '../src/lib/portal/canonical-request-reconciler'
 import { inspectCanonicalContentRoot } from '../src/lib/portal/canonical-content-root'
 import { parseContentFile, type ParsedContent } from '../src/lib/portal/frontmatter'
 
@@ -262,8 +267,10 @@ async function reconcileEditBundle(
     ?git(dir,['show',`${snapshot.source_commit_sha}:${snapshot.source_path}`])
     :currentRaw
   const base=parseContentFile(baseRaw,snapshot.source_path)
-  const generated=applyCanonicalEdits(baseRaw,snapshot.source_path,lead.base_version,patches)
-  const candidateRaw=candidatePath?candidateFile(candidatePath):generated.raw
+  const candidateRaw=resolveCanonicalEditCandidate({
+    raw:baseRaw,sourcePath:snapshot.source_path,expectedVersion:lead.base_version,patches,
+    approvedCandidateRaw:candidatePath?candidateFile(candidatePath):null,
+  })
   const reviewTexts=candidatePath?await reviewCandidateTexts(requests,apply):new Map<string,string>()
   const parsed=candidatePath
     ?validateEditPackageCandidate(candidateRaw,snapshot.source_path,base,

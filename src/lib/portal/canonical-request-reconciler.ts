@@ -7,6 +7,17 @@ export type EditPatch = {
   proposedText: string
 }
 
+export function resolveCanonicalEditCandidate(input: {
+  raw: string
+  sourcePath: string
+  expectedVersion: number
+  patches: EditPatch[]
+  approvedCandidateRaw: string | null
+}): string {
+  if (input.approvedCandidateRaw !== null) return input.approvedCandidateRaw
+  return applyCanonicalEdits(input.raw, input.sourcePath, input.expectedVersion, input.patches).raw
+}
+
 type CreatePatch = {
   title: string
   brief: string
