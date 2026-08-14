@@ -111,6 +111,13 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
   const copyReady = reviewCandidates.filter((item) => !contentReviewPackageReadiness(
     item, reviewAssetsByItem.get(item.id) ?? [],
   ).ready)
+  // One date-ordered review list (Anastasia, 2026-08-12): a bucket-ordered list read as
+  // 19 -> 14 -> 17 and hid the most-ready piece mid-list. Package completeness stays
+  // visible as the per-row note; undated rows sink to the end.
+  const copyOnlyIds = new Set(copyReady.map((item) => item.id))
+  const reviewRows = [...needs, ...copyReady].sort((a, b) =>
+    (a.planned_date ?? '9999-12-31').localeCompare(b.planned_date ?? '9999-12-31')
+    || a.content_id.localeCompare(b.content_id))
   const reReviewByContentId = new Map(items.flatMap((item) => {
     const context = reReviewContext(item.version, item.state, item.current_decision,
       requests.filter((request) => request.content_id === item.id))
@@ -229,16 +236,15 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
               {needs.length === 0 && copyReady.length === 0 && !planWaiting && awaitingProposals.length === 0 ? (
                 <div className={styles.emptyRow}><Text size="md" tone="graphite">Nothing is waiting on your review right now.</Text></div>
               ) : (
-                needs.map((it) => {
+                reviewRows.map((it) => {
                   const reReview = reReviewByContentId.get(it.id)
+                  const note = copyOnlyIds.has(it.id) ? 'copy ready · design coming'
+                    : reReview ? `updated after your feedback · v${it.version}` : undefined
                   return <ContentRow key={it.id} it={it} slug={slug} priority
                     plannedDay={formatPlannedReviewDate(it.planned_date, todayIso)}
-                    note={reReview ? `updated after your feedback · v${it.version}` : undefined} />
+                    note={note} />
                 })
               )}
-              {copyReady.map((it) => <ContentRow key={it.id} it={it} slug={slug} priority
-                plannedDay={formatPlannedReviewDate(it.planned_date, todayIso)}
-                note="copy ready · design coming" />)}
             </Panel>
 
             {upcomingPlans.length > 0 && (
