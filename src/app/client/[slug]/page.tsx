@@ -33,12 +33,17 @@ function Panel({ label, note, children }: { label: string; note?: string; childr
 
 // A clickable content row; `priority` shows a yellow dot marker (needs the client's eyes);
 // `note` renders a small grey qualifier after the title (e.g. partial verification).
-function ContentRow({ it, slug, priority, note, plannedDay }: {
+// `stageChip` is the client-facing action state ("what do I do with this?"), never an
+// internal production gate. The fact_check field no longer renders here: it read as the
+// piece's stage (Anastasia, 2026-08-14). 'fact-checked' stays as the trust signal in the
+// review panel note and on the piece detail screen.
+function ContentRow({ it, slug, priority, note, plannedDay, stageChip }: {
   it: ContentRowType
   slug: string
   priority?: boolean
   note?: string
   plannedDay?: string | null
+  stageChip?: string
 }) {
   const platforms = it.platforms || []
   return (
@@ -48,16 +53,10 @@ function ContentRow({ it, slug, priority, note, plannedDay }: {
         {plannedDay && <span className={styles.plannedDay}>{plannedDay}</span>}
         <Text as="span" size="md" tone="black">{it.title}</Text>
         {note && <>{' '}<Text as="span" size="sm" tone="grey">({note})</Text></>}
-        {(platforms.length > 0 || it.fact_check) && (
+        {(platforms.length > 0 || stageChip) && (
           <span className={styles.chipRow}>
             {platforms.map((p) => <span key={p} className={styles.chip}>{p}</span>)}
-            {/* 'confirmed' is OUR fact-check gate, not the client's approval; say so on the chip
-                (Anastasia, 2026-07-20: a bare 'Confirmed' read as "approved by whom, of what?") */}
-            {it.fact_check && (
-              <span className={`${styles.chip} ${styles.chipFact}`}>
-                {it.fact_check === 'confirmed' ? 'fact-checked' : it.fact_check}
-              </span>
-            )}
+            {stageChip && <span className={`${styles.chip} ${styles.chipStage}`}>{stageChip}</span>}
           </span>
         )}
       </span>
@@ -238,11 +237,12 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
               ) : (
                 reviewRows.map((it) => {
                   const reReview = reReviewByContentId.get(it.id)
-                  const note = copyOnlyIds.has(it.id) ? 'copy ready · design coming'
-                    : reReview ? `updated after your feedback · v${it.version}` : undefined
+                  // The chip answers "can I fully approve this yet?" (final approval opens
+                  // only once the design is linked); the note keeps re-review context.
                   return <ContentRow key={it.id} it={it} slug={slug} priority
                     plannedDay={formatPlannedReviewDate(it.planned_date, todayIso)}
-                    note={note} />
+                    stageChip={copyOnlyIds.has(it.id) ? 'copy ready · design coming' : 'ready to approve'}
+                    note={reReview ? `updated after your feedback · v${it.version}` : undefined} />
                 })
               )}
             </Panel>
@@ -279,7 +279,7 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
             {approved.length > 0 && <Panel label="Approved">{approved.map((it) => <ContentRow key={it.id} it={it} slug={slug} />)}</Panel>}
             {scheduled.length > 0 && <Panel label="Scheduled">{scheduled.map((it) => <ContentRow key={it.id} it={it} slug={slug} />)}</Panel>}
             {inProgress.length > 0 && <Panel label="In progress">{inProgress.map((it) => (
-              <ContentRow key={it.id} it={it} slug={slug} note={clientStateLabel(it.state)} />
+              <ContentRow key={it.id} it={it} slug={slug} stageChip={clientStateLabel(it.state)} />
             ))}</Panel>}
             {published.length > 0 && <Panel label="Published">{published.map((it) => (
               <ContentRow key={it.id} it={it} slug={slug}

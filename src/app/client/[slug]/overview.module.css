@@ -114,10 +114,12 @@ a.row:hover { padding-left: 6px; }
   letter-spacing: 0.01em;
   line-height: 1.5;
 }
-.chipFact {
+.chipStage {
   color: var(--dot-black);
   background: var(--dot-yellow-pale);
   border-color: transparent;
+  /* action phrases ("ready to approve") read as sentences, not Title Case */
+  text-transform: none;
 }
 
 /* activity hierarchy: quiet actor label, primary (black) title, secondary (graphite) summary, quiet date */
