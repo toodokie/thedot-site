@@ -73,7 +73,7 @@ export default async function PlanPiece({ params }: { params: Promise<{ slug: st
         {!ideaDecision && cycle && session.canDecide
           && (cycle.status === 'submitted' || cycle.status === 'change_requested') && (
           <IdeaDecisionForm slug={slug} contentItemId={planned.content_item_id}
-            planCycleId={cycle.id} revision={cycle.revision} />
+            contentId={planned.content_id} planCycleId={cycle.id} revision={cycle.revision} />
         )}
       </div>
     )

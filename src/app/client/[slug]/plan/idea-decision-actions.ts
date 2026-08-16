@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { getClientSession } from '@/lib/portal/auth'
 import { createSupabaseServer } from '@/lib/supabase/server'
+import { ideaDecisionReturnPath } from '@/lib/portal/idea-decision-route'
 
 function textField(data: FormData, key: string): string | null {
   const value = data.get(key)
@@ -13,12 +14,13 @@ function textField(data: FormData, key: string): string | null {
 export async function decideIdea(_prev: { error?: string }, formData: FormData): Promise<{ error?: string }> {
   const slug = textField(formData, 'slug')
   const contentItemId = textField(formData, 'contentItemId')
+  const contentId = textField(formData, 'contentId')
   const planCycleId = textField(formData, 'planCycleId')
   const revisionRaw = textField(formData, 'revision')
   const decision = textField(formData, 'decision')
   const note = (textField(formData, 'note') ?? '').trim()
 
-  if (!slug || !contentItemId || !planCycleId || !revisionRaw) {
+  if (!slug || !contentItemId || !contentId || !planCycleId || !revisionRaw) {
     return { error: 'Something went wrong. Please reload and try again.' }
   }
   const revision = Number(revisionRaw)
@@ -49,6 +51,7 @@ export async function decideIdea(_prev: { error?: string }, formData: FormData):
     return { error: 'Could not save your idea decision. Please try again.' }
   }
   revalidatePath(`/client/${slug}/plan`)
-  revalidatePath(`/client/${slug}/plan/${contentItemId}`)
-  redirect(`/client/${slug}/plan/${contentItemId}`)
+  const returnPath = ideaDecisionReturnPath(slug, contentId)
+  revalidatePath(returnPath)
+  redirect(returnPath)
 }

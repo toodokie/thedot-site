@@ -13,12 +13,13 @@ function SubmitButton({ decision }: { decision: 'approved' | 'change_requested' 
 }
 
 export default function IdeaDecisionForm({
-  slug, contentItemId, planCycleId, revision,
-}: { slug: string; contentItemId: string; planCycleId: string; revision: number }) {
+  slug, contentItemId, contentId, planCycleId, revision,
+}: { slug: string; contentItemId: string; contentId: string; planCycleId: string; revision: number }) {
   const [state, action] = useActionState(decideIdea, {})
   return <form action={action} style={{ marginTop: 24 }}>
     <input type="hidden" name="slug" value={slug} />
     <input type="hidden" name="contentItemId" value={contentItemId} />
+    <input type="hidden" name="contentId" value={contentId} />
     <input type="hidden" name="planCycleId" value={planCycleId} />
     <input type="hidden" name="revision" value={revision} />
     <Textarea label="Note (required to request changes)" id="idea-decision-note" name="note" rows={3} maxLength={2000}
