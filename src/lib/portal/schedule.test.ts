@@ -1,5 +1,22 @@
 import { describe, expect, it } from 'vitest'
-import { routesToPiecePage, belongsOnPlanSurface } from './schedule'
+import { routesToPiecePage, belongsOnPlanSurface, statusAccent } from './schedule'
+
+describe('calendar status accents', () => {
+  it('renders verified publication states as Published', () => {
+    expect(statusAccent('live')).toBe('grey')
+    expect(statusAccent('partially_live')).toBe('grey')
+  })
+
+  it('keeps approved and scheduled workflow states locked', () => {
+    expect(statusAccent('approved')).toBe('graphite')
+    expect(statusAccent('scheduled')).toBe('graphite')
+  })
+
+  it('keeps quiet and review-stage work in planning', () => {
+    expect(statusAccent('with_dot')).toBe('yellow')
+    expect(statusAccent('needs_review')).toBe('yellow')
+  })
+})
 
 // Client-view audit B1: the two-door contradiction. A released-for-review piece is
 // status 'draft' AND client_state 'needs_review' at the same time; the door must route

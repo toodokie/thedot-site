@@ -109,7 +109,7 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
 
   const renderRow = (r: ScheduleRow) => (
     <Link key={r.id} href={planHref(r)} className={styles.row}>
-      <span className={`${styles.date} ${styles[`accent_${statusAccent(r.status)}`]}`}>
+      <span className={`${styles.date} ${styles[`accent_${statusAccent(r.client_state)}`]}`}>
         {r.planned_date ? (
           <>
             <span className={styles.wd}>{weekdayShort(r.planned_date)}</span>

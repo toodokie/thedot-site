@@ -67,7 +67,7 @@ export default async function Calendar({ params }: { params: Promise<{ slug: str
       platforms: r.platforms,
       stateNote: r.status === 'approved' ? r.schedule_state.replaceAll('_', ' ') : null,
       syncLabel: r.calendar_sync_label ?? null,
-      accent: statusAccent(r.status),
+      accent: statusAccent(r.client_state),
     }
     ;(days[key] ??= []).push(chip)
   }
@@ -113,7 +113,7 @@ export default async function Calendar({ params }: { params: Promise<{ slug: str
             <div className={styles.weekLabel}><Text as="span" size="sm" tone="grey">Week of {fmtDay(w.start)}</Text></div>
             {w.rows.map((r) => (
               <Link key={r.id} href={hrefFor(r)} className={styles.listRow}>
-                <span className={`${styles.listDate} ${styles[`accent_${statusAccent(r.status)}`]}`}>
+                <span className={`${styles.listDate} ${styles[`accent_${statusAccent(r.client_state)}`]}`}>
                   <span className={styles.listWd}>{weekdayShort(r.planned_date!)}</span>
                   <span className={styles.listDay}>{fmtDay(r.planned_date!)}</span>
                 </span>
@@ -140,7 +140,7 @@ export default async function Calendar({ params }: { params: Promise<{ slug: str
           <section className={styles.weekBlock}>
             {unscheduled.map((r) => (
               <Link key={r.id} href={hrefFor(r)} className={styles.listRow}>
-                <span className={`${styles.listDate} ${styles[`accent_${statusAccent(r.status)}`]}`}>
+                <span className={`${styles.listDate} ${styles[`accent_${statusAccent(r.client_state)}`]}`}>
                   <span className={styles.listWd}>No</span>
                   <span className={styles.listDay}>date</span>
                 </span>

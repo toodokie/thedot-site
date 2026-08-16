@@ -173,7 +173,7 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
       platforms: row.platforms,
       stateNote: row.status === 'approved' ? row.schedule_state.replaceAll('_', ' ') : null,
       syncLabel: row.calendar_sync_label ?? null,
-      accent: statusAccent(row.status),
+      accent: statusAccent(row.client_state),
     }
     ;(calendarDays[row.planned_date.slice(0, 10)] ??= []).push(chip)
   }
