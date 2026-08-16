@@ -2,6 +2,7 @@
   /* Brand palette — Figma "The Dot Styleguide" (superset: 6) */
   --dot-black:#35332f; --dot-cream:#faf9f6; --dot-yellow:#daff00;
   --dot-white:#ffffff; --dot-grey:#7a776f; --dot-graphite:#47453f;
+  --dot-grey-accessible:#706d66;
   --dot-yellow-pale:#eefb9d; --dot-hairline:#ebebe7;
 
   /* Signature gradients (from site CSS) */

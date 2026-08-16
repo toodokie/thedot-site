@@ -9,6 +9,8 @@ export const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
+  disableFileAccess: true,
+  disableUrlAccess: true,
   tls: {
     rejectUnauthorized: process.env.NODE_ENV === 'production',
     minVersion: 'TLSv1.2'

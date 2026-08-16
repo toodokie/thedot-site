@@ -7,6 +7,7 @@
 
 .shell {
   min-height: 100dvh;
+  --dot-grey: var(--dot-grey-accessible);
 }
 
 .content {
@@ -95,6 +96,7 @@
 
 .item {
   display: block;
+  min-height: 44px;
   min-width: 72px;
   padding: 13px 10px;
   text-align: center;

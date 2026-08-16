@@ -32,9 +32,9 @@ export type ActivityRow = {
   actor_type: string; actor_name: string; created_at: string
 }
 
-const SELECT = 'id, content_id, title, format, pillar, platforms, status, planned_date, schedule_state, publication_state, canva_url, drive_url, client_body, copy_blocks, fact_check, fact_check_scope, fact_check_exemption, fact_check_ledger, version, current_decision, client_state'
+export const CONTENT_SELECT = 'id, content_id, title, format, pillar, platforms, status, planned_date, schedule_state, publication_state, canva_url, drive_url, client_body, copy_blocks, fact_check, fact_check_scope, fact_check_exemption, fact_check_ledger, version, current_decision, client_state'
 
-function mapContentRow(value: unknown): ContentRow {
+export function mapContentRow(value: unknown): ContentRow {
   if (!value || typeof value !== 'object') throw new PortalDataError('Invalid content row')
   const row = value as Record<string, unknown>
   if (typeof row.schedule_state !== 'string'
@@ -55,7 +55,7 @@ function mapContentRow(value: unknown): ContentRow {
 export async function getContent(clientId: string): Promise<ContentRow[]> {
   const supabase = await createSupabaseServer()
   const { data, error } = await supabase
-    .from('content_with_state').select(SELECT)
+    .from('content_with_state').select(CONTENT_SELECT)
     .eq('client_id', clientId)
     .order('planned_date', { ascending: true, nullsFirst: false })
     .order('content_id', { ascending: true })
@@ -65,7 +65,7 @@ export async function getContent(clientId: string): Promise<ContentRow[]> {
 export async function getContentItem(clientId: string, contentId: string): Promise<ContentRow | null> {
   const supabase = await createSupabaseServer()
   const { data, error } = await supabase
-    .from('content_with_state').select(SELECT)
+    .from('content_with_state').select(CONTENT_SELECT)
     .eq('client_id', clientId).eq('content_id', contentId).maybeSingle()
   if (error) throw new PortalDataError(error.message)
   if (!data) return null

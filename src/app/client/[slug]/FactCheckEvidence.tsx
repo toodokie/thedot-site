@@ -29,7 +29,10 @@ export default function FactCheckEvidence({ item }: { item: ContentRow }) {
                   href={entry.source_url}
                   target="_blank"
                   rel="noreferrer"
-                  style={{ color: 'var(--dot-graphite)', fontSize: 13 }}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', minHeight: 44,
+                    color: 'var(--dot-graphite)', fontSize: 13,
+                  }}
                 >
                   {entry.source_title} · checked {entry.checked_at}
                 </a>

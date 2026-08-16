@@ -95,6 +95,20 @@ export default async function AdminPiecePage({ params }: { params: Promise<{ con
 
       <AdminPageHeader kicker="Agency ops · Piece" title={piece.title} display intro={meta} />
 
+      {piece.released && (
+        <section className={styles.card} style={{ border: '2px solid var(--dot-black)' }}>
+          <div className={styles.panelHead}><Eyebrow tone="grey">Client experience</Eyebrow></div>
+          <Text>Review this exact released version with Maria&apos;s live permissions. The preview is read-only and blocks every submission.</Text>
+          <div style={{ marginTop: 14 }}>
+            <Button as="a"
+              href={`/admin/portal/pieces/${encodeURIComponent(cid)}/maria-preview`}
+              variant="black" size="sm">
+              View as Maria, read-only
+            </Button>
+          </div>
+        </section>
+      )}
+
       <section className={styles.card}>
         <div className={styles.panelHead}><Eyebrow tone="grey">Progress</Eyebrow></div>
         <ProgressBar model={model} />

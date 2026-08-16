@@ -8,6 +8,14 @@ function formatTime(value: string | null): string {
   }).format(new Date(value))
 }
 
+function publicationStatus(status: PublicationTargetRow['status']): string {
+  if (status === 'live') return 'Confirmed live'
+  if (status === 'removed') return 'Removed'
+  if (status === 'unavailable') return 'Unavailable'
+  if (status === 'failed') return 'The Dot is checking this'
+  return 'Not confirmed yet'
+}
+
 export default function PublicationPanel({ targets }: { targets: PublicationTargetRow[] }) {
   return (
     <section aria-labelledby="publication-heading" style={{
@@ -27,7 +35,7 @@ export default function PublicationPanel({ targets }: { targets: PublicationTarg
               </div>
               <div style={{ marginTop: 4 }}>
                 <Text size="sm" tone="grey">
-                  {target.status.replaceAll('_', ' ')} · {target.verification_label}
+                  {publicationStatus(target.status)}
                 </Text>
               </div>
               {target.live_url && target.status === 'live' && (

@@ -23,6 +23,6 @@ export async function refreshPortalSession(request: NextRequest) {
       },
     }
   )
-  await supabase.auth.getUser() // triggers refresh + cookie writes
-  return response
+  const { data: { user } } = await supabase.auth.getUser() // triggers refresh + cookie writes
+  return { response, user }
 }

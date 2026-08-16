@@ -6,6 +6,7 @@ import { getClientSession } from '@/lib/portal/auth'
 import { getContentItem } from '@/lib/portal/data'
 import { getScheduleDetails } from '@/lib/portal/schedule'
 import { createSupabaseServer } from '@/lib/supabase/server'
+import { resolveTorontoOffset } from '@/lib/portal/toronto-local-time'
 
 function textField(data: FormData, key: string): string | null {
   const value = data.get(key)
@@ -36,20 +37,23 @@ export async function requestScheduleChange(formData: FormData): Promise<{ error
   const supabase = await createSupabaseServer()
   if (targets.some((target) => target.required)) {
     const localTime = textField(formData, 'requestedLocal')
-    const offsetText = textField(formData, 'utcOffsetMinutes')
-    if (!localTime || !offsetText || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(localTime)) {
-      return { error: 'Please choose a valid Toronto date, time, and EDT/EST option.' }
-    }
-    const utcOffsetMinutes = Number(offsetText)
-    if (utcOffsetMinutes !== -240 && utcOffsetMinutes !== -300) {
-      return { error: 'Please choose EDT or EST for the requested Toronto time.' }
+    if (!localTime) return { error: 'Please choose a Toronto date and time.' }
+    const offset = resolveTorontoOffset(localTime)
+    if (!offset.ok) {
+      if (offset.reason === 'ambiguous') {
+        return { error: 'That time occurs twice when the clocks change. Please choose another time.' }
+      }
+      if (offset.reason === 'nonexistent') {
+        return { error: 'That time does not exist because the clocks change then. Please choose another time.' }
+      }
+      return { error: 'Please choose a valid Toronto date and time.' }
     }
     const { error } = await supabase.rpc('request_content_reschedule', {
       p_content_id: item.id,
       p_content_version: item.version,
       p_requested_local: localTime.replace('T', ' '),
       p_timezone: 'America/Toronto',
-      p_utc_offset_minutes: utcOffsetMinutes,
+      p_utc_offset_minutes: offset.offsetMinutes,
       p_idempotency_key: idempotencyKey,
     })
     if (error) {

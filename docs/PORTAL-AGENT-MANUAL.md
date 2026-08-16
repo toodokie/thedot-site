@@ -490,14 +490,17 @@ ad-hoc design instead of the client's proven one, and had to be redone.)
 ### 13.1 The design system package — `@thedot/design-system`
 
 Lives in `packages/design-system/`. Import components + tokens from `@thedot/design-system`.
-`npm run build` builds it before the Next app (`npm run build -w @thedot/design-system`).
+`pnpm --filter @thedot/design-system build` builds it before the Next app. The root package must
+declare `@thedot/design-system: workspace:*`; do not rely on a warm install to make an undeclared
+workspace import resolve.
 
 - **Tokens** (`src/tokens/tokens.css` + `tokens.ts`) — the `--dot-*` custom properties. **Everything
   themes through these; never raw hex in a component** (the one sanctioned exception is the admin
   `--admin-danger: #b4502f` rust, a semantic danger color). Key tokens:
   - Color: `--dot-cream` (ground), `--dot-white`, `--dot-black`, `--dot-charcoal`/`--dot-graphite`
     (ink), `--dot-grey` (muted), `--dot-hairline` (borders), `--dot-yellow` (the one accent),
-    `--dot-yellow-pale` (soft accent).
+    `--dot-yellow-pale` (soft accent). Portal shells remap muted text to
+    `--dot-grey-accessible`; the lighter brand grey does not meet normal-text AA contrast on cream.
   - Type: `--dot-font-display`, `--dot-font-text`; weights `--dot-weight-light/book/regular/medium/demi`;
     sizes `--dot-text-hero/h1/h2/h3/h4/section/body/eyebrow`.
   - Space: `--dot-space-1..8`. Radius: `--dot-radius` (used sparingly — the portal is mostly sharp).
@@ -520,6 +523,11 @@ Lives in `packages/design-system/`. Import components + tokens from `@thedot/des
 - **Copy is plain English, never engineer jargon.** "Build design," not "design-built +12";
   "where each piece went live," not "provider-truth records." Write labels a non-technical person
   reads correctly on the first pass.
+- **Interactive controls have a 44px minimum target** and a visible keyboard focus ring. This
+  includes compact buttons, navigation links, section jumps, and source links.
+- **Toronto schedule forms never ask the client to choose EDT or EST.** Derive the offset from the
+  requested local date and time, and reject skipped or repeated clock-change times with a plain
+  explanation.
 - **Brand voice hard rule (applies to UI copy too):** **no em dashes** anywhere. Use commas, colons,
   periods, or parentheses.
 
@@ -636,11 +644,11 @@ Set in Vercel (and `.env.local` for dev). Key vars:
 - `pnpm test` (vitest): gates, schedule, state, assistant guardrails,
   content-safety, frontmatter, history-import, agency-write, redirect, notion-projection, plus the
   design-system + the calendar MonthGrid component test. Run before every deploy.
-- `npx tsc --noEmit` — the repo has pre-existing errors in marketing routes; **grep the output for
+- `pnpm exec tsc --noEmit` — the repo has pre-existing errors in marketing routes; **grep the output for
   your files** and confirm they're clean.
 - `pnpm test:rls` (`scripts/test-rls.ts`): real-JWT two-tenant isolation. Mandatory after any
   RLS/grant change. `pnpm test:rls:seed-local` seeds a local two-tenant fixture.
-- `npx next build` — full compile; catches JSX/route errors the unit tests don't.
+- `pnpm exec next build` — full compile; catches JSX/route errors the unit tests don't.
 
 ---
 

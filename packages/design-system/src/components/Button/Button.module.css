@@ -1,6 +1,7 @@
-.button { display: inline-block; font-family: var(--dot-font-display); font-weight: var(--dot-weight-demi);
+.button { display: inline-block; min-height: 44px; font-family: var(--dot-font-display); font-weight: var(--dot-weight-demi);
   text-transform: uppercase; letter-spacing: 0.1em; border-radius: var(--dot-radius); border: 2px solid var(--dot-black);
   cursor: pointer; text-decoration: none; line-height: 1; transition: background .2s, color .2s; }
+.button:focus-visible { outline: 3px solid var(--dot-black); outline-offset: 3px; }
 .md { font-size: 0.8rem; padding: 14px 30px; }
 .sm { font-size: 0.72rem; padding: 10px 20px; }
 .black,

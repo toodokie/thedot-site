@@ -22,6 +22,34 @@ function displayTime(value: string | null): string {
   }).format(new Date(value))
 }
 
+function displayPlannedDate(value: string | null): string {
+  if (!value) return 'No date yet'
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!match) return value
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'UTC', dateStyle: 'long',
+  }).format(new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))))
+}
+
+function displayRequestedLocal(value: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(value)
+  if (!match) return value.slice(0, 16).replace('T', ' ')
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'UTC', dateStyle: 'medium', timeStyle: 'short',
+  }).format(new Date(Date.UTC(
+    Number(match[1]), Number(match[2]) - 1, Number(match[3]), Number(match[4]), Number(match[5]),
+  )))
+}
+
+function scheduleStatus(status: ScheduleTargetRow['status']): string {
+  if (status === 'scheduled') return 'Confirmed'
+  if (status === 'reschedule_pending') return 'Change requested'
+  if (status === 'cancel_pending') return 'Unschedule requested'
+  if (status === 'cancelled') return 'Not scheduled'
+  if (status === 'failed') return 'The Dot is checking this'
+  return 'Waiting for confirmation'
+}
+
 export default function SchedulePanel({
   slug,
   contentId,
@@ -56,7 +84,7 @@ export default function SchedulePanel({
       <div id="schedule-heading"><Eyebrow tone="grey">Schedule</Eyebrow></div>
       <div style={{ marginTop: 10 }}>
         <Text tone="graphite">
-          Editorial plan: {plannedDate ?? 'No date yet'}. Provider commitments are shown separately.
+          Planned date: {displayPlannedDate(plannedDate)}. Confirmed publishing times appear below.
         </Text>
       </div>
 
@@ -73,7 +101,7 @@ export default function SchedulePanel({
               <span style={{ textAlign: 'right' }}>
                 <Text as="span" size="sm" tone="graphite">{displayTime(target.scheduled_at)}</Text>
                 <span style={{ display: 'block', fontSize: 12, color: 'var(--dot-graphite)' }}>
-                  {target.status.replaceAll('_', ' ')} · {target.verification_label}
+                  {scheduleStatus(target.status)}
                 </span>
               </span>
             </li>
@@ -86,8 +114,8 @@ export default function SchedulePanel({
           <Text size="sm" tone="graphite">
             {activeRequest.request_kind === 'cancel' ? 'Unschedule' : 'Reschedule'} requested
             {activeRequest.requested_local
-              ? ` for ${activeRequest.requested_local.slice(0, 16).replace('T', ' ')} Toronto time`
-              : ''}. The current provider commitments remain in place until The Dot verifies each change.
+              ? ` for ${displayRequestedLocal(activeRequest.requested_local)} Toronto time`
+              : ''}. Your currently confirmed times stay in place until The Dot confirms each change.
           </Text>
         </div>
       )}
@@ -99,20 +127,10 @@ export default function SchedulePanel({
           <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'end', gap: 12 }}>
             {hasExternalTargets ? (
-              <>
-                <label style={{ display: 'grid', gap: 5, fontSize: 13 }}>
-                  Requested Toronto date and time
-                  <input name="requestedLocal" type="datetime-local" required style={{ padding: '9px 10px' }} />
-                </label>
-                <label style={{ display: 'grid', gap: 5, fontSize: 13 }}>
-                  Toronto offset
-                  <select name="utcOffsetMinutes" required defaultValue="" style={{ padding: '9px 10px' }}>
-                    <option value="" disabled>Choose EDT or EST</option>
-                    <option value="-240">EDT (UTC−4)</option>
-                    <option value="-300">EST (UTC−5)</option>
-                  </select>
-                </label>
-              </>
+              <label style={{ display: 'grid', gap: 5, fontSize: 13 }}>
+                Requested Toronto date and time
+                <input name="requestedLocal" type="datetime-local" required style={{ padding: '9px 10px' }} />
+              </label>
             ) : (
               <label style={{ display: 'grid', gap: 5, fontSize: 13 }}>
                 Editorial plan date
@@ -127,7 +145,7 @@ export default function SchedulePanel({
           {hasExternalTargets && (
             <div style={{ marginTop: 8 }}>
               <Text size="sm" tone="grey">
-                Choose the offset in effect on that date. Invalid or skipped daylight-saving times are rejected.
+                Toronto time is applied automatically. Times skipped or repeated when the clocks change are rejected.
               </Text>
             </div>
           )}

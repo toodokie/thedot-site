@@ -12,6 +12,7 @@
 
 .logo { display: block; margin: 0 0 32px; }
 .eyebrow { margin: 0 0 16px; }
+.pageTitle { margin: 0 0 24px; }
 .head { margin: 0 0 12px; }
 .sub { margin: 0 0 32px; }
 
@@ -80,10 +81,31 @@
 }
 
 /* --- Weekly plan cycle (the direction batch the client approves) --- */
+.approvalQueue {
+  margin: 0 0 28px;
+  padding: 22px 24px;
+  border-left: 4px solid var(--dot-yellow);
+  background: color-mix(in srgb, var(--dot-yellow) 12%, transparent);
+}
+.approvalQueue h2 { margin: 6px 0 8px; }
+.approvalQueueLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 14px;
+}
+.approvalQueueLinks a {
+  color: var(--dot-black);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration-color: var(--dot-yellow);
+  text-underline-offset: 3px;
+}
 .cycleCard {
   border: 1px solid var(--dot-hairline);
   padding: 24px;
   margin: 0 0 40px;
+  scroll-margin-top: 24px;
 }
 .cycleHead {
   display: flex;
@@ -109,6 +131,32 @@
 
 .cycleMeta { margin: 10px 0 0; }
 .cycleSummary { margin: 14px 0 20px; }
+.primaryDecision {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 0 0 20px;
+  padding: 16px 18px;
+  border: 1px solid var(--dot-black);
+}
+.primaryDecisionCopy p { margin: 0; }
+.primaryDecisionCopy p + p { margin-top: 4px; }
+.topApproveForm { flex: none; text-align: right; }
+.bottomDecisionForm {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--dot-hairline);
+}
+.decisionButtons {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+.changeRequestPanel { max-width: 680px; margin-left: auto; }
+.decisionError { margin: 10px 0 0; color: #a52c23; }
 
 .cycleList { list-style: none; margin: 0; padding: 0; }
 .cycleItem {
@@ -174,8 +222,14 @@
 
 @media (max-width: 760px) {
   .wrap { padding: 4px 0 64px; }
+  .approvalQueue { padding: 18px 16px; }
   .cycleCard { padding: 18px 16px; }
   .cycleHead { align-items: flex-start; }
+  .primaryDecision { align-items: stretch; flex-direction: column; }
+  .topApproveForm { text-align: left; }
+  .topApproveForm button,
+  .decisionButtons button { width: 100%; }
+  .decisionButtons { flex-direction: column-reverse; }
 }
 
 @media (prefers-reduced-motion: reduce) {
