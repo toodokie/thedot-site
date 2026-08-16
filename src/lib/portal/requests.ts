@@ -1,5 +1,6 @@
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { PortalDataError } from './data'
+export { isUnresolvedContentRequest, UNRESOLVED_CONTENT_REQUEST_STATUSES } from './request-status'
 
 export type ContentRequestStatus =
   | 'pending' | 'applying' | 'prepared' | 'applied'
@@ -31,6 +32,32 @@ export type ContentRequestRow = {
   resolution_note: string | null
   canonical_content_key: string | null
   base_copy_text?: string | null
+}
+
+export type ContentRequestTargetKind = 'copy_block' | 'asset' | 'design_link'
+
+export function contentRequestTarget(request: ContentRequestRow): {
+  kind: ContentRequestTargetKind
+  key: string
+  label: string
+  url: string | null
+  proposedText: string
+} | null {
+  if (request.request_type !== 'edit') return null
+  const payload = request.payload
+  const legacyKey = typeof payload.block_key === 'string' ? payload.block_key : ''
+  const rawKind = typeof payload.target_kind === 'string' ? payload.target_kind : 'copy_block'
+  const key = typeof payload.target_key === 'string' ? payload.target_key : legacyKey
+  if (!key || !['copy_block', 'asset', 'design_link'].includes(rawKind)) return null
+  const kind = rawKind as ContentRequestTargetKind
+  const proposedText = typeof payload.proposed_text === 'string' ? payload.proposed_text : ''
+  const url = typeof payload.url_snapshot === 'string' ? payload.url_snapshot : null
+  const label = typeof payload.target_label === 'string' && payload.target_label.trim()
+    ? payload.target_label.trim()
+    : kind === 'asset' ? key.replaceAll('-', ' ')
+      : kind === 'design_link' ? `${key === 'canva' ? 'Canva' : 'Google Drive'} design`
+        : key.replaceAll('-', ' ')
+  return { kind, key, label, url, proposedText }
 }
 
 const SELECT = 'id, client_id, content_id, request_type, base_version, payload, status, requester_name, created_at, updated_at, reconciled_at, reconciled_by, canonical_version, resolution_note, canonical_content_key'

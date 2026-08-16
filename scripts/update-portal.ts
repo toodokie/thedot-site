@@ -46,6 +46,7 @@ import {
   validateChangeNote,
   type ContentState,
 } from '../src/lib/portal/update-portal-core'
+import { isUnresolvedContentRequest } from '../src/lib/portal/request-status'
 
 loadEnvConfig(process.cwd())
 
@@ -199,7 +200,7 @@ async function openClientEditRequest(
   if (!openClientEditRequestBlocksReshare(requests, contentId)) return null
   return requests.find((request) => request.content_id === contentId
     && request.request_type === 'edit'
-    && ['pending', 'applying', 'prepared'].includes(request.status)) ?? null
+    && isUnresolvedContentRequest(request.status)) ?? null
 }
 
 async function main() {

@@ -53,7 +53,7 @@ const assertNoteGrammarSafe = (value: string | null, field: string) => {
 
 async function main() {
   const [command, inputPath, ...rest] = process.argv.slice(2)
-  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|report-notify|communication|proposal-draft|proposal-revise|proposal-submit|proposal-reply|external-decision|courtesy-release|override-destination|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|review-asset|plan-cycle|plan-cycle-stage|plan-cycle-close|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
+  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|report-notify|communication|proposal-draft|proposal-revise|proposal-submit|proposal-reply|external-decision|courtesy-release|override-destination|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|visual-revision|visual-revision-ready|review-asset|plan-cycle|plan-cycle-stage|plan-cycle-close|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
   const dryRun = rest.includes('--dry-run')
   const packIndex = rest.indexOf('--pack')
   const packPath = packIndex >= 0 ? rest[packIndex + 1] ?? null : null
@@ -322,6 +322,34 @@ async function main() {
       p_content_id: requiredText(payload.contentId, 'contentId', 200),
       p_canva_url: canvaUrl, p_drive_url: driveUrl,
       p_actor_key: actor, p_idempotency_key: idempotency }
+  } else if (command === 'visual-revision') {
+    if (!Array.isArray(payload.requestIds) || payload.requestIds.length < 1 || payload.requestIds.length > 50) {
+      throw new Error('visual-revision requires 1 to 50 requestIds')
+    }
+    const requestIds = [...new Set(payload.requestIds.map((value, index) =>
+      requiredText(value, `requestIds[${index}]`, 36)))]
+    if (requestIds.some((value) => !/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(value))) {
+      throw new Error('visual-revision requestIds must be UUIDs')
+    }
+    rpc = 'begin_visual_request_revision'; args = {
+      p_request_ids: requestIds,
+      p_actor_key: actor,
+      p_idempotency_key: idempotency,
+    }
+  } else if (command === 'visual-revision-ready') {
+    if (!Array.isArray(payload.requestIds) || payload.requestIds.length < 1 || payload.requestIds.length > 50) {
+      throw new Error('visual-revision-ready requires 1 to 50 requestIds')
+    }
+    const requestIds = [...new Set(payload.requestIds.map((value, index) =>
+      requiredText(value, `requestIds[${index}]`, 36)))]
+    if (requestIds.some((value) => !/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(value))) {
+      throw new Error('visual-revision-ready requestIds must be UUIDs')
+    }
+    rpc = 'mark_visual_request_revision_prepared'; args = {
+      p_request_ids: requestIds,
+      p_actor_key: actor,
+      p_idempotency_key: idempotency,
+    }
   } else if (command === 'review-asset') {
     // Version-bound asset in a multi-asset review package (migration 0073).
     // Covers and videos remain presentation metadata, but unlike the legacy pair

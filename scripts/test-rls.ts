@@ -3680,6 +3680,177 @@ async function main(): Promise<void> {
             reply: reply.data, decision: decision.data, retry: decisionRetry.data, decided: decidedProposal.data, messages: ownMessages.data }))
     }
 
+    console.log('\n--- 0081 unified piece review bundles ---')
+
+    {
+      const announcementKey = 'piece_review_flow_2026_08'
+      const acknowledged = await bClient.rpc('acknowledge_portal_announcement', {
+        p_client_id: bClientId, p_announcement_key: announcementKey,
+      })
+      const ownAcknowledgment = await bClient.from('portal_announcement_acknowledgments')
+        .select('client_id,announcement_key,acknowledged_at')
+        .eq('client_id', bClientId).eq('announcement_key', announcementKey)
+      const viewerAcknowledgment = await bViewerClient.from('portal_announcement_acknowledgments')
+        .select('client_id,announcement_key,acknowledged_at')
+        .eq('client_id', bClientId).eq('announcement_key', announcementKey)
+      const crossAcknowledgment = await bClient.rpc('acknowledge_portal_announcement', {
+        p_client_id: kansetClientId, p_announcement_key: announcementKey,
+      })
+      const directAcknowledgment = await bClient.from('portal_announcement_acknowledgments').insert({
+        client_id: bClientId, auth_user_id: bUserId, announcement_key: 'forged_receipt',
+      })
+      check('UR0: review introduction receipt is durable per seat, tenant-scoped, and RPC-only',
+        !acknowledged.error && !ownAcknowledgment.error && ownAcknowledgment.data?.length === 1
+          && !viewerAcknowledgment.error && viewerAcknowledgment.data?.length === 0
+          && !!crossAcknowledgment.error && !!directAcknowledgment.error,
+        acknowledged.error?.message ?? ownAcknowledgment.error?.message
+          ?? viewerAcknowledgment.error?.message ?? crossAcknowledgment.error?.message
+          ?? directAcknowledgment.error?.message ?? JSON.stringify({ own: ownAcknowledgment.data,
+            viewer: viewerAcknowledgment.data }))
+
+      const reviewFlowId = `rls-review-flow-${RUN_ID}`
+      const originalDesign = 'https://www.canva.com/design/REVIEWFLOW/view'
+      const updatedDesign = 'https://www.canva.com/design/REVIEWFLOWUPDATED/view'
+      const reviewPayload = snapshot(
+        bClientId, reviewFlowId, 1, 'Unified review fixture',
+        'Original review caption.', 'caption', { canva_url: originalDesign },
+      )
+      const reviewSync = await sync([reviewPayload])
+      const reviewItemId = reviewSync[0]?.item_id
+      const reviewRelease = await admin.rpc('mark_content_ready', {
+        p_content_id: reviewItemId, p_content_version: 1,
+      })
+      if (!reviewItemId || reviewRelease.error) {
+        throw new Error(reviewRelease.error?.message ?? 'unified review fixture release failed')
+      }
+
+      const bundleKey = randomUUID()
+      const bundleArgs = {
+        p_content_id: reviewItemId,
+        p_content_version: 1,
+        p_edits: [
+          { target_kind: 'copy_block', target_key: 'caption', target_label: 'Instagram caption',
+            proposed_text: 'Maria revised the review caption.', url_snapshot: null },
+          { target_kind: 'design_link', target_key: 'canva', target_label: 'Canva design',
+            proposed_text: 'Use the closed-mouth cover.', url_snapshot: originalDesign },
+        ],
+        p_note: null,
+        p_idempotency_key: bundleKey,
+      }
+      const beforeActivity = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
+      const bundle = await bClient.rpc('request_content_edit_bundle', bundleArgs)
+      const retry = await bClient.rpc('request_content_edit_bundle', bundleArgs)
+      const viewerBundle = await bViewerClient.rpc('request_content_edit_bundle', {
+        ...bundleArgs, p_idempotency_key: randomUUID(),
+      })
+      const afterActivity = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
+      const requestIds = (bundle.data as { request_ids?: string[] } | null)?.request_ids ?? []
+      const requests = requestIds.length ? await admin.from('content_change_requests')
+        .select('id,status,payload').in('id', requestIds) : { data: [], error: new Error('bundle ids missing') }
+      const bundleEvents = await admin.rpc('read_portal_inbox', {
+        p_consumer_key: `rls-review-bundle-${RUN_ID}`, p_client_id: bClientId, p_limit: 500,
+      })
+      const matchingBundleEvents = (bundleEvents.data ?? []).filter((event) =>
+        event.object_type === 'content_edit_review_bundle'
+          && event.payload?.content_id === reviewItemId)
+      check('UR1: one atomic retry-safe bundle records two binding targets and one notification event',
+        !bundle.error && !retry.error && !!viewerBundle.error && requestIds.length === 2
+          && (retry.data as { bundle_id?: string } | null)?.bundle_id
+            === (bundle.data as { bundle_id?: string } | null)?.bundle_id
+          && !requests.error && requests.data?.length === 2
+          && (afterActivity.count ?? 0) - (beforeActivity.count ?? 0) === 1
+          && !bundleEvents.error && matchingBundleEvents.length === 1,
+        bundle.error?.message ?? retry.error?.message ?? requests.error?.message
+          ?? bundleEvents.error?.message ?? JSON.stringify({ bundle: bundle.data, retry: retry.data,
+            requestIds, activityDelta: (afterActivity.count ?? 0) - (beforeActivity.count ?? 0),
+            events: matchingBundleEvents }))
+
+      const blockedApproval = await bClient.rpc('record_content_decision', {
+        p_content_id: reviewItemId, p_content_version: 1, p_decision: 'approved', p_note: null,
+      })
+      check('UR2: an unresolved bundle blocks approval inside the decision RPC',
+        !!blockedApproval.error && blockedApproval.error.message.includes('unresolved'),
+        blockedApproval.error?.message ?? 'APPROVAL ACCEPTED')
+
+      const visualRequest = requests.data?.find((row) => row.payload?.target_kind === 'design_link')
+      const copyRequest = requests.data?.find((row) => row.payload?.target_kind === 'copy_block')
+      const beginVisual = await admin.rpc('begin_visual_request_revision', {
+        p_request_ids: visualRequest ? [visualRequest.id] : [], p_actor_key: 'thedot-admin',
+        p_idempotency_key: randomUUID(),
+      })
+      const finalRequests = await admin.from('content_change_requests').select('id,status,canonical_version')
+        .in('id', requestIds)
+      check('UR3: a mixed bundle must start with copy so visual work joins one shared revision',
+        !!visualRequest && !!copyRequest && !!beginVisual.error
+          && beginVisual.error.message.includes('copy requests must start') && !finalRequests.error
+          && finalRequests.data?.find((row) => row.id === visualRequest.id)?.status === 'pending'
+          && finalRequests.data?.find((row) => row.id === copyRequest.id)?.status === 'pending',
+        beginVisual.error?.message ?? finalRequests.error?.message
+          ?? JSON.stringify(finalRequests.data))
+
+      const visualOnlyId = `rls-review-visual-${RUN_ID}`
+      const visualOnlyOriginal = 'https://www.canva.com/design/VISUALONLY/view'
+      const visualOnlyUpdated = 'https://www.canva.com/design/VISUALONLYUPDATED/view'
+      const visualSync = await sync([snapshot(
+        bClientId, visualOnlyId, 1, 'Visual-only review fixture',
+        'Visual-only caption.', 'caption', { canva_url: visualOnlyOriginal },
+      )])
+      const visualItemId = visualSync[0]?.item_id
+      const visualRelease = await admin.rpc('mark_content_ready', {
+        p_content_id: visualItemId, p_content_version: 1,
+      })
+      if (!visualItemId || visualRelease.error) {
+        throw new Error(visualRelease.error?.message ?? 'visual-only fixture release failed')
+      }
+      const visualBundle = await bClient.rpc('request_content_edit_bundle', {
+        p_content_id: visualItemId, p_content_version: 1,
+        p_edits: [{ target_kind: 'design_link', target_key: 'canva', target_label: 'Canva design',
+          proposed_text: 'Use the approved closed-mouth cover.', url_snapshot: visualOnlyOriginal }],
+        p_note: null, p_idempotency_key: randomUUID(),
+      })
+      const visualOnlyRequestId = (visualBundle.data as { request_ids?: string[] } | null)?.request_ids?.[0]
+      const visualBegin = await admin.rpc('begin_visual_request_revision', {
+        p_request_ids: visualOnlyRequestId ? [visualOnlyRequestId] : [], p_actor_key: 'thedot-admin',
+        p_idempotency_key: randomUUID(),
+      })
+      const lateFollowUp = await bClient.rpc('request_content_edit_bundle', {
+        p_content_id: visualItemId, p_content_version: 1,
+        p_edits: [{ target_kind: 'copy_block', target_key: 'caption', target_label: 'Instagram caption',
+          proposed_text: 'A late follow-up that must wait for re-review.', url_snapshot: null }],
+        p_note: null, p_idempotency_key: randomUUID(),
+      })
+      const prematureReady = await admin.rpc('mark_visual_request_revision_prepared', {
+        p_request_ids: visualOnlyRequestId ? [visualOnlyRequestId] : [], p_actor_key: 'thedot-admin',
+        p_idempotency_key: randomUUID(),
+      })
+      const visualReplace = await admin.rpc('set_content_design_links', {
+        p_client_id: bClientId, p_content_id: visualOnlyId, p_canva_url: visualOnlyUpdated,
+        p_drive_url: null, p_actor_key: 'thedot-admin', p_idempotency_key: `visual-only-link-${RUN_ID}`,
+      })
+      const visualPrepared = await admin.rpc('mark_visual_request_revision_prepared', {
+        p_request_ids: visualOnlyRequestId ? [visualOnlyRequestId] : [], p_actor_key: 'thedot-admin',
+        p_idempotency_key: randomUUID(),
+      })
+      const visualFinalRelease = await admin.rpc('mark_content_ready', {
+        p_content_id: visualItemId, p_content_version: 2,
+      })
+      const visualFinalRequest = visualOnlyRequestId
+        ? await admin.from('content_change_requests').select('status,canonical_version')
+          .eq('id', visualOnlyRequestId).single()
+        : { data: null, error: new Error('visual request missing') }
+      check('UR4: visual-only edits require a later replacement event and release as a new version',
+        !visualBundle.error && !!visualOnlyRequestId && !visualBegin.error
+          && !!lateFollowUp.error && lateFollowUp.error.message.includes('revision_already_in_progress')
+          && !!prematureReady.error && prematureReady.error.message.includes('replacement')
+          && !visualReplace.error && !visualPrepared.error && !visualFinalRelease.error
+          && !visualFinalRequest.error && visualFinalRequest.data?.status === 'applied'
+          && visualFinalRequest.data?.canonical_version === 2,
+        visualBundle.error?.message ?? visualBegin.error?.message ?? visualReplace.error?.message
+          ?? visualPrepared.error?.message ?? visualFinalRelease.error?.message
+          ?? visualFinalRequest.error?.message ?? JSON.stringify({ premature: prematureReady.error?.message,
+            request: visualFinalRequest.data }))
+    }
+
     {
       const stop = await admin.rpc('set_portal_feature_switch', {
         p_client_id: bClientId, p_feature: 'client_mutations', p_enabled: false,

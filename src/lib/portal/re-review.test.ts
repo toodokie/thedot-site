@@ -33,6 +33,15 @@ describe('reReviewContext', () => {
       .toMatchObject({ changedAreas: ['review package'] })
   })
 
+  it('uses clear names for visual requests', () => {
+    expect(reReviewContext(4, 'needs_review', null, [request({
+      payload: { target_kind: 'asset', target_key: 'youtube-cover' },
+    })])).toMatchObject({ changedAreas: ['episode assets'] })
+    expect(reReviewContext(4, 'needs_review', null, [request({
+      payload: { target_kind: 'design_link', target_key: 'drive' },
+    })])).toMatchObject({ changedAreas: ['design'] })
+  })
+
   it('keeps the feedback update visible after an agency courtesy release', () => {
     expect(reReviewContext(4, 'approved', null, [request()]))
       .toEqual({ previousVersion: 3, changeCount: 1, changedAreas: ['social caption'], mode: 'released' })

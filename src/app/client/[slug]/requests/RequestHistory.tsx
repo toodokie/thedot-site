@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Text } from '@thedot/design-system'
 import type { ContentRow } from '@/lib/portal/data'
-import { clientRequestLabel, type ContentRequestMessage, type ContentRequestRow } from '@/lib/portal/requests'
+import { clientRequestLabel, contentRequestTarget, type ContentRequestMessage, type ContentRequestRow } from '@/lib/portal/requests'
 import RequestConversation from './RequestConversation'
 import styles from './requests.module.css'
 
@@ -29,11 +29,14 @@ export default function RequestHistory({ slug, requests, messages, content, canR
         : item?.title ?? 'Content request'
       const proposed = request.request_type === 'edit'
         ? stringValue(request.payload, 'proposed_text') : null
+      const target = contentRequestTarget(request)
       const blockKey = request.request_type === 'edit'
         ? stringValue(request.payload, 'block_key') : null
       const copyBlock = blockKey ? item?.copy_blocks.find((block) => block.key === blockKey) : null
       const currentBlock = copyBlock?.body ?? null
-      const blockLabel = displayBlockLabel(blockKey, copyBlock?.label)
+      const blockLabel = target?.kind === 'copy_block'
+        ? displayBlockLabel(blockKey, target.label ?? copyBlock?.label)
+        : target?.label ?? null
       const original = request.base_copy_text
         ?? (request.base_version === item?.version ? currentBlock : null)
       const brief = request.request_type === 'create' ? stringValue(request.payload, 'brief') : null
@@ -43,7 +46,7 @@ export default function RequestHistory({ slug, requests, messages, content, canR
         <div className={styles.cardHead}>
           <div>
             <Text as="div" tone="black"><strong>{title}</strong></Text>
-            <Text as="div" size="sm" tone="grey">{request.request_type === 'archive' ? 'Removal request' : request.request_type === 'edit' ? `Copy change requested by ${request.requester_name}` : 'New piece'}</Text>
+            <Text as="div" size="sm" tone="grey">{request.request_type === 'archive' ? 'Removal request' : request.request_type === 'edit' ? `${target?.kind === 'copy_block' ? 'Copy' : 'Visual'} change requested by ${request.requester_name}` : 'New piece'}</Text>
           </div>
           <span className={styles.badge} data-status={request.status}>{clientRequestLabel(request.status)}</span>
         </div>
@@ -51,7 +54,11 @@ export default function RequestHistory({ slug, requests, messages, content, canR
           <span className={styles.editedAreaLabel}>Edited area</span>
           <strong>{blockLabel}</strong>
         </div>}
-        {(original || proposed) && <div className={styles.versionComparison} aria-label="Requested copy comparison">
+        {target?.kind !== 'copy_block' && proposed && <div className={styles.copy}>
+          <Text as="div" size="sm">{proposed}</Text>
+          {target.url && <a href={target.url} target="_blank" rel="noreferrer">Open referenced visual</a>}
+        </div>}
+        {target?.kind === 'copy_block' && (original || proposed) && <div className={styles.versionComparison} aria-label="Requested copy comparison">
           {original && <section className={`${styles.versionPanel} ${styles.versionBefore}`}>
             <div className={styles.versionPanelHead}>
               <div>

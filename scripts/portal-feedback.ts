@@ -1,5 +1,5 @@
 // portal-feedback: read-only pull of ALL outstanding client feedback in the portal.
-// Reads BOTH surfaces so nothing sits unseen: content_change_requests (copy EDITS) and
+// Reads BOTH surfaces so nothing sits unseen: content_change_requests (binding edits) and
 // comments (Q&A). This exists because a comments-only sweep missed Maria's pending copy
 // edits (2026-07-29). Run at session start and before any publish.
 // Usage: PORTAL_CONTENT_DIR=... npx tsx scripts/portal-feedback.ts [clientSlug]  (default kanset)
@@ -16,11 +16,12 @@ async function main() {
   const items = await db.from('content_items').select('id, content_id').eq('client_id', cid)
   const name = new Map((items.data ?? []).map((r: any) => [r.id, r.content_id]))
 
-  // 1) PENDING copy edits (content_change_requests). status 'pending' = awaiting our action.
+  // 1) All unresolved binding edits. Conflicted remains open from the client's perspective.
   const crs = await db.from('content_change_requests')
     .select('id, content_id, base_version, request_type, status, requester_name, payload, created_at, resolution_note')
     .eq('client_id', cid).order('created_at')
-  const pendingCrs = (crs.data ?? []).filter((r: any) => r.status === 'pending')
+  const pendingCrs = (crs.data ?? []).filter((r: any) =>
+    ['pending', 'applying', 'prepared', 'conflicted'].includes(r.status))
 
   // 2) OPEN comments (client-authored, not resolved = likely awaiting our reply/action).
   const cmts = await db.from('comments')
@@ -29,18 +30,18 @@ async function main() {
   const openComments = (cmts.data ?? []).filter((r: any) => r.author_type === 'client' && !r.resolved)
 
   console.log(`\n=== PORTAL FEEDBACK for ${slug} ===`)
-  console.log(`Pending copy edits: ${pendingCrs.length}   |   Open client comments: ${openComments.length}\n`)
+  console.log(`Unresolved edits: ${pendingCrs.length}   |   Open client conversations: ${openComments.length}\n`)
 
   if (pendingCrs.length) {
-    console.log('--- PENDING COPY EDITS (change requests awaiting action) ---')
+    console.log('--- UNRESOLVED BINDING EDITS ---')
     for (const r of pendingCrs) {
       const p = r.payload ?? {}
-      console.log(`\n• ${name.get(r.content_id) ?? r.content_id}  [block: ${p.block_key ?? '?'}]  v${r.base_version ?? '?'}  by ${r.requester_name}  ${r.created_at?.slice(0, 16)}`)
+      console.log(`\n• ${name.get(r.content_id) ?? r.content_id}  [${p.target_kind ?? 'copy_block'}: ${p.target_key ?? p.block_key ?? '?'}]  v${r.base_version ?? '?'}  ${r.status}  by ${r.requester_name}  ${r.created_at?.slice(0, 16)}`)
       console.log(`  proposed:\n    ${String(p.proposed_text ?? '').replace(/\r\n/g, '\n').replace(/\n/g, '\n    ')}`)
     }
     console.log()
   } else {
-    console.log('No pending copy edits.\n')
+    console.log('No unresolved edits.\n')
   }
 
   if (openComments.length) {

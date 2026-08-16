@@ -1,5 +1,5 @@
 'use client'
-import { useActionState, useEffect, useRef, useState } from 'react'
+import { useActionState, useEffect, useRef } from 'react'
 import { useFormStatus } from 'react-dom'
 import { Eyebrow, Text, Button, Textarea } from '@thedot/design-system'
 import { addComment } from '../../comment-actions'
@@ -17,19 +17,13 @@ const quoteBox = {
 
 export default function CommentThread({
   slug, contentId, comments, canComment,
-  designLinks,
 }: {
   slug: string
   contentId: string
   comments: CommentRow[]
   canComment: boolean
-  designLinks?: Array<{ label: string; url: string }>
 }) {
   const [state, action] = useActionState(async (_p: { error?: string }, fd: FormData) => addComment(fd), {})
-  const [quote, setQuote] = useState<{ text: string; blockKey: string } | null>(null)
-  const [targetKind, setTargetKind] = useState<'copy' | 'design'>('copy')
-  const [targetUrl, setTargetUrl] = useState<string | null>(null)
-  const [selection, setSelection] = useState<{ text: string; blockKey: string } | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const prevCount = useRef(comments.length)
 
@@ -37,33 +31,14 @@ export default function CommentThread({
   useEffect(() => {
     if (comments.length > prevCount.current) {
       formRef.current?.reset()
-      setQuote(null)
-      setTargetKind('copy')
-      setTargetUrl(null)
     }
     prevCount.current = comments.length
   }, [comments.length])
 
-  // Offer "comment on the selected text" only when the selection is inside the copy area (#piece-copy).
-  useEffect(() => {
-    if (!canComment) return
-    function onSel() {
-      const sel = window.getSelection()
-      const text = sel?.toString().trim() ?? ''
-      const node = sel?.anchorNode
-      const el = node ? (node.nodeType === 1 ? (node as Element) : node.parentElement) : null
-      const block = text ? el?.closest<HTMLElement>('[data-copy-block-key]') : null
-      const blockKey = block?.dataset.copyBlockKey
-      setSelection(text && blockKey ? { text, blockKey } : null)
-    }
-    document.addEventListener('selectionchange', onSel)
-    return () => document.removeEventListener('selectionchange', onSel)
-  }, [canComment])
-
   return (
     <div style={{ marginTop: 44 }}>
-      <Eyebrow tone="grey">Comments and replies</Eyebrow>
-      <Text size="sm" tone="grey">Highlight exact copy above to comment on it, suggest a replacement below a copy block, or choose a linked design.</Text>
+      <Eyebrow tone="grey">Questions and conversation</Eyebrow>
+      <Text size="sm" tone="grey">Notes here do not change the piece. To change copy or a visual, edit its block above.</Text>
 
       <div style={{ marginTop: 12 }}>
         {comments.length === 0 && <Text tone="graphite">No comments yet.</Text>}
@@ -100,44 +75,15 @@ export default function CommentThread({
         })}
       </div>
 
-      {canComment && selection && (quote?.text !== selection.text || quote.blockKey !== selection.blockKey) && (
-        <div style={{ marginTop: 16 }}>
-          <Button as="button" variant="yellow" size="sm" onClick={() => setQuote(selection)}>Comment on the selected text</Button>
-        </div>
-      )}
-
-      {canComment && designLinks && designLinks.length > 0 && (
-        <div style={{ marginTop: 10 }}>
-          <Text size="sm" tone="grey">Leave feedback on a linked asset</Text>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
-            {designLinks.map((link) => <Button key={link.url} as="button" variant="ghost" size="sm"
-              onClick={() => { setTargetKind('design'); setTargetUrl(link.url); setQuote(null) }}>
-              Comment on {link.label}
-            </Button>)}
-          </div>
-        </div>
-      )}
-
       {canComment ? <form ref={formRef} action={action} style={{ marginTop: 16, borderTop: '1px solid var(--dot-hairline)', paddingTop: 16 }}>
         <input type="hidden" name="slug" value={slug} />
         <input type="hidden" name="contentId" value={contentId} />
-        <input type="hidden" name="quotedText" value={quote?.text ?? ''} />
-        <input type="hidden" name="copyBlockKey" value={quote?.blockKey ?? ''} />
-        <input type="hidden" name="targetKind" value={targetKind} />
-        <input type="hidden" name="designUrl" value={targetKind === 'design' ? (targetUrl ?? '') : ''} />
-        {targetKind === 'design' && <div style={{ ...quoteBox, borderLeftColor: 'var(--dot-black)' }}>
-          <Text size="sm" tone="graphite">Commenting on the selected asset</Text>
-          {targetUrl && <a href={targetUrl} target="_blank" rel="noreferrer" style={{ display: 'block', marginTop: 4, color: 'var(--dot-black)' }}>Open it</a>}
-          <button type="button" onClick={() => { setTargetKind('copy'); setTargetUrl(null) }} style={{ marginLeft: 10, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dot-graphite)', fontSize: 12 }}>switch to copy</button>
-        </div>}
-        {quote && (
-          <div style={{ ...quoteBox, display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-            <Text size="md" tone="graphite">{quote.text}</Text>
-            <button type="button" onClick={() => setQuote(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dot-graphite)', fontSize: 12 }}>clear</button>
-          </div>
-        )}
-        <Textarea label="Add a comment" id="comment-body" name="body" rows={3} maxLength={4000}
-          placeholder="Leave a note for The Dot" invalid={Boolean(state?.error)}
+        <input type="hidden" name="quotedText" value="" />
+        <input type="hidden" name="copyBlockKey" value="" />
+        <input type="hidden" name="targetKind" value="copy" />
+        <input type="hidden" name="designUrl" value="" />
+        <Textarea label="Ask a question or leave a note" id="comment-body" name="body" rows={3} maxLength={4000}
+          placeholder="This will not change the piece" invalid={Boolean(state?.error)}
           aria-describedby={state?.error ? 'comment-error' : undefined} />
         {state?.error && <p id="comment-error" role="alert" style={{ color: '#c0392b', margin: '8px 0 0' }}>{state.error}</p>}
         <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}><SubmitBtn /></div>

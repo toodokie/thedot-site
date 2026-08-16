@@ -8,9 +8,35 @@ export async function POST(request: Request) {
     await requireAdminSession()
     assertSameOriginRequest(request)
     const body = await request.json() as {
-      action?: 'resolve' | 'reply' | 'proposal-reply' | 'save-candidate' | 'approve-candidate'
+      action?: 'resolve' | 'reply' | 'proposal-reply' | 'save-candidate' | 'approve-candidate' | 'prepare-visual' | 'visual-ready'
       requestId?: string; status?: string; reason?: string; body?: string; close?: boolean; idempotencyKey?: string
       candidateText?: string; changeSummary?: string; expectedRevision?: number
+    }
+    if (body.action === 'prepare-visual') {
+      if (!body.requestId?.match(/^[0-9a-f-]{36}$/i)
+          || !body.idempotencyKey?.match(/^[0-9a-f-]{36}$/i)) {
+        return NextResponse.json({ error: 'Invalid visual revision request.' }, { status: 400 })
+      }
+      const admin = createSupabaseAdmin()
+      const { data, error } = await admin.rpc('begin_visual_request_revision', {
+        p_request_ids: [body.requestId], p_actor_key: 'thedot-admin',
+        p_idempotency_key: body.idempotencyKey,
+      })
+      if (error) throw new Error(error.message)
+      return NextResponse.json({ result: data }, { headers: { 'Cache-Control': 'private, no-store' } })
+    }
+    if (body.action === 'visual-ready') {
+      if (!body.requestId?.match(/^[0-9a-f-]{36}$/i)
+          || !body.idempotencyKey?.match(/^[0-9a-f-]{36}$/i)) {
+        return NextResponse.json({ error: 'Invalid visual ready request.' }, { status: 400 })
+      }
+      const admin = createSupabaseAdmin()
+      const { data, error } = await admin.rpc('mark_visual_request_revision_prepared', {
+        p_request_ids: [body.requestId], p_actor_key: 'thedot-admin',
+        p_idempotency_key: body.idempotencyKey,
+      })
+      if (error) throw new Error(error.message)
+      return NextResponse.json({ result: data }, { headers: { 'Cache-Control': 'private, no-store' } })
     }
     if (body.action === 'save-candidate') {
       const candidateText = body.candidateText?.trim()

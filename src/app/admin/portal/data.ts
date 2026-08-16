@@ -400,6 +400,12 @@ export async function loadRequests(scope: { clientId?: string; contentUuid?: str
       ? contentMap.get(`${request.client_id}:${request.content_id}:${request.base_version}`)
       : null
     const blockKey = asText(request.payload.block_key)
+    const targetKindRaw = asText(request.payload.target_kind)
+    const targetKind = targetKindRaw === 'asset' || targetKindRaw === 'design_link'
+      ? targetKindRaw : 'copy_block'
+    const targetKey = asText(request.payload.target_key) ?? blockKey
+    const targetLabel = asText(request.payload.target_label)
+    const targetUrl = asText(request.payload.url_snapshot)
     const block = blockKey ? parseCopyBlocks(item?.copy_blocks).find((candidate) => candidate.key === blockKey) : null
     const proposedText = asText(request.payload.proposed_text)
     const reviewCandidate = candidateByRequest.get(request.id)
@@ -409,7 +415,8 @@ export async function loadRequests(scope: { clientId?: string; contentUuid?: str
       title: item?.title ?? (typeof request.payload.title === 'string' ? request.payload.title : 'Content request'),
       resolutionNote: request.resolution_note,
       edit: request.request_type === 'edit' && proposedText !== null
-        ? { blockKey, blockLabel: block?.label ?? null, originalText: block?.body ?? null, proposedText }
+        ? { targetKind, targetKey, targetLabel: targetLabel ?? block?.label ?? null, targetUrl,
+          blockKey, blockLabel: block?.label ?? null, originalText: block?.body ?? null, proposedText }
         : null,
       reviewCandidate: reviewCandidate
         && (reviewCandidate.status === 'draft' || reviewCandidate.status === 'approved')

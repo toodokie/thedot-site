@@ -21,7 +21,16 @@ const RELEASED_WITHOUT_CLIENT_DECISION = new Set<ClientState>([
 ])
 
 function changedArea(request: ContentRequestRow): string {
-  const block = typeof request.payload.block_key === 'string' ? request.payload.block_key : ''
+  const kind = typeof request.payload.target_kind === 'string' ? request.payload.target_kind : 'copy_block'
+  const block = typeof request.payload.target_key === 'string'
+    ? request.payload.target_key
+    : typeof request.payload.block_key === 'string' ? request.payload.block_key : ''
+  if (kind === 'design_link') return 'design'
+  if (kind === 'asset') {
+    if (['social-cover', 'social-teaser', 'youtube-cover'].includes(block)) return 'episode assets'
+    if (block === 'website-cover') return 'website article'
+    return 'visual assets'
+  }
   if (['ig-caption', 'fb-caption', 'ig-facebook-caption', 'social-caption'].includes(block)) return 'social caption'
   if (['reel-script', 'onscreen-script'].includes(block)) return 'on-screen reel copy'
   if (['graphic', 'carousel', 'carousel-copy'].includes(block)) return 'graphic copy'

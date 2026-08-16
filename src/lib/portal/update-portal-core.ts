@@ -12,6 +12,7 @@
 //  - Change detection is NORMALIZED (whitespace-insensitive) so a cosmetic edit never advances a
 //    version — the sync RPC's checksum is byte-exact, so this gate lives here, not in the DB.
 import { parseContentFile } from './frontmatter'
+import { isUnresolvedContentRequest } from './request-status'
 
 export const CONTENT_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{1,119}$/
 
@@ -313,7 +314,7 @@ export function openClientEditRequestBlocksReshare(requests: Array<{
 }>, contentId: string): boolean {
   return requests.some((request) => request.content_id === contentId
     && request.request_type === 'edit'
-    && ['pending', 'applying', 'prepared'].includes(request.status))
+    && isUnresolvedContentRequest(request.status))
 }
 
 // Derive the workflow state (§4.4) from the content_items row shape returned by Supabase.

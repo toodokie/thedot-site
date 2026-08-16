@@ -11,6 +11,8 @@ export type AdminContentRequest = {
   id: string; clientName: string; requestType: string; status: string; requesterName: string
   createdAt: string; title: string; contentUuid: string | null; baseVersion: number | null; resolutionNote: string | null
   edit: {
+    targetKind: 'copy_block' | 'asset' | 'design_link'; targetKey: string | null
+    targetLabel: string | null; targetUrl: string | null
     blockKey: string | null; blockLabel: string | null; originalText: string | null; proposedText: string
   } | null
   reviewCandidate: {
@@ -204,6 +206,34 @@ export function RequestList({
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Request resolution failed') }
     finally { setBusy(null) }
   }
+  async function prepareVisual(id: string) {
+    setBusy(id); setMessage(null)
+    try {
+      const response = await fetch('/api/admin/portal/requests', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'prepare-visual', requestId: id, idempotencyKey: crypto.randomUUID() }),
+      })
+      const body = await response.json() as { error?: string }
+      if (!response.ok) throw new Error(body.error ?? 'Visual revision could not be prepared.')
+      setMessage('A new working version is ready. Replace the visual, then mark the visual ready.')
+      router.refresh()
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Visual revision could not be prepared.') }
+    finally { setBusy(null) }
+  }
+  async function markVisualReady(id: string) {
+    setBusy(id); setMessage(null)
+    try {
+      const response = await fetch('/api/admin/portal/requests', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'visual-ready', requestId: id, idempotencyKey: crypto.randomUUID() }),
+      })
+      const body = await response.json() as { error?: string }
+      if (!response.ok) throw new Error(body.error ?? 'The visual could not be marked ready.')
+      setMessage('Visual recorded. The working version is ready for final release checks.')
+      router.refresh()
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'The visual could not be marked ready.') }
+    finally { setBusy(null) }
+  }
   return <>
     {message && <p className={styles.statusMsg} role="status">{message}</p>}
     {!requests.length ? <p className={styles.empty}>{emptyLabel}</p> : <div>
@@ -213,8 +243,8 @@ export function RequestList({
           <StatusPill tone={requestTone(request.status)} label={request.status} />
         </div>
         <div className={styles.metaLine}>{request.clientName} · {request.requestType} · {request.requesterName} · {request.createdAt.slice(0, 10)}{request.baseVersion ? ` · v${request.baseVersion}` : ''}</div>
-        {request.edit && <details className={styles.editReview} open>
-          <summary>Review edit to {request.edit.blockLabel ?? request.edit.blockKey ?? 'copy block'}</summary>
+        {request.edit && request.edit.targetKind === 'copy_block' && <details className={styles.editReview} open>
+          <summary>Review edit to {request.edit.targetLabel ?? request.edit.blockLabel ?? request.edit.blockKey ?? 'copy block'}</summary>
           <p className={styles.editReviewHint}>Compare the exact released text, Maria’s replacement, and the agency recommendation before any canonical change begins.</p>
           <div className={styles.editReviewGrid}>
             <section>
@@ -239,6 +269,12 @@ export function RequestList({
             </section>}
           </div>
         </details>}
+        {request.edit && request.edit.targetKind !== 'copy_block' && <details className={styles.editReview} open>
+          <summary>Visual change: {request.edit.targetLabel ?? request.edit.targetKey ?? 'visual'}</summary>
+          <p className={styles.editReviewHint}>Maria’s request is binding. Prepare a new version, replace the exact asset or design link, then release it for re-review.</p>
+          <pre className={styles.editReviewText}>{request.edit.proposedText}</pre>
+          {request.edit.targetUrl && <a href={request.edit.targetUrl} target="_blank" rel="noreferrer" className={styles.disclose}>Open the reviewed visual</a>}
+        </details>}
         {request.messages.length > 0 && <section className={styles.requestConversation} aria-label="Request conversation">
           {request.messages.map((message) => <div key={message.id}
             className={message.authorType === 'anastasia' ? styles.requestAgencyMessage : styles.requestClientMessage}>
@@ -247,8 +283,12 @@ export function RequestList({
           </div>)}
         </section>}
         {request.resolutionNote && <p className={styles.metaLine}>{request.resolutionNote}</p>}
-        {['pending', 'applying', 'prepared'].includes(request.status) && <RequestReplyForm request={request} />}
-        {['pending', 'applying'].includes(request.status) && <div className={styles.actions}>
+        {['pending', 'applying', 'prepared', 'conflicted'].includes(request.status) && <RequestReplyForm request={request} />}
+        {['pending', 'applying', 'conflicted'].includes(request.status) && <div className={styles.actions}>
+          {request.edit && request.edit.targetKind !== 'copy_block' && request.status !== 'applying' && <button type="button" className={styles.btn}
+            disabled={busy === request.id} onClick={() => prepareVisual(request.id)}>Start visual revision</button>}
+          {request.edit && request.edit.targetKind !== 'copy_block' && request.status === 'applying' && <button type="button" className={styles.btn}
+            disabled={busy === request.id} onClick={() => markVisualReady(request.id)}>Mark visual ready</button>}
           <button type="button" className={`${styles.btn} ${styles.btnDanger}`} disabled={busy === request.id} onClick={() => resolve(request.id, 'rejected')}>Reject</button>
           <button type="button" className={styles.btn} disabled={busy === request.id} onClick={() => resolve(request.id, 'conflicted')}>Mark conflict</button>
         </div>}

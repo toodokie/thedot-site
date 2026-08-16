@@ -5,8 +5,18 @@ import { redirect } from 'next/navigation'
 import { getClientSession } from '@/lib/portal/auth'
 import { getContentItem } from '@/lib/portal/data'
 import { createSupabaseServer } from '@/lib/supabase/server'
+import { REVIEW_FLOW_ANNOUNCEMENT_KEY } from '@/lib/portal/review-flow-announcement'
 
 export type RequestActionState = { error?: string; success?: string }
+export type ReviewBundleDraft = {
+  targetKind: 'copy_block' | 'asset' | 'design_link'
+  targetKey: string
+  targetLabel: string
+  proposedText: string
+  urlSnapshot?: string | null
+}
+
+export type ReviewBundleResult = RequestActionState & { requestIds?: string[] }
 
 function textField(data: FormData, key: string): string | null {
   const value = data.get(key)
@@ -28,6 +38,91 @@ async function requestContext(data: FormData) {
   const session = await getClientSession(slug)
   if (!session) redirect('/client/login')
   return { slug, session }
+}
+
+export async function sendReviewBundle(input: {
+  slug: string
+  contentId: string
+  contentVersion: number
+  drafts: ReviewBundleDraft[]
+  note?: string
+  idempotencyKey: string
+}): Promise<ReviewBundleResult> {
+  const session = await getClientSession(input.slug)
+  if (!session) redirect('/client/login')
+  if (!session.canSubmitRequests) return { error: 'Your account cannot send edits.' }
+  if (!validKey(input.idempotencyKey) || !Number.isInteger(input.contentVersion) || input.contentVersion < 1) {
+    return { error: 'This review expired. Reload the page and try again.' }
+  }
+  if (!Array.isArray(input.drafts) || input.drafts.length < 1 || input.drafts.length > 50) {
+    return { error: 'Add at least one edit before sending.' }
+  }
+  const seen = new Set<string>()
+  for (const draft of input.drafts) {
+    const identity = `${draft.targetKind}:${draft.targetKey}`
+    if (!['copy_block', 'asset', 'design_link'].includes(draft.targetKind)
+        || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(draft.targetKey)
+        || !draft.targetLabel?.trim() || draft.targetLabel.trim().length > 120
+        || !draft.proposedText?.trim() || draft.proposedText.trim().length > 8000
+        || seen.has(identity)) {
+      return { error: 'One of the edits is incomplete. Review it and try again.' }
+    }
+    if (draft.urlSnapshot && (!/^https:\/\/[^\s]+$/i.test(draft.urlSnapshot) || draft.urlSnapshot.length > 2048)) {
+      return { error: 'One of the visual references is no longer valid. Reload the page and try again.' }
+    }
+    seen.add(identity)
+  }
+  const note = input.note?.trim() ?? ''
+  if (note.length > 2000) return { error: 'The overall note is too long (2,000 characters max).' }
+  const item = await getContentItem(session.clientId, input.contentId)
+  if (!item) return { error: 'That piece is no longer available.' }
+  if (item.version !== input.contentVersion) {
+    return { error: 'A newer version is ready. Reload the page before sending edits.' }
+  }
+  const supabase = await createSupabaseServer()
+  const { data, error } = await supabase.rpc('request_content_edit_bundle', {
+    p_content_id: item.id,
+    p_content_version: input.contentVersion,
+    p_edits: input.drafts.map((draft) => ({
+      target_kind: draft.targetKind,
+      target_key: draft.targetKey,
+      target_label: draft.targetLabel.trim(),
+      proposed_text: draft.proposedText.trim(),
+      url_snapshot: draft.urlSnapshot || null,
+    })),
+    p_note: note || null,
+    p_idempotency_key: input.idempotencyKey,
+  })
+  if (error) {
+    if (error.message.includes('revision_already_in_progress')) {
+      return { error: 'The Dot has started this revision. Your saved edits were not sent. Please review the updated version when it returns.' }
+    }
+    if (error.message.includes('stale') || error.message.includes('locked')) {
+      return { error: 'This version changed while you were reviewing it. Reload to see the current package.' }
+    }
+    if (error.message.includes('rate_limited')) {
+      return { error: 'Too many requests were submitted. Please try again in an hour.' }
+    }
+    return { error: 'Your edits could not be sent. They are still saved in this browser. Please try again.' }
+  }
+  const result = data && typeof data === 'object' ? data as Record<string, unknown> : {}
+  revalidatePath(`/client/${input.slug}`)
+  revalidatePath(`/client/${input.slug}/requests`)
+  revalidatePath(`/client/${input.slug}/piece/${input.contentId}`)
+  return {
+    success: input.drafts.length === 1 ? 'Your edit was sent to The Dot.' : `Your ${input.drafts.length} edits were sent to The Dot.`,
+    requestIds: Array.isArray(result.request_ids) ? result.request_ids.filter((id): id is string => typeof id === 'string') : [],
+  }
+}
+
+export async function acknowledgeReviewFlowAnnouncement(slug: string): Promise<void> {
+  const session = await getClientSession(slug)
+  if (!session) redirect('/client/login')
+  const supabase = await createSupabaseServer()
+  await supabase.rpc('acknowledge_portal_announcement', {
+    p_client_id: session.clientId,
+    p_announcement_key: REVIEW_FLOW_ANNOUNCEMENT_KEY,
+  })
 }
 
 export async function suggestContentEdit(
