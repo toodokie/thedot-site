@@ -63,6 +63,8 @@ describe('ReviewVerdict resolver', () => {
     render(subject())
     fireEvent.click(screen.getByRole('button', { name: 'Add draft' }))
     expect(screen.getByRole('button', { name: 'Send my edits (1)' })).toBeVisible()
+    expect(screen.getByText('1 unsent edit saved')).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Review and send' })).toHaveAttribute('href', '#review-decision')
     expect(screen.queryByRole('button', { name: 'Approve package' })).not.toBeInTheDocument()
   })
 

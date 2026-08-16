@@ -64,6 +64,11 @@ export default function SuggestEditForm({
     setOpen(false)
   }
 
+  function reviewAndSend() {
+    setOpen(false)
+    document.getElementById('review-decision')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   if (!open) {
     return <Button as="button" type="button" variant="ghost" size="sm" onClick={() => setOpen(true)}>
       {targetKind === 'copy_block' ? 'Suggest edit' : 'Request a change'}
@@ -83,12 +88,19 @@ export default function SuggestEditForm({
       value={value} onChange={(event) => update(event.target.value)}
       placeholder={targetKind === 'copy_block' ? undefined : 'Describe the visual change'} />
     <Text as="div" size="sm" tone="grey">
-      {draft ? 'Saved in this browser. It will be sent with your other edits.' : 'Make a change here, then send all edits once at the bottom.'}
+      {draft
+        ? 'Draft saved in this browser. It has not been sent yet.'
+        : 'Make a change here. Your draft will stay in this browser until you send all edits.'}
       {!storageAvailable ? ' Browser storage is unavailable, so keep this tab open.' : ''}
     </Text>
     <div className={styles.editComposerActions}>
-      <Button as="button" type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>Close</Button>
       {draft && <Button as="button" type="button" variant="ghost" size="sm" onClick={cancel}>Discard edit</Button>}
+      <Button as="button" type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
+        {draft ? 'Save and close' : 'Close editor'}
+      </Button>
+      {draft && <Button as="button" type="button" variant="black" size="sm" onClick={reviewAndSend}>
+        Review and send edits
+      </Button>}
     </div>
   </div>
 }

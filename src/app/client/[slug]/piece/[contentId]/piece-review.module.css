@@ -101,6 +101,23 @@
   color: var(--dot-graphite);
 }
 
+.reviewDraftTray {
+  position: fixed;
+  right: 96px;
+  bottom: 20px;
+  z-index: 70;
+  display: flex;
+  width: min(620px, calc(100vw - 128px));
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--dot-black);
+  background: var(--dot-cream);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 16%);
+  font-family: var(--dot-font-text);
+}
+
 .reviewIntro {
   width: min(560px, calc(100vw - 32px));
   padding: 28px;
@@ -162,5 +179,12 @@
   .editComposerActions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .reviewDraftTray {
+    right: 16px;
+    bottom: calc(88px + env(safe-area-inset-bottom));
+    left: 16px;
+    width: auto;
   }
 }

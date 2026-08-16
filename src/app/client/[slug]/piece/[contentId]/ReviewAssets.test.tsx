@@ -23,7 +23,7 @@ describe('ReviewAssets visual edits', () => {
     fireEvent.change(screen.getByLabelText('What should change in Final Instagram and Facebook reel cover?'), {
       target: { value: 'Please use a different facial expression.' },
     })
-    expect(screen.getByText(/sent with your other edits/)).toBeVisible()
+    expect(screen.getByText(/has not been sent yet/)).toBeVisible()
   })
 
   it('hides edit controls from a read-only seat', () => {

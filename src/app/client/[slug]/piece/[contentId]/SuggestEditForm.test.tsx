@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import SuggestEditForm from './SuggestEditForm'
 import ReviewDraftProvider from './ReviewDraftProvider'
@@ -28,7 +28,7 @@ describe('SuggestEditForm draft recovery', () => {
     window.localStorage.setItem(key, JSON.stringify({ proposedText: 'Maria rewrote this article.' }))
     render(subject())
     expect(await screen.findByDisplayValue('Maria rewrote this article.')).toBeVisible()
-    expect(screen.getByText(/Saved in this browser/)).toBeVisible()
+    expect(screen.getByText(/saved in this browser/i)).toBeVisible()
   })
 
   it('saves a full-block edit without sending it immediately', async () => {
@@ -38,5 +38,20 @@ describe('SuggestEditForm draft recovery', () => {
     fireEvent.change(screen.getByLabelText('Edit Article body'), { target: { value: 'A recovered rewrite.' } })
     expect(JSON.parse(window.localStorage.getItem(key) ?? '{}').proposedText).toBe('A recovered rewrite.')
     expect(screen.queryByRole('button', { name: /send suggestion/i })).not.toBeInTheDocument()
+    expect(screen.getByText('Draft saved in this browser. It has not been sent yet.')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Save and close' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Review and send edits' })).toBeVisible()
+  })
+
+  it('takes a saved draft directly to the bundle send action', () => {
+    const finish = document.createElement('div')
+    finish.id = 'review-decision'
+    finish.scrollIntoView = vi.fn()
+    document.body.appendChild(finish)
+    render(subject())
+    fireEvent.click(screen.getByRole('button', { name: 'Suggest edit' }))
+    fireEvent.change(screen.getByLabelText('Edit Article body'), { target: { value: 'A recovered rewrite.' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Review and send edits' }))
+    expect(finish.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
   })
 })

@@ -78,7 +78,12 @@ export default function ReviewVerdict({
 
   if (isPublished) return null
 
-  return <section id="review-decision" aria-labelledby="review-decision-heading" className={styles.verdict}>
+  return <>
+    {ready && drafts.length > 0 && !revisionStarted && <div className={styles.reviewDraftTray} role="status">
+      <strong>{drafts.length} unsent {drafts.length === 1 ? 'edit' : 'edits'} saved</strong>
+      <Button as="a" href="#review-decision" variant="black" size="sm">Review and send</Button>
+    </div>}
+    <section id="review-decision" aria-labelledby="review-decision-heading" className={styles.verdict}>
     <div id="review-decision-heading"><Heading level={3}>Finish your review</Heading></div>
 
     {hasSent && <div className={styles.verdictStatus}>
@@ -119,5 +124,6 @@ export default function ReviewVerdict({
       && <Text tone="grey">Only Maria can approve this package. You can still edit any block above.</Text>}
 
     {message && <p className={message.kind === 'error' ? styles.verdictError : styles.verdictSuccess} role="status">{message.text}</p>}
-  </section>
+    </section>
+  </>
 }
