@@ -3788,6 +3788,82 @@ async function main(): Promise<void> {
         beginVisual.error?.message ?? finalRequests.error?.message
           ?? JSON.stringify(finalRequests.data))
 
+      if (!visualRequest || !copyRequest) throw new Error('mixed review requests are unavailable')
+      const sharedCandidate = await admin.rpc('upsert_content_request_review_candidate', {
+        p_request_id: copyRequest.id,
+        p_candidate_text: 'Maria revised the review caption.',
+        p_change_summary: 'Accepted the requested caption exactly.',
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const sharedCandidateApproval = await admin.rpc('approve_content_request_review_candidate', {
+        p_request_id: copyRequest.id, p_expected_revision: 1,
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const sharedStart = await admin.rpc('start_content_request_reconciliation', {
+        p_request_id: copyRequest.id, p_requested_content_id: null, p_canonical_object_key: null,
+        p_expected_base_commit: null, p_actor_key: 'thedot-admin',
+        p_idempotency_key: randomUUID(),
+      })
+      const sharedBegin = await admin.rpc('begin_content_request_revision', {
+        p_request_id: copyRequest.id, p_content_id: reviewItemId, p_content_version: 1,
+      })
+      const sharedCommit = '4'.repeat(40)
+      const sharedV2 = snapshot(
+        bClientId, reviewFlowId, 2, 'Unified review fixture v2',
+        'Maria revised the review caption.', 'caption', { canva_url: updatedDesign },
+      )
+      sharedV2.source_commit_sha = sharedCommit
+      const sharedSync = await sync([sharedV2])
+      const sharedCopyPrepared = await admin.rpc('mark_content_request_prepared', {
+        p_request_id: copyRequest.id, p_commit_sha: sharedCommit,
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const sharedVisualBegin = await admin.rpc('begin_visual_request_revision', {
+        p_request_ids: [visualRequest.id], p_actor_key: 'thedot-admin',
+        p_idempotency_key: randomUUID(),
+      })
+      const sharedVisualReplacement = await admin.rpc('set_content_design_links', {
+        p_client_id: bClientId, p_content_id: reviewFlowId, p_canva_url: updatedDesign,
+        p_drive_url: null, p_actor_key: 'thedot-admin',
+        p_idempotency_key: `shared-review-link-${RUN_ID}`,
+      })
+      const sharedVisualPrepared = await admin.rpc('mark_visual_request_revision_prepared', {
+        p_request_ids: [visualRequest.id], p_actor_key: 'thedot-admin',
+        p_idempotency_key: randomUUID(),
+      })
+      const sharedRelease = await admin.rpc('mark_content_ready', {
+        p_content_id: reviewItemId, p_content_version: 2,
+      })
+      const sharedApplied = await admin.from('content_change_requests')
+        .select('id,status,canonical_version').in('id', requestIds)
+      const sharedApproval = await bClient.rpc('record_content_decision', {
+        p_content_id: reviewItemId, p_content_version: 2,
+        p_decision: 'approved', p_note: null,
+      })
+      const sharedFinalState = await bClient.from('content_with_state')
+        .select('version,client_state,current_decision,revision_in_progress')
+        .eq('id', reviewItemId).single()
+      check('UR4: one mixed piece completes request, revision, re-release, and final client approval',
+        !sharedCandidate.error && !sharedCandidateApproval.error
+          && !sharedStart.error && !sharedBegin.error && sharedSync.length === 1
+          && !sharedCopyPrepared.error && !sharedVisualBegin.error
+          && !sharedVisualReplacement.error && !sharedVisualPrepared.error
+          && !sharedRelease.error && !sharedApplied.error
+          && sharedApplied.data?.length === 2
+          && sharedApplied.data.every((row) => row.status === 'applied' && row.canonical_version === 2)
+          && !sharedApproval.error && !sharedFinalState.error
+          && sharedFinalState.data?.version === 2
+          && sharedFinalState.data?.client_state === 'approved'
+          && sharedFinalState.data?.current_decision === 'approved'
+          && sharedFinalState.data?.revision_in_progress === false,
+        sharedCandidate.error?.message ?? sharedCandidateApproval.error?.message
+          ?? sharedStart.error?.message ?? sharedBegin.error?.message
+          ?? sharedCopyPrepared.error?.message ?? sharedVisualBegin.error?.message
+          ?? sharedVisualReplacement.error?.message ?? sharedVisualPrepared.error?.message
+          ?? sharedRelease.error?.message ?? sharedApplied.error?.message
+          ?? sharedApproval.error?.message ?? sharedFinalState.error?.message
+          ?? JSON.stringify({ requests: sharedApplied.data, state: sharedFinalState.data }))
+
       const visualOnlyId = `rls-review-visual-${RUN_ID}`
       const visualOnlyOriginal = 'https://www.canva.com/design/VISUALONLY/view'
       const visualOnlyUpdated = 'https://www.canva.com/design/VISUALONLYUPDATED/view'
@@ -3838,7 +3914,7 @@ async function main(): Promise<void> {
         ? await admin.from('content_change_requests').select('status,canonical_version')
           .eq('id', visualOnlyRequestId).single()
         : { data: null, error: new Error('visual request missing') }
-      check('UR4: visual-only edits require a later replacement event and release as a new version',
+      check('UR5: visual-only edits require a later replacement event and release as a new version',
         !visualBundle.error && !!visualOnlyRequestId && !visualBegin.error
           && !!lateFollowUp.error && lateFollowUp.error.message.includes('revision_already_in_progress')
           && !!prematureReady.error && prematureReady.error.message.includes('replacement')
