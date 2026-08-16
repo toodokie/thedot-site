@@ -5,7 +5,7 @@ actually built" reference: architecture, code map, data/security model, the cont
 design system, the deploy discipline, and the hard-won lessons. Read this top to bottom once;
 after that use the table of contents.
 
-**Last verified against the codebase and production:** 2026-08-10 (migrations `0001` through `0080`).
+**Last verified against the codebase and production:** 2026-08-16 (migrations `0001` through `0081`).
 
 > This manual documents the **code** (the `~/thedot-site` repo). The **business/engagement**
 > context (client, pricing, content strategy, cadence, brand voice) lives in the `~/Kanset`
@@ -21,7 +21,7 @@ after that use the table of contents.
 2. Repo map
 3. Tech stack
 4. Data & security model (Supabase) — the part to respect most
-5. The migration ledger (`0001` through `0080`)
+5. The migration ledger (`0001` through `0081`)
 6. The client portal (`/client/[slug]`)
 7. The admin ops portal (`/admin/portal`)
 8. The content lifecycle — canonical repo → portal
@@ -56,11 +56,14 @@ The portal is **two surfaces built from one Next.js app and one Supabase databas
 Google Calendar, and the `~/Kanset` markdown docs are **one-way projections**, not inputs. The
 portal is the source of truth; everything else mirrors it.
 
-**Live status (2026-08-10):** production has migrations `0001` through `0080` applied. LinkedIn is a
+**Live status (2026-08-16):** production has migrations `0001` through `0081` applied. LinkedIn is a
 first-class destination, while weekly LinkedIn adaptations and website articles remain independent
 content identities. Unresolved client edits immediately project their released pieces as `with_dot`.
 Client edit intake and legacy bundle reconciliation now share canonical line-ending and invisible
 line-end whitespace normalization, while canonical Git writes keep `git diff --check` strict.
+Piece review now presents copy, visual assets, comments, and the final decision as one guided flow.
+Binding copy and visual changes submit as one atomic review bundle, while comments remain
+nonbinding. An authenticated reviewer sees the short review-flow explanation once per seat.
 Maria's live seat is active at `maria@kanset.com`; `toodokie@gmail.com` remains
 a separate preview seat. The client and admin portals are live, with Supabase holding workflow,
 report, notification, and per-seat view state.
@@ -164,7 +167,7 @@ multi-tenant, and the security model is defended in-migration.
 
 ---
 
-## 5. The migration ledger (`0001` through `0080`)
+## 5. The migration ledger (`0001` through `0081`)
 
 Each file's top comment states its purpose. Summary:
 
@@ -206,6 +209,7 @@ Each file's top comment states its purpose. Summary:
 | `0078_agency_piece_edit_digests` | n/a | Groups same-piece client edits and comments into one linked agency digest after a five-minute quiet window, and exposes service-only agency notification audit rows. |
 | `0079_agency_edit_review_candidates` | n/a | Adds agency-only safe-merge drafts and internal approvals for client copy requests. Candidates stay invisible to the client and do not advance a request, canonical copy or release. |
 | `0080_reviewed_bundle_reconciliation` | n/a | Makes an approved complete safe-merge candidate the exact audited copy boundary for bundled edit reconciliation while preserving Maria's original proposal and the legacy exact-block path. |
+| `0081_unified_piece_review_bundles` | n/a | Unifies copy and visual edits into one atomic client review bundle, aligns unresolved-state guards, adds visual revision lifecycle controls, and records the one-time per-seat review-flow acknowledgment. |
 
 **Full v1 architecture + phasing spec:** `~/Kanset/portal-integration-task.md`.
 **Gate-system spec:** `docs/superpowers/specs/2026-07-21-portal-gate-system-design.md`.
@@ -234,7 +238,7 @@ Each file's top comment states its purpose. Summary:
 | `strategy` | `strategy/` | Recommendations. |
 | `library` | `library/` | Brand + video links. |
 | `billing` | `billing/` | Invoices (Date / Amount / Status / Document). |
-| `piece/[id]` | `piece/` | A single content piece: versions, copy blocks, fact-check evidence, per-destination publication, comments. |
+| `piece/[id]` | `piece/` | One guided review surface for the complete piece: copy, visual assets, comments, final decision, versions, fact-check evidence, and publication state. |
 | `assistant` | `assistant/` | The Client Work Assistant (gated; §12). |
 
 **Client server actions** live beside the pages (`*-actions.ts`: `comment-actions`,
@@ -246,6 +250,13 @@ Podcast pieces add version-bound rows from `content_review_assets` to this same 
 piece shows the social cover, captioned teaser, and YouTube cover beside separately editable social
 caption, YouTube title, description, and tags blocks. The website companion stays a separate
 `podcast_article` item with its own 1500x1000 cover, article block, and client decision.
+
+The piece page keeps draft copy and visual edits in one client-side review session. The final
+resolver offers one action: approve when no binding edits exist, or submit all requested changes
+when they do. `request_content_edit_bundle` validates and records the complete set atomically.
+General comments are intentionally separate and do not block approval. Once a visual request moves
+into agency production, the client cannot silently replace it; the agency uses the explicit visual
+revision lifecycle instead.
 
 **Domain logic** for the client read paths is in `src/lib/portal/`: `data.ts` (content + activity
 fetch), `state.ts` (`clientStateLabel`, state machine), `seen.ts` (last-seen tracking),
@@ -346,7 +357,7 @@ defines when the piece identity is created.
 per-change (not weekly), wired into the `kanset-production-workflow` skill. New post links enter via
 the agency confirm/import tooling (§10), **not** by editing repo files.
 
-**Client edit pre-apply review (`0079` and `0080`):** Agency Ops stores a private complete safe-merge candidate and change map beside each pending edit. Saving creates a draft. Internal approval records the exact candidate revision but does not touch the request status, canonical repository, released copy, activity or client notifications. The internal `~/Kanset/content/*.md` package mirrors the same complete current/requested/candidate comparison. When `portal-inbox` applies an explicit package candidate, every block must match its approved Agency Ops candidate exactly. Bundled reconciliation then verifies the synced immutable version against those approved candidates while preserving Maria's original proposal as request history.
+**Client edit pre-apply review (`0079` through `0081`):** Agency Ops stores a private complete safe-merge candidate and change map beside each pending edit. Saving creates a draft. Internal approval records the exact candidate revision but does not touch the request status, canonical repository, released copy, activity or client notifications. The internal `~/Kanset/content/*.md` package mirrors the same complete current/requested/candidate comparison. When `portal-inbox` applies an explicit package candidate, every block must match its approved Agency Ops candidate exactly. Bundled reconciliation then verifies the synced immutable version against those approved candidates while preserving Maria's original proposal as request history. Visual requests expose separate start-revision and mark-prepared controls so their working lifecycle remains auditable.
 
 ---
 
