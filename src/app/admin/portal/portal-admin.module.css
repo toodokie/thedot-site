@@ -14,7 +14,7 @@
    eyebrow kicker -> big display/section Heading -> roomy graphite intro -> optional status.
    The generous top + the display heading are what make a page read as "designed"; without
    them the admin looked flat next to Maria's side. */
-.pageHeader { margin-bottom: 36px; }
+.pageHeader { margin-bottom: 28px; }
 .pageKicker { margin-bottom: 16px; }
 .pageIntro { margin-top: 12px; max-width: 60ch; }
 .pageStatus { margin-top: 18px; font-size: 20px; color: var(--admin-graphite); font-variant-numeric: tabular-nums; }
@@ -28,6 +28,7 @@
 
 /* ---- the shared panel: cream fill, hairline border, sharp corners (client .panel) ------- */
 .card {
+  container-type: inline-size;
   border: 1px solid var(--admin-line);
   background: var(--admin-ground);
   padding: 24px 28px;
@@ -63,6 +64,37 @@
 @media (prefers-reduced-motion: reduce) { .loadingSpinner { animation: none; } }
 .hero { border-color: var(--admin-ink); } /* the priority panel leads with a charcoal border, still flat */
 
+.taskSummary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0 0 24px;
+  border-block: 1px solid var(--admin-line);
+}
+.taskSummary div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 14px 18px;
+  border-inline-start: 1px solid var(--admin-line);
+}
+.taskSummary div:first-child { border-inline-start: 0; }
+.taskSummary dt {
+  color: var(--admin-muted);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.taskSummary dd {
+  order: -1;
+  margin: 0;
+  color: var(--admin-ink);
+  font-family: var(--dot-font-display);
+  font-size: 28px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Two-column card layout, same proportions as the client overview: a wider work column and a
    narrower tracking column. Each bucket is its own panel card. Collapses to one column on mobile. */
 .grid {
@@ -71,9 +103,20 @@
   gap: 24px;
   align-items: start;
 }
-.panelHead { margin: 0 0 6px; }
+.panelHead { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin: 0 0 6px; }
+.panelCount {
+  flex: none;
+  color: var(--admin-muted);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
 .panelNote { margin: 2px 0 8px; font-size: 15px; line-height: 1.5; color: var(--admin-muted); max-width: 48ch; }
-@media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+@media (max-width: 860px) {
+  .grid { grid-template-columns: 1fr; }
+  .taskSummary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .taskSummary div:nth-child(3) { border-inline-start: 0; border-block-start: 1px solid var(--admin-line); }
+  .taskSummary div:nth-child(4) { border-block-start: 1px solid var(--admin-line); }
+}
 
 /* HIERARCHY: the section heading is the biggest, boldest thing in its panel (it was smaller
    than the body, which read as no hierarchy). Description sits quiet beneath it. */
@@ -102,21 +145,54 @@
 }
 .taskList { list-style: none; margin: 0; padding: 0; }
 .taskRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px 16px;
   border-top: 1px solid var(--admin-line);
-  padding: 16px 2px;
-  font-size: 20px;
-  line-height: 1.5;
+  padding: 14px 2px;
+  font-size: 17px;
+  line-height: 1.45;
 }
-.taskMain { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 10px; min-width: 0; }
-.taskTitle { color: var(--admin-ink); font-size: 20px; }
-.taskTrail { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 10px; }
+.taskMain { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 7px 10px; min-width: 0; }
+.taskTitle { color: var(--admin-ink); font-size: 17px; overflow-wrap: anywhere; }
+.taskTrail { display: inline-flex; justify-content: flex-end; align-items: baseline; flex-wrap: wrap; gap: 8px; max-width: 31ch; text-align: end; }
 .clientTag { flex: none; font-size: 15px; color: var(--admin-muted); font-variant-numeric: tabular-nums; }
-.meta { color: var(--admin-graphite); font-size: 16px; font-variant-numeric: tabular-nums; }
-.empty { color: var(--admin-muted); font-size: 18px; padding: 16px 2px; border-top: 1px solid var(--admin-line); }
+.meta { color: var(--admin-graphite); font-size: 14px; font-variant-numeric: tabular-nums; }
+.taskDateDue { color: var(--admin-danger); font-size: 14px; font-weight: var(--dot-weight-medium); font-variant-numeric: tabular-nums; }
+.empty { margin: 8px 0 0; color: var(--admin-muted); font-size: 16px; line-height: 1.5; }
+.taskLink {
+  text-decoration: underline;
+  text-decoration-color: var(--admin-line);
+  text-decoration-thickness: from-font;
+  text-underline-offset: 3px;
+}
+.taskLink:hover { text-decoration-color: var(--admin-accent-strong); }
+.taskLink:focus-visible { outline-offset: 3px; }
+.taskDisclosure { border-top: 1px solid var(--admin-line); }
+.taskDisclosure summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--admin-ink);
+  font-size: 14px;
+  font-weight: var(--dot-weight-medium);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--admin-accent-strong);
+  text-underline-offset: 3px;
+}
+.taskDisclosure summary:focus-visible { outline: 2px solid var(--admin-ink); outline-offset: 2px; }
+@media (max-width: 560px) {
+  .taskSummary { grid-template-columns: 1fr 1fr; }
+  .taskSummary div { padding-inline: 12px; }
+  .taskRow { grid-template-columns: 1fr; }
+  .taskTrail { justify-content: flex-start; max-width: none; text-align: start; }
+}
+@container (max-width: 420px) {
+  .taskRow { grid-template-columns: 1fr; }
+  .taskTrail { justify-content: flex-start; max-width: none; text-align: start; }
+}
 .commentList { list-style: none; margin: 0; padding: 0; }
 .commentItem { border-top: 1px solid var(--admin-line); padding: 18px 2px 22px; }
 .commentMeta { display: flex; flex-wrap: wrap; gap: 10px; color: var(--admin-muted); font-size: 14px; font-variant-numeric: tabular-nums; }

@@ -185,13 +185,50 @@ describe('deriveMyTasks', () => {
   it('does not manufacture production tasks for a versionless idea', () => {
     expect(deriveMyTasks([piece({ workingVersion: null, status: 'idea' })], [], '2026-07-21')).toEqual([])
   })
-  it('routes a hydrated submitted plan item to plan direction, not final copy approval', () => {
+  it('keeps a submitted plan with no decision in Waiting on Maria, not agency actions', () => {
     const tasks = deriveMyTasks([piece({
       ideaApprovalSentAt: '2026-07-26T12:00:00Z',
       gates: [gate('source_in_hand', 'done'), gate('design_built', 'done'), gate('proofed', 'done'), gate('approval_sent', 'done')],
-    })], [], '2026-07-26')
+    })], [], '2026-07-28')
     expect(tasks).toHaveLength(1)
-    expect(tasks[0]).toMatchObject({ kind: 'action', gate: 'plan-direction-approved' })
+    expect(tasks[0]).toMatchObject({
+      kind: 'waiting_maria', waitingFor: 'plan_direction', daysWaiting: 2, nudge: true,
+    })
+  })
+
+  it('routes Maria plan changes back to the agency as a specific action', () => {
+    const tasks = deriveMyTasks([piece({
+      ideaApprovalSentAt: '2026-07-26T12:00:00Z',
+      ideaDecision: 'change_requested',
+    })], [], '2026-07-28')
+    expect(tasks).toHaveLength(1)
+    expect(tasks[0]).toMatchObject({ kind: 'action', gate: 'review-plan-changes' })
+  })
+
+  it('puts Maria final-package changes ahead of a stale plan decision', () => {
+    const tasks = deriveMyTasks([piece({
+      plannedDate: '2026-08-24',
+      ideaApprovalSentAt: '2026-07-26T12:00:00Z',
+      ideaDecision: null,
+      currentDecision: 'change_requested',
+      gates: [gate('source_in_hand', 'done'), gate('design_built', 'done'),
+        gate('proofed', 'done'), gate('approval_sent', 'done')],
+    })], [], '2026-08-24')
+    expect(tasks).toHaveLength(1)
+    expect(tasks[0]).toMatchObject({
+      kind: 'action', gate: 'review-client-changes', plannedDate: '2026-08-24',
+    })
+  })
+  it('surfaces open binding edits even when the package decision has not changed', () => {
+    const tasks = deriveMyTasks([piece({
+      openClientEdits: 2,
+      currentDecision: null,
+      ideaDecision: null,
+      ideaApprovalSentAt: '2026-08-20T12:00:00Z',
+    })], [], '2026-08-24')
+    expect(tasks).toEqual([expect.objectContaining({
+      kind: 'action', gate: 'review-client-changes', clientEditCount: 2,
+    })])
   })
   it('surfaces the first open gate in canonical order with the open-gate count', () => {
     // platforms empty so gates 7-9 add no lines: open = design/proofed/approval + copy
@@ -247,6 +284,38 @@ describe('deriveMyTasks', () => {
     ], '2026-07-21')
     const buckets = tasks.map((task) => (task.kind === 'ops' ? task.bucket : null))
     expect(buckets).toEqual(['overdue', 'today', 'this_week', 'upcoming', 'watch'])
+  })
+
+  it('groups repeated notification-volume alerts into one current incident', () => {
+    const ops = (over: Partial<import('./gates').OpsTaskRow>): import('./gates').OpsTaskRow => ({
+      id: 'x', clientId: 'client-kanset', clientName: 'Kanset', title: 't', category: 'portal',
+      due_date: null, trigger_note: null, status: 'open', ...over,
+    })
+    const tasks = deriveMyTasks([], [
+      ops({ id: 'old', title: 'Review Maria notification volume baseline', due_date: '2026-08-03', trigger_note: 'First alert' }),
+      ops({ id: 'new', title: 'Review client notification volume', due_date: '2026-08-22', trigger_note: 'Latest alert' }),
+      ops({ id: 'transcript', title: 'Review YouTube transcript', due_date: '2026-08-23' }),
+    ], '2026-08-24').filter((task) => task.kind === 'ops')
+
+    expect(tasks).toHaveLength(2)
+    expect(tasks[0]).toMatchObject({
+      kind: 'ops', title: 'Review client notification volume', dueDate: '2026-08-22',
+      triggerNote: 'Latest alert', occurrences: 2,
+    })
+  })
+
+  it('orders agency actions by client changes, then planned date', () => {
+    const tasks = deriveMyTasks([
+      piece({ contentId: 'later', title: 'Later design', plannedDate: '2026-08-26',
+        gates: [gate('design_built', 'open')] }),
+      piece({ contentId: 'today', title: 'Today design', plannedDate: '2026-08-24',
+        gates: [gate('design_built', 'open')] }),
+      piece({ contentId: 'changes', title: 'Maria changes', plannedDate: '2026-08-27',
+        currentDecision: 'change_requested',
+        gates: [gate('design_built', 'done'), gate('proofed', 'done'), gate('approval_sent', 'done')] }),
+    ], [], '2026-08-24').filter((task) => task.kind === 'action')
+
+    expect(tasks.map((task) => task.contentId)).toEqual(['changes', 'today', 'later'])
   })
 
   it("an agency-global ops task (null client) is labelled 'Agency' in its derived row", () => {

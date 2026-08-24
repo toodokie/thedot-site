@@ -54,20 +54,23 @@ export default function WeekCalendar({
   days,
   todayIso,
   label = 'This week',
+  headingLevel = 3,
 }: {
   days: Record<string, WeekCalendarChip[]>
   todayIso: string
   label?: string
+  headingLevel?: 2 | 3
 }) {
   const currentWeek = mondayOf(todayIso)
   const [weekStart, setWeekStart] = useState(currentWeek)
   const dates = useMemo(() => Array.from({ length: 7 }, (_, index) => addCalendarDays(weekStart, index)), [weekStart])
+  const HeadingTag = headingLevel === 2 ? 'h2' : 'h3'
 
   return (
     <section className={styles.wrap} aria-label={`${label} content calendar`}>
       <div className={styles.head}>
         <div>
-          <h3 className={styles.title}>{label}</h3>
+          <HeadingTag className={styles.title}>{label}</HeadingTag>
           <p className={styles.range} aria-live="polite">{rangeLabel(weekStart)}</p>
         </div>
         <div className={styles.controls}>

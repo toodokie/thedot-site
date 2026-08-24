@@ -29,8 +29,8 @@
 .controls { display: flex; gap: 6px; }
 
 .navButton {
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--dot-hairline);
   background: var(--dot-white);
   color: var(--dot-black);
