@@ -14,6 +14,26 @@
   min-width: 0;
 }
 
+.skipLink {
+  position: fixed;
+  inset-block-start: 12px;
+  inset-inline-start: -999px;
+  z-index: 100;
+  padding: 10px 14px;
+  color: var(--dot-black);
+  background: var(--dot-cream);
+  border: 2px solid var(--dot-black);
+  text-decoration: none;
+}
+
+.skipLink:focus {
+  inset-inline-start: 12px;
+}
+
+.main:target {
+  scroll-margin-block-start: 16px;
+}
+
 /* mobile top header (logo); hidden on desktop where the sidebar carries the logo */
 .topbar {
   display: flex;

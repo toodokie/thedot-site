@@ -29,13 +29,14 @@ export default async function PortalAdminLayout({ children }: { children: React.
   return (
     <div className={styles.shell}>
       <PortalPwaRegistration />
+      <a className={styles.skipLink} href="#portal-main">Skip to content</a>
       <AdminNav seat={seat} />
       <div className={styles.content}>
         <header className={styles.topbar}>
           <Image src="/images/logo.png" alt="The Dot Creative" width={64} height={36} priority />
           {seat}
         </header>
-        <main className={styles.main}>{children}</main>
+        <main className={styles.main} id="portal-main">{children}</main>
       </div>
     </div>
   )

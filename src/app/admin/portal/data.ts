@@ -138,18 +138,28 @@ export async function loadMyTasksData(): Promise<{
   openComments: AdminComment[]; openProposals: Array<{ id: string; clientName: string; title: string; submittedAt: string | null; latestClientReply: { authorName: string; body: string } | null }>; todayIso: string
 }> {
   const admin = createSupabaseAdmin()
-  const [clients, opsTasks, completedOpsRows, proposals] = await Promise.all([
+  const [clients, opsTasks, completedOpsRows, proposals, unresolvedRequests] = await Promise.all([
     admin.from('clients').select('id,name,slug').order('name'),
     admin.from('ops_tasks').select('id,client_id,title,category,due_date,trigger_note,status').eq('status', 'open'),
     admin.from('ops_tasks').select('id,client_id,title,category,status,trigger_note,completion_note,completed_at')
       .in('status', ['done', 'dropped']).order('completed_at', { ascending: false }).limit(10),
     admin.from('client_proposals').select('id,client_id,title,submitted_at').eq('status', 'awaiting_decision').order('submitted_at'),
+    admin.from('content_change_requests').select('content_id,request_type,status')
+      .in('status', ['pending', 'applying', 'prepared', 'conflicted']),
   ])
-  const failure = clients.error ?? opsTasks.error ?? completedOpsRows.error ?? proposals.error
+  const failure = clients.error ?? opsTasks.error ?? completedOpsRows.error ?? proposals.error ?? unresolvedRequests.error
   if (failure) throw new Error(`Portal admin data unavailable: ${failure.message}`)
   const clientMap = new Map((clients.data ?? []).map((client) => [client.id, client]))
   const opsClientName = opsClientNamer(clientMap)
-  const pieces = await loadAgencyStagePieces(admin)
+  const openEditCounts = new Map<string, number>()
+  for (const request of unresolvedRequests.data ?? []) {
+    if (request.request_type !== 'edit') continue
+    openEditCounts.set(request.content_id, (openEditCounts.get(request.content_id) ?? 0) + 1)
+  }
+  const pieces = (await loadAgencyStagePieces(admin)).map((piece) => ({
+    ...piece,
+    openClientEdits: piece.internalContentId ? openEditCounts.get(piece.internalContentId) ?? 0 : 0,
+  }))
   const openComments = (await loadAdminComments()).filter((comment) => !comment.resolved)
   const adminOpsTasks: OpsTaskRow[] = (opsTasks.data ?? []).map((task) => ({
     id: task.id, clientId: task.client_id, clientName: opsClientName(task.client_id),

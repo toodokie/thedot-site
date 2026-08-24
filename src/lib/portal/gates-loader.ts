@@ -134,6 +134,7 @@ function buildPieces(
     const approvalSent = pieceGates.find((g) => g.gate_key === 'approval_sent')
     return [{
       clientId: item.client_id, clientName: clientNames.get(item.client_id) ?? item.client_id,
+      internalContentId: item.id,
       contentId: item.content_id, title, format, pillar, status: item.status,
       factCheck: version?.fact_check ?? null, factCheckExempt: version?.fact_check_scope === 'not_applicable',
       factCheckValid: factCheckValid.get(item.id) ?? false,

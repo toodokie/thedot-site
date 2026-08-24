@@ -6,18 +6,20 @@ import styles from './portal-admin.module.css'
 // yellow-highlighter number). Built from the SAME design-system components the client uses, so
 // my side reads as designed as Maria's, not a bare table. `display` = the big greeting size
 // (the landing / My tasks); sub-pages use the level-2 section heading.
-export default function AdminPageHeader({ kicker, title, intro, display, count, countLabel }: {
+export default function AdminPageHeader({ kicker, title, intro, display, compact, count, countLabel }: {
   kicker: string
   title: string
   intro?: string
   display?: boolean
+  compact?: boolean
   count?: number
   countLabel?: string
 }) {
   return (
     <header className={styles.pageHeader}>
       <div className={styles.pageKicker}><Eyebrow tone="grey">{kicker}</Eyebrow></div>
-      <Heading level={display ? 1 : 2} variant={display ? 'display' : 'section'}>{title}</Heading>
+      <Heading level={compact ? 3 : display ? 1 : 2} as={compact ? 'h1' : undefined}
+        variant={display ? 'display' : compact ? undefined : 'section'}>{title}</Heading>
       {intro && <Text size="lg" tone="graphite" className={styles.pageIntro}>{intro}</Text>}
       {typeof count === 'number' && (
         <p className={styles.pageStatus}>

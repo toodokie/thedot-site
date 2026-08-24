@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Eyebrow } from '@thedot/design-system'
+import { Heading } from '@thedot/design-system'
 import { GATE_ORDER, resolveNineGates, deriveContentStage, deriveMyTasks,
   type StagePiece, type OpsTaskRow, type MyTask, type CompletedOpsTask } from '@/lib/portal/gates'
 import StatusPill, { type PillTone } from './StatusPill'
@@ -33,7 +33,8 @@ const ACTION_LABEL: Record<string, string> = {
   'proofed': 'Proof it',
   'approval-sent': 'Send to Maria',
   'copy-approved': 'Final copy + design approval',
-  'plan-direction-approved': 'Resolve plan direction',
+  'review-client-changes': "Review Maria's changes",
+  'review-plan-changes': "Review Maria's plan changes",
   'scheduled': 'Schedule',
   'posted': 'Post',
   'link-confirmed': 'Confirm link',
@@ -51,7 +52,14 @@ const STEP_NAMES = ['Plan direction sent', 'Plan direction approved', 'Fact-chec
 
 // One row shape for every task: title on the LEFT, the plain-English next step / status on
 // the RIGHT, inline so it sits right beside the title (never stranded far away).
-function TaskRow({ task, showClient }: { task: MyTask; showClient: boolean }) {
+function shortDate(value: string): string {
+  const date = new Date(`${value.slice(0, 10)}T12:00:00Z`)
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Toronto', month: 'short', day: 'numeric',
+  }).format(date)
+}
+
+function TaskRow({ task, showClient, todayIso }: { task: MyTask; showClient: boolean; todayIso: string }) {
   const title = 'title' in task ? task.title : ''
   const pieceHref = task.kind === 'ops'
     ? null
@@ -59,20 +67,31 @@ function TaskRow({ task, showClient }: { task: MyTask; showClient: boolean }) {
   let trail: ReactNode = null
   let lead: ReactNode = null
   if (task.kind === 'action') {
-    trail = <StatusPill tone="open" label={actionLabel(task.gate, task.dest, task.postPublishProofRecord)} />
+    const clientChange = task.gate === 'review-client-changes' || task.gate === 'review-plan-changes'
+    const label = task.gate === 'review-client-changes' && task.clientEditCount
+      ? `Review Maria's ${task.clientEditCount} change${task.clientEditCount === 1 ? '' : 's'}`
+      : actionLabel(task.gate, task.dest, task.postPublishProofRecord)
+    trail = <>
+      <StatusPill tone={clientChange ? 'open' : 'muted'}
+        label={label} />
+      {task.plannedDate && <time className={task.plannedDate <= todayIso ? styles.taskDateDue : styles.meta}
+        dateTime={task.plannedDate}>{task.plannedDate === todayIso ? 'Today' : `Planned ${shortDate(task.plannedDate)}`}</time>}
+    </>
   } else if (task.kind === 'link_pending') {
     trail = <span className={styles.meta}>confirm the live link{task.dest ? ` on ${task.dest}` : ''}{task.moreOpen > 0 ? ` +${task.moreOpen} more` : ''}</span>
   } else if (task.kind === 'waiting_maria') {
     trail = <>
-      <span className={styles.meta}>waiting on Maria, {task.daysWaiting} business day{task.daysWaiting === 1 ? '' : 's'}</span>
-      {task.nudge && <StatusPill tone="nudge" label="nudge?" />}
+      <span className={styles.meta}>{task.waitingFor === 'plan_direction' ? 'Plan direction' : 'Final review'} sent {task.daysWaiting} business day{task.daysWaiting === 1 ? '' : 's'} ago</span>
+      {task.nudge && <StatusPill tone="muted" label="Check status" />}
     </>
   } else if (task.kind === 'waiting_studio') {
     trail = <span className={styles.meta}>waiting on studio{task.note ? ` (${task.note})` : ''}</span>
   } else {
     lead = <StatusPill tone="muted" label={task.category} />
     trail = <>
-      {task.dueDate && <span className={styles.meta}>due {task.dueDate}</span>}
+      {task.occurrences > 1 && <StatusPill tone="nudge" label={`${task.occurrences} alerts grouped`} />}
+      {task.dueDate && <time className={task.dueDate <= todayIso ? styles.taskDateDue : styles.meta}
+        dateTime={task.dueDate}>{task.dueDate === todayIso ? 'Due today' : `Due ${shortDate(task.dueDate)}`}</time>}
       {task.triggerNote && <span className={styles.meta}>watch: {task.triggerNote}</span>}
     </>
   }
@@ -82,7 +101,7 @@ function TaskRow({ task, showClient }: { task: MyTask; showClient: boolean }) {
         <ClientTag name={task.clientName} show={showClient} />
         {lead}
         {pieceHref
-          ? <a className={`${styles.taskTitle} ${styles.pieceLink}`} href={pieceHref} title={title}>{title}</a>
+          ? <a className={`${styles.taskTitle} ${styles.pieceLink} ${styles.taskLink}`} href={pieceHref} title={title}>{title}</a>
           : <span className={styles.taskTitle} title={title}>{title}</span>}
       </span>
       <span className={styles.taskTrail}>{trail}</span>
@@ -176,105 +195,147 @@ export function MyTasksAdmin({ pieces, opsTasks, completedOps, openComments, ope
   const maria = tasks.filter((task) => task.kind === 'waiting_maria')
   const studio = tasks.filter((task) => task.kind === 'waiting_studio')
   const ops = tasks.filter((task): task is Extract<MyTask, { kind: 'ops' }> => task.kind === 'ops')
-  const opsBuckets: Array<[string, typeof ops]> = (
-    ['overdue', 'today', 'this_week', 'upcoming', 'watch'] as const
-  ).map((bucket) => [bucket.replace('_', ' '), ops.filter((task) => task.bucket === bucket)])
-  // The headline count is the genuinely-open WORK; link-confirm bookkeeping has its own
-  // labelled group and does not inflate it.
-  const openCount = actions.length + maria.length + studio.length + ops.length
+  const currentActions = actions.filter((task) => task.gate === 'review-client-changes'
+    || task.gate === 'review-plan-changes' || (task.plannedDate !== null && task.plannedDate <= todayIso))
+  const upcomingActions = actions.filter((task) => !currentActions.includes(task))
+  const opsAttention = ops.filter((task) => task.bucket === 'overdue' || task.bucket === 'today')
+  const opsLater = ops.filter((task) => task.bucket !== 'overdue' && task.bucket !== 'today')
+  const waiting = [...maria, ...studio]
+  const visibleCompletedOps = completedOps.filter((task) => {
+    const provenance = `${task.triggerNote ?? ''} ${task.completionNote ?? ''}`
+    return !/fixture/i.test(provenance)
+  }).slice(0, 3)
   // Single-client board: drop the repeated client name / column entirely (it was noise on
   // every row). Shows again the moment a second client's pieces appear.
   const multiClient = new Set(pieces.map((p) => p.clientId)).size > 1
   const calendarDays = weekCalendarDays(pieces)
 
-  // Each bucket is its OWN panel card (the client-overview pattern: many distinct cards in a
-  // two-column grid), instead of one crammed box. `emphasis` gives the priority bucket the
-  // charcoal-bordered lead treatment; its action rows already carry the yellow-pale chips.
-  const Panel = ({ label, note, rows, emphasis }:
-    { label: string; note?: string; rows: MyTask[]; emphasis?: boolean }) =>
-    rows.length > 0 ? (
+  const Panel = ({ label, note, rows, emphasis, limit = 5 }:
+    { label: string; note?: string; rows: MyTask[]; emphasis?: boolean; limit?: number }) => {
+    if (rows.length === 0) return null
+    const visible = rows.slice(0, limit)
+    const hidden = rows.slice(limit)
+    return (
       <section className={emphasis ? `${styles.card} ${styles.hero}` : styles.card}>
-        <div className={styles.panelHead}><Eyebrow tone="grey">{label}</Eyebrow></div>
+        <div className={styles.panelHead}>
+          <Heading as="h2" level={4}>{label}</Heading>
+          <span className={styles.panelCount}>{rows.length}</span>
+        </div>
         {note && <p className={styles.panelNote}>{note}</p>}
         <ul className={styles.taskList}>
-          {rows.map((task) => <TaskRow key={taskKey(task)} task={task} showClient={multiClient} />)}
+          {visible.map((task) => <TaskRow key={taskKey(task)} task={task}
+            showClient={multiClient} todayIso={todayIso} />)}
         </ul>
+        {hidden.length > 0 && <details className={styles.taskDisclosure}>
+          <summary>Show {hidden.length} more</summary>
+          <ul className={styles.taskList}>
+            {hidden.map((task) => <TaskRow key={taskKey(task)} task={task}
+              showClient={multiClient} todayIso={todayIso} />)}
+          </ul>
+        </details>}
       </section>
-    ) : null
+    )
+  }
+
+  const needsYouCount = currentActions.length + opsAttention.length + openComments.length
+  const comingUpCount = upcomingActions.length + opsLater.length
+  const waitingCount = waiting.length + openProposals.length
 
   return (
     <>
-      <AdminPageHeader kicker="Agency ops" title="My tasks" display
-        intro="What needs doing, most pressing first." count={openCount + openComments.length + openProposals.length} countLabel="open" />
-      {openCount === 0 && linkPending.length === 0 ? (
-        <section className={styles.card}><p className={styles.empty}>Nothing open.</p></section>
-      ) : (
-        <div className={styles.grid}>
-          <div>
-            <Panel label="Actions" note="Your move, most pressing first." rows={actions} emphasis />
-            <Panel label="Waiting on client review" rows={maria} />
-            {openProposals.length > 0 && <section className={styles.card}>
-              <div className={styles.panelHead}><Eyebrow tone="grey">Waiting on review · proposals</Eyebrow></div>
-              <p className={styles.panelNote}>Agency messages that need a client decision. The latest client reply is shown here too.</p><ul className={styles.taskList}>
-                {openProposals.map((proposal) => <li key={proposal.id} className={styles.taskRow}><span className={styles.taskMain}>
-                  <a className={`${styles.taskTitle} ${styles.pieceLink}`} href={`/admin/portal/requests#proposal-${proposal.id}`}>{proposal.title}</a>
+      <AdminPageHeader kicker="Agency ops" title="My tasks" compact
+        intro="Your next moves first. Waiting items and history stay out of the way." />
+      <dl className={styles.taskSummary} aria-label="Task summary">
+        <div><dt>Need you</dt><dd>{needsYouCount}</dd></div>
+        <div><dt>Coming up</dt><dd>{comingUpCount}</dd></div>
+        <div><dt>Waiting</dt><dd>{waitingCount}</dd></div>
+        <div><dt>Link checks</dt><dd>{linkPending.length}</dd></div>
+      </dl>
+      <div className={styles.grid}>
+        <div>
+          <Panel label="Needs your attention" note="Client changes and due work come first."
+            rows={currentActions} emphasis />
+          <Panel label="Ops follow-up" note="Repeated monitor alerts are grouped into one incident."
+            rows={opsAttention} limit={4} />
+          {openComments.length > 0 && (
+            <section className={styles.card}>
+              <div className={styles.panelHead}>
+                <Heading as="h2" level={4}>Comments needing reply</Heading>
+                <span className={styles.panelCount}>{openComments.length}</span>
+              </div>
+              <p className={styles.panelNote}>Open feedback stays here until it is resolved.</p>
+              <ul className={styles.taskList}>
+                {openComments.slice(0, 3).map((comment) => (
+                  <li key={`comment:${comment.id}`} className={styles.taskRow}>
+                    <span className={styles.taskMain}>
+                      <a href={`/admin/portal/pieces/${encodeURIComponent(comment.contentId)}`}
+                        className={`${styles.pieceLink} ${styles.taskLink}`}>{comment.title}</a>
+                      <span className={styles.meta}>{comment.targetKind === 'design' ? 'Design' : 'Copy'} · {comment.clientName}</span>
+                    </span>
+                    <span className={styles.taskTrail}><time className={styles.meta}
+                      dateTime={comment.createdAt.slice(0, 10)}>{shortDate(comment.createdAt)}</time></span>
+                  </li>
+                ))}
+              </ul>
+              <a href="/admin/portal/comments" className={styles.moreLink}>Open all {openComments.length} comments</a>
+            </section>
+          )}
+          <Panel label="Coming up" note="Future content work, ordered by planned date."
+            rows={upcomingActions} limit={5} />
+          {needsYouCount === 0 && upcomingActions.length === 0 && <section className={styles.card}>
+            <Heading as="h2" level={4}>Clear for now</Heading>
+            <p className={styles.empty}>No current content, comment, or ops action needs you.</p>
+          </section>}
+        </div>
+        <aside>
+          <section className={styles.card}>
+            <WeekCalendar days={calendarDays} todayIso={todayIso} label="This week" headingLevel={2} />
+          </section>
+          <Panel label="Waiting" note="These are with Maria or the studio. Check older items only if the plan is still current."
+            rows={waiting} limit={5} />
+          {openProposals.length > 0 && <section className={styles.card}>
+            <div className={styles.panelHead}>
+              <Heading as="h2" level={4}>Proposals awaiting review</Heading>
+              <span className={styles.panelCount}>{openProposals.length}</span>
+            </div>
+            <ul className={styles.taskList}>
+              {openProposals.slice(0, 3).map((proposal) => <li key={proposal.id} className={styles.taskRow}>
+                <span className={styles.taskMain}>
+                  <a className={`${styles.taskTitle} ${styles.pieceLink} ${styles.taskLink}`}
+                    href={`/admin/portal/requests#proposal-${proposal.id}`}>{proposal.title}</a>
                   <span className={styles.meta}>{proposal.clientName}</span>
                   {proposal.latestClientReply && <span className={styles.meta}>Latest reply from {proposal.latestClientReply.authorName}: {proposal.latestClientReply.body}</span>}
-                </span><span className={styles.taskTrail}><span className={styles.meta}>{proposal.submittedAt?.slice(0, 10) ?? 'sent'}</span></span></li>)}
-              </ul></section>}
-            <Panel label="Waiting on studio" rows={studio} />
-          </div>
-          <aside>
+                </span>
+                <span className={styles.taskTrail}><span className={styles.meta}>{proposal.submittedAt ? shortDate(proposal.submittedAt) : 'Sent'}</span></span>
+              </li>)}
+            </ul>
+            {openProposals.length > 3 && <a href="/admin/portal/requests" className={styles.moreLink}>Open all {openProposals.length} proposals</a>}
+          </section>}
+          <Panel label="Later and monitors" rows={opsLater} limit={4} />
+          <Panel label="Posted, link check pending" rows={linkPending} limit={4} />
+          {visibleCompletedOps.length > 0 && (
             <section className={styles.card}>
-              <WeekCalendar days={calendarDays} todayIso={todayIso} label="This week" />
+              <div className={styles.panelHead}>
+                <Heading as="h2" level={4}>Recently completed</Heading>
+              </div>
+              <ul className={styles.taskList}>
+                {visibleCompletedOps.map((task) => (
+                  <li key={task.id} className={styles.taskRow}>
+                    <span className={styles.taskMain}>
+                      <ClientTag name={task.clientName} show={multiClient} />
+                      <StatusPill tone="muted" label={task.category} />
+                      <span className={styles.taskTitle} title={task.title}>{task.title}</span>
+                    </span>
+                    <span className={styles.taskTrail}>
+                      <span className={styles.meta}>{task.status}{task.completedAt ? ` ${shortDate(task.completedAt)}` : ''}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </section>
-            {openComments.length > 0 && (
-              <section className={styles.card}>
-                <div className={styles.panelHead}><Eyebrow tone="grey">Comments needing reply</Eyebrow></div>
-                <p className={styles.panelNote}>Client feedback is retained here until you handle it.</p>
-                <ul className={styles.taskList}>
-                  {openComments.slice(0, 10).map((comment) => (
-                    <li key={`comment:${comment.id}`} className={styles.taskRow}>
-                      <span className={styles.taskMain}>
-                        <a href={`/admin/portal/pieces/${encodeURIComponent(comment.contentId)}`} className={styles.pieceLink}>
-                          {comment.title}
-                        </a>
-                        <span className={styles.meta}>{comment.targetKind === 'design' ? 'design' : 'copy'} · {comment.clientName}</span>
-                      </span>
-                      <span className={styles.taskTrail}><span className={styles.meta}>{comment.createdAt.slice(0, 10)}</span></span>
-                    </li>
-                  ))}
-                </ul>
-                {openComments.length > 10 && <a href="/admin/portal/comments" className={styles.moreLink}>Open all {openComments.length} comments</a>}
-              </section>
-            )}
-            <Panel label="Posted · link-confirm pending" rows={linkPending} />
-            {opsBuckets.map(([label, rows]) => <Panel key={label} label={`Ops · ${label}`} rows={rows} />)}
-            {completedOps.length > 0 && (
-              <section className={styles.card}>
-                <div className={styles.panelHead}><Eyebrow tone="grey">Recently completed ops</Eyebrow></div>
-                <ul className={styles.taskList}>
-                  {completedOps.map((task) => (
-                    <li key={task.id} className={styles.taskRow}>
-                      <span className={styles.taskMain}>
-                        <ClientTag name={task.clientName} show={multiClient} />
-                        <StatusPill tone="muted" label={task.category} />
-                        <span className={styles.taskTitle} title={task.title}>{task.title}</span>
-                      </span>
-                      <span className={styles.taskTrail}>
-                        <span className={styles.meta}>{task.status}{task.completedAt ? ` ${task.completedAt.slice(0, 10)}` : ''}</span>
-                        {/* completion note is separate; the original trigger note survives */}
-                        {task.triggerNote && <span className={styles.meta}>trigger: {task.triggerNote}</span>}
-                        {task.completionNote && <span className={styles.meta}>outcome: {task.completionNote}</span>}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-          </aside>
-        </div>
-      )}
+          )}
+        </aside>
+      </div>
     </>
   )
 }

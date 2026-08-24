@@ -33,6 +33,9 @@ export type StagePiece = {
   // second client exists.
   clientId: string
   clientName: string
+  // Internal row identity. Admin-only joins such as unresolved edit requests use this;
+  // client-facing routes continue to use the durable contentId below.
+  internalContentId?: string
   contentId: string
   title: string
   format?: string | null
@@ -52,6 +55,9 @@ export type StagePiece = {
   factCheckExempt: boolean
   factCheckValid?: boolean
   currentDecision: 'approved' | 'change_requested' | null
+  // Open binding edit requests are a separate workflow plane from the package-level
+  // approval decision. A client can request edits without changing currentDecision.
+  openClientEdits?: number
   // This is an agency-only, version-bound workflow policy. It is never a fabricated
   // client decision: `courtesy` means the agency has explicitly made client approval
   // non-blocking for this released snapshot (for example a studio-owned live cut).
@@ -352,15 +358,23 @@ export function deriveContentStage(piece: StagePiece): StageResult {
 // Every task carries a resolved clientName so the admin can label it across tenants
 // (Codex round-4 fix 2). An ops task with a null client_id is agency-global: its
 // clientName is 'Agency'. Piece-derived tasks also carry clientId for composite keys.
+type PieceTaskBase = {
+  clientId: string
+  clientName: string
+  contentId: string
+  title: string
+  plannedDate: string | null
+}
+
 export type MyTask =
-  | { kind: 'action'; clientId: string; clientName: string; contentId: string; title: string; gate: GateKey | 'plan-direction-approved'; dest: string | null; moreOpen: number; postPublishProofRecord: boolean }
+  | (PieceTaskBase & { kind: 'action'; gate: GateKey | 'review-client-changes' | 'review-plan-changes'; dest: string | null; moreOpen: number; postPublishProofRecord: boolean; clientEditCount?: number })
   // posted everywhere required, only link-confirmation outstanding: bookkeeping, not
   // production work, so it renders in a quiet "link-confirm pending" group instead of
   // flooding Actions (many imported/legacy pieces sit here honestly unverified).
-  | { kind: 'link_pending'; clientId: string; clientName: string; contentId: string; title: string; dest: string | null; moreOpen: number }
-  | { kind: 'waiting_maria'; clientId: string; clientName: string; contentId: string; title: string; daysWaiting: number; nudge: boolean }
-  | { kind: 'waiting_studio'; clientId: string; clientName: string; contentId: string; title: string; note: string | null }
-  | { kind: 'ops'; id: string; clientName: string; title: string; category: string; bucket: 'overdue' | 'today' | 'this_week' | 'upcoming' | 'watch'; dueDate: string | null; triggerNote: string | null }
+  | (PieceTaskBase & { kind: 'link_pending'; dest: string | null; moreOpen: number })
+  | (PieceTaskBase & { kind: 'waiting_maria'; waitingFor: 'plan_direction' | 'final_review'; daysWaiting: number; nudge: boolean })
+  | (PieceTaskBase & { kind: 'waiting_studio'; note: string | null })
+  | { kind: 'ops'; id: string; clientName: string; title: string; category: string; bucket: 'overdue' | 'today' | 'this_week' | 'upcoming' | 'watch'; dueDate: string | null; triggerNote: string | null; occurrences: number }
 
 // A recently-completed ops task, for the admin's "Recently completed" reader: it shows
 // BOTH the original trigger_note (immutable) and the completion_note (fix B), proving a
@@ -415,13 +429,35 @@ export function deriveMyTasks(
     // A selected idea is visible in the calendar and Pieces table, but authoring has
     // not started. It must not manufacture a fact-check or production task before v1.
     if (piece.workingVersion === null) continue
-    const tenant = { clientId: piece.clientId, clientName: piece.clientName }
+    const pieceTask = {
+      clientId: piece.clientId,
+      clientName: piece.clientName,
+      contentId: piece.contentId,
+      title: piece.title,
+      plannedDate: day(piece.plannedDate),
+    }
+    // A binding final-package change request is the agency's next move. It must win over
+    // an older plan cycle, otherwise the precise client request is replaced by the generic
+    // "plan direction" label and disappears from the top of My Tasks.
+    if ((piece.openClientEdits ?? 0) > 0 || piece.currentDecision === 'change_requested') {
+      tasks.push({ kind: 'action', ...pieceTask, gate: 'review-client-changes', dest: null,
+        moreOpen: 0, postPublishProofRecord: false,
+        clientEditCount: piece.openClientEdits && piece.openClientEdits > 0 ? piece.openClientEdits : undefined })
+      continue
+    }
     // A submitted plan cycle is a distinct first decision. It covers the week's
     // direction and any fact-checked copy that is already visible, never the later
     // version-bound final copy-plus-design approval.
-    if (piece.ideaApprovalSentAt !== null && piece.ideaDecision !== 'approved') {
-      tasks.push({ kind: 'action', ...tenant, contentId: piece.contentId, title: piece.title,
-        gate: 'plan-direction-approved', dest: null, moreOpen: 0, postPublishProofRecord: false })
+    if (piece.ideaApprovalSentAt !== null && piece.ideaDecision !== 'approved'
+        && piece.currentDecision !== 'approved') {
+      const days = businessDaysBetween(piece.ideaApprovalSentAt, todayIso)
+      if (piece.ideaDecision === 'change_requested') {
+        tasks.push({ kind: 'action', ...pieceTask, gate: 'review-plan-changes', dest: null,
+          moreOpen: 0, postPublishProofRecord: false })
+      } else {
+        tasks.push({ kind: 'waiting_maria', ...pieceTask, waitingFor: 'plan_direction',
+          daysWaiting: days, nudge: days >= 2 })
+      }
       continue
     }
 
@@ -434,7 +470,7 @@ export function deriveMyTasks(
     if (stage.stage === 'done') {
       const proofed = productionGate(piece, 'proofed')
       if (proofed?.state === 'open') {
-        tasks.push({ kind: 'action', ...tenant, contentId: piece.contentId, title: piece.title,
+        tasks.push({ kind: 'action', ...pieceTask,
           gate: 'proofed', dest: null, moreOpen: 0, postPublishProofRecord: true })
       }
       continue
@@ -456,23 +492,21 @@ export function deriveMyTasks(
         const days = businessDaysBetween(approvalSent.occurred_at, todayIso)
         // call 4: at 2 business days the row flags nudge?; a draft is OFFERED, nothing
         // ever auto-sends
-        tasks.push({ kind: 'waiting_maria', ...tenant, contentId: piece.contentId,
-          title: piece.title, daysWaiting: days, nudge: days >= 2 })
+        tasks.push({ kind: 'waiting_maria', ...pieceTask, waitingFor: 'final_review',
+          daysWaiting: days, nudge: days >= 2 })
         continue
       }
     }
     if (first.key === 'source-in-hand' && first.owner === 'studio') {
-      tasks.push({ kind: 'waiting_studio', ...tenant, contentId: piece.contentId,
-        title: piece.title, note: first.note })
+      tasks.push({ kind: 'waiting_studio', ...pieceTask, note: first.note })
       continue
     }
     // Only link-confirmation left (the piece is posted): quiet bookkeeping, not an action.
     if (first.key === 'link-confirmed') {
-      tasks.push({ kind: 'link_pending', ...tenant, contentId: piece.contentId,
-        title: piece.title, dest: first.dest, moreOpen: open.length - 1 })
+      tasks.push({ kind: 'link_pending', ...pieceTask, dest: first.dest, moreOpen: open.length - 1 })
       continue
     }
-    tasks.push({ kind: 'action', ...tenant, contentId: piece.contentId, title: piece.title,
+    tasks.push({ kind: 'action', ...pieceTask,
       gate: first.key, dest: first.dest, moreOpen: open.length - 1,
       // A publication record proves a live destination, not that the required pre-publish
       // proof happened. Keep the missing audit record visible, but name it honestly.
@@ -483,18 +517,57 @@ export function deriveMyTasks(
   const weekAhead = new Date(todayIso.slice(0, 10) + 'T00:00:00Z')
   weekAhead.setUTCDate(weekAhead.getUTCDate() + 7)
   const weekIso = weekAhead.toISOString().slice(0, 10)
+  const collapsedOps: Array<{ task: OpsTaskRow; occurrences: number }> = []
+  const notificationVolumeIndex = new Map<string, number>()
   for (const task of opsTasks) {
     if (task.status !== 'open') continue
+    if (/notification volume/i.test(task.title)) {
+      const key = `${task.clientId ?? 'agency'}:${task.category}`
+      const existingIndex = notificationVolumeIndex.get(key)
+      if (existingIndex === undefined) {
+        notificationVolumeIndex.set(key, collapsedOps.length)
+        collapsedOps.push({ task, occurrences: 1 })
+      } else {
+        const existing = collapsedOps[existingIndex]
+        const existingDate = existing.task.due_date ?? ''
+        const incomingDate = task.due_date ?? ''
+        collapsedOps[existingIndex] = {
+          task: incomingDate >= existingDate ? task : existing.task,
+          occurrences: existing.occurrences + 1,
+        }
+      }
+      continue
+    }
+    collapsedOps.push({ task, occurrences: 1 })
+  }
+
+  for (const { task, occurrences } of collapsedOps) {
     const bucket = task.trigger_note && !task.due_date ? 'watch'
       : !task.due_date ? 'upcoming'
       : task.due_date < todayIso ? 'overdue'
       : task.due_date === todayIso ? 'today'
       : task.due_date <= weekIso ? 'this_week'
       : 'upcoming'
-    tasks.push({ kind: 'ops', id: task.id, clientName: task.clientName, title: task.title,
-      category: task.category, bucket, dueDate: task.due_date, triggerNote: task.trigger_note })
+    tasks.push({ kind: 'ops', id: task.id, clientName: task.clientName,
+      title: occurrences > 1 ? 'Review client notification volume' : task.title,
+      category: task.category, bucket, dueDate: task.due_date, triggerNote: task.trigger_note,
+      occurrences })
   }
-  return tasks
+
+  const kindRank = (task: MyTask): number => {
+    if (task.kind === 'action') return task.gate === 'review-client-changes' ? 0
+      : task.gate === 'review-plan-changes' ? 1 : 2
+    if (task.kind === 'ops') return task.bucket === 'overdue' || task.bucket === 'today' ? 3 : 7
+    if (task.kind === 'waiting_maria') return 4
+    if (task.kind === 'waiting_studio') return 5
+    return 6
+  }
+  const taskDate = (task: MyTask): string => task.kind === 'ops'
+    ? task.dueDate ?? '9999-12-31'
+    : task.plannedDate ?? '9999-12-31'
+  return tasks.sort((a, b) => kindRank(a) - kindRank(b)
+    || taskDate(a).localeCompare(taskDate(b))
+    || a.title.localeCompare(b.title))
 }
 
 // ---- STATUS GATES block renderer (my-tasks spec section 5 grammar) -----------
