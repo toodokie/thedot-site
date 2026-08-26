@@ -416,6 +416,25 @@ describe('deriveMyTasks', () => {
     ])
   })
 
+  it('keeps an overdue scheduled piece waiting on studio when nothing is live', () => {
+    const studio = piece({
+      plannedDate: '2026-08-06',
+      gates: [gate('source_in_hand', 'open', {
+        owner_label: 'studio', note: 'Set 1 Clip 11 (transcribed); studio delivers the cut',
+      })],
+      platforms: ['instagram', 'facebook', 'youtube'],
+      dests: [
+        dest('instagram', { scheduleStatus: 'scheduled', scheduledAt: '2026-08-06T18:00:00Z' }),
+        dest('facebook', { scheduleStatus: 'scheduled', scheduledAt: '2026-08-06T18:00:00Z' }),
+        dest('youtube', { scheduleStatus: 'scheduled', scheduledAt: '2026-08-06T18:00:00Z' }),
+      ],
+    })
+    expect(deriveMyTasks([studio], [], '2026-08-26')).toEqual([
+      expect.objectContaining({ kind: 'waiting_studio',
+        note: 'Set 1 Clip 11 (transcribed); studio delivers the cut' }),
+    ])
+  })
+
   it('keeps a scheduled piece out of My Tasks on its planned day', () => {
     const scheduledToday = piece({
       plannedDate: '2026-08-26', currentDecision: 'approved',
