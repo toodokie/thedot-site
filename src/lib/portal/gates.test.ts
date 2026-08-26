@@ -390,15 +390,64 @@ describe('deriveMyTasks', () => {
     expect(tasks.some((t) => t.kind === 'action' && t.gate === 'scheduled')).toBe(false)
   })
 
-  it('keeps a missing proof record visible after publication without pretending the links need proofing', () => {
+  it('keeps a missing proof record in evidence cleanup, not the urgent production queue', () => {
     const afterPublication = piece({
       gates: [gate('source_in_hand', 'done'), gate('design_built', 'done'), gate('proofed', 'open')],
       platforms: ['instagram'],
       dests: [dest('instagram', { publicationStatus: 'live', verified: true })],
     })
     expect(deriveMyTasks([afterPublication], [], '2026-07-31')[0]).toMatchObject({
-      kind: 'action', gate: 'proofed', postPublishProofRecord: true,
+      kind: 'reconciliation', issue: 'proof',
     })
+  })
+
+  it('does not replay stale approval or post gates for a scheduled piece', () => {
+    const scheduled = piece({
+      plannedDate: '2026-08-12',
+      gates: [gate('source_in_hand', 'done'), gate('design_built', 'done'),
+        gate('proofed', 'done'), gate('approval_sent', 'open')],
+      platforms: ['instagram', 'facebook'],
+      dests: [dest('instagram', { scheduleStatus: 'scheduled', scheduledAt: '2026-08-12T23:00:00Z' }),
+        dest('facebook', { scheduleStatus: 'scheduled', scheduledAt: '2026-08-12T23:00:00Z' })],
+    })
+    expect(deriveMyTasks([scheduled], [], '2026-08-26')).toEqual([
+      expect.objectContaining({ kind: 'reconciliation', issue: 'publication',
+        dest: 'instagram', moreOpen: 1 }),
+    ])
+  })
+
+  it('keeps a scheduled piece out of My Tasks on its planned day', () => {
+    const scheduledToday = piece({
+      plannedDate: '2026-08-26', currentDecision: 'approved',
+      platforms: ['linkedin'],
+      dests: [dest('linkedin', { scheduleStatus: 'scheduled', scheduledAt: '2026-08-26T20:00:00Z' })],
+    })
+    expect(deriveMyTasks([scheduledToday], [], '2026-08-26')).toEqual([])
+  })
+
+  it('keeps an unscheduled destination actionable on a partly-scheduled current piece', () => {
+    const partialToday = piece({
+      plannedDate: '2026-08-26', currentDecision: 'approved',
+      platforms: ['instagram', 'facebook'],
+      dests: [dest('instagram', { scheduleStatus: 'scheduled', scheduledAt: '2026-08-26T23:00:00Z' }),
+        dest('facebook')],
+    })
+    expect(deriveMyTasks([partialToday], [], '2026-08-26')).toEqual([
+      expect.objectContaining({ kind: 'action', gate: 'scheduled', dest: 'facebook' }),
+    ])
+  })
+
+  it('routes a partly-published historical piece to evidence cleanup for missing destinations', () => {
+    const partial = piece({
+      plannedDate: '2026-08-18',
+      platforms: ['instagram', 'facebook', 'youtube'],
+      dests: [dest('instagram', { publicationStatus: 'live', verified: true }),
+        dest('facebook'), dest('youtube', { publicationStatus: 'live', verified: true })],
+    })
+    expect(deriveMyTasks([partial], [], '2026-08-26')).toEqual([
+      expect.objectContaining({ kind: 'reconciliation', issue: 'publication',
+        dest: 'facebook', moreOpen: 0 }),
+    ])
   })
 })
 
