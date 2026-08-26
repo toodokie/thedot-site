@@ -79,6 +79,13 @@ function TaskRow({ task, showClient, todayIso }: { task: MyTask; showClient: boo
     </>
   } else if (task.kind === 'link_pending') {
     trail = <span className={styles.meta}>confirm the live link{task.dest ? ` on ${task.dest}` : ''}{task.moreOpen > 0 ? ` +${task.moreOpen} more` : ''}</span>
+  } else if (task.kind === 'reconciliation') {
+    const label = task.issue === 'proof' ? 'Record missing proof' : 'Check publication'
+    trail = <>
+      <StatusPill tone="muted" label={task.dest ? `${label}: ${task.dest}` : label} />
+      {task.moreOpen > 0 && <span className={styles.meta}>+{task.moreOpen} more destination{task.moreOpen === 1 ? '' : 's'}</span>}
+      {task.plannedDate && <time className={styles.meta} dateTime={task.plannedDate}>Planned {shortDate(task.plannedDate)}</time>}
+    </>
   } else if (task.kind === 'waiting_maria') {
     trail = <>
       <span className={styles.meta}>{task.waitingFor === 'plan_direction' ? 'Plan direction' : 'Final review'} sent {task.daysWaiting} business day{task.daysWaiting === 1 ? '' : 's'} ago</span>
@@ -192,6 +199,7 @@ export function MyTasksAdmin({ pieces, opsTasks, completedOps, openComments, ope
   const tasks = deriveMyTasks(pieces, opsTasks, todayIso)
   const actions = tasks.filter((task) => task.kind === 'action')
   const linkPending = tasks.filter((task) => task.kind === 'link_pending')
+  const reconciliation = tasks.filter((task) => task.kind === 'reconciliation')
   const maria = tasks.filter((task) => task.kind === 'waiting_maria')
   const studio = tasks.filter((task) => task.kind === 'waiting_studio')
   const ops = tasks.filter((task): task is Extract<MyTask, { kind: 'ops' }> => task.kind === 'ops')
@@ -249,7 +257,7 @@ export function MyTasksAdmin({ pieces, opsTasks, completedOps, openComments, ope
         <div><dt>Need you</dt><dd>{needsYouCount}</dd></div>
         <div><dt>Coming up</dt><dd>{comingUpCount}</dd></div>
         <div><dt>Waiting</dt><dd>{waitingCount}</dd></div>
-        <div><dt>Link checks</dt><dd>{linkPending.length}</dd></div>
+        <div><dt>Evidence</dt><dd>{linkPending.length + reconciliation.length}</dd></div>
       </dl>
       <div className={styles.grid}>
         <div>
@@ -312,6 +320,8 @@ export function MyTasksAdmin({ pieces, opsTasks, completedOps, openComments, ope
             {openProposals.length > 3 && <a href="/admin/portal/requests" className={styles.moreLink}>Open all {openProposals.length} proposals</a>}
           </section>}
           <Panel label="Later and monitors" rows={opsLater} limit={4} />
+          <Panel label="Evidence cleanup" note="Scheduled or published work that needs portal proof, not another production deadline."
+            rows={reconciliation} limit={4} />
           <Panel label="Posted, link check pending" rows={linkPending} limit={4} />
           {visibleCompletedOps.length > 0 && (
             <section className={styles.card}>

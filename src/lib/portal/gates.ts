@@ -373,6 +373,10 @@ export type MyTask =
   // production work, so it renders in a quiet "link-confirm pending" group instead of
   // flooding Actions (many imported/legacy pieces sit here honestly unverified).
   | (PieceTaskBase & { kind: 'link_pending'; dest: string | null; moreOpen: number })
+  // A scheduled or partly-published historical piece is not today's production work.
+  // It needs evidence reconciliation: verify provider reality and record the public
+  // permalink or the missing proof record. Keep this out of the urgent action count.
+  | (PieceTaskBase & { kind: 'reconciliation'; issue: 'publication' | 'proof'; dest: string | null; moreOpen: number })
   | (PieceTaskBase & { kind: 'waiting_maria'; waitingFor: 'plan_direction' | 'final_review'; daysWaiting: number; nudge: boolean })
   | (PieceTaskBase & { kind: 'waiting_studio'; note: string | null })
   | { kind: 'ops'; id: string; clientName: string; title: string; category: string; bucket: 'overdue' | 'today' | 'this_week' | 'upcoming' | 'watch'; dueDate: string | null; triggerNote: string | null; occurrences: number }
@@ -462,17 +466,64 @@ export function deriveMyTasks(
       continue
     }
 
-    // Publication state wins over stale production-gate rows. A completed piece can retain
-    // its historical source/design/approval rows forever, but none of those may resurrect
-    // a finished post as an open studio or agency task. The one deliberate exception is an
-    // explicitly-open proof gate: that is a real post-publish audit omission, rendered as
-    // "Record missing proof" rather than a fictional pre-publish task.
+    // Provider state wins over stale production-gate rows. Scheduled and published pieces
+    // can retain historical source/design/approval rows forever, but those rows must never
+    // resurrect as "Send to Maria" or "Post" in today's urgent work. Historical gaps are
+    // evidence reconciliation, not production deadlines.
     const stage = deriveContentStage(piece)
     if (stage.stage === 'done') {
       const proofed = productionGate(piece, 'proofed')
       if (proofed?.state === 'open') {
-        tasks.push({ kind: 'action', ...pieceTask,
-          gate: 'proofed', dest: null, moreOpen: 0, postPublishProofRecord: true })
+        tasks.push({ kind: 'reconciliation', ...pieceTask,
+          issue: 'proof', dest: null, moreOpen: 0 })
+      }
+      continue
+    }
+
+    const requiredDestinations = piece.platforms.filter((platform) =>
+      piece.dests.find((dest) => dest.destination === platform)?.required !== false)
+    const pendingSchedule = requiredDestinations.filter((platform) => {
+      const dest = piece.dests.find((row) => row.destination === platform)
+      return dest?.scheduleStatus !== 'scheduled' && dest?.publicationStatus !== 'live'
+    })
+    const pendingPublication = requiredDestinations.filter((platform) =>
+      piece.dests.find((dest) => dest.destination === platform)?.publicationStatus !== 'live')
+    const plannedBeforeToday = pieceTask.plannedDate !== null && pieceTask.plannedDate < todayIso.slice(0, 10)
+
+    if (stage.stage === 'scheduled') {
+      // A provider commitment is already recorded. On or before its planned day the
+      // calendar is the useful surface; after that day, missing live evidence becomes a
+      // quiet reconciliation check instead of an instruction to publish again.
+      if (plannedBeforeToday && pendingPublication.length > 0) {
+        tasks.push({ kind: 'reconciliation', ...pieceTask, issue: 'publication',
+          dest: pendingPublication[0], moreOpen: pendingPublication.length - 1 })
+      }
+      continue
+    }
+
+    if (stage.stage === 'scheduled_partial') {
+      if (plannedBeforeToday) {
+        tasks.push({ kind: 'reconciliation', ...pieceTask, issue: 'publication',
+          dest: pendingPublication[0] ?? null, moreOpen: Math.max(0, pendingPublication.length - 1) })
+      } else if (pendingSchedule.length > 0) {
+        tasks.push({ kind: 'action', ...pieceTask, gate: 'scheduled',
+          dest: pendingSchedule[0], moreOpen: pendingSchedule.length - 1,
+          postPublishProofRecord: false })
+      }
+      continue
+    }
+
+    if (stage.stage === 'posted_unverified') {
+      if (pendingPublication.length > 0) {
+        tasks.push({ kind: 'reconciliation', ...pieceTask, issue: 'publication',
+          dest: pendingPublication[0], moreOpen: pendingPublication.length - 1 })
+      } else {
+        const unverified = requiredDestinations.filter((platform) => {
+          const dest = piece.dests.find((row) => row.destination === platform)
+          return dest?.publicationStatus === 'live' && !dest.verified
+        })
+        tasks.push({ kind: 'link_pending', ...pieceTask,
+          dest: unverified[0] ?? null, moreOpen: Math.max(0, unverified.length - 1) })
       }
       continue
     }
@@ -561,7 +612,8 @@ export function deriveMyTasks(
     if (task.kind === 'ops') return task.bucket === 'overdue' || task.bucket === 'today' ? 3 : 7
     if (task.kind === 'waiting_maria') return 4
     if (task.kind === 'waiting_studio') return 5
-    return 6
+    if (task.kind === 'reconciliation') return 6
+    return 7
   }
   const taskDate = (task: MyTask): string => task.kind === 'ops'
     ? task.dueDate ?? '9999-12-31'

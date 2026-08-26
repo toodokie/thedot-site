@@ -375,7 +375,11 @@ sources, one derivation layer:
     Approved / Scheduled / Posted / Live / Done / Issue). Handles `direction_approved` for H&C-style
     "direction approved, still in production."
   - `deriveMyTasks(pieces, opsTasks, todayIso)` — the admin My-tasks list (Actions / waiting_maria /
-    waiting_studio / link_pending / ops buckets).
+    waiting_studio / reconciliation / link_pending / ops buckets). Provider state outranks stale
+    production gates: a scheduled piece never resurfaces as "Send to Maria" or "Post." On its
+    planned day it stays in the calendar; after that day, missing publication evidence moves to
+    **Evidence cleanup**, outside the urgent action count. Post-publish proof gaps use the same
+    quiet reconciliation bucket.
   - `canonicalScheduleDestination` / `canonicalDestinations` / `selectCurrentDecision` /
     `businessDaysBetween` / `renderStatusGatesBlock`.
 - **The loader** `src/lib/portal/gates-loader.ts` → `loadAgencyStagePieces(admin, clientId?)` runs

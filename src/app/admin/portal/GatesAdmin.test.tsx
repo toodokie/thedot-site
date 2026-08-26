@@ -55,4 +55,27 @@ describe('MyTasksAdmin', () => {
     expect(screen.queryByText('Renew the domain')).not.toBeInTheDocument()
     expect(screen.getByText('Send the report')).toBeInTheDocument()
   })
+
+  it('separates historical publication evidence from urgent work', () => {
+    const historical = piece('Old scheduled post', {
+      plannedDate: '2026-08-12', currentDecision: 'approved', platforms: ['instagram'],
+      dests: [{ destination: 'instagram', scheduleStatus: 'scheduled', publicationStatus: null,
+        verified: false, scheduledAt: '2026-08-12T23:00:00Z', liveUrl: null }],
+    })
+    const urgent = piece('Today needs scheduling', {
+      plannedDate: '2026-08-24', currentDecision: 'approved', platforms: ['instagram'],
+      dests: [{ destination: 'instagram', scheduleStatus: null, publicationStatus: null,
+        verified: false, scheduledAt: null, liveUrl: null }],
+    })
+
+    render(<MyTasksAdmin pieces={[historical, urgent]} opsTasks={[]} completedOps={[]}
+      openComments={[]} openProposals={[]} todayIso="2026-08-24" />)
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Needs your attention' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Today needs scheduling' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Evidence cleanup' })).toBeInTheDocument()
+    expect(screen.getByText('Old scheduled post')).toBeInTheDocument()
+    expect(screen.getByText('Check publication: instagram')).toBeInTheDocument()
+    expect(screen.getByText('Evidence').nextElementSibling).toHaveTextContent('1')
+  })
 })
