@@ -305,7 +305,8 @@ export function deriveContentStage(piece: StagePiece): StageResult {
 
   // A submitted plan cycle is a separate client decision. It must be resolved
   // before the version-bound final approval can describe the piece as approved.
-  if (piece.ideaApprovalSentAt !== null && piece.ideaDecision !== 'approved') {
+  if (piece.ideaApprovalSentAt !== null && piece.ideaDecision !== 'approved'
+      && piece.currentDecision !== 'approved' && piece.reviewMode !== 'courtesy') {
     return { stage: 'awaiting_idea_approval', label: 'awaiting idea approval' }
   }
 
@@ -449,7 +450,7 @@ export function deriveMyTasks(
     // direction and any fact-checked copy that is already visible, never the later
     // version-bound final copy-plus-design approval.
     if (piece.ideaApprovalSentAt !== null && piece.ideaDecision !== 'approved'
-        && piece.currentDecision !== 'approved') {
+        && piece.currentDecision !== 'approved' && piece.reviewMode !== 'courtesy') {
       const days = businessDaysBetween(piece.ideaApprovalSentAt, todayIso)
       if (piece.ideaDecision === 'change_requested') {
         tasks.push({ kind: 'action', ...pieceTask, gate: 'review-plan-changes', dest: null,

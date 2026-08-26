@@ -102,6 +102,8 @@ describe('deriveContentStage', () => {
   it('treats a courtesy release as an agency policy, never as a client approval or a Maria task', () => {
     const courtesy = piece({
       reviewMode: 'courtesy',
+      ideaApprovalSentAt: '2026-07-26T12:00:00Z',
+      ideaDecision: null,
       gates: [gate('source_in_hand', 'na'), gate('design_built', 'done'),
         gate('proofed', 'done'), gate('approval_sent', 'done')],
     })
@@ -110,9 +112,23 @@ describe('deriveContentStage', () => {
     })
     const approvalGate = resolveNineGates(courtesy).find((row) => row.key === 'copy-approved')
     expect(approvalGate).toMatchObject({ state: 'na', owner: 'agency' })
-    expect(deriveMyTasks([courtesy], [], '2026-07-30')).not.toContainEqual(
-      expect.objectContaining({ kind: 'waiting_maria' }),
-    )
+    expect(deriveMyTasks([courtesy], [], '2026-07-30')).toEqual([
+      expect.objectContaining({ kind: 'action', gate: 'scheduled', dest: 'instagram' }),
+    ])
+  })
+
+  it('lets a final approval outrank an older undecided plan in the calendar stage', () => {
+    const approved = piece({
+      currentDecision: 'approved',
+      ideaApprovalSentAt: '2026-07-26T12:00:00Z',
+      ideaDecision: null,
+      gates: [gate('source_in_hand', 'na'), gate('design_built', 'done'),
+        gate('proofed', 'done'), gate('approval_sent', 'done')],
+    })
+    expect(deriveContentStage(approved)).toEqual({ stage: 'approved', label: 'approved' })
+    expect(deriveMyTasks([approved], [], '2026-07-30')).toEqual([
+      expect.objectContaining({ kind: 'action', gate: 'scheduled', dest: 'instagram' }),
+    ])
   })
 
   // Codex round-2 fix A: absent gate rows must NOT force direction_approved; only a
