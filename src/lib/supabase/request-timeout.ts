@@ -2,8 +2,8 @@ export const SUPABASE_MIDDLEWARE_TIMEOUT_MS = 4_000
 
 type FetchImplementation = typeof fetch
 
-// Supabase uses the supplied fetch for Auth and Data API requests. Bound every request so a
-// provider slowdown cannot consume the entire Vercel middleware or server-render deadline.
+// Supabase uses the supplied fetch for its Auth request. Bound that middleware dependency so a
+// provider slowdown cannot consume the entire Vercel routing-middleware deadline.
 export function createSupabaseFetch(
   timeoutMs: number,
   fetchImplementation: FetchImplementation = fetch,
