@@ -11,6 +11,7 @@ import {
   type EditPatch,
 } from '../src/lib/portal/canonical-request-reconciler'
 import { createCanonicalReconciliationCheckout } from '../src/lib/portal/canonical-reconciliation-checkout'
+import { resolveReleasedCanonicalSource } from '../src/lib/portal/canonical-provenance'
 import { parseContentFile, type ParsedContent } from '../src/lib/portal/frontmatter'
 
 loadEnvConfig(process.cwd())
@@ -189,8 +190,11 @@ async function reconcileEdit(client:{id:string;slug:string},requestId:string,app
   const {data:item,error:itemError}=await admin.from('content_items').select('planned_date')
     .eq('id',request.content_id).eq('client_id',client.id).single()
   if(itemError||!item)throw new Error(`content item unavailable: ${itemError?.message??'missing'}`)
-  const canonical=canonicalRoot(); const {dir}=canonical; const path=canonicalFile(dir,snapshot.source_path)
-  const raw=readFileSync(path,'utf8'); const blockKey=text(request.payload,'block_key')
+  const canonical=canonicalRoot(); const {dir,head}=canonical; const path=canonicalFile(dir,snapshot.source_path)
+  const released=resolveReleasedCanonicalSource({git:(args)=>git(dir,args),sourceCommitSha:snapshot.source_commit_sha,
+    canonicalBaseRef:head,sourcePath:snapshot.source_path})
+  if(released.adoptedEquivalentTree) console.log('Recorded release history was rewritten; exact canonical file bytes verified.')
+  const raw=released.raw; const blockKey=text(request.payload,'block_key')
   const originalChecksum=text(request.payload,'original_checksum');const proposedText=text(request.payload,'proposed_text')
   if(!blockKey||!originalChecksum||!proposedText)throw new Error('edit request payload is invalid')
   const base=parseContentFile(raw,snapshot.source_path)
@@ -260,11 +264,10 @@ async function reconcileEditBundle(
     .eq('id',lead.content_id).eq('client_id',client.id).single()
   if(itemError||!item) throw new Error(`content item unavailable: ${itemError?.message??'missing'}`)
   const canonical=canonicalRoot(); const {dir,head}=canonical; const path=canonicalFile(dir,snapshot.source_path)
-  git(dir,['merge-base','--is-ancestor',snapshot.source_commit_sha,head])
-  const currentRaw=readFileSync(path,'utf8')
-  const baseRaw=candidatePath
-    ?git(dir,['show',`${snapshot.source_commit_sha}:${snapshot.source_path}`])
-    :currentRaw
+  const released=resolveReleasedCanonicalSource({git:(args)=>git(dir,args),sourceCommitSha:snapshot.source_commit_sha,
+    canonicalBaseRef:head,sourcePath:snapshot.source_path})
+  if(released.adoptedEquivalentTree) console.log('Recorded release history was rewritten; exact canonical file bytes verified.')
+  const baseRaw=released.raw
   const base=parseContentFile(baseRaw,snapshot.source_path)
   const candidateRaw=resolveCanonicalEditCandidate({
     raw:baseRaw,sourcePath:snapshot.source_path,expectedVersion:lead.base_version,patches,
@@ -327,8 +330,10 @@ async function resumeEdit(client:{id:string;slug:string},requestId:string,apply:
     .eq('id',request.content_id).eq('client_id',client.id).single()
   if(itemError||!item)throw new Error(`content item unavailable: ${itemError?.message??'missing'}`)
   const {dir,head}=canonicalRoot(); const path=canonicalFile(dir,snapshot.source_path)
-  git(dir,['merge-base','--is-ancestor',snapshot.source_commit_sha,head])
-  const base=parseContentFile(git(dir,['show',`${snapshot.source_commit_sha}:${snapshot.source_path}`]),snapshot.source_path)
+  const released=resolveReleasedCanonicalSource({git:(args)=>git(dir,args),sourceCommitSha:snapshot.source_commit_sha,
+    canonicalBaseRef:`${head}^`,sourcePath:snapshot.source_path})
+  if(released.adoptedEquivalentTree) console.log('Recorded release history was rewritten; exact canonical parent bytes verified.')
+  const base=parseContentFile(released.raw,snapshot.source_path)
   const parsed=validateEditPackageCandidate(readFileSync(path,'utf8'),snapshot.source_path,base,[{
     blockKey:text(request.payload,'block_key')??'',proposedText:text(request.payload,'proposed_text')??'',
   }],item.planned_date??null)
