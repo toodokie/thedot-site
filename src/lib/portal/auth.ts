@@ -1,6 +1,5 @@
 import { cache } from 'react'
 import { createSupabaseServer } from '@/lib/supabase/server'
-import { isAuthSessionMissingError } from '@supabase/auth-js'
 
 export class PortalAuthError extends Error {}
 
@@ -25,14 +24,10 @@ export type ClientSession = {
 // (request-scoped, cookie/identity dependent, so not a persistent cache).
 export const getClientSession = cache(async (clientSlug: string): Promise<ClientSession | null> => {
   const supabase = await createSupabaseServer()
-  const { data: claimsData, error: authError } = await supabase.auth.getClaims()
-  if (authError) {
-    if (isAuthSessionMissingError(authError)) return null // no session == logged out
-    throw new PortalAuthError(authError.message)           // network/server/auth-service failure
-  }
-  const userId = typeof claimsData?.claims.sub === 'string' ? claimsData.claims.sub : null
-  if (!userId) return null
   const { data, error } = await supabase.rpc('portal_client_session', { p_slug: clientSlug })
+  // The RPC is executable only by Supabase's authenticated role and binds its row to auth.uid().
+  // A logged-out request therefore receives 42501; every other RPC error is a real outage.
+  if (error?.code === '42501') return null
   if (error) throw new PortalAuthError(error.message)
   const rows = data as unknown as Array<{
     user_id: string
@@ -49,9 +44,8 @@ export const getClientSession = cache(async (clientSlug: string): Promise<Client
   }> | null
   const membership = rows?.[0]
   if (!membership) return null
-  if (membership.user_id !== userId) throw new PortalAuthError('Client session identity mismatch')
   return {
-    userId,
+    userId: membership.user_id,
     email: membership.email,
     name: membership.name,
     clientId: membership.client_id,
