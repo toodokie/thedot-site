@@ -3,6 +3,7 @@ import { Text } from '@thedot/design-system'
 import type { ContentRow } from '@/lib/portal/data'
 import { clientRequestLabel, contentRequestTarget, type ContentRequestMessage, type ContentRequestRow } from '@/lib/portal/requests'
 import RequestConversation from './RequestConversation'
+import CopyRequestedText from './CopyRequestedText'
 import styles from './requests.module.css'
 
 function stringValue(payload: Record<string, unknown>, key: string): string | null {
@@ -56,6 +57,7 @@ export default function RequestHistory({ slug, requests, messages, content, canR
         </div>}
         {target?.kind !== 'copy_block' && proposed && <div className={styles.copy}>
           <Text as="div" size="sm">{proposed}</Text>
+          <CopyRequestedText text={proposed} label="requested change" />
           {target.url && <a href={target.url} target="_blank" rel="noreferrer">Open referenced visual</a>}
         </div>}
         {target?.kind === 'copy_block' && (original || proposed) && <div className={styles.versionComparison} aria-label="Requested copy comparison">
@@ -79,6 +81,7 @@ export default function RequestHistory({ slug, requests, messages, content, canR
               {request.canonical_version
                 ? <span className={styles.versionNumber}>Applied as v{request.canonical_version}</span>
                 : request.base_version && <span className={styles.versionNumber}>From v{request.base_version}</span>}
+              <CopyRequestedText text={proposed} label="requested copy" />
             </div>
             <div className={styles.versionCopy}>{proposed}</div>
           </section>}
