@@ -341,6 +341,10 @@ defines when the piece identity is created.
    advances `client_visible_version`. For a brand-only piece with no factual claim, close the
    gate explicitly with `fact_check: confirmed`, `fact_check_scope: not_applicable`, a short
    `fact_check_exemption`, and `fact_check_ledger: []`; it still needs the same release command.
+   `portal-inbox apply-edit`, `apply-edit-batch`, `resume-edit`, and `apply-create` reconcile from
+   a temporary clean checkout of the latest canonical remote. Active unrelated drafts in the
+   authoring checkout remain untouched. The worker validates the expected private remote, commits
+   only the reviewed target, and rejects a remote-head race before its non-forced push.
 4. **Two approval gates, both in the portal:** (a) the **plan direction**, then (b) **each post**.
    Until launch, approvals are recorded from Maria's documented email decisions via
    `record_external_decision(...)` (evidence ledger:
