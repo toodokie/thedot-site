@@ -10,7 +10,7 @@ import {
   resolveCanonicalEditCandidate,
   type EditPatch,
 } from '../src/lib/portal/canonical-request-reconciler'
-import { inspectCanonicalContentRoot } from '../src/lib/portal/canonical-content-root'
+import { createCanonicalReconciliationCheckout } from '../src/lib/portal/canonical-reconciliation-checkout'
 import { parseContentFile, type ParsedContent } from '../src/lib/portal/frontmatter'
 
 loadEnvConfig(process.cwd())
@@ -32,13 +32,12 @@ function git(cwd:string,args:string[],stdio:'pipe'|'inherit'='pipe'){
 }
 function canonicalRoot(){
   const dir=process.env.PORTAL_CONTENT_DIR; if(!dir) throw new Error('Missing PORTAL_CONTENT_DIR')
-  inspectCanonicalContentRoot({directory:dir,fixtureDirectory:join(process.cwd(),'content/portal'),
-    supabaseUrl:url!,mode:'apply',expectedRemote:process.env.PORTAL_CONTENT_EXPECTED_REMOTE})
-  if(git(dir,['status','--porcelain=v1','--untracked-files=all'])) throw new Error('Canonical repository is dirty')
-  git(dir,['fetch','--quiet','origin'])
-  const head=git(dir,['rev-parse','HEAD']); const upstream=git(dir,['rev-parse','@{upstream}'])
-  if(head!==upstream) throw new Error('Canonical repository is not exactly at its upstream head')
-  return {dir,head}
+  const checkout=createCanonicalReconciliationCheckout({
+    directory:dir,fixtureDirectory:join(process.cwd(),'content/portal'),supabaseUrl:url!,
+    expectedRemote:process.env.PORTAL_CONTENT_EXPECTED_REMOTE,
+  })
+  process.once('exit',checkout.dispose)
+  return {dir:checkout.directory,head:checkout.baseCommitSha,push:checkout.push}
 }
 function canonicalFile(dir:string, sourcePath:string):string{
   if(!/^[a-z0-9][a-z0-9._-]*\.md$/.test(sourcePath) || sourcePath.includes('/'))
@@ -190,7 +189,7 @@ async function reconcileEdit(client:{id:string;slug:string},requestId:string,app
   const {data:item,error:itemError}=await admin.from('content_items').select('planned_date')
     .eq('id',request.content_id).eq('client_id',client.id).single()
   if(itemError||!item)throw new Error(`content item unavailable: ${itemError?.message??'missing'}`)
-  const {dir}=canonicalRoot(); const path=canonicalFile(dir,snapshot.source_path)
+  const canonical=canonicalRoot(); const {dir}=canonical; const path=canonicalFile(dir,snapshot.source_path)
   const raw=readFileSync(path,'utf8'); const blockKey=text(request.payload,'block_key')
   const originalChecksum=text(request.payload,'original_checksum');const proposedText=text(request.payload,'proposed_text')
   if(!blockKey||!originalChecksum||!proposedText)throw new Error('edit request payload is invalid')
@@ -214,7 +213,7 @@ async function reconcileEdit(client:{id:string;slug:string},requestId:string,app
   }else printSafeEditDiff(edited.before,candidateBlock?.body??edited.after)
   if(!apply){console.log('Preview only. Re-run with --apply after reviewing this client-visible diff.');return}
   await startJob(request,null,null,null)
-  // From this point a failed command can leave a valid local commit or a valid open DB job.
+  // From this point a failed command can leave a valid remote commit or a valid open DB job.
   // Open the DB revision before the irreversible canonical commit. A later Git or sync failure
   // leaves a recoverable open revision, never a committed source change that the DB refused.
   const begin=await admin.rpc('begin_content_request_revision',{
@@ -223,7 +222,7 @@ async function reconcileEdit(client:{id:string;slug:string},requestId:string,app
   if(begin.error)throw new Error(begin.error.message)
   atomicWrite(path,candidateRaw);git(dir,['diff','--check','--',snapshot.source_path])
   git(dir,['add','--',snapshot.source_path]);git(dir,['commit','-m',`Apply portal edit request ${request.id}`],'inherit')
-  git(dir,['push','origin','HEAD'],'inherit');const commit=git(dir,['rev-parse','HEAD'])
+  const commit=canonical.push(snapshot.source_path)
   const synced=await admin.rpc('sync_content_item_versions',{p_items:[syncRow(parsed,client.id,commit)]})
   if(synced.error)throw new Error(synced.error.message)
   const prepared=await admin.rpc('mark_content_request_prepared',{p_request_id:request.id,p_commit_sha:commit,
@@ -260,7 +259,7 @@ async function reconcileEditBundle(
   const {data:item,error:itemError}=await admin.from('content_items').select('planned_date')
     .eq('id',lead.content_id).eq('client_id',client.id).single()
   if(itemError||!item) throw new Error(`content item unavailable: ${itemError?.message??'missing'}`)
-  const {dir,head}=canonicalRoot(); const path=canonicalFile(dir,snapshot.source_path)
+  const canonical=canonicalRoot(); const {dir,head}=canonical; const path=canonicalFile(dir,snapshot.source_path)
   git(dir,['merge-base','--is-ancestor',snapshot.source_commit_sha,head])
   const currentRaw=readFileSync(path,'utf8')
   const baseRaw=candidatePath
@@ -298,7 +297,7 @@ async function reconcileEditBundle(
   let commit:string
   if(changed){
     git(dir,['add','--',snapshot.source_path]);git(dir,['commit','-m',`Apply portal edit requests ${requests.map((request)=>request.id).join(', ')}`],'inherit')
-    git(dir,['push','origin','HEAD'],'inherit');commit=git(dir,['rev-parse','HEAD'])
+    commit=canonical.push(snapshot.source_path)
   }else{
     commit=git(dir,['rev-parse','HEAD'])
     if(git(dir,['show',`${commit}:${snapshot.source_path}`])!==candidateRaw.trimEnd())
@@ -357,7 +356,7 @@ async function reconcileCreate(client:{id:string;slug:string},requestId:string,c
   const title=text(request.payload,'title'),brief=text(request.payload,'brief'),desiredDate=text(request.payload,'desired_date')
   const platforms=strings(request.payload,'platforms'),notes=text(request.payload,'notes')
   if(!title||!brief||!desiredDate||!platforms)throw new Error('create request payload is invalid')
-  const {dir,head}=canonicalRoot();const sourcePath=`${contentId}.md`;const path=join(dir,sourcePath)
+  const canonical=canonicalRoot();const {dir,head}=canonical;const sourcePath=`${contentId}.md`;const path=join(dir,sourcePath)
   if(existsSync(path))throw new Error('canonical create target already exists')
   const raw=buildCanonicalCreate(contentId,client.slug,{title,brief,desiredDate,platforms,notes},sourcePath)
   console.log(`Create preview: ${sourcePath}; title=${JSON.stringify(title)}; destinations=${platforms.join(', ')}.`)
@@ -366,7 +365,7 @@ async function reconcileCreate(client:{id:string;slug:string},requestId:string,c
   await startJob(request,contentId,sourcePath,head);atomicWrite(path,raw)
   git(dir,['diff','--check','--',sourcePath]);git(dir,['add','--',sourcePath])
   git(dir,['commit','-m',`Create canonical draft for portal request ${request.id}`],'inherit')
-  git(dir,['push','origin','HEAD'],'inherit');const commit=git(dir,['rev-parse','HEAD'])
+  const commit=canonical.push(sourcePath)
   const parsed=parseContentFile(raw,sourcePath)
   const synced=await admin.rpc('sync_content_item_versions',{p_items:[syncRow(parsed,client.id,commit)]})
   if(synced.error)throw new Error(synced.error.message)
