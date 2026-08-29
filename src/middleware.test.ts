@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { AuthApiError, AuthRetryableFetchError } from '@supabase/auth-js'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { refreshPortalSession } = vi.hoisted(() => ({ refreshPortalSession: vi.fn() }))
@@ -21,7 +22,7 @@ function request(pathname: string) {
 describe('portal middleware auth routing', () => {
   beforeEach(() => {
     refreshPortalSession.mockReset()
-    refreshPortalSession.mockResolvedValue({ response: NextResponse.next(), user: null })
+    refreshPortalSession.mockResolvedValue({ response: NextResponse.next(), user: null, error: null })
   })
 
   it('redirects logged-out protected portal requests before rendering a 404 fallback', async () => {
@@ -37,6 +38,44 @@ describe('portal middleware auth routing', () => {
 
     expect(response.status).toBe(200)
     expect(response.headers.get('link')).toContain('/client/login')
+    expect(refreshPortalSession).not.toHaveBeenCalled()
+  })
+
+  it('fails closed quickly when the portal auth provider is unavailable', async () => {
+    refreshPortalSession.mockResolvedValue({
+      response: NextResponse.next(),
+      user: null,
+      error: new AuthRetryableFetchError('request timed out', 0),
+    })
+
+    const response = await middleware(request('/client/kanset'))
+
+    expect(response.status).toBe(503)
+    expect(response.headers.get('cache-control')).toContain('no-store')
+    expect(response.headers.get('retry-after')).toBe('5')
+    expect(await response.text()).toContain('temporarily unavailable')
+  })
+
+  it('fails closed when the auth provider rate-limits a session refresh', async () => {
+    refreshPortalSession.mockResolvedValue({
+      response: NextResponse.next(),
+      user: null,
+      error: new AuthApiError('too many requests', 429),
+    })
+
+    const response = await middleware(request('/client/kanset'))
+
+    expect(response.status).toBe(503)
+    expect(response.headers.get('retry-after')).toBe('5')
+  })
+
+  it('fails closed when session refresh throws unexpectedly', async () => {
+    refreshPortalSession.mockRejectedValue(new Error('provider connection failed'))
+
+    const response = await middleware(request('/client/kanset'))
+
+    expect(response.status).toBe(503)
+    expect(response.headers.get('cache-control')).toContain('no-store')
   })
 
   it('redirects logged-out Agency Ops requests before rendering a 404 fallback', async () => {

@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { incrementBotBlocks } from './lib/security-stats';
 import { hasValidAdminMiddlewareSession } from './lib/admin-middleware-auth';
 import { refreshPortalSession } from '@/lib/supabase/middleware';
+import { isAuthRetryableFetchError, type AuthError } from '@supabase/auth-js';
 
 // Known malicious bot user agents
 const BLOCKED_USER_AGENTS = [
@@ -25,6 +26,25 @@ const BLOCKED_USER_AGENTS = [
   'Bytespider', // TikTok bot
   'PetalBot', // Huawei bot
 ];
+
+function isPortalAuthUnavailable(error: AuthError | null) {
+  if (!error) return false;
+  return isAuthRetryableFetchError(error)
+    || error.status === 0
+    || error.status === 429
+    || error.status >= 500;
+}
+
+function portalUnavailableResponse(pathname: string) {
+  const response = new NextResponse(
+    'The client portal is temporarily unavailable. Please try again in a few seconds.',
+    { status: 503 },
+  );
+  response.headers.set('Cache-Control', 'private, no-cache, no-store, max-age=0, must-revalidate');
+  response.headers.set('Retry-After', '5');
+  response.headers.set('Link', `<https://www.thedotcreative.co${pathname}>; rel="canonical"`);
+  return response;
+}
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -85,10 +105,18 @@ export async function middleware(request: NextRequest) {
     || pathname === '/client/logout'
     || pathname.startsWith('/client/auth/');
   let response = NextResponse.next();
-  if (isPortalRoute) {
-    const portalSession = await refreshPortalSession(request);
+  if (isPortalRoute && !isPublicPortalRoute) {
+    let portalSession;
+    try {
+      portalSession = await refreshPortalSession(request);
+    } catch {
+      return portalUnavailableResponse(pathname);
+    }
     response = portalSession.response;
-    if (!portalSession.user && !isPublicPortalRoute) {
+    if (isPortalAuthUnavailable(portalSession.error)) {
+      return portalUnavailableResponse(pathname);
+    }
+    if (!portalSession.user) {
       response = NextResponse.redirect(new URL('/client/login', request.url), 307);
       response.headers.set('Cache-Control', 'private, no-cache, no-store, max-age=0, must-revalidate');
     }
