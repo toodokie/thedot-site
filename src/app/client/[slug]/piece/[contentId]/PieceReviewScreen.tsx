@@ -102,7 +102,12 @@ export default function PieceReviewScreen({
   const unresolvedEdits = requests.flatMap((request) => {
     if (request.base_version !== item.version || !isUnresolvedContentRequest(request.status)) return []
     const target = contentRequestTarget(request)
-    return target ? [{ id: request.id, label: target.label, status: request.status }] : []
+    return target ? [{
+      id: request.id,
+      label: target.label,
+      status: request.status,
+      proposedText: target.proposedText,
+    }] : []
   })
   const revisionStarted = unresolvedEdits.some((request) => ['applying', 'prepared'].includes(request.status))
   const canEditBlocks = capabilities.canSubmitRequests && !isPublished && !revisionStarted

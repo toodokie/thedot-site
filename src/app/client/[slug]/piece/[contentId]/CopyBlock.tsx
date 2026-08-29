@@ -5,8 +5,8 @@ import SuggestEditForm from './SuggestEditForm'
 import MarkdownCopy, { plainTextFromMarkdown } from '@/components/portal/MarkdownCopy'
 
 // A labeled, copy-to-clipboard block of per-surface copy (IG/FB caption, YT title, etc.).
-export default function CopyBlock({ blockKey, label, body, canRequest }: {
-  blockKey: string | null; label: string; body: string; canRequest?: boolean
+export default function CopyBlock({ blockKey, label, body, canRequest, preserveRawCopy = false }: {
+  blockKey: string | null; label: string; body: string; canRequest?: boolean; preserveRawCopy?: boolean
 }) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
   const [selectedText, setSelectedText] = useState<string | null>(null)
@@ -14,7 +14,7 @@ export default function CopyBlock({ blockKey, label, body, canRequest }: {
   const container = useRef<HTMLDivElement>(null)
   async function copy() {
     try {
-      await navigator.clipboard.writeText(plainTextFromMarkdown(body))
+      await navigator.clipboard.writeText(preserveRawCopy ? body : plainTextFromMarkdown(body))
       setCopyState('copied')
       setTimeout(() => setCopyState('idle'), 1500)
     } catch {

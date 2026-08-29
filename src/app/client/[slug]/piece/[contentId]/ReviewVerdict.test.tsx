@@ -9,6 +9,7 @@ const { sendReviewBundle, decide } = vi.hoisted(() => ({
   sendReviewBundle: vi.fn(async () => ({ success: 'Your edit was sent to The Dot.' })),
   decide: vi.fn(async () => ({})),
 }))
+const writeText = vi.fn(async () => undefined)
 vi.mock('../../request-actions', () => ({ sendReviewBundle }))
 vi.mock('../../actions', () => ({ decide }))
 
@@ -49,8 +50,10 @@ describe('ReviewVerdict resolver', () => {
       removeItem: (key: string) => { values.delete(key) },
       setItem: (key: string, value: string) => { values.set(key, value) },
     } })
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
     sendReviewBundle.mockClear()
     decide.mockClear()
+    writeText.mockClear()
   })
 
   it('shows one approval action for a clean complete package', () => {
@@ -84,19 +87,31 @@ describe('ReviewVerdict resolver', () => {
     expect(screen.getByRole('button', { name: 'Send my edits (1)' })).toBeVisible()
   })
 
-  it('shows sent status without a second decision action', () => {
-    render(subject({ sentEdits: [{ id: 'request-1', label: 'Instagram caption', status: 'pending' }] }))
+  it('shows and copies sent wording without a second decision action', async () => {
+    render(subject({ sentEdits: [{
+      id: 'request-1', label: 'Instagram caption', status: 'pending',
+      proposedText: '**Use this same legal wording** in the next segment.',
+    }] }))
     expect(screen.getByText('Changes requested')).toBeVisible()
+    expect(screen.getByText('Use this same legal wording')).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('**Use this same legal wording** in the next segment.'))
+    expect(screen.getByRole('button', { name: 'Copied' })).toBeVisible()
     expect(screen.queryByRole('button', { name: 'Approve package' })).not.toBeInTheDocument()
   })
 
   it('shows a clear read-only state once revision production starts', () => {
     render(subject({
-      sentEdits: [{ id: 'request-1', label: 'Instagram caption', status: 'applying' }],
+      sentEdits: [{
+        id: 'request-1', label: 'Instagram caption', status: 'applying',
+        proposedText: 'Use this submitted wording while the revision is in progress.',
+      }],
       revisionStarted: true,
     }))
     expect(screen.getByText('Revision in progress')).toBeVisible()
     expect(screen.getByText(/started applying your edits/i)).toBeVisible()
+    expect(screen.getByText('Use this submitted wording while the revision is in progress.')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeVisible()
     expect(screen.queryByRole('button', { name: /send|approve/i })).not.toBeInTheDocument()
   })
 
