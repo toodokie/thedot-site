@@ -92,4 +92,81 @@ describe('RequestHistory', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Copy requested copy' }))
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('Keep this wording for the next segment.'))
   })
+
+  it.each(['rejected', 'superseded'] as const)(
+    'keeps a %s suggestion visible and copyable',
+    async (status) => {
+      const proposedText = `Preserve the exact ${status} wording with **formatting**.`
+      const request = {
+        id: `request-${status}`,
+        client_id: 'client-1',
+        content_id: 'piece-1',
+        request_type: 'edit',
+        base_version: 3,
+        payload: { block_key: 'social-caption', proposed_text: proposedText },
+        status,
+        requester_name: 'Maria Guerts',
+        created_at: '2026-08-28T14:00:00.000000+00:00',
+        updated_at: '2026-08-29T14:00:00.000000+00:00',
+        reconciled_at: '2026-08-29T14:00:00.000000+00:00',
+        reconciled_by: 'The Dot',
+        canonical_version: null,
+        resolution_note: status === 'rejected' ? 'The requested change could not be used.' : 'A later request replaced this one.',
+        canonical_content_key: null,
+        base_copy_text: 'Released version three copy.',
+      } satisfies ContentRequestRow
+      const item = {
+        id: 'piece-1',
+        content_id: 'kanset-2026-08-request-history',
+        title: 'Request history',
+        version: 4,
+        copy_blocks: [{ key: 'social-caption', label: 'Social caption', body: 'Current version four copy.' }],
+      } as ContentRow
+
+      render(<RequestHistory slug="kanset" requests={[request]} messages={[]}
+        content={[item]} canReply={false} />)
+
+      expect(screen.getByText(proposedText)).toBeVisible()
+      expect(screen.getByText('Version 3')).toBeVisible()
+      fireEvent.click(screen.getByRole('button', { name: 'Copy requested copy' }))
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith(proposedText))
+    },
+  )
+
+  it('uses the immutable older base version while the piece has advanced', async () => {
+    const request = {
+      id: 'request-older-version',
+      client_id: 'client-1',
+      content_id: 'piece-1',
+      request_type: 'edit',
+      base_version: 2,
+      payload: { block_key: 'social-caption', proposed_text: 'Requested against version two.' },
+      status: 'applied',
+      requester_name: 'Maria Guerts',
+      created_at: '2026-08-20T14:00:00.000000+00:00',
+      updated_at: '2026-08-21T14:00:00.000000+00:00',
+      reconciled_at: '2026-08-21T14:00:00.000000+00:00',
+      reconciled_by: 'The Dot',
+      canonical_version: 3,
+      resolution_note: 'Released as version three.',
+      canonical_content_key: 'kanset-2026-08-older-request',
+      base_copy_text: 'Immutable copy from version two.',
+    } satisfies ContentRequestRow
+    const item = {
+      id: 'piece-1',
+      content_id: 'kanset-2026-08-older-request',
+      title: 'Older request history',
+      version: 6,
+      copy_blocks: [{ key: 'social-caption', label: 'Social caption', body: 'Current version six copy.' }],
+    } as ContentRow
+
+    render(<RequestHistory slug="kanset" requests={[request]} messages={[]}
+      content={[item]} canReply={false} />)
+
+    expect(screen.getByText('Version 2')).toBeVisible()
+    expect(screen.getByText('Immutable copy from version two.')).toBeVisible()
+    expect(screen.getByText('Requested against version two.')).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Copy requested copy' }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('Requested against version two.'))
+  })
 })

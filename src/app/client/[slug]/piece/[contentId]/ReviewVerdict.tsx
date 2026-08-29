@@ -94,7 +94,7 @@ export default function ReviewVerdict({
         : 'We will send back a revised version for your review.'}</p>
       <div>
         {sentEdits.map((edit) => <CopyBlock key={edit.id} blockKey={null}
-          label={edit.label} body={edit.proposedText} />)}
+          label={edit.label} body={edit.proposedText} preserveRawCopy />)}
       </div>
     </div>}
 

@@ -90,12 +90,12 @@ describe('ReviewVerdict resolver', () => {
   it('shows and copies sent wording without a second decision action', async () => {
     render(subject({ sentEdits: [{
       id: 'request-1', label: 'Instagram caption', status: 'pending',
-      proposedText: 'Use this same legal wording in the next segment.',
+      proposedText: '**Use this same legal wording** in the next segment.',
     }] }))
     expect(screen.getByText('Changes requested')).toBeVisible()
-    expect(screen.getByText('Use this same legal wording in the next segment.')).toBeVisible()
+    expect(screen.getByText('Use this same legal wording')).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Copy' }))
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith('Use this same legal wording in the next segment.'))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('**Use this same legal wording** in the next segment.'))
     expect(screen.getByRole('button', { name: 'Copied' })).toBeVisible()
     expect(screen.queryByRole('button', { name: 'Approve package' })).not.toBeInTheDocument()
   })
