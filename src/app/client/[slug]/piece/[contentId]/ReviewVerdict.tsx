@@ -5,9 +5,10 @@ import { Button, Heading, Text, Textarea } from '@thedot/design-system'
 import { sendReviewBundle } from '../../request-actions'
 import { decide } from '../../actions'
 import { useReviewDrafts } from './ReviewDraftProvider'
+import CopyBlock from './CopyBlock'
 import styles from './piece-review.module.css'
 
-export type SentEditSummary = { id: string; label: string; status: string }
+export type SentEditSummary = { id: string; label: string; status: string; proposedText: string }
 
 export default function ReviewVerdict({
   slug,
@@ -91,7 +92,10 @@ export default function ReviewVerdict({
       <p>{revisionStarted
         ? 'The Dot has started applying your edits. We will send back a revised version for review.'
         : 'We will send back a revised version for your review.'}</p>
-      <ul>{sentEdits.map((edit) => <li key={edit.id}>{edit.label}</li>)}</ul>
+      <div>
+        {sentEdits.map((edit) => <CopyBlock key={edit.id} blockKey={null}
+          label={edit.label} body={edit.proposedText} />)}
+      </div>
     </div>}
 
     {!packageReady && <div className={styles.verdictStatus}>
