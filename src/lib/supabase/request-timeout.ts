@@ -1,5 +1,4 @@
 export const SUPABASE_MIDDLEWARE_TIMEOUT_MS = 4_000
-export const SUPABASE_SERVER_TIMEOUT_MS = 8_000
 
 type FetchImplementation = typeof fetch
 

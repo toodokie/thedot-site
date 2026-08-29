@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { AuthRetryableFetchError } from '@supabase/auth-js'
+import { AuthApiError, AuthRetryableFetchError } from '@supabase/auth-js'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { refreshPortalSession } = vi.hoisted(() => ({ refreshPortalSession: vi.fn() }))
@@ -54,6 +54,28 @@ describe('portal middleware auth routing', () => {
     expect(response.headers.get('cache-control')).toContain('no-store')
     expect(response.headers.get('retry-after')).toBe('5')
     expect(await response.text()).toContain('temporarily unavailable')
+  })
+
+  it('fails closed when the auth provider rate-limits a session refresh', async () => {
+    refreshPortalSession.mockResolvedValue({
+      response: NextResponse.next(),
+      user: null,
+      error: new AuthApiError('too many requests', 429),
+    })
+
+    const response = await middleware(request('/client/kanset'))
+
+    expect(response.status).toBe(503)
+    expect(response.headers.get('retry-after')).toBe('5')
+  })
+
+  it('fails closed when session refresh throws unexpectedly', async () => {
+    refreshPortalSession.mockRejectedValue(new Error('provider connection failed'))
+
+    const response = await middleware(request('/client/kanset'))
+
+    expect(response.status).toBe(503)
+    expect(response.headers.get('cache-control')).toContain('no-store')
   })
 
   it('redirects logged-out Agency Ops requests before rendering a 404 fallback', async () => {
