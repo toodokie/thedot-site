@@ -26,18 +26,18 @@ describe('refreshPortalSession', () => {
     createServerClient.mockReturnValue({ auth: { getClaims, getUser } })
   })
 
-  it('validates the session with verified JWT claims instead of a remote user lookup', async () => {
-    getClaims.mockResolvedValue({ data: { claims: { sub: 'verified-user' } }, error: null })
+  it('keeps the proven bounded user lookup at the routing boundary', async () => {
+    getUser.mockResolvedValue({ data: { user: { id: 'verified-user' } }, error: null })
 
     const result = await refreshPortalSession(request())
 
     expect(result.userId).toBe('verified-user')
-    expect(getClaims).toHaveBeenCalledOnce()
-    expect(getUser).not.toHaveBeenCalled()
+    expect(getUser).toHaveBeenCalledOnce()
+    expect(getClaims).not.toHaveBeenCalled()
   })
 
-  it('treats a missing verified subject as logged out', async () => {
-    getClaims.mockResolvedValue({ data: null, error: null })
+  it('treats a missing user as logged out', async () => {
+    getUser.mockResolvedValue({ data: { user: null }, error: null })
 
     const result = await refreshPortalSession(request())
 

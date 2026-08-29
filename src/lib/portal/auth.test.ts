@@ -19,8 +19,7 @@ describe('getClientSession', () => {
     createSupabaseServer.mockResolvedValue({ auth: { getClaims, getUser }, rpc })
   })
 
-  it('uses verified JWT claims and the tenant-scoped membership RPC', async () => {
-    getClaims.mockResolvedValue({ data: { claims: { sub: 'verified-user' } }, error: null })
+  it('uses the tenant-scoped membership RPC without repeating the middleware auth lookup', async () => {
     rpc.mockResolvedValue({
       data: [{
         user_id: 'verified-user',
@@ -42,38 +41,33 @@ describe('getClientSession', () => {
     const result = await getClientSession('kanset')
 
     expect(result?.userId).toBe('verified-user')
-    expect(getClaims).toHaveBeenCalledOnce()
+    expect(getClaims).not.toHaveBeenCalled()
     expect(getUser).not.toHaveBeenCalled()
     expect(rpc).toHaveBeenCalledWith('portal_client_session', { p_slug: 'kanset' })
   })
 
-  it('returns null when there is no verified session', async () => {
-    getClaims.mockResolvedValue({ data: null, error: null })
+  it('returns null when the authenticated membership RPC returns no row', async () => {
+    rpc.mockResolvedValue({ data: [], error: null })
 
     const { getClientSession } = await import('./auth')
 
     await expect(getClientSession('kanset')).resolves.toBeNull()
-    expect(rpc).not.toHaveBeenCalled()
+    expect(rpc).toHaveBeenCalledOnce()
   })
 
-  it('fails closed when the verified subject and membership differ', async () => {
-    getClaims.mockResolvedValue({ data: { claims: { sub: 'verified-user' } }, error: null })
+  it('returns null when an unauthenticated caller cannot execute the membership RPC', async () => {
     rpc.mockResolvedValue({
-      data: [{
-        user_id: 'different-user',
-        email: 'maria@kanset.com',
-        name: 'Maria Guerts',
-        role: 'client',
-        client_id: 'client-id',
-        client_slug: 'kanset',
-        can_decide: true,
-        can_comment: true,
-        can_submit_requests: true,
-        can_manage_schedule: true,
-        can_use_assistant: true,
-      }],
-      error: null,
+      data: null,
+      error: { code: '42501', message: 'permission denied for function portal_client_session' },
     })
+
+    const { getClientSession } = await import('./auth')
+
+    await expect(getClientSession('kanset')).resolves.toBeNull()
+  })
+
+  it('fails closed when the membership RPC errors', async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: 'membership unavailable' } })
 
     const { getClientSession, PortalAuthError } = await import('./auth')
 
