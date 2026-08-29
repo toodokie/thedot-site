@@ -11,7 +11,10 @@ import {
   type EditPatch,
 } from '../src/lib/portal/canonical-request-reconciler'
 import { createCanonicalReconciliationCheckout } from '../src/lib/portal/canonical-reconciliation-checkout'
-import { resolveReleasedCanonicalSource } from '../src/lib/portal/canonical-provenance'
+import {
+  resolveReleasedCanonicalSource,
+  resolveReleasedCanonicalSourceForPreparedCandidate,
+} from '../src/lib/portal/canonical-provenance'
 import { parseContentFile, type ParsedContent } from '../src/lib/portal/frontmatter'
 
 loadEnvConfig(process.cwd())
@@ -264,14 +267,21 @@ async function reconcileEditBundle(
     .eq('id',lead.content_id).eq('client_id',client.id).single()
   if(itemError||!item) throw new Error(`content item unavailable: ${itemError?.message??'missing'}`)
   const canonical=canonicalRoot(); const {dir,head}=canonical; const path=canonicalFile(dir,snapshot.source_path)
-  const released=resolveReleasedCanonicalSource({git:(args)=>git(dir,args),sourceCommitSha:snapshot.source_commit_sha,
-    canonicalBaseRef:head,sourcePath:snapshot.source_path})
+  const approvedCandidateRaw=candidatePath?candidateFile(candidatePath):null
+  const released=approvedCandidateRaw
+    ?resolveReleasedCanonicalSourceForPreparedCandidate({git:(args)=>git(dir,args),
+      sourceCommitSha:snapshot.source_commit_sha,canonicalBaseRef:head,sourcePath:snapshot.source_path,
+      preparedCandidateRaw:approvedCandidateRaw})
+    :resolveReleasedCanonicalSource({git:(args)=>git(dir,args),sourceCommitSha:snapshot.source_commit_sha,
+      canonicalBaseRef:head,sourcePath:snapshot.source_path})
   if(released.adoptedEquivalentTree) console.log('Recorded release history was rewritten; exact canonical file bytes verified.')
+  if('adoptedPreparedCandidate' in released&&released.adoptedPreparedCandidate)
+    console.log('Approved package candidate was already committed; exact parent and one-file commit verified.')
   const baseRaw=released.raw
   const base=parseContentFile(baseRaw,snapshot.source_path)
   const candidateRaw=resolveCanonicalEditCandidate({
     raw:baseRaw,sourcePath:snapshot.source_path,expectedVersion:lead.base_version,patches,
-    approvedCandidateRaw:candidatePath?candidateFile(candidatePath):null,
+    approvedCandidateRaw,
   })
   const reviewTexts=candidatePath?await reviewCandidateTexts(requests,apply):new Map<string,string>()
   const parsed=candidatePath
