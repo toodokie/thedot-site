@@ -44,14 +44,28 @@ export function resolveReleasedCanonicalSourceForPreparedCandidate(options: {
     const canonicalRaw = git(['show', `${canonicalBaseRef}:${sourcePath}`])
     if (canonicalRaw !== preparedCandidateRaw.trimEnd()) throw originalError
 
+    const candidateCommit = git([
+      'log', '-1', '--format=%H', canonicalBaseRef, '--', sourcePath,
+    ])
+    if (!/^[0-9a-f]{40}$/.test(candidateCommit)) {
+      throw new Error('Prepared candidate commit is not reachable from canonical history')
+    }
+    try {
+      git(['merge-base', '--is-ancestor', candidateCommit, canonicalBaseRef])
+    } catch {
+      throw new Error('Prepared candidate commit is not reachable from canonical history')
+    }
+    const candidateRaw = git(['show', `${candidateCommit}:${sourcePath}`])
+    if (candidateRaw !== preparedCandidateRaw.trimEnd()) throw originalError
+
     const changedPaths = git([
-      'diff-tree', '--no-commit-id', '--name-only', '-r', canonicalBaseRef,
+      'diff-tree', '--no-commit-id', '--name-only', '-r', candidateCommit,
     ]).split('\n').filter(Boolean)
     if (changedPaths.length !== 1 || changedPaths[0] !== sourcePath) {
       throw new Error('Prepared candidate commit must change only the reviewed canonical file')
     }
 
-    const parent = git(['rev-parse', '--verify', `${canonicalBaseRef}^`])
+    const parent = git(['rev-parse', '--verify', `${candidateCommit}^`])
     const released = resolveReleasedCanonicalSource({
       git,
       sourceCommitSha,
