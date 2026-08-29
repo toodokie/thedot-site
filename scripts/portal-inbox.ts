@@ -194,9 +194,16 @@ async function reconcileEdit(client:{id:string;slug:string},requestId:string,app
     .eq('id',request.content_id).eq('client_id',client.id).single()
   if(itemError||!item)throw new Error(`content item unavailable: ${itemError?.message??'missing'}`)
   const canonical=canonicalRoot(); const {dir,head}=canonical; const path=canonicalFile(dir,snapshot.source_path)
-  const released=resolveReleasedCanonicalSource({git:(args)=>git(dir,args),sourceCommitSha:snapshot.source_commit_sha,
-    canonicalBaseRef:head,sourcePath:snapshot.source_path})
+  const approvedCandidateRaw=candidatePath?candidateFile(candidatePath):null
+  const released=approvedCandidateRaw
+    ?resolveReleasedCanonicalSourceForPreparedCandidate({git:(args)=>git(dir,args),
+      sourceCommitSha:snapshot.source_commit_sha,canonicalBaseRef:head,sourcePath:snapshot.source_path,
+      preparedCandidateRaw:approvedCandidateRaw})
+    :resolveReleasedCanonicalSource({git:(args)=>git(dir,args),sourceCommitSha:snapshot.source_commit_sha,
+      canonicalBaseRef:head,sourcePath:snapshot.source_path})
   if(released.adoptedEquivalentTree) console.log('Recorded release history was rewritten; exact canonical file bytes verified.')
+  if('adoptedPreparedCandidate' in released&&released.adoptedPreparedCandidate)
+    console.log('Approved package candidate was already committed; exact parent and one-file commit verified.')
   const raw=released.raw; const blockKey=text(request.payload,'block_key')
   const originalChecksum=text(request.payload,'original_checksum');const proposedText=text(request.payload,'proposed_text')
   if(!blockKey||!originalChecksum||!proposedText)throw new Error('edit request payload is invalid')
