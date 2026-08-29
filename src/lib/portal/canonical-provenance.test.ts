@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { resolveReleasedCanonicalSource } from './canonical-provenance'
+import {
+  resolveReleasedCanonicalSource,
+  resolveReleasedCanonicalSourceForPreparedCandidate,
+} from './canonical-provenance'
 
 const SOURCE = '1'.repeat(40)
 const HEAD = '2'.repeat(40)
+const PARENT = '3'.repeat(40)
 const PATH = 'piece.md'
 
 function reader(options: { ancestor: boolean; sourceRaw?: string; headRaw?: string }) {
@@ -35,6 +39,70 @@ describe('canonical provenance', () => {
     expect(() => resolveReleasedCanonicalSource({
       git: reader({ ancestor: false, headRaw: 'different bytes' }),
       sourceCommitSha: SOURCE, canonicalBaseRef: HEAD, sourcePath: PATH,
+    })).toThrow(/does not exactly match/)
+  })
+})
+
+function preparedReader(options: {
+  headRaw?: string
+  parentRaw?: string
+  changedPaths?: string
+}) {
+  return (args: string[]) => {
+    const command = args.join(' ')
+    if (command === `show ${SOURCE}:${PATH}`) return 'released bytes'
+    if (command === `show ${HEAD}:${PATH}`) return options.headRaw ?? 'approved candidate'
+    if (command === `show ${PARENT}:${PATH}`) return options.parentRaw ?? 'released bytes'
+    if (command === `merge-base --is-ancestor ${SOURCE} ${HEAD}`) throw new Error('not an ancestor')
+    if (command === `merge-base --is-ancestor ${SOURCE} ${PARENT}`) throw new Error('not an ancestor')
+    if (command === `diff-tree --no-commit-id --name-only -r ${HEAD}`) return options.changedPaths ?? PATH
+    if (command === `rev-parse --verify ${HEAD}^`) return PARENT
+    throw new Error(`unexpected git command: ${command}`)
+  }
+}
+
+describe('prepared canonical candidate provenance', () => {
+  it('adopts a pre-merged candidate only when its parent is the exact released tree', () => {
+    expect(resolveReleasedCanonicalSourceForPreparedCandidate({
+      git: preparedReader({}),
+      sourceCommitSha: SOURCE,
+      canonicalBaseRef: HEAD,
+      sourcePath: PATH,
+      preparedCandidateRaw: 'approved candidate\n',
+    })).toEqual({
+      raw: 'released bytes',
+      adoptedEquivalentTree: true,
+      adoptedPreparedCandidate: true,
+    })
+  })
+
+  it('fails closed when the current canonical file is not the prepared candidate', () => {
+    expect(() => resolveReleasedCanonicalSourceForPreparedCandidate({
+      git: preparedReader({ headRaw: 'different candidate' }),
+      sourceCommitSha: SOURCE,
+      canonicalBaseRef: HEAD,
+      sourcePath: PATH,
+      preparedCandidateRaw: 'approved candidate\n',
+    })).toThrow(/does not exactly match/)
+  })
+
+  it('fails closed when the prepared commit changes another file', () => {
+    expect(() => resolveReleasedCanonicalSourceForPreparedCandidate({
+      git: preparedReader({ changedPaths: `${PATH}\nother.md` }),
+      sourceCommitSha: SOURCE,
+      canonicalBaseRef: HEAD,
+      sourcePath: PATH,
+      preparedCandidateRaw: 'approved candidate\n',
+    })).toThrow(/must change only/)
+  })
+
+  it('fails closed when the prepared commit parent is not the released tree', () => {
+    expect(() => resolveReleasedCanonicalSourceForPreparedCandidate({
+      git: preparedReader({ parentRaw: 'different released bytes' }),
+      sourceCommitSha: SOURCE,
+      canonicalBaseRef: HEAD,
+      sourcePath: PATH,
+      preparedCandidateRaw: 'approved candidate\n',
     })).toThrow(/does not exactly match/)
   })
 })
