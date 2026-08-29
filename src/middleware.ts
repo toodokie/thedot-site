@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { incrementBotBlocks } from './lib/security-stats';
 import { hasValidAdminMiddlewareSession } from './lib/admin-middleware-auth';
 import { refreshPortalSession } from '@/lib/supabase/middleware';
+import { isAuthRetryableFetchError } from '@supabase/auth-js';
 
 // Known malicious bot user agents
 const BLOCKED_USER_AGENTS = [
@@ -85,10 +86,24 @@ export async function middleware(request: NextRequest) {
     || pathname === '/client/logout'
     || pathname.startsWith('/client/auth/');
   let response = NextResponse.next();
-  if (isPortalRoute) {
+  if (isPortalRoute && !isPublicPortalRoute) {
     const portalSession = await refreshPortalSession(request);
     response = portalSession.response;
-    if (!portalSession.user && !isPublicPortalRoute) {
+    const authUnavailable = portalSession.error
+      && (isAuthRetryableFetchError(portalSession.error)
+        || portalSession.error.status === 0
+        || portalSession.error.status >= 500);
+    if (authUnavailable) {
+      response = new NextResponse(
+        'The client portal is temporarily unavailable. Please try again in a few seconds.',
+        { status: 503 },
+      );
+      response.headers.set('Cache-Control', 'private, no-cache, no-store, max-age=0, must-revalidate');
+      response.headers.set('Retry-After', '5');
+      response.headers.set('Link', `<https://www.thedotcreative.co${pathname}>; rel="canonical"`);
+      return response;
+    }
+    if (!portalSession.user) {
       response = NextResponse.redirect(new URL('/client/login', request.url), 307);
       response.headers.set('Cache-Control', 'private, no-cache, no-store, max-age=0, must-revalidate');
     }

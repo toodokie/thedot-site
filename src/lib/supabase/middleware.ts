@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { createSupabaseFetch, SUPABASE_MIDDLEWARE_TIMEOUT_MS } from './request-timeout'
 
 export async function refreshPortalSession(request: NextRequest) {
   let response = NextResponse.next({ request })
@@ -7,6 +8,9 @@ export async function refreshPortalSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: {
+        fetch: createSupabaseFetch(SUPABASE_MIDDLEWARE_TIMEOUT_MS),
+      },
       cookies: {
         getAll() {
           return request.cookies.getAll()
@@ -23,6 +27,6 @@ export async function refreshPortalSession(request: NextRequest) {
       },
     }
   )
-  const { data: { user } } = await supabase.auth.getUser() // triggers refresh + cookie writes
-  return { response, user }
+  const { data: { user }, error } = await supabase.auth.getUser() // triggers refresh + cookie writes
+  return { response, user, error }
 }

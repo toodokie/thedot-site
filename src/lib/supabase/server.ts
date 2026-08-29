@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { createSupabaseFetch, SUPABASE_SERVER_TIMEOUT_MS } from './request-timeout'
 
 // Read-only by default (safe in Server Components, where cookie mutation throws and the middleware
 // already handles refresh). Pass { writable: true } from Route Handlers (auth callback, logout) that
@@ -10,6 +11,9 @@ export async function createSupabaseServer({ writable = false }: { writable?: bo
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: {
+        fetch: createSupabaseFetch(SUPABASE_SERVER_TIMEOUT_MS),
+      },
       cookies: {
         getAll() {
           return cookieStore.getAll()
