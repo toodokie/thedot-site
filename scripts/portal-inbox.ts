@@ -194,9 +194,16 @@ async function reconcileEdit(client:{id:string;slug:string},requestId:string,app
     .eq('id',request.content_id).eq('client_id',client.id).single()
   if(itemError||!item)throw new Error(`content item unavailable: ${itemError?.message??'missing'}`)
   const canonical=canonicalRoot(); const {dir,head}=canonical; const path=canonicalFile(dir,snapshot.source_path)
-  const released=resolveReleasedCanonicalSource({git:(args)=>git(dir,args),sourceCommitSha:snapshot.source_commit_sha,
-    canonicalBaseRef:head,sourcePath:snapshot.source_path})
+  const approvedCandidateRaw=candidatePath?candidateFile(candidatePath):null
+  const released=approvedCandidateRaw
+    ?resolveReleasedCanonicalSourceForPreparedCandidate({git:(args)=>git(dir,args),
+      sourceCommitSha:snapshot.source_commit_sha,canonicalBaseRef:head,sourcePath:snapshot.source_path,
+      preparedCandidateRaw:approvedCandidateRaw})
+    :resolveReleasedCanonicalSource({git:(args)=>git(dir,args),sourceCommitSha:snapshot.source_commit_sha,
+      canonicalBaseRef:head,sourcePath:snapshot.source_path})
   if(released.adoptedEquivalentTree) console.log('Recorded release history was rewritten; exact canonical file bytes verified.')
+  if('adoptedPreparedCandidate' in released&&released.adoptedPreparedCandidate)
+    console.log('Approved package candidate was already committed; exact parent and one-file commit verified.')
   const raw=released.raw; const blockKey=text(request.payload,'block_key')
   const originalChecksum=text(request.payload,'original_checksum');const proposedText=text(request.payload,'proposed_text')
   if(!blockKey||!originalChecksum||!proposedText)throw new Error('edit request payload is invalid')
@@ -219,7 +226,9 @@ async function reconcileEdit(client:{id:string;slug:string},requestId:string,app
       : `Package candidate accepted: ${candidatePath}. Related copy changes are shown above, and Maria's requested block is exact.`)
   }else printSafeEditDiff(edited.before,candidateBlock?.body??edited.after)
   if(!apply){console.log('Preview only. Re-run with --apply after reviewing this client-visible diff.');return}
-  await startJob(request,null,null,null)
+  if(request.status==='pending') await startJob(request,null,null,null)
+  else if(request.status==='applying') console.log(`Resuming applying edit request ${request.id}.`)
+  else throw new Error('Edit request is not pending or applying')
   // From this point a failed command can leave a valid remote commit or a valid open DB job.
   // Open the DB revision before the irreversible canonical commit. A later Git or sync failure
   // leaves a recoverable open revision, never a committed source change that the DB refused.
@@ -228,8 +237,17 @@ async function reconcileEdit(client:{id:string;slug:string},requestId:string,app
   })
   if(begin.error)throw new Error(begin.error.message)
   atomicWrite(path,candidateRaw);git(dir,['diff','--check','--',snapshot.source_path])
-  git(dir,['add','--',snapshot.source_path]);git(dir,['commit','-m',`Apply portal edit request ${request.id}`],'inherit')
-  const commit=canonical.push(snapshot.source_path)
+  const changed=git(dir,['status','--porcelain=v1','--',snapshot.source_path])
+  let commit:string
+  if(changed){
+    git(dir,['add','--',snapshot.source_path]);git(dir,['commit','-m',`Apply portal edit request ${request.id}`],'inherit')
+    commit=canonical.push(snapshot.source_path)
+  }else{
+    commit=git(dir,['rev-parse','HEAD'])
+    if(git(dir,['show',`${commit}:${snapshot.source_path}`])!==candidateRaw.trimEnd())
+      throw new Error('Unchanged canonical file does not match the reviewed package candidate')
+    console.log(`Adopting already committed package candidate at ${commit}.`)
+  }
   const synced=await admin.rpc('sync_content_item_versions',{p_items:[syncRow(parsed,client.id,commit)]})
   if(synced.error)throw new Error(synced.error.message)
   const prepared=await admin.rpc('mark_content_request_prepared',{p_request_id:request.id,p_commit_sha:commit,
