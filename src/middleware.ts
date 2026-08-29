@@ -116,7 +116,7 @@ export async function middleware(request: NextRequest) {
     if (isPortalAuthUnavailable(portalSession.error)) {
       return portalUnavailableResponse(pathname);
     }
-    if (!portalSession.user) {
+    if (!portalSession.userId) {
       response = NextResponse.redirect(new URL('/client/login', request.url), 307);
       response.headers.set('Cache-Control', 'private, no-cache, no-store, max-age=0, must-revalidate');
     }
