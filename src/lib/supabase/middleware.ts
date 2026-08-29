@@ -27,6 +27,10 @@ export async function refreshPortalSession(request: NextRequest) {
       },
     }
   )
-  const { data: { user }, error } = await supabase.auth.getUser() // triggers refresh + cookie writes
-  return { response, user, error }
+  // getClaims verifies the access token locally when the project uses asymmetric signing keys.
+  // It can still refresh an expiring session, which keeps the existing cookie propagation intact,
+  // without sending every protected page request through the regional Auth user endpoint.
+  const { data, error } = await supabase.auth.getClaims()
+  const userId = typeof data?.claims.sub === 'string' ? data.claims.sub : null
+  return { response, userId, error }
 }

@@ -22,7 +22,7 @@ function request(pathname: string) {
 describe('portal middleware auth routing', () => {
   beforeEach(() => {
     refreshPortalSession.mockReset()
-    refreshPortalSession.mockResolvedValue({ response: NextResponse.next(), user: null, error: null })
+    refreshPortalSession.mockResolvedValue({ response: NextResponse.next(), userId: null, error: null })
   })
 
   it('redirects logged-out protected portal requests before rendering a 404 fallback', async () => {
@@ -41,10 +41,23 @@ describe('portal middleware auth routing', () => {
     expect(refreshPortalSession).not.toHaveBeenCalled()
   })
 
+  it('passes a protected portal request after claims verification succeeds', async () => {
+    refreshPortalSession.mockResolvedValue({
+      response: NextResponse.next(),
+      userId: 'verified-user',
+      error: null,
+    })
+
+    const response = await middleware(request('/client/kanset'))
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('location')).toBeNull()
+  })
+
   it('fails closed quickly when the portal auth provider is unavailable', async () => {
     refreshPortalSession.mockResolvedValue({
       response: NextResponse.next(),
-      user: null,
+      userId: null,
       error: new AuthRetryableFetchError('request timed out', 0),
     })
 
@@ -59,7 +72,7 @@ describe('portal middleware auth routing', () => {
   it('fails closed when the auth provider rate-limits a session refresh', async () => {
     refreshPortalSession.mockResolvedValue({
       response: NextResponse.next(),
-      user: null,
+      userId: null,
       error: new AuthApiError('too many requests', 429),
     })
 

@@ -25,15 +25,13 @@ export type ClientSession = {
 // (request-scoped, cookie/identity dependent, so not a persistent cache).
 export const getClientSession = cache(async (clientSlug: string): Promise<ClientSession | null> => {
   const supabase = await createSupabaseServer()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
+  const { data: claimsData, error: authError } = await supabase.auth.getClaims()
   if (authError) {
     if (isAuthSessionMissingError(authError)) return null // no session == logged out
     throw new PortalAuthError(authError.message)           // network/server/auth-service failure
   }
-  if (!user) return null
+  const userId = typeof claimsData?.claims.sub === 'string' ? claimsData.claims.sub : null
+  if (!userId) return null
   const { data, error } = await supabase.rpc('portal_client_session', { p_slug: clientSlug })
   if (error) throw new PortalAuthError(error.message)
   const rows = data as unknown as Array<{
@@ -51,9 +49,9 @@ export const getClientSession = cache(async (clientSlug: string): Promise<Client
   }> | null
   const membership = rows?.[0]
   if (!membership) return null
-  if (membership.user_id !== user.id) throw new PortalAuthError('Client session identity mismatch')
+  if (membership.user_id !== userId) throw new PortalAuthError('Client session identity mismatch')
   return {
-    userId: user.id,
+    userId,
     email: membership.email,
     name: membership.name,
     clientId: membership.client_id,
