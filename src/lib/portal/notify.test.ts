@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 const { sendMail } = vi.hoisted(() => ({ sendMail: vi.fn().mockResolvedValue(undefined) }))
 vi.mock('@/lib/email', () => ({ transporter: { sendMail } }))
 
-import { sendPortalAgencyPieceDigestEmail } from './notify'
+import { sendPortalAgencyPieceDigestEmail, sendPortalNotificationEmail } from './notify'
 
 describe('sendPortalAgencyPieceDigestEmail', () => {
   afterEach(() => {
@@ -42,5 +42,29 @@ describe('sendPortalAgencyPieceDigestEmail', () => {
     })).rejects.toThrow('agency piece digest requires a valid Ops piece URL')
 
     expect(sendMail).not.toHaveBeenCalled()
+  })
+})
+
+describe('sendPortalNotificationEmail', () => {
+  afterEach(() => {
+    sendMail.mockClear()
+    delete process.env.FROM_EMAIL
+  })
+
+  it('sends a readable text alternative and a portal button', async () => {
+    process.env.FROM_EMAIL = 'portal@example.com'
+    const url = 'https://www.thedotcreative.co/client/kanset/piece/kanset-2026-08-31-news-roundup'
+
+    await sendPortalNotificationEmail({
+      to: 'maria@kanset.com',
+      subject: 'The Dot commented',
+      bodyText: 'The Monday reel preview is ready to view.',
+      url,
+    })
+
+    expect(sendMail).toHaveBeenCalledWith(expect.objectContaining({
+      text: expect.stringContaining(`Open in the portal: ${url}`),
+      html: expect.stringContaining(`href="${url}"`),
+    }))
   })
 })
