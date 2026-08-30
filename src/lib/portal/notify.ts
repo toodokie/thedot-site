@@ -19,6 +19,10 @@ function safeHttpsUrl(raw: string | null | undefined): string | null {
   }
 }
 
+function notificationText(bodyText: string, link: string | null): string {
+  return [bodyText, link ? `Open in the portal: ${link}` : null].filter(Boolean).join('\n\n')
+}
+
 // Durable path: sends one queued notification_outbox email. This THROWS on failure so the fenced
 // consumer marks the row failed and retries with backoff. Only the notification consumer calls it.
 // Recipient resolution is done in the database: agency rows use AGENCY_EMAIL and client rows carry
@@ -34,12 +38,17 @@ export async function sendPortalNotificationEmail(opts: {
   if (!from) throw new Error('FROM_EMAIL/SMTP_USER not configured')
   const link = safeHttpsUrl(opts.url)
   const html = `
-    <div style="font-family: Arial, sans-serif; color: #35332f; max-width: 520px;">
-      <p style="font-size: 18px; font-weight: 500; margin: 0 0 12px;">${escapeHtml(opts.subject)}</p>
-      ${opts.bodyText ? `<p style="color:#47453f; margin: 0 0 16px; white-space: pre-wrap;">${escapeHtml(opts.bodyText)}</p>` : ''}
-      ${link ? `<p style="margin: 0;"><a href="${escapeHtml(link)}" style="color:#35332f;">Open in the portal</a></p>` : ''}
-    </div>`
-  await transporter.sendMail({ from, to: opts.to, subject: opts.subject, html })
+    <!doctype html>
+    <html lang="en">
+      <body style="margin:0; padding:24px; background:#ffffff;">
+        <div style="font-family:Arial,sans-serif; color:#35332f; max-width:520px;">
+          <p style="font-size:18px; font-weight:500; margin:0 0 12px;">${escapeHtml(opts.subject)}</p>
+          ${opts.bodyText ? `<p style="color:#47453f; margin:0 0 16px; white-space:pre-wrap; line-height:1.5;">${escapeHtml(opts.bodyText)}</p>` : ''}
+          ${link ? `<p style="margin:0;"><a href="${escapeHtml(link)}" style="display:inline-block; background:#35332f; color:#ffffff; padding:10px 16px; border-radius:6px; text-decoration:none;">Open in the portal</a></p>` : ''}
+        </div>
+      </body>
+    </html>`
+  await transporter.sendMail({ from, to: opts.to, subject: opts.subject, text: notificationText(opts.bodyText, link), html })
 }
 
 export async function sendPortalAgencyPieceDigestEmail(opts: {
