@@ -11,6 +11,7 @@ declare
   v_content_key text;
   v_client_slug text;
   v_related_url text;
+  v_target_label text;
 begin
   v_recipient := public.portal_notification_recipient(new.author_type);
   select ci.content_id, c.slug into v_content_key, v_client_slug
@@ -29,10 +30,21 @@ begin
   perform public.portal_enqueue_notification(
     new.client_id, v_recipient, 'in_app', 'comment', new.id,
     new.author_name || ' commented', pg_catalog.left(new.body, 280), v_related_url);
+
   if v_recipient = 'agency' then
-    perform public.portal_enqueue_notification(
-      new.client_id, v_recipient, 'email', 'comment', new.id,
-      new.author_name || ' commented', pg_catalog.left(new.body, 280), v_related_url);
+    if new.copy_block_key is not null then
+      select e.value->>'label' into v_target_label
+      from public.content_item_versions cv
+      cross join lateral pg_catalog.jsonb_array_elements(cv.copy_blocks) e(value)
+      where cv.content_item_id = new.content_id
+        and cv.client_id = new.client_id
+        and cv.version = new.content_version
+        and e.value->>'key' = new.copy_block_key;
+    end if;
+    perform public.portal_enqueue_agency_piece_digest(
+      new.client_id, new.content_id, 'comment', new.id, new.author_name, 'comment',
+      coalesce(v_target_label, 'General feedback')
+    );
   elsif public.portal_feature_enabled(new.client_id, 'client_alerts') then
     perform public.portal_enqueue_notification(
       new.client_id, v_recipient, 'email', 'comment', new.id,
