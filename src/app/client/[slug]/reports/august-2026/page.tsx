@@ -105,8 +105,8 @@ export default async function AugustReport({ params }: { params: Promise<{ slug:
             <p>On-camera video reached more people on Meta. LinkedIn documents drew more engagement than video. The same creative does not need to do the same job everywhere.</p>
           </article>
           <article>
-            <h3>Attention is not yet becoming site traffic</h3>
-            <p>Only <strong>9 website visits</strong> were attributed to social, while Search sent 113. Social is building awareness, and the website visibility work has a separate job to do.</p>
+            <h3>July was a launch-period high</h3>
+            <p>August settled lower across views, reach, interactions, profile visits, and link taps. The existing Instagram follower core still supplied most of the engagement, so this reads as lower distribution after launch, not lost interest.</p>
           </article>
         </div>
       </section>
