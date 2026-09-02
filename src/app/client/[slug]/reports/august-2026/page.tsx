@@ -201,6 +201,29 @@ export default async function AugustReport({ params }: { params: Promise<{ slug:
         </div>
       </section>
 
+      <section className={styles.section} aria-labelledby="emerging-subjects">
+        <h2 id="emerging-subjects">Emerging subjects to repeat</h2>
+        <p className={styles.context}>Directional read across July and August. These are the themes worth repeating in September, not proven winners yet.</p>
+        <div className={styles.findings}>
+          <article className={styles.finding}>
+            <h3>Employer work-permit questions</h3>
+            <p>Promotion, layoffs and unpaid leave are the clearest early signal: three on-camera clips averaged about 210 people reached on Instagram and 290 on Facebook.</p>
+            <p><strong>September:</strong> repeat the subject in comparable on-camera posts before treating it as a reliable leader.</p>
+          </article>
+          <article className={styles.finding}>
+            <h3>Direct process advice</h3>
+            <p>“No standard checklist” and “no case is a slam dunk” reached about 200 people on Instagram and 340 on Facebook, with the longest Facebook hold in the sample.</p>
+            <p><strong>September:</strong> test another direct, practical process answer on camera.</p>
+          </article>
+          <article className={styles.finding}>
+            <h3>Two signals to confirm</h3>
+            <p>One employee-side work-permit clip reached about 630 people on Facebook. Two spousal-sponsorship Shorts held attention well enough to merit another YouTube-focused pair.</p>
+            <p><strong>September:</strong> repeat both themes. One post or two Shorts is a lead, not a conclusion.</p>
+          </article>
+        </div>
+        <p className={styles.context}>Employer subjects reached as many people as individual subjects when the format was the same. The earlier apparent gap came from putting more employer content into carousels, not weaker interest.</p>
+      </section>
+
       <section className={styles.section} aria-labelledby="actions">
         <h2 id="actions">September actions</h2>
         <div className={styles.actions}>
