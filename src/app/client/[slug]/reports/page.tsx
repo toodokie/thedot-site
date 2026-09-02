@@ -38,6 +38,9 @@ const METRIC_LABELS: Record<string, string> = {
   news_article_views: 'New article views',
   form_submissions: 'Form submissions',
   button_clicks: 'Site button clicks',
+  impressions: 'Impressions',
+  page_views: 'Page views',
+  custom_button_clicks: 'Custom button clicks',
 }
 const PLATFORM_METRIC_LABELS: Record<string, Record<string, string>> = {
   website: {
@@ -50,6 +53,7 @@ const KNOWN_ORDER = [
   'followers', 'reach', 'views', 'interactions', 'comments', 'shares', 'saves',
   'profile_visits', 'messaging_contacts', 'sessions', 'social_referral_visits',
   'contact_page_views', 'news_article_views', 'form_submissions', 'button_clicks',
+  'impressions', 'page_views', 'custom_button_clicks',
   'watch_time_hours', 'avg_view_duration_seconds', 'subscribers_gained',
   'views_reels', 'views_posts', 'views_stories', 'views_shorts', 'views_videos',
 ]
@@ -69,16 +73,24 @@ function platformLabel(p: string) {
   return PLATFORM_LABELS[p] ?? (p.charAt(0).toUpperCase() + p.slice(1))
 }
 
-// '2026-07-H1' -> 'July 2026, first half'. Falls back to the raw string.
+// '2026-07-H1' -> 'July 2026, first half'; '2026-08' -> 'August 2026'.
+// Falls back to the raw string for an unknown format.
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December']
 function formatPeriod(period: string) {
-  const m = /^(\d{4})-(\d{2})-H([12])$/.exec(period)
-  if (!m) return period
-  const [, year, month, half] = m
+  const halfPeriod = /^(\d{4})-(\d{2})-H([12])$/.exec(period)
+  if (halfPeriod) {
+    const [, year, month, half] = halfPeriod
+    const name = MONTHS[Number(month) - 1]
+    if (!name) return period
+    return `${name} ${year}, ${half === '1' ? 'first half' : 'second half'}`
+  }
+  const monthlyPeriod = /^(\d{4})-(\d{2})$/.exec(period)
+  if (!monthlyPeriod) return period
+  const [, year, month] = monthlyPeriod
   const name = MONTHS[Number(month) - 1]
   if (!name) return period
-  return `${name} ${year}, ${half === '1' ? 'first half' : 'second half'}`
+  return `${name} ${year}`
 }
 
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -332,23 +344,23 @@ export default async function Reports({ params }: { params: Promise<{ slug: stri
       <div className={styles.header}><Heading level={2}>Performance reports</Heading></div>
       <div className={styles.intro}>
         <Text size="lg" tone="graphite">
-          Your twice-monthly read on how the content performed, broken out by platform. The numbers are
+          Your monthly read on how the content performed, broken out by platform. The numbers are
           pulled and reviewed by hand, so treat them as a directional signal, not a live dashboard.
         </Text>
       </div>
 
       {slug === 'kanset' && (
-        <section className={styles.featured} aria-label="July 2026 performance report">
+        <section className={styles.featured} aria-label="August 2026 performance report">
           <div>
-            <span className={styles.featuredKicker}>Monthly review · Published August 4</span>
-            <Heading level={3}>July 2026 performance report</Heading>
+            <span className={styles.featuredKicker}>Monthly review · August 2026</span>
+            <Heading level={3}>August 2026 performance report</Heading>
             <Text tone="graphite">
-              The first full month of managed content, including the June baseline, website activity,
-              the creative findings, and the August actions.
+              What August reached, what held attention, and the next actions across social, LinkedIn,
+              YouTube, and the website.
             </Text>
           </div>
-          <Button as="a" href={`/client/${encodeURIComponent(slug)}/reports/july-2026`} variant="black" size="sm">
-            Open July report
+          <Button as="a" href={`/client/${encodeURIComponent(slug)}/reports/august-2026`} variant="black" size="sm">
+            Open August report
           </Button>
         </section>
       )}
