@@ -211,14 +211,14 @@ export default async function AugustReport({ params }: { params: Promise<{ slug:
             <p><strong>September:</strong> repeat the subject in comparable on-camera posts before treating it as a reliable leader.</p>
           </article>
           <article className={styles.finding}>
-            <h3>Why there is no one-size-fits-all application</h3>
-            <p>Two July episode clips explained that a checklist does not decide an immigration application, and that an application which looks simple can still need individual attention. They reached about 200 people on Instagram and 340 on Facebook. Facebook viewers stayed with them longer than with any other clips in this sample.</p>
-            <p><strong>What this means:</strong> people may respond to this honest explanation of how immigration applications are assessed. It is an early signal, not a new campaign. When a planned episode cut naturally makes this point, we will tag and measure it, without adding a new series or duplicate post.</p>
+            <h3>Employee-side work-permit questions</h3>
+            <p>One clip about moving provinces on a work permit reached about 630 people on Facebook, the highest reach in this two-month post sample.</p>
+            <p><strong>September:</strong> run two more comparable questions before deciding this is a reliable subject.</p>
           </article>
           <article className={styles.finding}>
-            <h3>Two signals to confirm</h3>
-            <p>One employee-side work-permit clip reached about 630 people on Facebook. Two spousal-sponsorship Shorts held attention well enough to merit another YouTube-focused pair.</p>
-            <p><strong>September:</strong> repeat both themes. One post or two Shorts is a lead, not a conclusion.</p>
+            <h3>Spousal-sponsorship questions</h3>
+            <p>Two August Shorts held attention well enough on YouTube to merit a second look. Their Instagram and Facebook reach was middle of the group.</p>
+            <p><strong>September:</strong> run two more YouTube-focused clips before deciding this is a reliable subject.</p>
           </article>
         </div>
         <p className={styles.context}>Employer subjects reached as many people as individual subjects when the format was the same. The earlier apparent gap came from putting more employer content into carousels, not weaker interest.</p>
