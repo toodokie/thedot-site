@@ -106,7 +106,7 @@ export default async function AugustReport({ params }: { params: Promise<{ slug:
           </article>
           <article>
             <h3>July was a launch-period high</h3>
-            <p>August settled lower across views, reach, interactions, profile visits, and link taps. The existing Instagram follower core still supplied most of the engagement, so this reads as lower distribution after launch, not lost interest.</p>
+            <p>On Instagram, August settled lower than July&apos;s launch month across views, reach, interactions, profile visits, and link taps. YouTube views also eased. The existing Instagram follower core still supplied most of the engagement, so this reads as lower distribution after launch, not lost interest.</p>
           </article>
         </div>
       </section>
@@ -129,7 +129,7 @@ export default async function AugustReport({ params }: { params: Promise<{ slug:
       <section className={styles.section} aria-labelledby="channel-detail">
         <h2 id="channel-detail">Channel by channel</h2>
         <div className={styles.channelGrid}>
-          <ChannelCard name="Instagram" handle="@kansetimmigration" note="The smaller follower base was the active one: 74 followers supplied 89% of interactions, although only 56 followers were reached during the month.">
+          <ChannelCard name="Instagram" handle="@kansetimmigration" note="The smaller follower base was the active one: in Meta&apos;s four-week view, followers supplied 89% of interactions even though only 56 of the 74 were reached.">
             <span className={`${styles.subhead} ${styles.baselineHead}`}>Pre-engagement baseline → August</span>
             <ChannelRow label="Followers" before="56" after="74" change="+18" />
             <ChannelRow label="Views" before="22" after="3,494" change="159×" />
@@ -147,9 +147,9 @@ export default async function AugustReport({ params }: { params: Promise<{ slug:
             <ChannelRow label="Interactions" before="215" after="234" change="+9%" />
           </ChannelCard>
 
-          <ChannelCard name="YouTube" handle="Kanset Talks" note="July included the episode-one launch. August returned to the June baseline of two subscribers, rather than showing a channel collapse after a launch spike.">
+          <ChannelCard name="YouTube" handle="Kanset Talks" note="July included the episode-one launch and added 18 subscribers. August added two, the same as June before the launch, so this is a return to the channel&apos;s normal rate rather than a drop.">
             <span className={`${styles.subhead} ${styles.baselineHead}`}>Pre-engagement baseline → August</span>
-            <ChannelRow label="Subscribers gained" before="0" after="2" change="new channel baseline" />
+            <ChannelRow label="Subscribers gained" before="0" after="2" change="+2 in August" />
             <ChannelRow label="Views" before="0" after="1,473" change="new" />
             <span className={styles.subhead}>July → August</span>
             <ChannelRow label="Views" before="1,748" after="1,473" change="-16%" />
@@ -186,16 +186,16 @@ export default async function AugustReport({ params }: { params: Promise<{ slug:
           <article className={styles.finding}>
             <h3>People watched the expert answers</h3>
             <p>In August, the Ask Kanset and podcast clips with Maria or Mary speaking reached more people than our animated reels or carousels. On Instagram, filmed clips reached 126 people on average, compared with 75 for animated reels and 29 for carousels. On Facebook, people watched 17% of a filmed clip on average, compared with 10% of an animated reel.</p>
-            <p><strong>So what:</strong> keep using a relevant approved filmed answer when it already covers the week&apos;s question. We will not change the regular mix based on this alone. A separate, scheduled comparison is needed to tell whether people responded to the question itself or to seeing an expert answer it.</p>
+            <p><strong>So what:</strong> keep using a relevant approved filmed answer when it already covers the week&apos;s question. We will not change the regular mix based on this alone. A separate like-for-like comparison, planned for September, is still needed to tell whether people responded to the question itself or to seeing an expert answer it.</p>
           </article>
           <article className={styles.finding}>
             <h3>Employer guides worked better as LinkedIn documents</h3>
             <p>The two employer document posts received 29% and 12% engagement. The video post received 6%. On LinkedIn, opening or moving through a document counts as engagement. These are signs that people read the guide, not that they clicked through to the website.</p>
-            <p><strong>So what:</strong> put the full employer explanation into a LinkedIn document. Use a separate Instagram or Facebook Reel only when it answers one clear question, rather than posting the same material everywhere.</p>
+            <p><strong>So what:</strong> on LinkedIn, lead employer guides with the document format. On Instagram and Facebook, keep employer topics in the Reel slot, framed as one clear question, and hold the reference carousel to one a week.</p>
           </article>
           <article className={styles.finding}>
-            <h3>Short clips and social links lead people to an episode</h3>
-            <p>Most people found a full Kanset Talks episode after seeing a Short or social post, not because YouTube showed them the episode thumbnail. This worked most strongly during July&apos;s launch. When YouTube did show the thumbnails, the click rate was similar for both episodes: 3.88% for episode 1 and 3.48% for episode 2.</p>
+            <h3>Most episode views come from outside YouTube impressions</h3>
+            <p>Most views of a full Kanset Talks episode did not come from YouTube showing its thumbnail. They arrived by other routes, most likely our links and Shorts, which we have not yet measured post by post. This worked most strongly during July&apos;s launch. When YouTube did show the thumbnails, the launch-week click rate was similar for both episodes: 3.88% for episode 1 and 3.48% for episode 2.</p>
             <p><strong>So what:</strong> keep linking every Kanset Talks cut to its full episode, as we already do. For the next launch, write down and check each route, then see which routes actually brought people to the episode after 28 days. We will only test titles and thumbnails after the exact alternatives are approved.</p>
           </article>
         </div>
@@ -213,7 +213,7 @@ export default async function AugustReport({ params }: { params: Promise<{ slug:
           </article>
           <article className={styles.finding}>
             <h3>Moving provinces on a work permit: a Facebook signal</h3>
-            <p>One clip reached about 630 people on Facebook, the highest single-post reach in this two-month sample. We do not yet have enough comparable posts to say the same subject is drawing attention on Instagram or YouTube.</p>
+            <p>One clip reached about 630 people on Facebook, the highest reach of any immigration-topic post across July and August. We do not yet have enough comparable posts to say the same subject is drawing attention on Instagram or YouTube.</p>
             <p><strong>September:</strong> test two more practical employee-side work-permit questions, then compare each platform separately.</p>
           </article>
           <article className={styles.finding}>
@@ -264,7 +264,7 @@ export default async function AugustReport({ params }: { params: Promise<{ slug:
               <li>At launch, confirm the existing Instagram bio, Facebook link or first comment, and Story link sticker.</li>
               <li>After launch, check the live route and review traffic sources at 28 days.</li>
             </ul>
-            <p className={styles.actionMeta}>Owner: The Dot + Anastasia · Review: 28 days after episode 3</p>
+            <p className={styles.actionMeta}>Owner: The Dot · Review: 28 days after episode 3</p>
           </article>
         </div>
       </section>
