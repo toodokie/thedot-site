@@ -202,26 +202,26 @@ export default async function AugustReport({ params }: { params: Promise<{ slug:
       </section>
 
       <section className={styles.section} aria-labelledby="emerging-subjects">
-        <h2 id="emerging-subjects">Emerging subjects to repeat</h2>
-        <p className={styles.context}>Directional read across July and August. These are the themes worth repeating in September, not proven winners yet.</p>
+        <h2 id="emerging-subjects">Topics people are responding to</h2>
+        <p className={styles.context}><strong>Employer and individual questions are both viable.</strong> When we compare the same format, they reach about the same number of people. Employer content only looked weaker because more of it was put into carousels, our lowest-reach format.</p>
+        <p className={styles.context}>This is an early July and August read. The cards below show where attention appeared, and which platform produced the signal.</p>
         <div className={styles.findings}>
           <article className={styles.finding}>
-            <h3>Employer work-permit questions</h3>
-            <p>Promotion, layoffs and unpaid leave are the clearest early signal: three on-camera clips averaged about 210 people reached on Instagram and 290 on Facebook.</p>
-            <p><strong>September:</strong> repeat the subject in comparable on-camera posts before treating it as a reliable leader.</p>
+            <h3>Employer work-permit questions: the clearest cross-platform signal</h3>
+            <p>Promotion, layoffs and unpaid leave drew attention on both Meta platforms. Across three on-camera clips, they averaged about 210 people reached on Instagram and 290 on Facebook.</p>
+            <p><strong>September:</strong> use two more comparable on-camera answers, then decide whether this is a reliable subject to keep leading with.</p>
           </article>
           <article className={styles.finding}>
-            <h3>Employee-side work-permit questions</h3>
-            <p>One clip about moving provinces on a work permit reached about 630 people on Facebook, the highest reach in this two-month post sample.</p>
-            <p><strong>September:</strong> run two more comparable questions before deciding this is a reliable subject.</p>
+            <h3>Moving provinces on a work permit: a Facebook signal</h3>
+            <p>One clip reached about 630 people on Facebook, the highest single-post reach in this two-month sample. We do not yet have enough comparable posts to say the same subject is drawing attention on Instagram or YouTube.</p>
+            <p><strong>September:</strong> test two more practical employee-side work-permit questions, then compare each platform separately.</p>
           </article>
           <article className={styles.finding}>
-            <h3>Spousal-sponsorship questions</h3>
-            <p>Two August Shorts held attention well enough on YouTube to merit a second look. Their Instagram and Facebook reach was middle of the group.</p>
-            <p><strong>September:</strong> run two more YouTube-focused clips before deciding this is a reliable subject.</p>
+            <h3>Spousal sponsorship: a YouTube signal</h3>
+            <p>Two August Shorts held attention well enough on YouTube to justify another look. On Instagram and Facebook, their reach was in the middle of the group, so this is not yet a Meta lead.</p>
+            <p><strong>September:</strong> publish two more YouTube-focused clips, then judge YouTube and Meta separately.</p>
           </article>
         </div>
-        <p className={styles.context}>Employer subjects reached as many people as individual subjects when the format was the same. The earlier apparent gap came from putting more employer content into carousels, not weaker interest.</p>
       </section>
 
       <section className={styles.section} aria-labelledby="actions">
