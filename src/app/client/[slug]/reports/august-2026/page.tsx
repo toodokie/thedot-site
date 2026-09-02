@@ -211,9 +211,9 @@ export default async function AugustReport({ params }: { params: Promise<{ slug:
             <p><strong>September:</strong> repeat the subject in comparable on-camera posts before treating it as a reliable leader.</p>
           </article>
           <article className={styles.finding}>
-            <h3>Plain talk about what an application really needs</h3>
-            <p>Two July episode clips made the same point: there is no universal checklist, and even an application that looks straightforward can have important details. They reached about 200 people on Instagram and 340 on Facebook. Facebook viewers stayed with them longer than with any other clips in this sample.</p>
-            <p><strong>What this means:</strong> this is an early observation from two existing episode cuts, not a new September content promise. We will keep logging comparable clips and revisit the pattern when there is more evidence.</p>
+            <h3>Why there is no one-size-fits-all application</h3>
+            <p>Two July episode clips explained that a checklist does not decide an immigration application, and that an application which looks simple can still need individual attention. They reached about 200 people on Instagram and 340 on Facebook. Facebook viewers stayed with them longer than with any other clips in this sample.</p>
+            <p><strong>What this means:</strong> people may respond to this honest explanation of how immigration applications are assessed. It is an early signal, not a new campaign. When a planned episode cut naturally makes this point, we will tag and measure it, without adding a new series or duplicate post.</p>
           </article>
           <article className={styles.finding}>
             <h3>Two signals to confirm</h3>
