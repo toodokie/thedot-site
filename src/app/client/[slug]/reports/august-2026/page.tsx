@@ -194,9 +194,9 @@ export default async function AugustReport({ params }: { params: Promise<{ slug:
             <p><strong>So what:</strong> use documents for employer material on LinkedIn and reels for the same idea on Meta.</p>
           </article>
           <article className={styles.finding}>
-            <h3>Long-form needs a better promise on YouTube</h3>
-            <p>Long-form thumbnail impressions rose 8%, while long-form views fell 49%. The channel was shown more often, but fewer people chose to watch. The introductory video had an 11.54% click-through rate, compared with 3.48% for episode 2 and 1.06% for episode 1.</p>
-            <p><strong>So what:</strong> test clearer episode titles and thumbnail text before changing the publishing cadence.</p>
+            <h3>Rebuild the path from Short to full episode</h3>
+            <p>Most episode views arrived from links and Shorts, not from YouTube showing the episode thumbnail on its own. That flow was strongest in July&apos;s launch period. When YouTube did show the episode thumbnails at launch, click-through was steady: 3.88% for episode 1 and 3.48% for episode 2.</p>
+            <p><strong>So what:</strong> carry the episode link through every Short, social post and launch-week placement. Test titles and thumbnails in YouTube&apos;s own tool, but do not treat them as the diagnosed cause.</p>
           </article>
         </div>
       </section>
@@ -218,7 +218,7 @@ export default async function AugustReport({ params }: { params: Promise<{ slug:
             <ul>
               <li>Lead employer content with LinkedIn documents.</li>
               <li>Package the same subject as short video for Instagram and Facebook.</li>
-              <li>Test stronger titles and thumbnails for full podcast episodes.</li>
+              <li>Carry each episode link through its Shorts and launch-week social posts.</li>
             </ul>
             <p className={styles.actionMeta}>Owner: The Dot · Review: September month-end</p>
           </article>
