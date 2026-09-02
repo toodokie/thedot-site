@@ -184,19 +184,19 @@ export default async function AugustReport({ params }: { params: Promise<{ slug:
         <h2 id="findings">What the numbers say</h2>
         <div className={styles.findings}>
           <article className={styles.finding}>
-            <h3>Keep the filmed-answer lane, then test it</h3>
-            <p>We were already publishing Ask Kanset and episode cuts when a recorded answer fit the week&apos;s question. Across August posts with at least 14 days to collect views, on-camera Instagram content averaged 126 reached accounts per post. Animated content averaged 75 and carousels averaged 29. Facebook retention pointed the same way: 17% for on-camera video versus 10% for animated video.</p>
-            <p><strong>So what:</strong> keep scheduling the relevant approved Q&amp;A or episode cut. The new step is one crossover test: answer one comparable question as an animated Reel, then compare it with a filmed answer at the same 14-day age. That tells us whether the advantage belongs to the question or to the filmed format.</p>
+            <h3>People watched the expert answers</h3>
+            <p>In August, the Ask Kanset and podcast clips with Maria or Mary speaking reached more people than our animated reels or carousels. On Instagram, filmed clips reached 126 people on average, compared with 75 for animated reels and 29 for carousels. On Facebook, people watched 17% of a filmed clip on average, compared with 10% of an animated reel.</p>
+            <p><strong>So what:</strong> keep using a relevant approved filmed answer when it already covers the week&apos;s question. We will not change the regular mix based on this alone. A separate, scheduled comparison is needed to tell whether people responded to the question itself or to seeing an expert answer it.</p>
           </article>
           <article className={styles.finding}>
-            <h3>Move employer documents to LinkedIn</h3>
-            <p>LinkedIn documents recorded 28.57% and 12.14% engagement, against 5.51% for the video post. A document-page advance counts as a click on LinkedIn, so those clicks are engagement with the document, not website traffic.</p>
-            <p><strong>So what:</strong> publish the full employer explanation as a LinkedIn document. Use a separate Reel on Instagram and Facebook only when it can answer one clear question, rather than copying the LinkedIn post.</p>
+            <h3>Employer guides worked better as LinkedIn documents</h3>
+            <p>The two employer document posts received 29% and 12% engagement. The video post received 6%. On LinkedIn, opening or moving through a document counts as engagement. These are signs that people read the guide, not that they clicked through to the website.</p>
+            <p><strong>So what:</strong> put the full employer explanation into a LinkedIn document. Use a separate Instagram or Facebook Reel only when it answers one clear question, rather than posting the same material everywhere.</p>
           </article>
           <article className={styles.finding}>
-            <h3>Document and measure the existing episode route</h3>
-            <p>Most episode views arrived from links and Shorts, not from YouTube showing the episode thumbnail on its own. That flow was strongest in July&apos;s launch period. When YouTube did show the episode thumbnails at launch, click-through was steady: 3.88% for episode 1 and 3.48% for episode 2.</p>
-            <p><strong>So what:</strong> every Kanset Talks cut already links to its full episode. For the next launch, record and verify that existing route: the Related video in YouTube, the episode URL in description line 2, the Instagram bio link, a Facebook post link or first comment, and a Story link sticker. Then read traffic sources at 28 days. Titles and thumbnails are tested only after exact variants are approved.</p>
+            <h3>Short clips and social links lead people to an episode</h3>
+            <p>Most people found a full Kanset Talks episode after seeing a Short or social post, not because YouTube showed them the episode thumbnail. This worked most strongly during July&apos;s launch. When YouTube did show the thumbnails, the click rate was similar for both episodes: 3.88% for episode 1 and 3.48% for episode 2.</p>
+            <p><strong>So what:</strong> keep linking every Kanset Talks cut to its full episode, as we already do. For the next launch, write down and check each route, then see which routes actually brought people to the episode after 28 days. We will only test titles and thumbnails after the exact alternatives are approved.</p>
           </article>
         </div>
       </section>
@@ -211,9 +211,9 @@ export default async function AugustReport({ params }: { params: Promise<{ slug:
             <p><strong>September:</strong> repeat the subject in comparable on-camera posts before treating it as a reliable leader.</p>
           </article>
           <article className={styles.finding}>
-            <h3>Direct process advice</h3>
-            <p>“No standard checklist” and “no case is a slam dunk” reached about 200 people on Instagram and 340 on Facebook, with the longest Facebook hold in the sample.</p>
-            <p><strong>September:</strong> test another direct, practical process answer on camera.</p>
+            <h3>Plain talk about what an application really needs</h3>
+            <p>Two clips made the same point: there is no universal checklist, and even an application that looks straightforward can have important details. They reached about 200 people on Instagram and 340 on Facebook. Facebook viewers stayed with them longer than with any other clips in this sample.</p>
+            <p><strong>September:</strong> repeat this kind of plain-language answer once, then see whether the pattern holds.</p>
           </article>
           <article className={styles.finding}>
             <h3>Two signals to confirm</h3>
