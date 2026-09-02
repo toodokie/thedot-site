@@ -212,8 +212,8 @@ export default async function AugustReport({ params }: { params: Promise<{ slug:
           </article>
           <article className={styles.finding}>
             <h3>Plain talk about what an application really needs</h3>
-            <p>Two clips made the same point: there is no universal checklist, and even an application that looks straightforward can have important details. They reached about 200 people on Instagram and 340 on Facebook. Facebook viewers stayed with them longer than with any other clips in this sample.</p>
-            <p><strong>September:</strong> repeat this kind of plain-language answer once, then see whether the pattern holds.</p>
+            <p>Two July episode clips made the same point: there is no universal checklist, and even an application that looks straightforward can have important details. They reached about 200 people on Instagram and 340 on Facebook. Facebook viewers stayed with them longer than with any other clips in this sample.</p>
+            <p><strong>What this means:</strong> this is an early observation from two existing episode cuts, not a new September content promise. We will keep logging comparable clips and revisit the pattern when there is more evidence.</p>
           </article>
           <article className={styles.finding}>
             <h3>Two signals to confirm</h3>
