@@ -184,19 +184,19 @@ export default async function AugustReport({ params }: { params: Promise<{ slug:
         <h2 id="findings">What the numbers say</h2>
         <div className={styles.findings}>
           <article className={styles.finding}>
-            <h3>Keep the people on camera on Meta</h3>
+            <h3>Use existing question-led video when it fits</h3>
             <p>Across August posts with at least 14 days to collect views, on-camera Instagram content averaged 126 reached accounts per post. Animated content averaged 75 and carousels averaged 29. Facebook retention pointed the same way: 17% for on-camera video versus 10% for animated video.</p>
-            <p><strong>So what:</strong> keep putting the useful answer early in filmed cuts. Weekly roundups need a stronger opening, because their retention was consistently the lowest.</p>
+            <p><strong>So what:</strong> when Maria or Mary already answers the week&apos;s question on camera, use that existing cut as the Reel. Keep animated reels for an update that needs a date, number or comparison on screen. This is a September test, not a permanent mix change.</p>
           </article>
           <article className={styles.finding}>
             <h3>Move employer documents to LinkedIn</h3>
             <p>LinkedIn documents recorded 28.57% and 12.14% engagement, against 5.51% for the video post. A document-page advance counts as a click on LinkedIn, so those clicks are engagement with the document, not website traffic.</p>
-            <p><strong>So what:</strong> use documents for employer material on LinkedIn and reels for the same idea on Meta.</p>
+            <p><strong>So what:</strong> publish the full employer explanation as a LinkedIn document. Use a separate Reel on Instagram and Facebook only when it can answer one clear question, rather than copying the LinkedIn post.</p>
           </article>
           <article className={styles.finding}>
             <h3>Rebuild the path from Short to full episode</h3>
             <p>Most episode views arrived from links and Shorts, not from YouTube showing the episode thumbnail on its own. That flow was strongest in July&apos;s launch period. When YouTube did show the episode thumbnails at launch, click-through was steady: 3.88% for episode 1 and 3.48% for episode 2.</p>
-            <p><strong>So what:</strong> carry the episode link through every Short, social post and launch-week placement. Test titles and thumbnails in YouTube&apos;s own tool, but do not treat them as the diagnosed cause.</p>
+            <p><strong>So what:</strong> use a checkable route for every episode cut: the Related video in YouTube, the episode URL in description line 2, the Instagram bio link, a Facebook post link or first comment, and a Story link sticker. Titles and thumbnails are tested only after exact variants are approved.</p>
           </article>
         </div>
       </section>
@@ -205,31 +205,31 @@ export default async function AugustReport({ params }: { params: Promise<{ slug:
         <h2 id="actions">September actions</h2>
         <div className={styles.actions}>
           <article>
-            <h3>Build for repeat attention</h3>
+            <h3>Choose the Reel format on purpose</h3>
             <ul>
-              <li>Keep on-camera answers as the lead Meta format.</li>
-              <li>Put the answer or practical consequence in the first six seconds.</li>
-              <li>Rework the weekly roundup opening before the next run.</li>
+              <li>Use the existing studio Q&amp;A or podcast cut when it directly answers the week&apos;s question.</li>
+              <li>Keep animated reels for news that needs a number, date or comparison on screen.</li>
+              <li>Compare the two at the same 14-day age before changing the monthly mix.</li>
             </ul>
             <p className={styles.actionMeta}>Owner: The Dot · Review: September month-end</p>
           </article>
           <article>
-            <h3>Use each platform for its best job</h3>
+            <h3>Make weekly news useful first</h3>
             <ul>
-              <li>Lead employer content with LinkedIn documents.</li>
-              <li>Package the same subject as short video for Instagram and Facebook.</li>
-              <li>Carry each episode link through its Shorts and launch-week social posts.</li>
+              <li>Open on the practical fact, then show the roundup label and date.</li>
+              <li>For example, the Aug 24 reel would open on the 14-month visitor-extension wait, not “Monday roundup.”</li>
+              <li>The Aug 31 reel would open on the $23,448 study-permit requirement, not “What changes in September.”</li>
             </ul>
             <p className={styles.actionMeta}>Owner: The Dot · Review: September month-end</p>
           </article>
-          <article className={styles.clientAction}>
-            <h3>Close the consultation-source gap</h3>
+          <article>
+            <h3>Verify the route to each episode</h3>
             <ul>
-              <li>Record how each consultation first heard about Kanset.</li>
-              <li>Keep phone and message enquiries separate from public comments.</li>
-              <li>Review the source list with the monthly report.</li>
+              <li>Before scheduling, record the episode URL, Related video and Short description line.</li>
+              <li>At launch, set the Instagram bio, Facebook link or first comment, and Story link sticker.</li>
+              <li>After launch, check the live route and review traffic sources at 28 days.</li>
             </ul>
-            <p className={styles.actionMeta}>Owner: Maria + reception · Review: September month-end</p>
+            <p className={styles.actionMeta}>Owner: The Dot + Anastasia · Review: 28 days after episode 3</p>
           </article>
         </div>
       </section>
