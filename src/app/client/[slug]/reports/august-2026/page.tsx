@@ -194,9 +194,9 @@ export default async function AugustReport({ params }: { params: Promise<{ slug:
             <p><strong>So what:</strong> publish the full employer explanation as a LinkedIn document. Use a separate Reel on Instagram and Facebook only when it can answer one clear question, rather than copying the LinkedIn post.</p>
           </article>
           <article className={styles.finding}>
-            <h3>Rebuild the path from Short to full episode</h3>
+            <h3>Document and measure the existing episode route</h3>
             <p>Most episode views arrived from links and Shorts, not from YouTube showing the episode thumbnail on its own. That flow was strongest in July&apos;s launch period. When YouTube did show the episode thumbnails at launch, click-through was steady: 3.88% for episode 1 and 3.48% for episode 2.</p>
-            <p><strong>So what:</strong> use a checkable route for every episode cut: the Related video in YouTube, the episode URL in description line 2, the Instagram bio link, a Facebook post link or first comment, and a Story link sticker. Titles and thumbnails are tested only after exact variants are approved.</p>
+            <p><strong>So what:</strong> every Kanset Talks cut already links to its full episode. For the next launch, record and verify that existing route: the Related video in YouTube, the episode URL in description line 2, the Instagram bio link, a Facebook post link or first comment, and a Story link sticker. Then read traffic sources at 28 days. Titles and thumbnails are tested only after exact variants are approved.</p>
           </article>
         </div>
       </section>
@@ -246,10 +246,10 @@ export default async function AugustReport({ params }: { params: Promise<{ slug:
             <p className={styles.actionMeta}>Owner: The Dot · Review: September month-end</p>
           </article>
           <article>
-            <h3>Verify the route to each episode</h3>
+            <h3>Document the existing episode route</h3>
             <ul>
               <li>Before scheduling, record the episode URL, Related video and Short description line.</li>
-              <li>At launch, set the Instagram bio, Facebook link or first comment, and Story link sticker.</li>
+              <li>At launch, confirm the existing Instagram bio, Facebook link or first comment, and Story link sticker.</li>
               <li>After launch, check the live route and review traffic sources at 28 days.</li>
             </ul>
             <p className={styles.actionMeta}>Owner: The Dot + Anastasia · Review: 28 days after episode 3</p>
