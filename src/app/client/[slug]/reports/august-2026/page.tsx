@@ -184,9 +184,9 @@ export default async function AugustReport({ params }: { params: Promise<{ slug:
         <h2 id="findings">What the numbers say</h2>
         <div className={styles.findings}>
           <article className={styles.finding}>
-            <h3>Use existing question-led video when it fits</h3>
-            <p>Across August posts with at least 14 days to collect views, on-camera Instagram content averaged 126 reached accounts per post. Animated content averaged 75 and carousels averaged 29. Facebook retention pointed the same way: 17% for on-camera video versus 10% for animated video.</p>
-            <p><strong>So what:</strong> when Maria or Mary already answers the week&apos;s question on camera, use that existing cut as the Reel. Keep animated reels for an update that needs a date, number or comparison on screen. This is a September test, not a permanent mix change.</p>
+            <h3>Keep the filmed-answer lane, then test it</h3>
+            <p>We were already publishing Ask Kanset and episode cuts when a recorded answer fit the week&apos;s question. Across August posts with at least 14 days to collect views, on-camera Instagram content averaged 126 reached accounts per post. Animated content averaged 75 and carousels averaged 29. Facebook retention pointed the same way: 17% for on-camera video versus 10% for animated video.</p>
+            <p><strong>So what:</strong> keep scheduling the relevant approved Q&amp;A or episode cut. The new step is one crossover test: answer one comparable question as an animated Reel, then compare it with a filmed answer at the same 14-day age. That tells us whether the advantage belongs to the question or to the filmed format.</p>
           </article>
           <article className={styles.finding}>
             <h3>Move employer documents to LinkedIn</h3>
