@@ -224,6 +224,18 @@ export default async function AugustReport({ params }: { params: Promise<{ slug:
         </div>
       </section>
 
+      <section className={styles.section} aria-labelledby="episode-four">
+        <h2 id="episode-four">Recommended topic for Kanset Talks episode 4</h2>
+        <p className={styles.context}>A strategic proposal from this early topic read. It is not a scheduled recording.</p>
+        <div className={styles.findings}>
+          <article className={styles.finding}>
+            <h3>Work permits in Canada in 2026: all you need to know</h3>
+            <p>One useful episode for people applying for their first work permit, employers hiring a foreign worker, and people whose job, location or permit is changing. It brings together the employer and employee questions that are showing the strongest early attention.</p>
+            <p><strong>Opening frame:</strong> Apply? Hire? Change jobs? Maria and Mary can explain the questions to check first, then make clear that the answer depends on the person&apos;s permit and facts.</p>
+          </article>
+        </div>
+      </section>
+
       <section className={styles.section} aria-labelledby="actions">
         <h2 id="actions">September actions</h2>
         <div className={styles.actions}>
