@@ -9,8 +9,13 @@ const DAY_MS = 24 * 60 * 60 * 1000
 function dateOnly(value: string): Date | null {
   const iso = value.slice(0, 10)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null
+  const [year, month, day] = iso.split('-').map(Number)
   const date = new Date(`${iso}T12:00:00Z`)
-  return Number.isNaN(date.getTime()) ? null : date
+  if (Number.isNaN(date.getTime())
+      || date.getUTCFullYear() !== year
+      || date.getUTCMonth() + 1 !== month
+      || date.getUTCDate() !== day) return null
+  return date
 }
 
 function isoOf(date: Date): string {
@@ -45,14 +50,19 @@ export function planHeadsUp(weekStart: string, todayIso: string): PlanHeadsUp | 
   const deadline = new Date(start.getTime() - 3 * DAY_MS)
   const deadlineIso = isoOf(deadline)
   const deadlinePassed = today.getTime() > deadline.getTime()
+  const weekStarted = today.getTime() >= start.getTime()
   const startLabel = shortDate(start)
   const deadlineLabel = shortDate(deadline)
   if (deadlinePassed) {
     return {
       deadlineIso,
       deadlinePassed,
-      sentence: `This week is running as planned from ${startLabel}. Each piece still comes to you for approval before it posts.`,
-      short: `Running as planned from ${startLabel}. Each piece still comes to you for approval.`,
+      sentence: weekStarted
+        ? `This week is running as planned from ${startLabel}. Each piece still comes to you for approval before it posts.`
+        : `The week will run as planned from ${startLabel}. Each piece still comes to you for approval before it posts.`,
+      short: weekStarted
+        ? `Running as planned from ${startLabel}. Each piece still comes to you for approval.`
+        : `Runs as planned from ${startLabel}. Each piece still comes to you for approval.`,
     }
   }
   return {
