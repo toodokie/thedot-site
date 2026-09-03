@@ -219,6 +219,14 @@
   font-style: italic;
 }
 .decisionOpen { margin: 22px 0 0; }
+.headsUp {
+  margin: 0 0 20px;
+  padding: 14px 16px;
+  border-left: 3px solid var(--dot-yellow);
+  background: var(--dot-yellow-pale);
+}
+.headsUp p { margin: 0; }
+.headsUp p + p { margin-top: 6px; }
 
 @media (max-width: 760px) {
   .wrap { padding: 4px 0 64px; }

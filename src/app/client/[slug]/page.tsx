@@ -14,6 +14,7 @@ import { reReviewContext } from '@/lib/portal/re-review'
 import { getCurrentReviewAssetsByItem } from '@/lib/portal/review-assets'
 import { contentReviewPackageReadiness } from '@/lib/portal/podcast-review'
 import { formatPlannedReviewDate } from '@/lib/portal/planned-review-date'
+import { planHeadsUp, shortMonthDay } from '@/lib/portal/plan-heads-up'
 import WeekCalendar, { type WeekCalendarChip } from '@/components/portal/WeekCalendar'
 import MarkSeen from './MarkSeen'
 import { Eyebrow, Heading, Text, Button, Dot } from '@thedot/design-system'
@@ -213,15 +214,23 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
               label="Waiting on review"
               note="Review fact-checked copy now. Final approval stays closed until its design is linked."
             >
-              {openPlans.map(({ cycle }) => (
-                <Link key={cycle.id} className={styles.row} href={`/client/${encodeURIComponent(slug)}/plan`}>
-                  <span className={styles.marker}><Dot fill="yellow" size={8} /></span>
-                  <span className={styles.rowMain}>
-                    <Text as="span" size="md" tone="black">{cycle.title}</Text>
-                    <span className={styles.chipRow}><span className={styles.chip}>content plan</span><span className={styles.chip}>week of {cycle.week_start}</span></span>
-                  </span>
-                </Link>
-              ))}
+              {openPlans.map(({ cycle }) => {
+                const headsUp = cycle.status === 'submitted' ? planHeadsUp(cycle.week_start, todayIso) : null
+                return (
+                  <Link key={cycle.id} className={styles.row} href={`/client/${encodeURIComponent(slug)}/plan`}>
+                    <span className={styles.marker}><Dot fill="yellow" size={8} /></span>
+                    <span className={styles.rowMain}>
+                      <Text as="span" size="md" tone="black">{cycle.title}</Text>
+                      <span className={styles.chipRow}>
+                        <span className={styles.chip}>content plan</span>
+                        <span className={styles.chip}>week of {shortMonthDay(cycle.week_start)}</span>
+                        <span className={styles.chip}>{cycle.status === 'submitted' ? 'your approval welcome' : cycle.status.replaceAll('_', ' ')}</span>
+                      </span>
+                      {headsUp && <Text as="span" size="sm" tone="grey">{headsUp.short}</Text>}
+                    </span>
+                  </Link>
+                )
+              })}
               {awaitingProposals.map((proposal) => <Link key={proposal.id} className={styles.row}
                 href={`/client/${encodeURIComponent(slug)}/requests/proposals/${encodeURIComponent(proposal.proposal_key)}`}>
                 <span className={styles.marker}><Dot fill="yellow" size={8} /></span><span className={styles.rowMain}>

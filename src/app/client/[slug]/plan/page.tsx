@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation'
 import { getClientSession } from '@/lib/portal/auth'
 import { getSchedule, statusAccent, belongsOnPlanSurface, type ScheduleRow } from '@/lib/portal/schedule'
 import { getOpenPlanCycles, getPlanCycleDecisions, getUpcomingPlanCycles, type PlanCycleItem } from '@/lib/portal/plan-cycle'
+import { torontoToday } from '@/lib/portal/plan-cycle-selection'
+import { planHeadsUp } from '@/lib/portal/plan-heads-up'
 import { getContent, type ContentRow } from '@/lib/portal/data'
 import { Eyebrow, Heading, Text } from '@thedot/design-system'
 import PlanDecideForm from './PlanDecideForm'
@@ -106,6 +108,7 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
   const planHref = (r: ScheduleRow) =>
     `/client/${encodeURIComponent(slug)}/plan/${encodeURIComponent(r.content_id)}`
   const approvalCycles = openCycles.filter(({ cycle }) => cycle.status === 'submitted')
+  const todayIso = torontoToday()
 
   const renderRow = (r: ScheduleRow) => (
     <Link key={r.id} href={planHref(r)} className={styles.row}>
@@ -143,7 +146,7 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
           <Eyebrow tone="grey">Needs your decision</Eyebrow>
           <Heading level={3} as="h2">{approvalCycles.length} {approvalCycles.length === 1 ? 'plan is' : 'plans are'} waiting for you</Heading>
           <Text size="md" tone="graphite">
-            Approve each week separately. Start with the earliest week, or open any piece for more detail before deciding.
+            Approve each week separately, or request changes. Each week runs as planned from its Monday unless we hear from you by the Friday before, and every piece still comes to you for approval before it posts.
           </Text>
           <nav className={styles.approvalQueueLinks} aria-label="Plans awaiting approval">
             {approvalCycles.map(({ cycle }) => (
@@ -155,6 +158,7 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
 
       {openCycles.map(({ cycle, items: cycleItems }) => {
         const lastChangeNote = decisionsByCycle.get(cycle.id)?.find((d) => d.decision === 'change_requested')?.note ?? null
+        const headsUp = cycle.status === 'submitted' ? planHeadsUp(cycle.week_start, todayIso) : null
         return <section key={cycle.id} id={`plan-cycle-${cycle.id}`} className={styles.cycleCard} aria-label={`Plan awaiting review: ${cycle.title}`}>
           <div className={styles.cycleHead}>
             <Heading level={2}>{cycle.title}</Heading>
@@ -164,7 +168,7 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
                   : styles.statusOpen}`}>
               {cycle.status === 'approved' ? 'Approved'
                 : cycle.status === 'change_requested' ? 'Changes requested'
-                  : 'Awaiting your approval'}
+                  : 'Open for your approval'}
             </span>
           </div>
           <div className={styles.cycleMeta}>
@@ -174,13 +178,16 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
           </div>
           <div className={styles.cycleSummary}><Text size="md" tone="graphite">{cycle.direction_summary}</Text></div>
 
-          {session.canDecide && cycle.status === 'submitted' && (
-            <div className={styles.primaryDecision}>
-              <div className={styles.primaryDecisionCopy}>
-                <Text as="p" size="md" tone="black">Happy with this week&rsquo;s direction?</Text>
-                <Text as="p" size="sm" tone="graphite">Approve now, or review the pieces below for more detail.</Text>
-              </div>
-              <PlanDecideForm slug={slug} cycleId={cycle.id} revision={cycle.revision} mode="approve" />
+          {cycle.status === 'submitted' && headsUp && (
+            <div className={styles.headsUp} role="note" aria-label="What happens if you do not decide">
+              <Text as="p" size="md" tone="black">{headsUp.sentence}</Text>
+              {session.canDecide && (
+                <Text as="p" size="sm" tone="graphite">
+                  {headsUp.deadlinePassed
+                    ? 'You can still request changes below.'
+                    : 'Approve at the bottom of this card to confirm, or request changes.'}
+                </Text>
+              )}
             </div>
           )}
 
@@ -203,7 +210,7 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
             </div>
           ) : session.canDecide ? (
             <div className={styles.decisionOpen}>
-              <Text as="p" size="md" tone="black">Finished reviewing? Approve this plan, or open a change request and tell me what needs adjusting.</Text>
+              <Text as="p" size="md" tone="black">Finished reviewing? Approve this plan to confirm it, or open a change request and tell me what needs adjusting.</Text>
               <PlanDecideForm slug={slug} cycleId={cycle.id} revision={cycle.revision} />
             </div>
           ) : (
