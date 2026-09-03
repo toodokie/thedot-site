@@ -26,7 +26,7 @@ function harness(options: { changedPaths?: string; remoteAfterFetch?: string } =
       if (command === 'rev-parse --verify HEAD') return `${COMMIT}\n`
       if (command === 'rev-parse --verify HEAD^') return `${BASE}\n`
       if (command === 'diff-tree --no-commit-id --name-only -r HEAD') return `${options.changedPaths ?? 'piece.md'}\n`
-      if (['fetch --quiet origin refs/heads/main:refs/remotes/origin/main',
+      if (['fetch --quiet origin +refs/heads/main:refs/remotes/origin/main',
         'clone --quiet --no-hardlinks --no-checkout -- /canonical /tmp/checkout',
         'remote set-url origin git@github.com:the-dot/kanset-content.git',
         `checkout --quiet --detach ${BASE}`,
@@ -66,6 +66,16 @@ describe('canonical reconciliation checkout', () => {
       cwd: '/tmp/checkout',
       args: ['push', 'origin', 'HEAD:refs/heads/main'],
     })
+    expect(test.calls.filter(({ args }) => args[0] === 'fetch')).toEqual([
+      {
+        cwd: '/canonical',
+        args: ['fetch', '--quiet', 'origin', '+refs/heads/main:refs/remotes/origin/main'],
+      },
+      {
+        cwd: '/tmp/checkout',
+        args: ['fetch', '--quiet', 'origin', '+refs/heads/main:refs/remotes/origin/main'],
+      },
+    ])
     expect(test.calls.some(({ args }) => args.includes('--force'))).toBe(false)
 
     checkout.dispose()
