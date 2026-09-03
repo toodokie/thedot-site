@@ -105,7 +105,7 @@ export function createCanonicalReconciliationCheckout(
     throw new Error('Canonical Git origin does not match PORTAL_CONTENT_EXPECTED_REMOTE')
   }
   const branch = upstreamBranch(git, sourceDirectory)
-  const remoteTrackingRefspec = `refs/heads/${branch}:refs/remotes/origin/${branch}`
+  const remoteTrackingRefspec = `+refs/heads/${branch}:refs/remotes/origin/${branch}`
   runGit(
     git,
     sourceDirectory,
