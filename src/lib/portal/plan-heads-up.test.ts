@@ -18,8 +18,17 @@ describe('plan heads-up line', () => {
     expect(planHeadsUp('2026-09-07', '2026-09-04')?.deadlinePassed).toBe(false)
   })
 
-  it('switches to the running wording once the deadline has passed', () => {
+  it('uses future wording after the deadline but before the week starts', () => {
     const result = planHeadsUp('2026-09-07', '2026-09-05')
+    expect(result?.deadlinePassed).toBe(true)
+    expect(result?.sentence).toBe(
+      'The week will run as planned from Mon Sep 7. Each piece still comes to you for approval before it posts.',
+    )
+    expect(result?.short).toBe('Runs as planned from Mon Sep 7. Each piece still comes to you for approval.')
+  })
+
+  it('switches to the running wording once the week has started', () => {
+    const result = planHeadsUp('2026-09-07', '2026-09-07')
     expect(result?.deadlinePassed).toBe(true)
     expect(result?.sentence).toBe(
       'This week is running as planned from Mon Sep 7. Each piece still comes to you for approval before it posts.',
@@ -30,6 +39,7 @@ describe('plan heads-up line', () => {
   it('returns null for an unusable week start', () => {
     expect(planHeadsUp('not-a-date', '2026-09-02')).toBeNull()
     expect(planHeadsUp('2026-09-07', 'nope')).toBeNull()
+    expect(planHeadsUp('2026-02-30', '2026-09-02')).toBeNull()
   })
 
   it('formats a chip date as month and day', () => {
