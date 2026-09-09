@@ -28,7 +28,8 @@
     "portal-history": "tsx scripts/import-portal-history.ts",
     "sync-content": "tsx scripts/sync-content-to-supabase.ts",
     "sync-content:fixtures": "PORTAL_CONTENT_DIR=content/portal tsx scripts/sync-content-to-supabase.ts",
-    "preinstall": "npx only-allow pnpm"
+    "preinstall": "npx only-allow pnpm",
+    "portal-ship": "tsx scripts/portal-ship.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.3",
