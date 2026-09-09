@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  resolveAdoptedCandidateCommit,
   resolveReleasedCanonicalSource,
   resolveReleasedCanonicalSourceForPreparedCandidate,
 } from './canonical-provenance'
@@ -133,5 +134,75 @@ describe('prepared canonical candidate provenance', () => {
       sourcePath: PATH,
       preparedCandidateRaw: 'approved candidate\n',
     })).toThrow(/does not exactly match/)
+  })
+})
+
+const RECORDED = '5'.repeat(40)
+
+function adoptionReader(options: {
+  headRaw?: string
+  recordedRaw?: string
+  recordedReachable?: boolean
+  recordedExists?: boolean
+}) {
+  return (args: string[]) => {
+    const command = args.join(' ')
+    if (command === `rev-parse ${HEAD}`) return HEAD
+    if (command === `show ${HEAD}:${PATH}`) return options.headRaw ?? 'approved candidate'
+    if (command === `show ${RECORDED}:${PATH}`) {
+      if (options.recordedExists === false) throw new Error('bad object')
+      return options.recordedRaw ?? 'approved candidate'
+    }
+    if (command === `merge-base --is-ancestor ${RECORDED} ${HEAD}`) {
+      if (options.recordedReachable === false) throw new Error('not an ancestor')
+      return ''
+    }
+    throw new Error(`unexpected git command: ${command}`)
+  }
+}
+
+describe('adopted candidate commit', () => {
+  const base = { canonicalBaseRef: HEAD, sourcePath: PATH, candidateRaw: 'approved candidate\n' }
+
+  it('adopts the recorded working commit when it is reachable and byte-identical', () => {
+    expect(resolveAdoptedCandidateCommit({
+      ...base, git: adoptionReader({}), recordedWorkingCommitSha: RECORDED,
+    })).toEqual({ commit: RECORDED, adoptedRecordedProvenance: true })
+  })
+
+  it('reports the head when no working commit is recorded yet', () => {
+    expect(resolveAdoptedCandidateCommit({
+      ...base, git: adoptionReader({}), recordedWorkingCommitSha: null,
+    })).toEqual({ commit: HEAD, adoptedRecordedProvenance: false })
+  })
+
+  it('reports the head when the recorded commit is unreachable from canonical history', () => {
+    expect(resolveAdoptedCandidateCommit({
+      ...base, git: adoptionReader({ recordedReachable: false }), recordedWorkingCommitSha: RECORDED,
+    })).toEqual({ commit: HEAD, adoptedRecordedProvenance: false })
+  })
+
+  it('reports the head when the recorded commit holds different bytes', () => {
+    expect(resolveAdoptedCandidateCommit({
+      ...base, git: adoptionReader({ recordedRaw: 'stale bytes' }), recordedWorkingCommitSha: RECORDED,
+    })).toEqual({ commit: HEAD, adoptedRecordedProvenance: false })
+  })
+
+  it('reports the head when the recorded commit is missing from the checkout', () => {
+    expect(resolveAdoptedCandidateCommit({
+      ...base, git: adoptionReader({ recordedExists: false }), recordedWorkingCommitSha: RECORDED,
+    })).toEqual({ commit: HEAD, adoptedRecordedProvenance: false })
+  })
+
+  it('refuses when the canonical head does not hold the reviewed candidate', () => {
+    expect(() => resolveAdoptedCandidateCommit({
+      ...base, git: adoptionReader({ headRaw: 'different bytes' }), recordedWorkingCommitSha: RECORDED,
+    })).toThrow(/does not match the reviewed package candidate/)
+  })
+
+  it('ignores a recorded commit that is already the canonical head', () => {
+    expect(resolveAdoptedCandidateCommit({
+      ...base, git: adoptionReader({}), recordedWorkingCommitSha: HEAD,
+    })).toEqual({ commit: HEAD, adoptedRecordedProvenance: false })
   })
 })

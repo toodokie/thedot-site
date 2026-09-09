@@ -12,6 +12,7 @@ import {
 } from '../src/lib/portal/canonical-request-reconciler'
 import { createCanonicalReconciliationCheckout } from '../src/lib/portal/canonical-reconciliation-checkout'
 import {
+  resolveAdoptedCandidateCommit,
   resolveReleasedCanonicalSource,
   resolveReleasedCanonicalSourceForPreparedCandidate,
 } from '../src/lib/portal/canonical-provenance'
@@ -183,6 +184,12 @@ function validateEditPackageCandidate(
   }
   return candidate
 }
+async function recordedWorkingCommit(clientId:string,contentId:string,baseVersion:number,sourcePath:string){
+  const {data}=await admin.from('content_item_versions').select('source_path,source_commit_sha')
+    .eq('content_item_id',contentId).eq('client_id',clientId).eq('version',baseVersion+1).maybeSingle()
+  if(!data||data.source_path!==sourcePath) return null
+  return data.source_commit_sha??null
+}
 async function reconcileEdit(client:{id:string;slug:string},requestId:string,apply:boolean,candidatePath:string|null){
   const request=await changeRequest(client.id,requestId)
   if(request.request_type!=='edit'||!request.content_id||!request.base_version)throw new Error('request is not an edit')
@@ -243,10 +250,13 @@ async function reconcileEdit(client:{id:string;slug:string},requestId:string,app
     git(dir,['add','--',snapshot.source_path]);git(dir,['commit','-m',`Apply portal edit request ${request.id}`],'inherit')
     commit=canonical.push(snapshot.source_path)
   }else{
-    commit=git(dir,['rev-parse','HEAD'])
-    if(git(dir,['show',`${commit}:${snapshot.source_path}`])!==candidateRaw.trimEnd())
-      throw new Error('Unchanged canonical file does not match the reviewed package candidate')
-    console.log(`Adopting already committed package candidate at ${commit}.`)
+    const adopted=resolveAdoptedCandidateCommit({git:(args)=>git(dir,args),canonicalBaseRef:'HEAD',
+      sourcePath:snapshot.source_path,candidateRaw,
+      recordedWorkingCommitSha:await recordedWorkingCommit(client.id,request.content_id,request.base_version,snapshot.source_path)})
+    commit=adopted.commit
+    console.log(adopted.adoptedRecordedProvenance
+      ?`Adopting already committed package candidate at its recorded provenance commit ${commit}.`
+      :`Adopting already committed package candidate at ${commit}.`)
   }
   const synced=await admin.rpc('sync_content_item_versions',{p_items:[syncRow(parsed,client.id,commit)]})
   if(synced.error)throw new Error(synced.error.message)
@@ -330,10 +340,13 @@ async function reconcileEditBundle(
     git(dir,['add','--',snapshot.source_path]);git(dir,['commit','-m',`Apply portal edit requests ${requests.map((request)=>request.id).join(', ')}`],'inherit')
     commit=canonical.push(snapshot.source_path)
   }else{
-    commit=git(dir,['rev-parse','HEAD'])
-    if(git(dir,['show',`${commit}:${snapshot.source_path}`])!==candidateRaw.trimEnd())
-      throw new Error('Unchanged canonical file does not match the reviewed package candidate')
-    console.log(`Adopting already committed package candidate at ${commit}.`)
+    const adopted=resolveAdoptedCandidateCommit({git:(args)=>git(dir,args),canonicalBaseRef:'HEAD',
+      sourcePath:snapshot.source_path,candidateRaw,
+      recordedWorkingCommitSha:await recordedWorkingCommit(client.id,lead.content_id,lead.base_version,snapshot.source_path)})
+    commit=adopted.commit
+    console.log(adopted.adoptedRecordedProvenance
+      ?`Adopting already committed package candidate at its recorded provenance commit ${commit}.`
+      :`Adopting already committed package candidate at ${commit}.`)
   }
   const synced=await admin.rpc('sync_content_item_versions',{p_items:[syncRow(parsed,client.id,commit)]})
   if(synced.error) throw new Error(synced.error.message)

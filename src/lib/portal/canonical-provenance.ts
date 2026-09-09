@@ -75,3 +75,55 @@ export function resolveReleasedCanonicalSourceForPreparedCandidate(options: {
     return { ...released, adoptedPreparedCandidate: true }
   }
 }
+
+export type AdoptedCandidateCommit = {
+  commit: string
+  adoptedRecordedProvenance: boolean
+}
+
+/**
+ * Choose the commit a reconciliation should report when the reviewed candidate is already
+ * committed and the canonical working tree is unchanged.
+ *
+ * `sync_content_item_versions` returns `exact_retry` for an identical re-sync and never
+ * refreshes `source_commit_sha`, so a working version keeps the commit that first introduced
+ * it. The prepared-reconciliation boundaries then require the reported commit to equal that
+ * recorded commit. Reporting the canonical head instead makes the two permanently
+ * irreconcilable once a squash merge or an ancestry repair moves the head past that commit.
+ *
+ * The recorded commit is adopted only when it is reachable from the canonical head and its
+ * bytes for this exact path equal the reviewed candidate. Anything else falls back to the
+ * head, so a genuine mismatch is still refused by the database boundary.
+ */
+export function resolveAdoptedCandidateCommit(options: {
+  git: CanonicalGitReader
+  canonicalBaseRef: string
+  sourcePath: string
+  candidateRaw: string
+  recordedWorkingCommitSha: string | null
+}): AdoptedCandidateCommit {
+  const { git, canonicalBaseRef, sourcePath, candidateRaw, recordedWorkingCommitSha } = options
+  const head = git(['rev-parse', canonicalBaseRef])
+  const expected = candidateRaw.trimEnd()
+  if (git(['show', `${head}:${sourcePath}`]) !== expected) {
+    throw new Error('Unchanged canonical file does not match the reviewed package candidate')
+  }
+  if (!recordedWorkingCommitSha
+    || !/^[0-9a-f]{40}$/.test(recordedWorkingCommitSha)
+    || recordedWorkingCommitSha === head) {
+    return { commit: head, adoptedRecordedProvenance: false }
+  }
+  try {
+    git(['merge-base', '--is-ancestor', recordedWorkingCommitSha, head])
+  } catch {
+    return { commit: head, adoptedRecordedProvenance: false }
+  }
+  let recordedRaw: string
+  try {
+    recordedRaw = git(['show', `${recordedWorkingCommitSha}:${sourcePath}`])
+  } catch {
+    return { commit: head, adoptedRecordedProvenance: false }
+  }
+  if (recordedRaw !== expected) return { commit: head, adoptedRecordedProvenance: false }
+  return { commit: recordedWorkingCommitSha, adoptedRecordedProvenance: true }
+}
