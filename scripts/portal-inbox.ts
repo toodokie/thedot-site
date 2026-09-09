@@ -16,7 +16,7 @@ import {
   resolveReleasedCanonicalSource,
   resolveReleasedCanonicalSourceForPreparedCandidate,
 } from '../src/lib/portal/canonical-provenance'
-import { parseContentFile, type ParsedContent } from '../src/lib/portal/frontmatter'
+import { assertProducerDeclared, parseContentFile, type ParsedContent } from '../src/lib/portal/frontmatter'
 
 loadEnvConfig(process.cwd())
 const url=process.env.NEXT_PUBLIC_SUPABASE_URL; const key=process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -89,7 +89,7 @@ function printSafePackageDiff(before:ParsedContent,after:ParsedContent){
   if(before.fact_check_exemption!==after.fact_check_exemption)
     console.log('\nRelease exemption note changed and will be rechecked at release.')
 }
-function syncRow(parsed:ParsedContent,clientId:string,commit:string){return {content_id:parsed.content_id,
+function syncRow(parsed:ParsedContent,clientId:string,commit:string){assertProducerDeclared(parsed,parsed.source_path);return {content_id:parsed.content_id,
   client_id:clientId,title:parsed.title,producer:parsed.producer,calendar_note:parsed.calendar_note,
   format:parsed.format,pillar:parsed.pillar,platforms:parsed.platforms,
   planned_date:parsed.scheduled_date,canva_url:parsed.canva_url,drive_url:parsed.drive_url,version:parsed.version,

@@ -3,7 +3,7 @@ loadEnvConfig(process.cwd())
 import { createClient } from '@supabase/supabase-js'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { parseContentFile } from '../src/lib/portal/frontmatter'
+import { assertProducerDeclared, parseContentFile } from '../src/lib/portal/frontmatter'
 import { inspectCanonicalContentRoot, type SyncMode } from '../src/lib/portal/canonical-content-root'
 
 // LIMITATION (deliberately deferred): this sync is upsert-only. Deleting a source `.md` file does
@@ -32,7 +32,11 @@ async function main() {
 
   // Parse everything first: any parse error stops the run before a single DB write.
   const parsed = inspection.files.map((file) =>
-    parseContentFile(readFileSync(file.absolutePath, 'utf8'), file.sourcePath))
+    (() => {
+      const parsed = parseContentFile(readFileSync(file.absolutePath, 'utf8'), file.sourcePath)
+      assertProducerDeclared(parsed, file.sourcePath)
+      return parsed
+    })())
 
   // Reject duplicate (client, content_id) across files (otherwise the last file silently wins).
   // content_id is unique PER CLIENT now, so the same content_id may legitimately repeat across

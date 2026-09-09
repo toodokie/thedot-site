@@ -385,3 +385,22 @@ export function parseContentFile(raw: string, sourcePath: string): ParsedContent
   assertClientSafeContent(parsed, sourcePath)
   return parsed
 }
+
+/**
+ * A canonical piece must declare its producer.
+ *
+ * `producer` is optional in the schema for legacy rows, but a released version without it
+ * cannot be courtesy-released: record_content_courtesy_release requires producer 'the_dot'
+ * (migration 0060), and publication evidence in turn requires either a client approval or a
+ * courtesy release (migration 0044). A piece synced without a producer therefore looks fine
+ * until the moment its posting proof needs to be recorded, and the only repair is a fresh
+ * metadata-only version. Refuse at sync time instead, where the fix is one frontmatter line.
+ */
+export function assertProducerDeclared(parsed: Pick<ParsedContent, 'producer'>, sourcePath: string): void {
+  if (!parsed.producer) {
+    throw new Error(
+      `Canonical ${sourcePath} must declare producer (the_dot or studio). `
+      + 'Without it the piece cannot be courtesy-released and its publication evidence cannot be recorded.',
+    )
+  }
+}

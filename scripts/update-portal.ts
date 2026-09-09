@@ -28,7 +28,7 @@ import { execFileSync } from 'node:child_process'
 import { appendFileSync, existsSync, readFileSync, readdirSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, isAbsolute, join, resolve } from 'node:path'
-import { parseContentFile, type ParsedContent } from '../src/lib/portal/frontmatter'
+import { assertProducerDeclared, parseContentFile, type ParsedContent } from '../src/lib/portal/frontmatter'
 import { inspectCanonicalContentRoot, type CanonicalContentInspection } from '../src/lib/portal/canonical-content-root'
 import { acquirePieceLock } from '../src/lib/portal/update-portal-lock'
 import {
@@ -132,6 +132,7 @@ function clearPendingMarker(contentId: string): void {
 }
 
 function toRow(parsed: ParsedContent, clientId: string, sourcePath: string, sourceCommitSha: string | null) {
+  assertProducerDeclared(parsed, sourcePath)
   return {
     content_id: parsed.content_id, client_id: clientId, title: parsed.title, producer: parsed.producer,
     calendar_note: parsed.calendar_note, format: parsed.format, pillar: parsed.pillar, platforms: parsed.platforms,

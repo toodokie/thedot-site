@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseContentFile } from './frontmatter'
+import { assertProducerDeclared, parseContentFile } from './frontmatter'
 
 const requiredLedger = `fact_check: confirmed
 fact_check_scope: required
@@ -248,5 +248,22 @@ Kanset Talks, Canadian immigration`)
     expect(() => parseContentFile(document().replace('claim: "OINP Employer Job Offer streams require an eligible Ontario job offer."', `claim: "${'x'.repeat(501)}"`), 'p.md')).toThrow(/claim/)
     const badExemption = document().replace(requiredLedger, 'fact_check: confirmed\nfact_check_scope: not_applicable\nfact_check_exemption: short\nfact_check_ledger: []')
     expect(() => parseContentFile(badExemption, 'p.md')).toThrow(/10-300/)
+  })
+})
+
+describe('assertProducerDeclared', () => {
+  it('accepts a declared producer', () => {
+    expect(() => assertProducerDeclared({ producer: 'the_dot' }, 'piece.md')).not.toThrow()
+    expect(() => assertProducerDeclared({ producer: 'studio' }, 'piece.md')).not.toThrow()
+  })
+
+  it('refuses a canonical piece with no producer, naming the file', () => {
+    expect(() => assertProducerDeclared({ producer: null }, 'kanset-piece.md'))
+      .toThrow(/kanset-piece\.md must declare producer/)
+  })
+
+  it('explains why it matters, so the refusal is actionable', () => {
+    expect(() => assertProducerDeclared({ producer: null }, 'piece.md'))
+      .toThrow(/courtesy-released.*publication evidence/)
   })
 })
