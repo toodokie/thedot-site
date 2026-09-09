@@ -29,8 +29,16 @@ export type ShipItemState = {
   archived: boolean
 }
 
-export type ShipCanonical = {
-  exists: boolean
+/**
+ * The RELEASED BASE as committed in git, never the working file on disk.
+ *
+ * The reconciler generates the new version from the released bytes at the base version's commit
+ * and applies Maria's patches to those. Metadata that is only present in the working copy never
+ * reaches the generated version, so a preflight that reads the working file can pass and then
+ * fail mid-run.
+ */
+export type ShipReleasedBase = {
+  readable: boolean
   version: number | null
   producer: string | null
   scheduledDate: string | null
@@ -40,13 +48,15 @@ export type ShipInput = {
   contentId: string
   item: ShipItemState
   requests: ShipRequest[]
-  canonical: ShipCanonical
+  releasedBase: ShipReleasedBase
   /** Destinations the operator is confirming, with the exact public permalink for each. */
   links: Array<{ destination: ShipDestination; liveUrl: string }>
   /** Destinations that already carry a publication target on the version being released. */
   existingTargets: Array<{ destination: string; contentVersion: number }>
   /** True when the client has genuinely approved the version being released. */
   clientApprovedTargetVersion: boolean
+  /** True when an agency courtesy release is already on record for the target version. */
+  courtesyReleaseRecorded: boolean
 }
 
 export type ShipPlan = {
@@ -69,17 +79,22 @@ const OPEN_STATUSES = new Set(['pending', 'applying'])
 export function planShip(input: ShipInput): ShipPlan {
   const blockers: string[] = []
   const warnings: string[] = []
-  const { item, canonical, requests } = input
+  const { item, releasedBase, requests } = input
 
   if (item.archived) blockers.push('the piece is archived')
   if (item.clientVisibleVersion === null) {
     blockers.push('the piece has no released version, so there is nothing to ship against')
   }
-  if (!canonical.exists) blockers.push('the canonical file is missing')
+  if (!releasedBase.readable) {
+    blockers.push('the released base is not readable from the canonical repository, so its '
+      + 'provenance commit is unreachable and needs an ancestry repair first')
+  }
   // The producer field gates record_content_courtesy_release (0060), and without a courtesy
-  // release the publication writer refuses (0044). Catch it before anything is committed.
-  if (canonical.exists && !canonical.producer) {
-    blockers.push('the canonical file does not declare producer, so it cannot be courtesy-released')
+  // release the publication writer refuses (0044). The generated version inherits it from the
+  // released base, so adding it to the working file changes nothing.
+  if (releasedBase.readable && !releasedBase.producer) {
+    blockers.push('the released base does not declare producer, so the version generated from it '
+      + 'cannot be courtesy-released; that legacy piece needs a metadata version first')
   }
 
   const base = input.item.clientVisibleVersion ?? 0
@@ -117,13 +132,15 @@ export function planShip(input: ShipInput): ShipPlan {
   const targetVersion = open.length > 0 ? base + 1 : base
   const reconcile = open.length === 0 ? 'none' : open.length === 1 ? 'single' : 'bundle'
 
-  if (open.length > 0 && canonical.exists && canonical.version !== targetVersion) {
-    warnings.push(`canonical is v${canonical.version}; the reconciler will author v${targetVersion} from `
-      + 'the released base and Maria\'s submitted text')
+  if (open.length > 0) {
+    warnings.push(`the reconciler will author v${targetVersion} from the released base and `
+      + 'Maria\'s submitted text')
   }
-  if (canonical.exists && canonical.scheduledDate !== item.plannedDate) {
-    blockers.push(`canonical scheduled_date ${canonical.scheduledDate ?? 'missing'} does not match the `
-      + `portal planned date ${item.plannedDate ?? 'missing'}`)
+  // The generated version carries the base's date forward, and the reconciler refuses when that
+  // disagrees with the date the portal owns.
+  if (releasedBase.readable && releasedBase.scheduledDate !== item.plannedDate) {
+    blockers.push(`the released base has scheduled_date ${releasedBase.scheduledDate ?? 'missing'}, `
+      + `which does not match the portal planned date ${item.plannedDate ?? 'missing'}`)
   }
 
   if (input.links.length === 0) blockers.push('no permalinks were supplied')
@@ -157,7 +174,8 @@ export function planShip(input: ShipInput): ShipPlan {
     reconcile,
     reconcileRequestIds: open.map((r) => r.id),
     release: open.length > 0 || item.clientVisibleVersion !== targetVersion,
-    courtesyRelease: !input.clientApprovedTargetVersion,
+    // Re-running the close-out to attach a late permalink must not record a second override.
+    courtesyRelease: !input.clientApprovedTargetVersion && !input.courtesyReleaseRecorded,
     overrideDestinations,
     publishDestinations,
     blockers,

@@ -84,22 +84,33 @@ async function readState(slug: string, contentId: string, links: ShipInput['link
 
   const dir = process.env.PORTAL_CONTENT_DIR
   if (!dir) throw new Error('Missing PORTAL_CONTENT_DIR')
-  const canonicalPath = join(dir, `${contentId}.md`)
-  let canonical = { exists: false, version: null as number | null, producer: null as string | null, scheduledDate: null as string | null }
-  if (existsSync(canonicalPath)) {
-    const parsed = parseContentFile(readFileSync(canonicalPath, 'utf8'), `${contentId}.md`)
-    canonical = { exists: true, version: parsed.version, producer: parsed.producer, scheduledDate: parsed.scheduled_date }
-  }
 
   const base = (item.client_visible_version as number | null) ?? 0
   const open = requests.filter((r) => ['pending', 'applying'].includes(r.status)).length
   const targetVersion = open > 0 ? base + 1 : base
+  // Read the RELEASED BASE from git, not the working file: the reconciler generates the new
+  // version from these bytes, so metadata that only exists on disk never reaches it.
+  const { data: baseVersion } = await admin.from('content_item_versions')
+    .select('version,source_path,source_commit_sha')
+    .eq('client_id', client.id).eq('content_item_id', item.id).eq('version', base).maybeSingle()
+  let releasedBase = { readable: false, version: null as number | null, producer: null as string | null, scheduledDate: null as string | null }
+  if (baseVersion?.source_commit_sha && baseVersion.source_path) {
+    try {
+      const raw = execFileSync('git', ['-C', dir, 'show', `${baseVersion.source_commit_sha}:${baseVersion.source_path}`], { encoding: 'utf8' })
+      const parsed = parseContentFile(raw, baseVersion.source_path as string)
+      releasedBase = { readable: true, version: parsed.version, producer: parsed.producer, scheduledDate: parsed.scheduled_date }
+    } catch { /* unreachable provenance stays readable:false and is reported as a blocker */ }
+  }
+
   const { data: targets } = await admin.from('content_publication_targets')
     .select('destination,content_version').eq('client_id', client.id).eq('content_id', item.id)
   const { data: approvals } = await admin.from('approvals')
     .select('content_version,state,created_at').eq('client_id', client.id).eq('content_id', item.id)
     .eq('content_version', targetVersion).order('created_at', { ascending: false }).limit(1)
   const clientApproved = (approvals ?? [])[0]?.state === 'approved'
+  const { data: courtesy } = await admin.from('content_courtesy_releases')
+    .select('content_version').eq('client_id', client.id).eq('content_id', item.id)
+    .eq('content_version', targetVersion).limit(1)
 
   return {
     client,
@@ -116,12 +127,13 @@ async function readState(slug: string, contentId: string, links: ShipInput['link
         archived: item.archived_at != null,
       },
       requests,
-      canonical,
+      releasedBase,
       links,
       existingTargets: (targets ?? []).map((t) => ({
         destination: t.destination as string, contentVersion: t.content_version as number,
       })),
       clientApprovedTargetVersion: clientApproved,
+      courtesyReleaseRecorded: (courtesy ?? []).length > 0,
     } satisfies ShipInput,
   }
 }

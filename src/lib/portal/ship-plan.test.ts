@@ -11,7 +11,7 @@ const baseInput = (over: Partial<ShipInput> = {}): ShipInput => ({
     { id: 'r1', status: 'pending', blockKey: 'social-caption', targetKind: 'copy_block', baseVersion: 1 },
     { id: 'r2', status: 'pending', blockKey: 'video-script', targetKind: 'copy_block', baseVersion: 1 },
   ],
-  canonical: { exists: true, version: 1, producer: 'the_dot', scheduledDate: '2026-09-01' },
+  releasedBase: { readable: true, version: 1, producer: 'the_dot', scheduledDate: '2026-09-01' },
   links: [
     { destination: 'instagram', liveUrl: 'https://www.instagram.com/reel/AAA/' },
     { destination: 'facebook', liveUrl: 'https://www.facebook.com/share/r/BBB/' },
@@ -19,6 +19,7 @@ const baseInput = (over: Partial<ShipInput> = {}): ShipInput => ({
   ],
   existingTargets: [],
   clientApprovedTargetVersion: false,
+  courtesyReleaseRecorded: false,
   ...over,
 })
 
@@ -48,16 +49,28 @@ describe('planShip', () => {
     expect(plan.blockers).toEqual([])
   })
 
+  it('does not record a second override when one is already on file', () => {
+    const plan = planShip(baseInput({ requests: [], courtesyReleaseRecorded: true }))
+    expect(plan.courtesyRelease).toBe(false)
+  })
+
   it('skips the courtesy release when the client actually approved', () => {
     const plan = planShip(baseInput({ requests: [], clientApprovedTargetVersion: true }))
     expect(plan.courtesyRelease).toBe(false)
   })
 
-  it('refuses a canonical file with no producer, before anything is committed', () => {
+  it('refuses when the released base has no producer, before anything is committed', () => {
     const plan = planShip(baseInput({
-      canonical: { exists: true, version: 1, producer: null, scheduledDate: '2026-09-01' },
+      releasedBase: { readable: true, version: 1, producer: null, scheduledDate: '2026-09-01' },
     }))
-    expect(plan.blockers).toContainEqual(expect.stringContaining('does not declare producer'))
+    expect(plan.blockers).toContainEqual(expect.stringContaining('released base does not declare producer'))
+  })
+
+  it('refuses when the released base cannot be read from the repository', () => {
+    const plan = planShip(baseInput({
+      releasedBase: { readable: false, version: null, producer: null, scheduledDate: null },
+    }))
+    expect(plan.blockers).toContainEqual(expect.stringContaining('ancestry repair'))
   })
 
   it('names the shared-revision guard instead of failing halfway', () => {
@@ -84,11 +97,18 @@ describe('planShip', () => {
     expect(plan.blockers).toContainEqual(expect.stringContaining('conflicted'))
   })
 
-  it('refuses a stale canonical scheduled_date', () => {
+  it('refuses when the released base date disagrees with the portal date', () => {
     const plan = planShip(baseInput({
-      canonical: { exists: true, version: 1, producer: 'the_dot', scheduledDate: '2026-08-30' },
+      releasedBase: { readable: true, version: 1, producer: 'the_dot', scheduledDate: '2026-08-30' },
     }))
     expect(plan.blockers).toContainEqual(expect.stringContaining('does not match the portal planned date'))
+  })
+
+  it('refuses when the released base has no date at all', () => {
+    const plan = planShip(baseInput({
+      releasedBase: { readable: true, version: 1, producer: 'the_dot', scheduledDate: null },
+    }))
+    expect(plan.blockers).toContainEqual(expect.stringContaining('scheduled_date missing'))
   })
 
   it('refuses a non-https permalink and a duplicated destination', () => {
