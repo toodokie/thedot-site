@@ -55,7 +55,7 @@ describe('AgencyMonthCalendar data', () => {
       href: '/admin/portal/pieces/piece-1',
       title: 'A planned piece',
       meta: 'reel · employer',
-      accent: 'yellow',
+      accent: 'planning',
     })
   })
 
@@ -81,7 +81,7 @@ describe('AgencyMonthCalendar data', () => {
     })])
     expect(days['2026-07-27'][0]).toMatchObject({
       stateNote: 'Done',
-      accent: 'grey',
+      accent: 'published',
     })
   })
 

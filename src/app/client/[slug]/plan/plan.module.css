@@ -70,9 +70,9 @@
 }
 
 /* status accents on the date rule: yellow = planning, graphite = locked, grey = published */
-.accent_yellow { border-left-color: var(--dot-yellow); }
-.accent_graphite { border-left-color: var(--dot-graphite); }
-.accent_grey { border-left-color: var(--dot-grey); }
+.accent_planning { border-left-color: var(--dot-grey); }
+.accent_committed { border-left-color: var(--dot-yellow); }
+.accent_published { border-left-color: var(--dot-black); }
 
 .emptyRow {
   border-top: 1px solid var(--dot-hairline);

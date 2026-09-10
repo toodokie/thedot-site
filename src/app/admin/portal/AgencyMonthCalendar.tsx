@@ -6,10 +6,10 @@ import { stageDisplay } from './GatesAdmin'
 export type AgencyCalendarDays = Record<string, CalendarChip[]>
 
 function accentForStage(stage: ContentStage): CalendarChip['accent'] {
-  if (stage === 'done' || stage === 'posted_unverified' || stage === 'legacy') return 'grey'
+  if (stage === 'done' || stage === 'posted_unverified' || stage === 'legacy') return 'published'
   if (stage === 'approved' || stage === 'direction_approved'
-    || stage === 'scheduled' || stage === 'scheduled_partial') return 'graphite'
-  return 'yellow'
+    || stage === 'scheduled' || stage === 'scheduled_partial') return 'committed'
+  return 'planning'
 }
 
 export function buildAgencyCalendarDays(rows: AgencyPieceCalendarRow[]): AgencyCalendarDays {

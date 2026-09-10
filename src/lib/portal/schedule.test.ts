@@ -3,18 +3,18 @@ import { routesToPiecePage, belongsOnPlanSurface, statusAccent } from './schedul
 
 describe('calendar status accents', () => {
   it('renders verified publication states as Published', () => {
-    expect(statusAccent('live')).toBe('grey')
-    expect(statusAccent('partially_live')).toBe('grey')
+    expect(statusAccent('live')).toBe('published')
+    expect(statusAccent('partially_live')).toBe('published')
   })
 
   it('keeps approved and scheduled workflow states locked', () => {
-    expect(statusAccent('approved')).toBe('graphite')
-    expect(statusAccent('scheduled')).toBe('graphite')
+    expect(statusAccent('approved')).toBe('committed')
+    expect(statusAccent('scheduled')).toBe('committed')
   })
 
   it('keeps quiet and review-stage work in planning', () => {
-    expect(statusAccent('with_dot')).toBe('yellow')
-    expect(statusAccent('needs_review')).toBe('yellow')
+    expect(statusAccent('with_dot')).toBe('planning')
+    expect(statusAccent('needs_review')).toBe('planning')
   })
 })
 

@@ -22,7 +22,7 @@ function chip(id: string, title: string): CalendarChip {
     platforms: ['instagram'],
     stateNote: null,
     syncLabel: null,
-    accent: 'graphite',
+    accent: 'committed',
   }
 }
 

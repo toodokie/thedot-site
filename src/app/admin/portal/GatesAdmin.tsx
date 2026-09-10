@@ -164,11 +164,11 @@ function weekCalendarDays(pieces: StagePiece[]): Record<string, WeekCalendarChip
     const display = stageDisplay(stage, label)
     const accent: WeekCalendarChip['accent'] = (
       stage === 'done' || stage === 'posted_unverified' || stage === 'legacy'
-        ? 'grey'
+        ? 'published'
         : stage === 'approved' || stage === 'courtesy_released' || stage === 'direction_approved'
           || stage === 'scheduled' || stage === 'scheduled_partial'
-          ? 'graphite'
-          : 'yellow'
+          ? 'committed'
+          : 'planning'
     )
     const chip: WeekCalendarChip = {
       id: `${piece.clientId}:${piece.contentId}`,

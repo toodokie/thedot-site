@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { verifySession } from '@/lib/auth'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { loadAgencyPieceCalendar } from '@/lib/portal/gates-loader'
+import CalendarLegend from '@/components/portal/CalendarLegend'
 import AdminPageHeader from '../AdminPageHeader'
 import AgencyMonthCalendar, { torontoTodayIso } from '../AgencyMonthCalendar'
 import CalendarAdmin from '../CalendarAdmin'
@@ -25,6 +26,7 @@ export default async function PortalAdminCalendarPage() {
       <AdminPageHeader kicker="Agency ops" title="Calendar"
         intro="Every piece and when it runs. Open a piece from the month or use the complete list below. A calendar change can nudge a date, but never approves copy or confirms a post."
         count={active.length} countLabel="pieces" />
+      <CalendarLegend />
       <AgencyMonthCalendar rows={active} todayIso={torontoTodayIso()} />
       <PieceCalendarTable rows={rows} />
       <CalendarAdmin clients={cal.clients} integrations={cal.integrations} conflicts={cal.conflicts}

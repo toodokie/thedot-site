@@ -160,15 +160,15 @@ export function belongsOnPlanSurface(status: string, clientState: string): boole
   return (status === 'idea' || status === 'draft') && clientState === 'with_dot'
 }
 
-export type StatusAccent = 'yellow' | 'graphite' | 'grey'
+export type StatusAccent = 'planning' | 'committed' | 'published'
 
 // Colour bucket for a workflow-state chip: yellow = in planning or review,
 // graphite = approved or scheduled, grey = published. Client calendar callers pass
 // client_state because the base content status can remain draft after audited schedule
 // and publication evidence advances the derived workflow state.
 export function statusAccent(state: string): StatusAccent {
-  if (state === 'posted' || state === 'live' || state === 'partially_live' || state === 'archived') return 'grey'
+  if (state === 'posted' || state === 'live' || state === 'partially_live' || state === 'archived') return 'published'
   if (state === 'scheduled' || state === 'approved' || state === 'partially_scheduled'
-    || state === 'reschedule_pending' || state === 'cancel_pending') return 'graphite'
-  return 'yellow'
+    || state === 'reschedule_pending' || state === 'cancel_pending') return 'committed'
+  return 'planning'
 }

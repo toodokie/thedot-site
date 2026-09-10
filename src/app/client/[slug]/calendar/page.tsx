@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getClientSession } from '@/lib/portal/auth'
 import { getSchedule, statusAccent, routesToPiecePage, type ScheduleRow } from '@/lib/portal/schedule'
+import CalendarLegend from '@/components/portal/CalendarLegend'
 import { Eyebrow, Heading, Text } from '@thedot/design-system'
 import MonthGrid, { type CalendarChip } from './MonthGrid'
 import styles from './calendar.module.css'
@@ -93,12 +94,8 @@ export default async function Calendar({ params }: { params: Promise<{ slug: str
       </div>
       <p className={styles.calendarNote}>This portal is the workflow record. The shared Google Calendar is an agency coordination surface, not proof of scheduling or publication.</p>
 
-      {/* colour legend */}
-      <div className={styles.legend}>
-        <span className={styles.legendItem}><span className={`${styles.swatch} ${styles.accent_yellow}`} />In planning</span>
-        <span className={styles.legendItem}><span className={`${styles.swatch} ${styles.accent_graphite}`} />Approved or scheduled</span>
-        <span className={styles.legendItem}><span className={`${styles.swatch} ${styles.accent_grey}`} />Published</span>
-      </div>
+      {/* colour legend, shared with the agency calendar so the two cannot drift */}
+      <CalendarLegend />
 
       {/* the month grid: current month by default, prev/next navigation */}
       <MonthGrid days={days} todayIso={todayIso} />

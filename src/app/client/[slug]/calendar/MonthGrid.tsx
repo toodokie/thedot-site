@@ -17,7 +17,7 @@ export type CalendarChip = {
   platforms: string[]
   stateNote: string | null
   syncLabel: string | null
-  accent: 'yellow' | 'graphite' | 'grey'
+  accent: 'planning' | 'committed' | 'published'
 }
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
