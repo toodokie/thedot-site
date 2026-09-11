@@ -19,10 +19,11 @@
   border-radius: 2px;
   flex: none;
 }
-/* The three states must stay separable at swatch and bar size. A mid grey against a dark
-   graphite measured 2.14:1, which read as one colour to the client, so the accent that
-   matters most (committed work) now carries the only chromatic value in the palette and the
-   two neutrals sit at opposite ends of the range. */
-.swatch_planning { background: var(--dot-grey); }
-.swatch_committed { background: var(--dot-yellow); }
-.swatch_published { background: var(--dot-black); }
+/* Four states, and the palette carries one chromatic value, so the accent the client acts on
+   takes it. The remaining three sit as far apart in lightness as the ground allows: black,
+   mid grey, and a grey tint light enough to recede without disappearing on cream. The two
+   greys measure 2.49:1, which is the weakest pair in the set. */
+.swatch_with_dot { background: var(--dot-black); }
+.swatch_awaiting_review { background: var(--dot-yellow); }
+.swatch_committed { background: var(--dot-grey); }
+.swatch_published { background: var(--dot-grey-light); }

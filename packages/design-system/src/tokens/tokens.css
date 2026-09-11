@@ -3,6 +3,9 @@
   --dot-black:#35332f; --dot-cream:#faf9f6; --dot-yellow:#daff00;
   --dot-white:#ffffff; --dot-grey:#7a776f; --dot-graphite:#47453f;
   --dot-grey-accessible:#706d66;
+  /* UI-state tint of --dot-grey: lets a settled state recede while staying visible
+     on the cream card ground, where --dot-hairline measures only 1.14:1. */
+  --dot-grey-light:#c4c1b9;
   --dot-yellow-pale:#eefb9d; --dot-hairline:#ebebe7;
 
   /* Signature gradients (from site CSS) */

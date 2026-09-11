@@ -179,12 +179,14 @@
   letter-spacing: 0.02em;
 }
 /* status accents (shared by chips, legend swatches, and list-date blocks) */
-.accent_planning { border-left-color: var(--dot-grey); }
-.accent_committed { border-left-color: var(--dot-yellow); }
-.accent_published { border-left-color: var(--dot-black); }
-.swatch.accent_planning { background: var(--dot-grey); border-left: none; }
-.swatch.accent_committed { background: var(--dot-yellow); border-left: none; }
-.swatch.accent_published { background: var(--dot-black); border-left: none; }
+.accent_with_dot { border-left-color: var(--dot-black); }
+.accent_awaiting_review { border-left-color: var(--dot-yellow); }
+.accent_committed { border-left-color: var(--dot-grey); }
+.accent_published { border-left-color: var(--dot-grey-light); }
+.swatch.accent_with_dot { background: var(--dot-black); border-left: none; }
+.swatch.accent_awaiting_review { background: var(--dot-yellow); border-left: none; }
+.swatch.accent_committed { background: var(--dot-grey); border-left: none; }
+.swatch.accent_published { background: var(--dot-grey-light); border-left: none; }
 
 /* ---- upcoming list ---- */
 .listHead { margin: 0 0 6px; }
@@ -261,9 +263,10 @@
   .chip .chipTitle,
   .chip .chipMeta,
   .chip .chipPlatforms { display: none; }
-  .chip.accent_planning { background: var(--dot-grey); }
-  .chip.accent_committed { background: var(--dot-yellow); }
-  .chip.accent_published { background: var(--dot-black); }
+  .chip.accent_with_dot { background: var(--dot-black); }
+  .chip.accent_awaiting_review { background: var(--dot-yellow); }
+  .chip.accent_committed { background: var(--dot-grey); }
+  .chip.accent_published { background: var(--dot-grey-light); }
   .monthTitle { min-width: 0; flex: 1 1 auto; font-size: 19px; }
 }
 

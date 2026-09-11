@@ -9,7 +9,8 @@ function accentForStage(stage: ContentStage): CalendarChip['accent'] {
   if (stage === 'done' || stage === 'posted_unverified' || stage === 'legacy') return 'published'
   if (stage === 'approved' || stage === 'direction_approved'
     || stage === 'scheduled' || stage === 'scheduled_partial') return 'committed'
-  return 'planning'
+  if (stage === 'awaiting_decision' || stage === 'awaiting_idea_approval') return 'awaiting_review'
+  return 'with_dot'
 }
 
 export function buildAgencyCalendarDays(rows: AgencyPieceCalendarRow[]): AgencyCalendarDays {

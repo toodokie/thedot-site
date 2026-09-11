@@ -15,6 +15,7 @@ import { getCurrentReviewAssetsByItem } from '@/lib/portal/review-assets'
 import { contentReviewPackageReadiness } from '@/lib/portal/podcast-review'
 import { formatPlannedReviewDate } from '@/lib/portal/planned-review-date'
 import WeekCalendar, { type WeekCalendarChip } from '@/components/portal/WeekCalendar'
+import CalendarLegend from '@/components/portal/CalendarLegend'
 import MarkSeen from './MarkSeen'
 import { Eyebrow, Heading, Text, Button, Dot } from '@thedot/design-system'
 import styles from './overview.module.css'
@@ -289,7 +290,10 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
 
           <aside>
             <Panel label="This week">
+              <>
               <WeekCalendar days={calendarDays} todayIso={todayIso} label="Content calendar" />
+              <CalendarLegend />
+            </>
             </Panel>
             <Panel label="Activity">
               {activity.length === 0 ? (

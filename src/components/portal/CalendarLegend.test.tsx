@@ -4,11 +4,18 @@ import CalendarLegend, { CALENDAR_LEGEND } from './CalendarLegend'
 import { statusAccent } from '@/lib/portal/schedule'
 
 describe('CalendarLegend', () => {
-  it('names all three states', () => {
+  it('names all four states', () => {
     render(<CalendarLegend />)
-    expect(screen.getByText('In planning')).toBeTruthy()
+    expect(screen.getByText('With The Dot')).toBeTruthy()
+    expect(screen.getByText('Awaiting your review')).toBeTruthy()
     expect(screen.getByText('Approved or scheduled')).toBeTruthy()
     expect(screen.getByText('Published')).toBeTruthy()
+  })
+
+  // The client reported seeing pieces she had already reviewed sitting in the same colour as
+  // pieces still waiting on her. These two states must never share an accent again.
+  it('never gives the same accent to work with the agency and work awaiting the client', () => {
+    expect(statusAccent('with_dot')).not.toBe(statusAccent('needs_review'))
   })
 
   it('gives every accent its own swatch, so no two states can share a colour', () => {

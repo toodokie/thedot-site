@@ -63,8 +63,9 @@
 .chip:hover { transform: translateX(2px); }
 .chipTitle { display: block; font-size: 13px; font-weight: var(--dot-weight-medium); line-height: 1.35; overflow-wrap: anywhere; }
 .chipMeta, .chipPlatforms { display: block; color: var(--dot-graphite); font-size: 11px; line-height: 1.4; margin-top: 2px; text-transform: capitalize; }
-.accent_planning { border-left-color: var(--dot-grey); }
-.accent_committed { border-left-color: var(--dot-yellow); }
-.accent_published { border-left-color: var(--dot-black); }
+.accent_with_dot { border-left-color: var(--dot-black); }
+.accent_awaiting_review { border-left-color: var(--dot-yellow); }
+.accent_committed { border-left-color: var(--dot-grey); }
+.accent_published { border-left-color: var(--dot-grey-light); }
 
 @media (prefers-reduced-motion: reduce) { .chip { transition: none; } }

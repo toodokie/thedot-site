@@ -168,7 +168,9 @@ function weekCalendarDays(pieces: StagePiece[]): Record<string, WeekCalendarChip
         : stage === 'approved' || stage === 'courtesy_released' || stage === 'direction_approved'
           || stage === 'scheduled' || stage === 'scheduled_partial'
           ? 'committed'
-          : 'planning'
+          : stage === 'awaiting_decision' || stage === 'awaiting_idea_approval'
+            ? 'awaiting_review'
+            : 'with_dot'
     )
     const chip: WeekCalendarChip = {
       id: `${piece.clientId}:${piece.contentId}`,

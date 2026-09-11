@@ -12,7 +12,7 @@ describe('WeekCalendar', () => {
     render(<WeekCalendar todayIso="2026-07-29" days={{
       '2026-07-29': [{
         id: 'one', href: '/client/kanset/piece/one', title: 'A calendar piece', meta: 'reel',
-        platforms: ['instagram'], stateNote: null, syncLabel: null, accent: 'planning',
+        platforms: ['instagram'], stateNote: null, syncLabel: null, accent: 'with_dot',
       }],
     }} />)
     expect(screen.getByText('Jul 27 to Aug 2')).toBeInTheDocument()

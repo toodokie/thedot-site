@@ -55,7 +55,7 @@ describe('AgencyMonthCalendar data', () => {
       href: '/admin/portal/pieces/piece-1',
       title: 'A planned piece',
       meta: 'reel · employer',
-      accent: 'planning',
+      accent: 'with_dot',
     })
   })
 

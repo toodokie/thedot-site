@@ -12,9 +12,9 @@ describe('calendar status accents', () => {
     expect(statusAccent('scheduled')).toBe('committed')
   })
 
-  it('keeps quiet and review-stage work in planning', () => {
-    expect(statusAccent('with_dot')).toBe('planning')
-    expect(statusAccent('needs_review')).toBe('planning')
+  it('separates work that is back with the agency from work waiting on the client', () => {
+    expect(statusAccent('with_dot')).toBe('with_dot')
+    expect(statusAccent('needs_review')).toBe('awaiting_review')
   })
 })
 

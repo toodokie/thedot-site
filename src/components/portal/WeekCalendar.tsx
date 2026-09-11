@@ -12,7 +12,7 @@ export type WeekCalendarChip = {
   platforms: string[]
   stateNote: string | null
   syncLabel: string | null
-  accent: 'planning' | 'committed' | 'published'
+  accent: 'with_dot' | 'awaiting_review' | 'committed' | 'published'
 }
 
 const WEEKDAY = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
