@@ -4121,6 +4121,103 @@ async function main(): Promise<void> {
           ?? JSON.stringify({ open: revisionStillOpen.data, after: reSynced.data }))
     }
 
+    // 0085: record_agency_applied_release. Applying Maria's own edits and moving the piece
+    // forward must never arm her review, and must never be able to email her. The dangerous
+    // failures are the opposite of the discard's: not deleting too much, but notifying when it
+    // must not, or suppressing a notification that a genuine release still owes.
+    {
+      async function releasableFixture(suffix: string): Promise<{ contentId: string; itemId: string }> {
+        const contentId = `rls-applied-${suffix}-${RUN_ID}`
+        await sync([snapshot(bClientId!, contentId, 1, 'Applied release v1', 'Released body', 'main',
+          { producer: 'studio' })])
+        const item = await admin.from('content_items').select('id')
+          .eq('client_id', bClientId!).eq('content_id', contentId).single()
+        if (item.error || !item.data) throw new Error(`applied fixture ${suffix}: ${item.error?.message ?? 'missing'}`)
+        const ready = await admin.rpc('mark_content_ready', { p_content_id: item.data.id, p_content_version: 1 })
+        if (ready.error) throw new Error(`applied fixture ${suffix} release: ${ready.error.message}`)
+        const revision = await admin.rpc('begin_content_revision', {
+          p_content_id: item.data.id, p_content_version: 1,
+        })
+        if (revision.error) throw new Error(`applied fixture ${suffix} revision: ${revision.error.message}`)
+        await sync([snapshot(bClientId!, contentId, 2, 'Applied release v2', 'Body with her edits applied', 'main',
+          { producer: 'studio' })])
+        return { contentId, itemId: item.data.id }
+      }
+      const REASON = 'Agency override authorized by Anastasia: v2 applies the edits she submitted, '
+        + 'so the piece moves forward instead of returning to her.'
+
+      const target = await releasableFixture('ok')
+
+      // The ordinary release path must still arm her review. If 0085 broke that, every genuine
+      // review package would go out silently, which is worse than the bug it fixes.
+      const armedOnV1 = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
+        .eq('content_id', target.itemId).eq('content_version', 1).eq('event_type', 'needs_review')
+      check('AAR0: an ordinary release still arms the client review', armedOnV1.count === 1,
+        `needs_review rows on v1 = ${armedOnV1.count}`)
+
+      const notReachable = await bClient.rpc('record_agency_applied_release', {
+        p_content_id: target.itemId, p_content_version: 2,
+        p_reason: REASON, p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      check('AAR1: authenticated cannot execute record_agency_applied_release', !!notReachable.error,
+        notReachable.error?.message ?? 'NO ERROR')
+
+      const ghost = await admin.rpc('record_agency_applied_release', {
+        p_content_id: target.itemId, p_content_version: 2,
+        p_reason: REASON, p_actor_key: `ghost-${RUN_ID}`, p_idempotency_key: randomUUID(),
+      })
+      check('AAR2: an unknown agency actor cannot release',
+        !!ghost.error && /unknown or inactive agency actor/.test(ghost.error.message),
+        ghost.error?.message ?? 'NO ERROR')
+
+      const backwards = await admin.rpc('record_agency_applied_release', {
+        p_content_id: target.itemId, p_content_version: 1,
+        p_reason: REASON, p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      check('AAR3: a version at or below the released one cannot be re-released',
+        !!backwards.error && /not ahead of the released version/.test(backwards.error.message),
+        backwards.error?.message ?? 'NO ERROR')
+
+      const mailBefore = await admin.from('notification_outbox').select('id', { count: 'exact', head: true })
+        .eq('client_id', bClientId).eq('recipient_kind', 'client').eq('channel', 'email')
+      const released = await admin.rpc('record_agency_applied_release', {
+        p_content_id: target.itemId, p_content_version: 2,
+        p_reason: REASON, p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const after = await admin.from('content_items')
+        .select('status, working_version, client_visible_version, review_ready_at, revision_in_progress')
+        .eq('id', target.itemId).single()
+      check('AAR4: the piece lands on approved with v2 as the released version',
+        !released.error && after.data?.status === 'approved'
+          && after.data?.working_version === 2 && after.data?.client_visible_version === 2
+          && after.data?.review_ready_at === null && after.data?.revision_in_progress === false,
+        released.error?.message ?? JSON.stringify(after.data))
+
+      const armedOnV2 = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
+        .eq('content_id', target.itemId).eq('content_version', 2).eq('event_type', 'needs_review')
+      check('AAR5: the agency release arms no client review', armedOnV2.count === 0,
+        `needs_review rows on v2 = ${armedOnV2.count}`)
+
+      const mailAfter = await admin.from('notification_outbox').select('id', { count: 'exact', head: true })
+        .eq('client_id', bClientId).eq('recipient_kind', 'client').eq('channel', 'email')
+      check('AAR6: the agency release sends the client no email',
+        mailBefore.count === mailAfter.count, `before=${mailBefore.count} after=${mailAfter.count}`)
+
+      const audit = await bClient.from('activity_log').select('event_type, actor_type')
+        .eq('content_id', target.itemId).eq('content_version', 2).eq('event_type', 'courtesy_release_recorded')
+      check('AAR7: the release is recorded for audit',
+        !audit.error && audit.data?.length === 1 && audit.data[0].actor_type === 'anastasia',
+        audit.error?.message ?? JSON.stringify(audit.data))
+
+      // The suppression must not leak past its own transaction. A later ordinary release of a
+      // different piece has to arm review exactly as before.
+      const control = await releasableFixture('control')
+      const controlArmed = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
+        .eq('content_id', control.itemId).eq('content_version', 1).eq('event_type', 'needs_review')
+      check('AAR8: review arming still works after an agency release in the same session',
+        controlArmed.count === 1, `needs_review rows = ${controlArmed.count}`)
+    }
+
     {
       const stop = await admin.rpc('set_portal_feature_switch', {
         p_client_id: bClientId, p_feature: 'client_mutations', p_enabled: false,
