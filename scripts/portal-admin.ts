@@ -7,12 +7,14 @@
 //   | offboard <slug> <email> "<reason>"
 //   | transfer-decider <slug> <from-email> <to-email> "<reason>"
 //   | switch <global|slug> <feature> <on|off> "<reason>" | access-log [slug]
+//   | discard-working-version <slug> <content_id> <version> "<reason>"
 //   | signin-link <email> [origin] | ready <slug> <content_id> [version]
 //   | begin-revision <slug> <content_id> [released-version]
 //   | schedule-status <slug> <content_id>
 //   | reply <slug> <content_id> "<body>" ["<author name>"]]
 // Default action is `status`. `link` is idempotent.
 import { loadEnvConfig } from '@next/env'
+import { writeFileSync } from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'node:crypto'
 
@@ -386,6 +388,65 @@ async function reply(slug: string, contentId: string, body: string, authorName: 
   console.log(`reply posted on "${item.title}" (${slug}/${contentId}) as ${authorName}: ${commentId}`)
 }
 
+
+/**
+ * Discard a WORKING version that was never client-visible.
+ *
+ * Audit F4, 2026-09-15. A reconciliation that fails its guard after writing leaves a version
+ * row behind. Every retry then dies on "version N already exists with a different checksum",
+ * and there was no supported way to clear it, so the only options were hand-written SQL or
+ * abandoning the piece. On 2026-09-15 that blocked a piece due to post the next day.
+ *
+ * Deliberately narrow. It refuses unless ALL of these hold:
+ *   - the version is strictly greater than client_visible_version, so it was never released
+ *   - it is the item's current working_version, so we are removing the tip and not a hole
+ *   - nothing references it: no review assets, no publication targets, no reconciled request
+ * The row is written to disk before deletion, so a mistake is recoverable by hand.
+ */
+async function discardWorkingVersion(slug: string, contentId: string, version: number, reason: string) {
+  if (!Number.isInteger(version) || version < 2) throw new Error('version must be an integer of 2 or more')
+  if (!reason || reason.trim().length < 10) throw new Error('a reason of at least 10 characters is required')
+  const client = await clientBySlug(slug)
+
+  const { data: item, error: itemError } = await admin.from('content_items')
+    .select('id, content_id, working_version, client_visible_version, status')
+    .eq('client_id', client.id).eq('content_id', contentId).maybeSingle()
+  if (itemError) throw new Error(itemError.message)
+  if (!item) throw new Error(`no piece ${contentId} for ${slug}`)
+
+  const visible = typeof item.client_visible_version === 'number' ? item.client_visible_version : 0
+  if (version <= visible)
+    throw new Error(`v${version} is at or below client_visible_version v${visible}: it has been seen by the client and is permanent`)
+  if (item.working_version !== version)
+    throw new Error(`v${version} is not the working tip (working_version is v${item.working_version})`)
+
+  const { data: row, error: rowError } = await admin.from('content_item_versions')
+    .select('*').eq('content_item_id', item.id).eq('version', version).maybeSingle()
+  if (rowError) throw new Error(rowError.message)
+  if (!row) throw new Error(`no version row v${version} for ${contentId}`)
+
+  const { data: assets } = await admin.from('content_review_assets')
+    .select('id').eq('content_item_id', item.id).eq('content_version', version)
+  if ((assets ?? []).length) throw new Error(`v${version} has ${assets!.length} review asset(s) attached; detach them first`)
+
+  const { data: reqs } = await admin.from('content_change_requests')
+    .select('id, status').eq('content_id', item.id).eq('canonical_version', version)
+  if ((reqs ?? []).length) throw new Error(`v${version} is recorded as the outcome of ${reqs!.length} change request(s); supersede them instead`)
+
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const archive = `/tmp/portal-discarded-${contentId}-v${version}-${stamp}.json`
+  writeFileSync(archive, JSON.stringify({ discarded_at: new Date().toISOString(), slug, contentId, version, reason, row }, null, 2))
+
+  const { error: delError } = await admin.from('content_item_versions').delete().eq('id', row.id)
+  if (delError) throw new Error(`delete failed: ${delError.message}`)
+  const { error: updError } = await admin.from('content_items').update({ working_version: version - 1 }).eq('id', item.id)
+  if (updError) throw new Error(`version removed but working_version not reset: ${updError.message}`)
+
+  console.log(`discarded ${contentId} v${version}; working_version now v${version - 1}`)
+  console.log(`archived to ${archive}`)
+  console.log(`reason: ${reason}`)
+}
+
 async function main() {
   const [action, email, name] = process.argv.slice(2)
   if (action === 'provision') {
@@ -453,6 +514,14 @@ async function main() {
       throw new Error('usage: portal-admin.ts schedule-status <slug> <content_id>')
     }
     await scheduleStatus(slug, contentId)
+    return
+  }
+  if (action === 'discard-working-version') {
+    const [, slug, contentId, version, reason] = process.argv.slice(2)
+    if (!slug || !contentId || !version || !reason) {
+      throw new Error('usage: portal-admin.ts discard-working-version <slug> <content_id> <version> "<reason>"')
+    }
+    await discardWorkingVersion(slug, contentId, Number(version), reason)
     return
   }
   if (action === 'reply') {

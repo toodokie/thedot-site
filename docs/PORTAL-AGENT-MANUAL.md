@@ -706,6 +706,24 @@ does not satisfy the podcast readiness contract.
 
 ## 19. Hard-won lessons (read before you touch prod)
 
+- **Never ask Maria for a re-review. This is a client rule, not a preference (2026-09-14).** She
+  reviews a released package once. When she submits edits, the agency applies them and the piece
+  moves forward. It must never be returned to her for a second look at the same work. Concretely:
+  do not call `mark_content_ready` / `portal-admin ready` on a version whose only change is applying
+  her own requested edits, because that sets `review_ready_at`, flips `client_state` back to
+  `needs_review`, emits a `needs_review` activity event and can email her. No surface may label a
+  piece as awaiting her review, or as needing another look, after she has decided on it. A declined
+  edit is explained in the reply to her request, never by re-opening her review. `update-portal`
+  already honours this (it is documented as never auto-re-arming her); the apply path does not.
+  **The required landing state after applying her edits is `approved` (or scheduled), never
+  `needs_review` and never parked with the agency.** Where no client decision row exists, the
+  mechanism is `record_content_courtesy_release`, which sets status `approved`, clears
+  `review_ready_at`, calls `portal_ensure_schedule_targets` and logs `courtesy_release_recorded`.
+  That event is not in `portal_client_activity_email_required`, so it is portal-only and never
+  emails her. The_dot-produced content requires the reason to begin `Agency override authorized by
+  Anastasia:`, enforced in the DB by migration 0060. A courtesy release is not a client approval and
+  must never impersonate a Maria decision.
+  Full rule: `~/Kanset/PORTAL-OPERATIONS-PLAYBOOK.md` section 5.
 - **Coordinator state is a cache — re-derive from the source.** Don't assert "X is pending/done" from
   memory or a subagent's last report; query Supabase (or grep the workspace). The ep2-links incident:
   the coordinator was "unaware" of links already in the codebase because it trusted memory over the DB.

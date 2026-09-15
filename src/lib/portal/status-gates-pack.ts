@@ -7,6 +7,7 @@ type GateBlockMatch = {
   end: number
   header: string
   marker: string
+  body: string
   ids: string[]
 }
 
@@ -38,6 +39,7 @@ function findBlocks(source: string): GateBlockMatch[] {
       end: (match.index ?? 0) + match[0].length,
       header: match[1],
       marker,
+      body: match[3] ?? '',
       ids,
     }]
   })
@@ -58,6 +60,40 @@ function renderedGateRows(renderedBlock: string): string {
   return lines.slice(markerIndex + 1).filter((line) => /^- \[[ x~]\]/.test(line)).join('\n')
 }
 
+
+// The portal is authoritative for approval, scheduling, posting and link confirmation.
+// It does NOT hold the four production gates unless they were separately emitted with
+// `portal-write gate`, so a plain regenerate used to blank a closed local gate and its
+// provenance note. Regenerating must never lose local evidence: for a production gate
+// the portal wins only when the portal actually holds a value.
+const PRODUCTION_GATE_KEYS = new Set(['source-in-hand', 'design-built', 'proofed', 'approval-sent'])
+
+function gateKey(row: string): string | null {
+  return /^- \[[ x~]\] ([a-z-]+(?::[a-z]+)?)/.exec(row)?.[1] ?? null
+}
+
+// An "unset" row is an open box carrying nothing but its key and optional owner:
+// no date, no note. That is the portal saying "I have no record", not "this is open".
+function isUnsetRow(row: string): boolean {
+  return /^- \[ \] [a-z-]+(?::[a-z]+)?(?:[ \t]+@[\w-]+)?[ \t]*$/.test(row)
+}
+
+function mergeGateRows(localBody: string, renderedRows: string): string {
+  const local = new Map<string, string>()
+  for (const row of localBody.split('\n')) {
+    const key = gateKey(row)
+    if (key) local.set(key, row)
+  }
+  return renderedRows.split('\n').map((row) => {
+    const key = gateKey(row)
+    if (key === null) return row
+    if (!PRODUCTION_GATE_KEYS.has(key.split(':')[0])) return row
+    if (!isUnsetRow(row)) return row
+    const kept = local.get(key)
+    return kept !== undefined && !isUnsetRow(kept) ? kept : row
+  }).join('\n')
+}
+
 export function patchStatusGatesBlock(
   source: string,
   contentId: string,
@@ -74,7 +110,7 @@ export function patchStatusGatesBlock(
   if (candidates.length > 1) return { patched: false, reason: 'ambiguous' }
 
   const target = candidates[0]
-  const rows = renderedGateRows(renderedBlock)
+  const rows = mergeGateRows(target.body, renderedGateRows(renderedBlock))
   const replacement = `${target.header}${refreshedMarker(target.marker, renderedBlock)}${rows}${rows ? '\n' : ''}`
   return {
     patched: true,
