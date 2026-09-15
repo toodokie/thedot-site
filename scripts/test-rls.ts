@@ -3927,6 +3927,200 @@ async function main(): Promise<void> {
             request: visualFinalRequest.data }))
     }
 
+    // 0084: discard_orphaned_working_version. A guarded removal of a working version that was
+    // never client-visible. The dangerous failure is it removing something released or
+    // referenced, so every guard is exercised as an attack, not just the happy path.
+    {
+      const dwvItem = await admin.from('content_items').select('id, working_version, client_visible_version')
+        .eq('id', bItemId).maybeSingle()
+      const releasedVersion = dwvItem.data?.client_visible_version ?? 1
+      // Baseline taken BEFORE the attempts. Asserting only that rows still exist afterwards
+      // would pass even if a guard had deleted one, which is the whole thing under test.
+      const versionsBefore = await admin.from('content_item_versions').select('id', { count: 'exact', head: true })
+        .eq('content_item_id', bItemId)
+
+      const notReachable = await bClient.rpc('discard_orphaned_working_version', {
+        p_client_id: bClientId, p_content_id: B_CONTENT_ID, p_version: 99,
+        p_reason: 'authenticated must not reach this function', p_actor_key: 'attacker',
+        p_idempotency_key: randomUUID(),
+      })
+      check('DWV1: authenticated cannot execute discard_orphaned_working_version', !!notReachable.error,
+        notReachable.error?.message ?? 'NO ERROR')
+
+      const releasedAttempt = await admin.rpc('discard_orphaned_working_version', {
+        p_client_id: bClientId, p_content_id: B_CONTENT_ID, p_version: releasedVersion,
+        p_reason: 'attempt to discard a version the client has seen', p_actor_key: 'thedot-admin',
+        p_idempotency_key: randomUUID(),
+      })
+      check('DWV2: a released version cannot be discarded',
+        !!releasedAttempt.error && /released and is permanent/.test(releasedAttempt.error.message),
+        releasedAttempt.error?.message ?? 'NO ERROR')
+
+      const notTip = await admin.rpc('discard_orphaned_working_version', {
+        p_client_id: bClientId, p_content_id: B_CONTENT_ID, p_version: releasedVersion + 5,
+        p_reason: 'attempt to punch a hole in the version sequence', p_actor_key: 'thedot-admin',
+        p_idempotency_key: randomUUID(),
+      })
+      check('DWV3: only the working tip can be discarded',
+        !!notTip.error && /not the working tip/.test(notTip.error.message),
+        notTip.error?.message ?? 'NO ERROR')
+
+      const shortReason = await admin.rpc('discard_orphaned_working_version', {
+        p_client_id: bClientId, p_content_id: B_CONTENT_ID, p_version: releasedVersion + 1,
+        p_reason: 'short', p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      check('DWV4: a reason is required', !!shortReason.error && /reason of at least/.test(shortReason.error.message),
+        shortReason.error?.message ?? 'NO ERROR')
+
+      const wrongTenant = await admin.rpc('discard_orphaned_working_version', {
+        p_client_id: randomUUID(), p_content_id: B_CONTENT_ID, p_version: releasedVersion + 1,
+        p_reason: 'attempt to reach another tenant piece', p_actor_key: 'thedot-admin',
+        p_idempotency_key: randomUUID(),
+      })
+      check('DWV5: the function is tenant-scoped', !!wrongTenant.error && /no content item/.test(wrongTenant.error.message),
+        wrongTenant.error?.message ?? 'NO ERROR')
+
+      const versionsAfter = await admin.from('content_item_versions').select('id', { count: 'exact', head: true })
+        .eq('content_item_id', bItemId)
+      check('DWV6: no refused attempt removed a version row',
+        (versionsBefore.count ?? 0) > 0 && versionsBefore.count === versionsAfter.count,
+        `before=${versionsBefore.count} after=${versionsAfter.count}`)
+    }
+
+    // The reference guard and the happy path need a piece whose working tip is genuinely ahead
+    // of what the client has seen, which is the shape the 2026-09-15 reconciliation failure left
+    // behind. Two throwaway pieces are built here rather than reusing B_CONTENT_ID, so the
+    // attacks above keep the state they asserted on.
+    {
+      async function orphanFixture(suffix: string): Promise<string> {
+        const contentId = `rls-discard-${suffix}-${RUN_ID}`
+        await sync([snapshot(bClientId!, contentId, 1, 'Discard fixture v1', 'Released body', 'main')])
+        const item = await admin.from('content_items').select('id')
+          .eq('client_id', bClientId!).eq('content_id', contentId).single()
+        if (item.error || !item.data) throw new Error(`discard fixture ${suffix}: ${item.error?.message ?? 'missing'}`)
+        const ready = await admin.rpc('mark_content_ready', { p_content_id: item.data.id, p_content_version: 1 })
+        if (ready.error) throw new Error(`discard fixture ${suffix} release: ${ready.error.message}`)
+        // A released piece will not accept a new version without an open revision. That guard is
+        // the reason an orphaned tip is hard to clear, so the fixture has to go through it.
+        const revision = await admin.rpc('begin_content_revision', {
+          p_content_id: item.data.id, p_content_version: 1,
+        })
+        if (revision.error) throw new Error(`discard fixture ${suffix} revision: ${revision.error.message}`)
+        await sync([snapshot(bClientId!, contentId, 2, 'Discard fixture v2', 'Orphaned working body', 'main')])
+        return contentId
+      }
+
+      // Guard 3: a version carrying a review asset is work someone is looking at, not an orphan.
+      const heldId = await orphanFixture('held')
+      const heldItem = await admin.from('content_items').select('id').eq('client_id', bClientId)
+        .eq('content_id', heldId).single()
+      const assetAttached = await admin.rpc('set_content_review_asset', {
+        p_client_id: bClientId, p_content_id: heldId, p_content_version: 2,
+        p_asset_key: 'discard-guard-cover', p_label: 'Discard guard cover',
+        p_channel: 'social', p_asset_kind: 'cover',
+        p_url: 'https://www.canva.com/design/DISCARDGUARD/view',
+        p_width_px: 1080, p_height_px: 1350, p_caption_status: 'not_applicable',
+        p_review_note: null, p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-discard-asset-${RUN_ID}`,
+      })
+      const heldAttempt = await admin.rpc('discard_orphaned_working_version', {
+        p_client_id: bClientId, p_content_id: heldId, p_version: 2,
+        p_reason: 'attempt to discard a version a reviewer is still looking at',
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const heldStillThere = await admin.from('content_item_versions').select('id', { count: 'exact', head: true })
+        .eq('content_item_id', heldItem.data?.id).eq('version', 2)
+      check('DWV7: a version with a review asset attached cannot be discarded',
+        !assetAttached.error && !!heldAttempt.error && /review asset/.test(heldAttempt.error.message)
+          && heldStillThere.count === 1,
+        assetAttached.error?.message ?? heldAttempt.error?.message ?? `remaining=${heldStillThere.count}`)
+
+      // The happy path: an unreferenced working tip the client never saw.
+      const freeId = await orphanFixture('free')
+      const freeItem = await admin.from('content_items').select('id').eq('client_id', bClientId)
+        .eq('content_id', freeId).single()
+      const freeItemId = freeItem.data?.id
+      const beforeDiscard = await admin.from('content_items')
+        .select('working_version, client_visible_version').eq('id', freeItemId).single()
+      const discarded = await admin.rpc('discard_orphaned_working_version', {
+        p_client_id: bClientId, p_content_id: freeId, p_version: 2,
+        p_reason: 'orphaned by a failed reconciliation, never client-visible',
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const afterDiscard = await admin.from('content_items')
+        .select('working_version, client_visible_version').eq('id', freeItemId).single()
+      const rowGone = await admin.from('content_item_versions').select('id', { count: 'exact', head: true })
+        .eq('content_item_id', freeItemId).eq('version', 2)
+      const v1Survived = await admin.from('content_item_versions').select('id', { count: 'exact', head: true })
+        .eq('content_item_id', freeItemId).eq('version', 1)
+      check('DWV8: an unreferenced working tip is discarded and the tip moves back',
+        !discarded.error && beforeDiscard.data?.working_version === 2
+          && afterDiscard.data?.working_version === 1
+          && afterDiscard.data?.client_visible_version === 1
+          && rowGone.count === 0 && v1Survived.count === 1,
+        discarded.error?.message ?? JSON.stringify({ before: beforeDiscard.data, after: afterDiscard.data,
+          v2: rowGone.count, v1: v1Survived.count }))
+
+      const logged = await bClient.from('activity_log')
+        .select('event_type, content_version, summary, actor_type, actor_name')
+        .eq('content_id', freeItemId).eq('event_type', 'working_version_discarded')
+      check('DWV9: the removal is written to the activity log with its reason',
+        !logged.error && logged.data?.length === 1 && logged.data[0].content_version === 2
+          && logged.data[0].actor_type === 'anastasia'
+          && /orphaned by a failed reconciliation/.test(String(logged.data[0].summary)),
+        logged.error?.message ?? JSON.stringify(logged.data))
+
+      // The actor gate: an unknown key cannot remove anything, whatever else is true.
+      const unknownActor = await admin.rpc('discard_orphaned_working_version', {
+        p_client_id: bClientId, p_content_id: heldId, p_version: 2,
+        p_reason: 'unknown actor key must not be able to discard',
+        p_actor_key: `ghost-${RUN_ID}`, p_idempotency_key: randomUUID(),
+      })
+      check('DWV9b: an unknown agency actor cannot discard',
+        !!unknownActor.error && /unknown or inactive agency actor/.test(unknownActor.error.message),
+        unknownActor.error?.message ?? 'NO ERROR')
+
+      // The event must never reach her by email. It is absent from the email vocabulary, so
+      // no client email row may exist for it.
+      const mailed = await admin.from('notification_outbox')
+        .select('id', { count: 'exact', head: true })
+        .eq('client_id', bClientId).eq('recipient_kind', 'client').eq('channel', 'email')
+        .ilike('subject', '%Working version discarded%')
+      check('DWV9c: discarding a working version sends the client no email',
+        !mailed.error && mailed.count === 0, mailed.error?.message ?? `count=${mailed.count}`)
+
+      // Re-running the same discard must not walk backwards into released history.
+      const repeat = await admin.rpc('discard_orphaned_working_version', {
+        p_client_id: bClientId, p_content_id: freeId, p_version: 2,
+        p_reason: 'repeat of a completed discard must not cascade',
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const afterRepeat = await admin.from('content_items')
+        .select('working_version, client_visible_version').eq('id', freeItemId).single()
+      check('DWV10: repeating a completed discard refuses and never touches the released version',
+        !!repeat.error && afterRepeat.data?.working_version === 1
+          && afterRepeat.data?.client_visible_version === 1,
+        repeat.error?.message ?? JSON.stringify(afterRepeat.data))
+
+      // The point of the whole migration: the retry that used to die on "version 2 already
+      // exists with a different checksum" has to succeed afterwards. The open revision is left
+      // open on purpose, because the edit is still owed; begin_content_revision is a no-op in
+      // that state, so the reconciler picks up exactly where it failed.
+      const revisionStillOpen = await admin.from('content_items')
+        .select('revision_in_progress, status').eq('id', freeItemId).single()
+      const reBegin = await admin.rpc('begin_content_revision', { p_content_id: freeItemId, p_content_version: 1 })
+      const reSync = await admin.rpc('sync_content_item_versions', {
+        p_items: [snapshot(bClientId!, freeId, 2, 'Discard fixture v2 corrected', 'Corrected working body', 'main')],
+      })
+      const reSynced = await admin.from('content_items')
+        .select('working_version, client_visible_version').eq('id', freeItemId).single()
+      check('DWV11: after a discard the failed reconciliation can be retried and lands v2',
+        revisionStillOpen.data?.revision_in_progress === true && !reBegin.error && !reSync.error
+          && reSynced.data?.working_version === 2 && reSynced.data?.client_visible_version === 1,
+        reBegin.error?.message ?? reSync.error?.message
+          ?? JSON.stringify({ open: revisionStillOpen.data, after: reSynced.data }))
+    }
+
     {
       const stop = await admin.rpc('set_portal_feature_switch', {
         p_client_id: bClientId, p_feature: 'client_mutations', p_enabled: false,

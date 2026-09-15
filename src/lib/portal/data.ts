@@ -76,7 +76,10 @@ export async function getContentItem(clientId: string, contentId: string): Promi
 // recorded decisions off the first page. Her feed leads with decisions, releases, live
 // confirmations, and reports. Agency-facing surfaces read activity_log directly and
 // keep everything; the rows themselves are untouched.
-const CLIENT_FEED_EXCLUDED_EVENTS = ['design_link_updated']
+// 'working_version_discarded' (migration 0084) joins it for the same reason: removing a working
+// version the client never saw is agency housekeeping, and "Working version discarded" reads to
+// her as something went wrong with her piece.
+const CLIENT_FEED_EXCLUDED_EVENTS = ['design_link_updated', 'working_version_discarded']
 
 export async function getActivity(clientId: string): Promise<ActivityRow[]> {
   const supabase = await createSupabaseServer()

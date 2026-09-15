@@ -14,7 +14,8 @@
 //   | reply <slug> <content_id> "<body>" ["<author name>"]]
 // Default action is `status`. `link` is idempotent.
 import { loadEnvConfig } from '@next/env'
-import { writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'node:crypto'
 
@@ -433,16 +434,35 @@ async function discardWorkingVersion(slug: string, contentId: string, version: n
     .select('id, status').eq('content_id', item.id).eq('canonical_version', version)
   if ((reqs ?? []).length) throw new Error(`v${version} is recorded as the outcome of ${reqs!.length} change request(s); supersede them instead`)
 
+  // Archive the whole row before asking the database to remove it. The checks above are a
+  // courtesy that produces a readable error; the real guards are inside the RPC and run again
+  // inside its transaction, so a race between this read and the write cannot slip past them.
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
-  const archive = `/tmp/portal-discarded-${contentId}-v${version}-${stamp}.json`
+  const month = stamp.slice(0, 7)
+  const receiptDir = join(process.env.KANSET_RECEIPTS_DIR ?? '/Users/anastasiavolkova/Kanset/content/receipts', month)
+  let archive = `/tmp/portal-discarded-${contentId}-v${version}-${stamp}.json`
+  try {
+    mkdirSync(receiptDir, { recursive: true })
+    archive = join(receiptDir, `portal-discarded-${contentId}-v${version}-${stamp}.json`)
+  } catch {
+    // Receipts directory unavailable (another machine, a worktree): /tmp still preserves the row.
+  }
   writeFileSync(archive, JSON.stringify({ discarded_at: new Date().toISOString(), slug, contentId, version, reason, row }, null, 2))
 
-  const { error: delError } = await admin.from('content_item_versions').delete().eq('id', row.id)
-  if (delError) throw new Error(`delete failed: ${delError.message}`)
-  const { error: updError } = await admin.from('content_items').update({ working_version: version - 1 }).eq('id', item.id)
-  if (updError) throw new Error(`version removed but working_version not reset: ${updError.message}`)
+  // service_role holds SELECT only on content_item_versions (0006, 0007, 0025), so the removal
+  // has to go through the SECURITY DEFINER function added in 0084. A direct delete here fails
+  // with "permission denied", which is the schema working as designed.
+  const { data: result, error: rpcError } = await admin.rpc('discard_orphaned_working_version', {
+    p_client_id: client.id,
+    p_content_id: contentId,
+    p_version: version,
+    p_reason: reason.trim(),
+    p_actor_key: 'thedot-admin',
+    p_idempotency_key: randomUUID(),
+  })
+  if (rpcError) throw new Error(`discard refused: ${rpcError.message}`)
 
-  console.log(`discarded ${contentId} v${version}; working_version now v${version - 1}`)
+  console.log(`discarded ${contentId} v${version}; working_version now v${(result as { working_version: number }).working_version}`)
   console.log(`archived to ${archive}`)
   console.log(`reason: ${reason}`)
 }

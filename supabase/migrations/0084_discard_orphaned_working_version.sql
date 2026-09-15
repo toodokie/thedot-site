@@ -17,7 +17,9 @@
 --   4. no change request records it as its canonical outcome
 --   5. no publication target and no schedule target references it
 -- A caller must also supply a reason of at least ten characters, which is written to the
--- activity log so the removal is never silent.
+-- activity log so the removal is never silent. The log entry is agency housekeeping: the event
+-- type is not on the client-email list, and src/lib/portal/data.ts excludes it from the client
+-- activity feed, so a cleanup never shows up as news for Maria.
 
 begin;
 
@@ -30,6 +32,12 @@ begin
   end if;
 end;
 $$;
+
+-- activity_log.event_type carries a foreign key to activity_event_types. Without this row the
+-- insert below fails and the whole discard rolls back, which the first happy-path test caught.
+insert into public.activity_event_types (event_type)
+values ('working_version_discarded')
+on conflict (event_type) do nothing;
 
 create or replace function public.discard_orphaned_working_version(
   p_client_id uuid,
@@ -44,10 +52,18 @@ security definer
 set search_path = public, pg_catalog
 as $$
 declare
+  v_actor public.agency_actors%rowtype;
   v_item public.content_items%rowtype;
   v_row public.content_item_versions%rowtype;
   v_refs integer;
 begin
+  -- Same actor gate as every other audited agency write (0011 conventions, 0020 is the
+  -- nearest precedent): an unknown or retired actor key cannot remove anything.
+  select * into v_actor from public.agency_actors where actor_key = p_actor_key and active;
+  if not found then
+    raise exception 'unknown or inactive agency actor';
+  end if;
+
   if p_reason is null or pg_catalog.length(pg_catalog.btrim(p_reason)) < 10 then
     raise exception 'a reason of at least 10 characters is required';
   end if;
@@ -116,7 +132,7 @@ begin
     'Working version discarded: ' || coalesce(v_item.title, p_content_id),
     'v' || p_version || ' removed before release, checksum '
       || coalesce(pg_catalog.left(v_row.content_checksum, 12), 'none') || '. ' || p_reason,
-    'agency', coalesce(p_actor_key, 'thedot-admin'),
+    'anastasia', v_actor.display_name,
     'discard:' || v_item.id::text || ':' || p_version::text || ':' || p_idempotency_key::text);
 
   return jsonb_build_object(
@@ -154,6 +170,10 @@ begin
      or v_def not ilike '%content_checksum%'
   then
     raise exception 'discard working version guards drifted';
+  end if;
+  if not exists (select 1 from public.activity_event_types t
+    where t.event_type = 'working_version_discarded') then
+    raise exception 'working_version_discarded event type missing';
   end if;
   if pg_catalog.has_function_privilege('anon',
        'public.discard_orphaned_working_version(uuid,text,integer,text,text,uuid)','EXECUTE')
