@@ -1,7 +1,12 @@
 // Portal health check. Regenerates every measure in the 2026-09-15 architecture audit
 // so drift is caught by a schedule instead of by an archaeology session.
 //
-//   pnpm exec tsx scripts/portal-health.ts [kanset] [--json]
+//   pnpm exec tsx scripts/portal-health.ts [kanset] [--json] [--migrations]
+
+// --migrations adds the applied-versus-repository gap. It shells out to the Supabase CLI, which
+// needs a login and takes a few seconds, so it is opt-in rather than part of every run. Turn it
+// on wherever this runs on a schedule: production sat two migrations behind for six days without
+// anyone noticing, which is F12 in the audit.
 //
 // Read-only. Touches no write path, sends no email, needs no clean git tree.
 // Exit code 1 when any measure is non-zero, so a cron or CI step can gate on it.
@@ -9,6 +14,7 @@
 // Audit: ~/Kanset/docs/superpowers/specs/2026-09-15-portal-architecture-audit.md (F8, F11).
 import { loadEnvConfig } from '@next/env'
 import { createClient } from '@supabase/supabase-js'
+import { execFileSync } from 'node:child_process'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -115,6 +121,41 @@ async function main() {
     && !openByItem.has(i.id))
   measures.push({ key: 'orphaned_versions', label: 'Working versions ahead of client-visible with no open request',
     count: orphaned.length, detail: orphaned.map((i) => `${i.content_id} (working v${i.working_version}, visible v${i.client_visible_version})`) })
+
+  // F12: the repository is not the thing that runs. A migration on disk that never reached
+  // production is invisible to every other measure here, because they all read production.
+  if (process.argv.includes('--migrations')) {
+    const local = readdirSync(join(process.cwd(), 'supabase', 'migrations'))
+      .filter((n) => n.endsWith('.sql')).map((n) => n.slice(0, 4)).sort()
+    let unapplied: string[] = []
+    let note = ''
+    try {
+      // The CLI emits JSON when its output is piped and a pretty table when it is not, and it
+      // does not consistently choose a stream, so both are captured and both shapes accepted.
+      const raw = execFileSync('supabase', ['migration', 'list', '--linked'],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }) + ''
+      const brace = raw.indexOf('{"migrations"')
+      let remote: Set<string>
+      if (brace >= 0) {
+        const parsed = JSON.parse(raw.slice(brace, raw.lastIndexOf('}') + 1)) as
+          { migrations: Array<{ local: string; remote: string }> }
+        remote = new Set(parsed.migrations.filter((m) => m.remote).map((m) => m.remote))
+        unapplied = parsed.migrations.filter((m) => m.local && !m.remote).map((m) => m.local)
+      } else {
+        const rows = [...raw.matchAll(/^\s*`(\d+)`\s*\|\s*(?:`(\d+)`)?\s*\|/gm)]
+        if (rows.length === 0) throw new Error('no migration rows in the CLI output')
+        remote = new Set(rows.filter((m) => m[2]).map((m) => m[2]!))
+        unapplied = rows.filter((m) => !m[2]).map((m) => m[1])
+      }
+      note = `${remote.size} applied, ${local.length} in the repository`
+    } catch (e) {
+      // A failure to ask is not a clean bill of health, so it counts as one finding.
+      unapplied = ['could not read the remote ledger']
+      note = String((e as Error)?.message ?? e).slice(0, 120)
+    }
+    measures.push({ key: 'unapplied_migrations', label: 'Migrations in the repository but not in production',
+      count: unapplied.length, detail: unapplied, note })
+  }
 
   // F10: the no-re-review rule, measured from what actually reached her inbox.
   const reviewMails = (outbox ?? []).filter((r) => /needs.?review/i.test(String(r.template_key))
