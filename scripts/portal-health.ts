@@ -234,8 +234,17 @@ async function main() {
         p_actor_key: 'thedot-admin',
         p_idempotency_key: `portal-health-behind:${client.id}:${today}`,
       })
-      if (error) console.error(`could not open the ops task: ${error.message}`)
-      else console.log(`\nOps task opened or refreshed: ${note.slice(0, 120)}`)
+      // The key is one task per client per day. A second run the same day carries a different
+      // summary once part of the backlog has been cleared, and add_ops_task refuses a reused key
+      // with a changed request, which is correct: it protects the record rather than silently
+      // rewriting today's task. Treat that as "already raised today" rather than as a failure.
+      if (error && /idempotency key reused/.test(error.message)) {
+        console.log('\nOps task for today is already open; leaving it as raised.')
+      } else if (error) {
+        console.error(`could not open the ops task: ${error.message}`)
+      } else {
+        console.log(`\nOps task opened: ${note.slice(0, 120)}`)
+      }
     }
   }
   process.exitCode = measures.some((m) => m.count > 0) ? 1 : 0

@@ -155,7 +155,7 @@ async function reviewCandidateTexts(
     .select('request_id,candidate_text,status').in('request_id',requestIds)
   if(error) throw new Error(`Agency review candidates unavailable: ${error.message}`)
   const rows=new Map((data??[]).map((row)=>[row.request_id,row]))
-  if(rows.size===0&&!requireApproved) return new Map()
+  if(rows.size===0) return new Map()
   for(const request of requests){
     const row=rows.get(request.id)
     if(!row) throw new Error('Save a safe-merge candidate for every request in Agency Ops before using a package candidate')
@@ -175,11 +175,20 @@ function validateEditPackageCandidate(
   if(candidate.version!==base.version+1)
     throw new Error(`Package candidate must be version ${base.version+1}`)
   const preserved: Array<keyof ParsedContent>=[
-    'portal_kind','title','producer','calendar_note','format','pillar','platforms',
+    'portal_kind','title','calendar_note','format','pillar','platforms',
     'status','canva_url','drive_url','fact_check','fact_check_scope','fact_check_ledger',
   ]
   if(preserved.some((key)=>JSON.stringify(candidate[key])!==JSON.stringify(base[key])))
     throw new Error('Package candidate changes workflow metadata outside the requested copy package')
+  // producer is preserved once declared, but may be COMPLETED when the base predates the field.
+  // Otherwise a legacy piece is deadlocked: the reconciler authors the new version from the base
+  // bytes, so it inherits the missing producer, and assertProducerDeclared then refuses the sync.
+  // Eighteen canonical files are in that state and two of them carry unapplied client edits.
+  // Filling in an absent value is completing the record; changing a declared one is not.
+  if(base.producer&&JSON.stringify(candidate.producer)!==JSON.stringify(base.producer))
+    throw new Error('Package candidate changes the declared producer')
+  if(!base.producer&&!candidate.producer)
+    throw new Error('Package candidate must declare producer (the_dot or studio); the released base never did')
   // The portal, not an old source snapshot, owns the current editorial date. A request
   // reconciliation may carry that already-recorded date forward into its new immutable
   // version, but it must never choose a different one or resurrect stale source metadata.
