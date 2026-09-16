@@ -125,6 +125,28 @@ function compatibleBlockKeys(blockKey:string){
     ? [blockKey,'ig-facebook-caption','social-caption']
     : [blockKey]
 }
+// An approved Agency Ops recommendation IS the decision about which text wins. It was only ever
+// consulted when the operator remembered --candidate, so an approved recommendation could sit in
+// the database while this command wrote the client's raw submitted text straight over the top of
+// it. The guard then compared the write against the recommendation, disagreed, and failed AFTER
+// writing, leaving a version that no command could remove. That is what happened to
+// kanset-2026-09-askkanset-hc-no-war on 2026-09-15 and cost two days. Audit F2, F4.
+//
+// Refusing rather than silently substituting the reviewed text is deliberate: --candidate prints
+// the complete client-visible diff before anything is written, and a reviewed change should be
+// looked at, not applied behind the operator's back.
+async function assertNoIgnoredReviewCandidate(requests:ChangeRequest[]):Promise<void>{
+  const {data,error}=await admin.from('content_request_review_candidates')
+    .select('request_id,status').in('request_id',requests.map((request)=>request.id))
+  if(error) throw new Error(`Agency review candidates unavailable: ${error.message}`)
+  const approved=(data??[]).filter((row)=>row.status==='approved')
+  if(approved.length===0) return
+  throw new Error(
+    `${approved.length} of these ${requests.length} request(s) already has an approved Agency Ops `
+    + 'recommendation, and this command ignores it. Re-run with --candidate <absolute-path> so the '
+    + 'reviewed text is what gets written. Without it the client\'s raw submitted text is written '
+    + 'and the guard rejects it after the write.')
+}
 async function reviewCandidateTexts(
   requests:ChangeRequest[],requireApproved:boolean,
 ):Promise<Map<string,string>>{
@@ -226,6 +248,7 @@ async function reconcileEdit(client:{id:string;slug:string},requestId:string,app
   const base=parseContentFile(raw,snapshot.source_path)
   const edited=applyCanonicalEdit(raw,snapshot.source_path,request.base_version,{blockKey,originalChecksum,proposedText})
   const candidateRaw=candidatePath?candidateFile(candidatePath):edited.raw
+  if(!candidatePath) await assertNoIgnoredReviewCandidate([request])
   const reviewTexts=candidatePath?await reviewCandidateTexts([request],apply):new Map<string,string>()
   const parsed=candidatePath
     ?validateEditPackageCandidate(candidateRaw,snapshot.source_path,base,[{
@@ -320,6 +343,7 @@ async function reconcileEditBundle(
     raw:baseRaw,sourcePath:snapshot.source_path,expectedVersion:lead.base_version,patches,
     approvedCandidateRaw,
   })
+  if(!candidatePath) await assertNoIgnoredReviewCandidate(requests)
   const reviewTexts=candidatePath?await reviewCandidateTexts(requests,apply):new Map<string,string>()
   const parsed=candidatePath
     ?validateEditPackageCandidate(candidateRaw,snapshot.source_path,base,
@@ -384,8 +408,15 @@ async function resumeEdit(client:{id:string;slug:string},requestId:string,apply:
     canonicalBaseRef:`${head}^`,sourcePath:snapshot.source_path})
   if(released.adoptedEquivalentTree) console.log('Recorded release history was rewritten; exact canonical parent bytes verified.')
   const base=parseContentFile(released.raw,snapshot.source_path)
-  const parsed=validateEditPackageCandidate(readFileSync(path,'utf8'),snapshot.source_path,base,[{
+  const candidateRaw=readFileSync(path,'utf8')
+  // If Agency Ops approved a recommendation for this request, that text is what the canonical
+  // file should already contain. Comparing against the client's raw submission instead reported a
+  // reviewed, correctly applied block as a mismatch. Audit F2.
+  const resumeReviewTexts=await reviewCandidateTexts([request],false)
+  const parsed=validateEditPackageCandidate(candidateRaw,snapshot.source_path,base,[{
+    requestId:request.id,
     blockKey:text(request.payload,'block_key')??'',proposedText:text(request.payload,'proposed_text')??'',
+    reviewText:resumeReviewTexts.get(request.id),
   }],item.planned_date??null)
   printSafePackageDiff(base,parsed)
   if(!apply){console.log('Resume preview only. Re-run with --apply after reviewing this client-visible diff.');return}
@@ -399,12 +430,25 @@ async function resumeEdit(client:{id:string;slug:string},requestId:string,apply:
     p_request_id:request.id,p_content_id:request.content_id,p_content_version:request.base_version,
   })
   if(begin.error)throw new Error(begin.error.message)
-  const synced=await admin.rpc('sync_content_item_versions',{p_items:[syncRow(parsed,client.id,head)]})
+  // The recovery path used the current checkout HEAD, but a working version synced days earlier
+  // carries the commit it was synced at, and an exact re-sync does not move that pointer. Every
+  // later commit to the canonical repo therefore made this command fail with "synced snapshot
+  // does not match the canonical commit/path", which reads like corruption and is really just a
+  // stale sha. reconcileEdit and reconcileEditBundle both adopt the recorded provenance commit;
+  // the recovery command was the only one that did not. Audit F6.
+  const adopted=resolveAdoptedCandidateCommit({git:(args)=>git(dir,args),canonicalBaseRef:'HEAD',
+    sourcePath:snapshot.source_path,candidateRaw,
+    recordedWorkingCommitSha:await recordedWorkingCommit(client.id,request.content_id,request.base_version,snapshot.source_path)})
+  const commit=adopted.commit
+  console.log(adopted.adoptedRecordedProvenance
+    ?`Adopting already committed canonical draft at its recorded provenance commit ${commit}.`
+    :`Adopting already committed canonical draft at ${commit}.`)
+  const synced=await admin.rpc('sync_content_item_versions',{p_items:[syncRow(parsed,client.id,commit)]})
   if(synced.error)throw new Error(synced.error.message)
-  const prepared=await admin.rpc('mark_content_request_prepared',{p_request_id:request.id,p_commit_sha:head,
+  const prepared=await admin.rpc('mark_content_request_prepared',{p_request_id:request.id,p_commit_sha:commit,
     p_actor_key:'thedot-admin',p_idempotency_key:randomUUID()})
   if(prepared.error)throw new Error(prepared.error.message)
-  console.log(`Recovered and prepared edit request ${request.id} at ${head}. Release review is still required.`)
+  console.log(`Recovered and prepared edit request ${request.id} at ${commit}. Release review is still required.`)
 }
 async function reconcileCreate(client:{id:string;slug:string},requestId:string,contentId:string,apply:boolean){
   const request=await changeRequest(client.id,requestId);if(request.request_type!=='create')throw new Error('request is not a create')
@@ -525,9 +569,12 @@ async function main(){
     const flags=parseBatchEditArgs(value,rest)
     await reconcileEditBundle(client,flags.requestIds,flags.apply,flags.candidatePath,flags.allowPartialCandidate)
   }else if(command==='resume-edit'){
-    if(!value||rest.length!==1||rest[0]!=='--apply')
-      throw new Error('usage: portal-inbox resume-edit <clientSlug> <request-uuid> --apply')
-    await resumeEdit(client,value,true)
+    // resumeEdit has always supported a preview, but the dispatcher demanded --apply and made it
+    // unreachable, so the one command used to recover a half-finished reconciliation was the only
+    // one that could not be inspected first. It now previews by default like every sibling.
+    if(!value||rest.some((arg)=>arg!=='--apply'))
+      throw new Error('usage: portal-inbox resume-edit <clientSlug> <request-uuid> [--apply]')
+    await resumeEdit(client,value,rest.includes('--apply'))
   }else if(command==='apply-create'){
     const contentId=rest.find((arg)=>arg!=='--apply')
     if(!value||!contentId||!/^[a-z0-9][a-z0-9._-]{1,119}$/.test(contentId))
