@@ -4258,6 +4258,121 @@ async function main(): Promise<void> {
         controlArmed.count === 1, `needs_review rows = ${controlArmed.count}`)
     }
 
+    // 0087: record_agency_supersession. Replacing copy on a version the client has been shown but
+    // has not decided on. The dangerous failures are notifying her a second time, and quietly
+    // replacing something she HAS decided on.
+    {
+      async function shownFixture(suffix: string): Promise<{ contentId: string; itemId: string }> {
+        const contentId = `rls-supersede-${suffix}-${RUN_ID}`
+        await sync([snapshot(bClientId!, contentId, 1, 'Supersede v1', 'Copy she was shown', 'main',
+          { producer: 'the_dot' })])
+        const item = await admin.from('content_items').select('id')
+          .eq('client_id', bClientId!).eq('content_id', contentId).single()
+        if (item.error || !item.data) throw new Error(`supersede fixture ${suffix}: ${item.error?.message ?? 'missing'}`)
+        const ready = await admin.rpc('mark_content_ready', { p_content_id: item.data.id, p_content_version: 1 })
+        if (ready.error) throw new Error(`supersede fixture ${suffix} release: ${ready.error.message}`)
+        const revision = await admin.rpc('begin_content_revision', {
+          p_content_id: item.data.id, p_content_version: 1,
+        })
+        if (revision.error) throw new Error(`supersede fixture ${suffix} revision: ${revision.error.message}`)
+        await sync([snapshot(bClientId!, contentId, 2, 'Supersede v2', 'Corrected copy before she decided', 'main',
+          { producer: 'the_dot' })])
+        return { contentId, itemId: item.data.id }
+      }
+      const REASON = 'Agency override authorized by Anastasia: captions rewritten before her review.'
+
+      const target = await shownFixture('ok')
+
+      const notReachable = await bClient.rpc('record_agency_supersession', {
+        p_content_id: target.itemId, p_content_version: 2, p_reason: REASON,
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      check('SUP1: authenticated cannot execute record_agency_supersession', !!notReachable.error,
+        notReachable.error?.message ?? 'NO ERROR')
+
+      const ghost = await admin.rpc('record_agency_supersession', {
+        p_content_id: target.itemId, p_content_version: 2, p_reason: REASON,
+        p_actor_key: `ghost-${RUN_ID}`, p_idempotency_key: randomUUID(),
+      })
+      check('SUP2: an unknown agency actor cannot supersede',
+        !!ghost.error && /unknown or inactive agency actor/.test(ghost.error.message),
+        ghost.error?.message ?? 'NO ERROR')
+
+      const backwards = await admin.rpc('record_agency_supersession', {
+        p_content_id: target.itemId, p_content_version: 1, p_reason: REASON,
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      check('SUP3: the released version cannot supersede itself',
+        !!backwards.error && /not ahead of the released version/.test(backwards.error.message),
+        backwards.error?.message ?? 'NO ERROR')
+
+      const mailBefore = await admin.from('notification_outbox').select('id', { count: 'exact', head: true })
+        .eq('client_id', bClientId).eq('recipient_kind', 'client').eq('channel', 'email')
+      const done = await admin.rpc('record_agency_supersession', {
+        p_content_id: target.itemId, p_content_version: 2, p_reason: REASON,
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const after = await admin.from('content_items')
+        .select('status, working_version, client_visible_version, review_ready_at, revision_in_progress')
+        .eq('id', target.itemId).single()
+      const state = await admin.from('content_with_state').select('client_state')
+        .eq('id', target.itemId).maybeSingle()
+      check('SUP4: the new version becomes visible and the piece still awaits her review',
+        !done.error && after.data?.client_visible_version === 2 && after.data?.status === 'draft'
+          && after.data?.review_ready_at !== null && after.data?.revision_in_progress === false
+          && state.data?.client_state === 'needs_review',
+        done.error?.message ?? JSON.stringify({ item: after.data, state: state.data }))
+
+      const armed = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
+        .eq('content_id', target.itemId).eq('content_version', 2).eq('event_type', 'needs_review')
+      check('SUP5: superseding arms no second review', armed.count === 0, `needs_review rows on v2 = ${armed.count}`)
+
+      const mailAfter = await admin.from('notification_outbox').select('id', { count: 'exact', head: true })
+        .eq('client_id', bClientId).eq('recipient_kind', 'client').eq('channel', 'email')
+      check('SUP6: superseding sends the client no email',
+        mailBefore.count === mailAfter.count, `before=${mailBefore.count} after=${mailAfter.count}`)
+
+      // The precondition that makes silence honest: she has not decided. Once she has, refuse.
+      // Built in the real order: release v1, she approves it, only then does a v2 appear.
+      const decidedId = `rls-supersede-decided-${RUN_ID}`
+      await sync([snapshot(bClientId!, decidedId, 1, 'Decided v1', 'Copy she approved', 'main',
+        { producer: 'the_dot' })])
+      const decidedItem = await admin.from('content_items').select('id')
+        .eq('client_id', bClientId!).eq('content_id', decidedId).single()
+      const decidedItemId = decidedItem.data!.id
+      const decidedReady = await admin.rpc('mark_content_ready', {
+        p_content_id: decidedItemId, p_content_version: 1,
+      })
+      if (decidedReady.error) throw new Error(`supersede decided release: ${decidedReady.error.message}`)
+      // She cannot approve a package with no design link, so give it one before she decides.
+      const decidedLink = await admin.rpc('set_content_design_links', {
+        p_client_id: bClientId, p_content_id: decidedId,
+        p_canva_url: 'https://www.canva.com/design/SUPERSEDEDECIDED/view', p_drive_url: null,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `supersede-link-${RUN_ID}`,
+      })
+      if (decidedLink.error) throw new Error(`supersede decided link: ${decidedLink.error.message}`)
+      const decision = await bClient.rpc('record_content_decision', {
+        p_content_id: decidedItemId, p_content_version: 1, p_decision: 'approved', p_note: null,
+      })
+      const decidedRevision = await admin.rpc('begin_content_revision', {
+        p_content_id: decidedItemId, p_content_version: 1,
+      })
+      if (decidedRevision.error) throw new Error(`supersede decided revision: ${decidedRevision.error.message}`)
+      await sync([snapshot(bClientId!, decidedId, 2, 'Decided v2', 'Copy replacing what she approved', 'main',
+        { producer: 'the_dot' })])
+      const overDecision = await admin.rpc('record_agency_supersession', {
+        p_content_id: decidedItemId, p_content_version: 2, p_reason: REASON,
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const stillV1 = await admin.from('content_items').select('client_visible_version')
+        .eq('id', decidedItemId).single()
+      check('SUP7: a version she has already decided on cannot be superseded quietly',
+        !decision.error && !!overDecision.error
+          && /already carries a client decision/.test(overDecision.error.message)
+          && stillV1.data?.client_visible_version === 1,
+        decision.error?.message ?? overDecision.error?.message ?? JSON.stringify(stillV1.data))
+    }
+
     {
       const stop = await admin.rpc('set_portal_feature_switch', {
         p_client_id: bClientId, p_feature: 'client_mutations', p_enabled: false,

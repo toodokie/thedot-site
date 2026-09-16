@@ -79,7 +79,11 @@ export async function getContentItem(clientId: string, contentId: string): Promi
 // 'working_version_discarded' (migration 0084) joins it for the same reason: removing a working
 // version the client never saw is agency housekeeping, and "Working version discarded" reads to
 // her as something went wrong with her piece.
-const CLIENT_FEED_EXCLUDED_EVENTS = ['design_link_updated', 'working_version_discarded']
+// 'agency_supersession_recorded' (0087) joins them: replacing copy on a piece she has not yet
+// decided on is agency housekeeping. She sees the corrected copy on a piece already waiting for
+// her, which is the point; "Superseded before review" would read as a problem.
+const CLIENT_FEED_EXCLUDED_EVENTS = ['design_link_updated', 'working_version_discarded',
+  'agency_supersession_recorded']
 
 export async function getActivity(clientId: string): Promise<ActivityRow[]> {
   const supabase = await createSupabaseServer()

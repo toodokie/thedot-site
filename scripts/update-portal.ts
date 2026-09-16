@@ -16,6 +16,11 @@
 //                        (with --apply) --confirm.
 //     --change-note "…"  Required for --re-share (single line, <=300 chars).
 //     --confirm          Required to actually execute a --re-share --apply.
+//     --quiet            With --re-share: promote the new version WITHOUT arming Maria's review,
+//                        for a released version she has not decided on. One audited RPC (0087).
+//                        Replaces the old client_alerts off / release / on window, which dropped
+//                        every other client email while it was open and could be left off on a
+//                        throw. Refused if she has already decided on the released version.
 //
 // SAFETY (Codex-reviewed): default is preview. Writes happen only under --apply. On --apply the repo
 // is preflighted BEFORE any mutation; the whole per-piece operation is serialized by a lock; stranded
@@ -25,6 +30,7 @@
 import { loadEnvConfig } from '@next/env'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { execFileSync } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import { appendFileSync, existsSync, readFileSync, readdirSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, isAbsolute, join, resolve } from 'node:path'
@@ -71,6 +77,7 @@ type Flags = {
   target: string
   apply: boolean
   reShare: boolean
+  quiet: boolean
   changeNote: string | null
   confirm: boolean
 }
@@ -80,6 +87,7 @@ function parseArgs(argv: string[]): Flags {
   let apply = false
   let previewOnly = false
   let reShare = false
+  let quiet = false
   let confirm = false
   let changeNote: string | null = null
   for (let i = 0; i < argv.length; i += 1) {
@@ -87,6 +95,7 @@ function parseArgs(argv: string[]): Flags {
     if (arg === '--apply') apply = true
     else if (arg === '--preview-only') previewOnly = true
     else if (arg === '--re-share') reShare = true
+    else if (arg === '--quiet') quiet = true
     else if (arg === '--confirm') confirm = true
     else if (arg === '--change-note') {
       const candidate = argv[i + 1]
@@ -103,10 +112,11 @@ function parseArgs(argv: string[]): Flags {
   }
   // Reject contradictory / meaningless flag combinations (Codex should-fix 10).
   if (apply && previewOnly) throw new Error('--apply and --preview-only are mutually exclusive')
+  if (quiet && !reShare) throw new Error('--quiet is only valid with --re-share')
   if (confirm && !reShare) throw new Error('--confirm is only valid with --re-share')
   if (changeNote !== null && !reShare) throw new Error('--change-note is only valid with --re-share')
   const note = changeNote !== null ? validateChangeNote(changeNote) : null
-  return { target: positional[0], apply: apply && !previewOnly, reShare, changeNote: note, confirm }
+  return { target: positional[0], apply: apply && !previewOnly, reShare, quiet, changeNote: note, confirm }
 }
 
 function logRun(entry: Record<string, unknown>): void {
@@ -418,7 +428,7 @@ async function main() {
           packPath, extractedBody: extractedBody!, releasedVersion: clientVisibleVersion, workingVersion,
           canonicalVersion, bodyChanged, revisionInProgress, newVersion: plan.newVersion,
           pendingRelease: plan.pendingRelease, changeNote: flags.changeNote!,
-          apply: flags.apply, confirm: flags.confirm, report })
+          apply: flags.apply, confirm: flags.confirm, quiet: flags.quiet, report })
         return
     }
   } finally {
@@ -479,7 +489,8 @@ async function runReshare(ctx: {
   canonicalName: string; contentId: string; packPath: string | null; extractedBody: string
   releasedVersion: number; workingVersion: number; canonicalVersion: number | null; bodyChanged: boolean
   revisionInProgress: boolean; newVersion: number; pendingRelease: boolean
-  changeNote: string; apply: boolean; confirm: boolean; report: (extra?: Record<string, unknown>) => void
+  changeNote: string; apply: boolean; confirm: boolean; quiet: boolean
+  report: (extra?: Record<string, unknown>) => void
 }) {
   if (!ctx.apply || !ctx.confirm) {
     ctx.report({ outcome: 'reshare-preview' })
@@ -501,7 +512,7 @@ async function runReshare(ctx: {
     inspect(ctx.portalDir, 'apply')
     assertCanonicalIdentity(parseContentFile(readFileSync(ctx.canonicalPath, 'utf8'), ctx.canonicalName), ctx.contentId)
     reopenGateOrThrow(ctx.packPath, ctx.changeNote) // SF7: before release
-    runAdmin(['ready', CLIENT_SLUG, ctx.contentId, String(ctx.workingVersion)])
+    await releaseReshared(ctx, ctx.workingVersion)
     ctx.report({ outcome: 'reshared-release-retry', released_version: ctx.workingVersion }); clearPendingMarker(ctx.contentId)
     console.log(`RE-RELEASED ${ctx.contentId} v${ctx.workingVersion} (retried a stranded release of unchanged content). Re-ask Maria by EMAIL.`)
     return
@@ -536,9 +547,35 @@ async function runReshare(ctx: {
     throw new Error(`sync failed during re-share (left an unreleased draft — safe; re-run to retry): ${error.message}`)
   }
   reopenGateOrThrow(ctx.packPath, ctx.changeNote) // SF7: re-open the pack gate BEFORE release
-  runAdmin(['ready', CLIENT_SLUG, ctx.contentId, String(ctx.newVersion)])
+  await releaseReshared(ctx, ctx.newVersion)
   ctx.report({ outcome: 'reshared', new_version: ctx.newVersion, change_note: ctx.changeNote }); clearPendingMarker(ctx.contentId)
   console.log(`RE-SHARED ${ctx.contentId} v${ctx.newVersion}. Pack copy-approved gate re-opened; prior approval no longer covers this version. Re-ask Maria by EMAIL.`)
+}
+
+// A re-share releases one of two ways. The default arms Maria's review and emails her, which is
+// right when the piece genuinely needs another look. --quiet promotes the version and leaves the
+// review exactly as it already was, for copy corrected before she ever decided. The quiet path is
+// one audited RPC with the guards inside it, not a switch held open around a release.
+async function releaseReshared(
+  ctx: { supabase: Db; clientId: string; contentId: string; changeNote: string; quiet: boolean },
+  version: number,
+): Promise<void> {
+  if (!ctx.quiet) {
+    runAdmin(['ready', CLIENT_SLUG, ctx.contentId, String(version)])
+    return
+  }
+  const { data: item, error: itemError } = await ctx.supabase.from('content_items')
+    .select('id').eq('client_id', ctx.clientId).eq('content_id', ctx.contentId).single()
+  if (itemError || !item) throw new Error(`content item unavailable for quiet release: ${itemError?.message ?? 'missing'}`)
+  const { error } = await ctx.supabase.rpc('record_agency_supersession', {
+    p_content_id: item.id,
+    p_content_version: version,
+    p_reason: `Agency override authorized by Anastasia: ${ctx.changeNote}`,
+    p_actor_key: 'thedot-admin',
+    p_idempotency_key: randomUUID(),
+  })
+  if (error) throw new Error(`quiet supersession refused: ${error.message}`)
+  console.log(`Superseded v${version} quietly: the portal shows the corrected copy and Maria's review stays as it was. No email.`)
 }
 
 function runAdmin(args: string[]): void {

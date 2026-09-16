@@ -53,7 +53,7 @@ const assertNoteGrammarSafe = (value: string | null, field: string) => {
 
 async function main() {
   const [command, inputPath, ...rest] = process.argv.slice(2)
-  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|report-notify|communication|proposal-draft|proposal-revise|proposal-submit|proposal-reply|external-decision|courtesy-release|applied-release|override-destination|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|visual-revision|visual-revision-ready|review-asset|plan-cycle|plan-cycle-stage|plan-cycle-close|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
+  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|report-notify|communication|proposal-draft|proposal-revise|proposal-submit|proposal-reply|external-decision|courtesy-release|applied-release|supersede|override-destination|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|visual-revision|visual-revision-ready|review-asset|plan-cycle|plan-cycle-stage|plan-cycle-close|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
   const dryRun = rest.includes('--dry-run')
   const packIndex = rest.indexOf('--pack')
   const packPath = packIndex >= 0 ? rest[packIndex + 1] ?? null : null
@@ -216,6 +216,18 @@ async function main() {
     externalContentId = requiredText(payload.contentId, 'contentId', 200)
     externalContentVersion = integer(payload.contentVersion, 'contentVersion', 1)
     rpc = 'record_agency_applied_release'; args = {
+      p_content_id: null, p_content_version: externalContentVersion, p_reason: reason,
+      p_actor_key: actor, p_idempotency_key: idempotency,
+    }
+  } else if (command === 'supersede') {
+    // Promote a new version over one the client has been shown but has not decided on, without
+    // asking her to review again. Replaces the client_alerts off/on window entirely. Migration 0087.
+    const reason = requiredText(payload.reason, 'reason', 2000)
+    assertClientSafeAgencyText({ reason })
+    if (reason.length < 10) throw new Error('reason must be at least 10 characters')
+    externalContentId = requiredText(payload.contentId, 'contentId', 200)
+    externalContentVersion = integer(payload.contentVersion, 'contentVersion', 1)
+    rpc = 'record_agency_supersession'; args = {
       p_content_id: null, p_content_version: externalContentVersion, p_reason: reason,
       p_actor_key: actor, p_idempotency_key: idempotency,
     }
