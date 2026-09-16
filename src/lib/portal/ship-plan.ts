@@ -89,12 +89,14 @@ export function planShip(input: ShipInput): ShipPlan {
     blockers.push('the released base is not readable from the canonical repository, so its '
       + 'provenance commit is unreachable and needs an ancestry repair first')
   }
-  // The producer field gates record_content_courtesy_release (0060), and without a courtesy
-  // release the publication writer refuses (0044). The generated version inherits it from the
-  // released base, so adding it to the working file changes nothing.
+  // producer no longer gates the courtesy release. 0086 moved that decision onto the named
+  // Anastasia override, because a null producer said nothing about conflict of interest and a
+  // missing metadata field was hard-blocking releases of pieces that were already public.
+  // It still matters editorially: studio-produced content must carry the @loftcreativespace
+  // credit in every caption, so a missing value is worth seeing, and portal-health counts them.
   if (releasedBase.readable && !releasedBase.producer) {
-    blockers.push('the released base does not declare producer, so the version generated from it '
-      + 'cannot be courtesy-released; that legacy piece needs a metadata version first')
+    warnings.push('the released base does not declare producer, so the generated version will not '
+      + 'either; the release proceeds on the named override, but record it for credit accuracy')
   }
 
   const base = input.item.clientVisibleVersion ?? 0

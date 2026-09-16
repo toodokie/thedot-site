@@ -59,11 +59,15 @@ describe('planShip', () => {
     expect(plan.courtesyRelease).toBe(false)
   })
 
-  it('refuses when the released base has no producer, before anything is committed', () => {
+  // 0086 moved the release decision onto the named Anastasia override. A null producer says
+  // nothing about conflict of interest, and blocking on it stranded pieces that were already
+  // public. It stays a warning because studio content must carry the @loftcreativespace credit.
+  it('warns but does not refuse when the released base has no producer', () => {
     const plan = planShip(baseInput({
       releasedBase: { readable: true, version: 1, producer: null, scheduledDate: '2026-09-01' },
     }))
-    expect(plan.blockers).toContainEqual(expect.stringContaining('released base does not declare producer'))
+    expect(plan.blockers).not.toContainEqual(expect.stringContaining('producer'))
+    expect(plan.warnings).toContainEqual(expect.stringContaining('does not declare producer'))
   })
 
   it('refuses when the released base cannot be read from the repository', () => {
