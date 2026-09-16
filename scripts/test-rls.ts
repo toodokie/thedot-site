@@ -1217,6 +1217,46 @@ async function main(): Promise<void> {
           ?? overrideApproval.error?.message ?? browserOverrideDestination.error?.message
           ?? overrideDestination.error?.message ?? overrideDestinationRetry.error?.message ?? overrideTarget.error?.message
           ?? JSON.stringify({ approval: overrideApproval.data, target: overrideTarget.data }))
+
+      // 0086: the release gate hangs on the named override, not on the producer value. A version
+      // whose producer was never recorded used to be hard-blocked, because null matched neither
+      // branch, so missing metadata presented itself as a conflict-of-interest stop. 34 of 164
+      // live versions are in that state, and one of them had been public for eight days.
+      const nullProducerId = `rls-null-producer-${RUN_ID}`
+      const [nullProducerSync] = await sync([
+        snapshot(bClientId, nullProducerId, 1, 'No producer recorded', 'Body with no producer declared', 'youtube-short', {
+          platforms: ['instagram'], fact_check_scope: 'not_applicable',
+          fact_check_exemption: 'Brand clip with no regulated claim.', fact_check_ledger: [],
+        }),
+      ])
+      const nullProducerRow = await admin.from('content_item_versions').select('producer')
+        .eq('content_item_id', nullProducerSync.item_id).eq('version', 1).single()
+      const nullProducerReady = await admin.rpc('mark_content_ready', {
+        p_content_id: nullProducerSync.item_id, p_content_version: 1,
+      })
+      // Widening must not become a free-for-all: with no producer AND no named override, refuse.
+      const nullNoOverride = await admin.rpc('record_content_courtesy_release', {
+        p_content_id: nullProducerSync.item_id, p_content_version: 1,
+        p_reason: 'Publish without another client review.', p_actor_key: 'thedot-admin',
+        p_idempotency_key: randomUUID(),
+      })
+      const nullWithOverride = await admin.rpc('record_content_courtesy_release', {
+        p_content_id: nullProducerSync.item_id, p_content_version: 1,
+        p_reason: 'Agency override authorized by Anastasia: this piece has been live for eight days '
+          + 'and its producer was never recorded.',
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const nullApproval = await admin.from('approvals').select('id')
+        .eq('content_id', nullProducerSync.item_id).eq('content_version', 1)
+      check('R19: a version with no recorded producer releases on the named override, and only on it',
+        nullProducerRow.data?.producer === null && !nullProducerReady.error
+          && !!nullNoOverride.error
+          && /studio content or an explicit Anastasia agency override/.test(nullNoOverride.error.message)
+          && !nullWithOverride.error
+          && !nullApproval.error && nullApproval.data?.length === 0,
+        nullProducerRow.error?.message ?? nullProducerReady.error?.message
+          ?? nullNoOverride.error?.message ?? nullWithOverride.error?.message
+          ?? JSON.stringify({ producer: nullProducerRow.data?.producer, approvals: nullApproval.data }))
     }
 
     console.log('\n--- Slice 3 scheduling/rescheduling ---')
