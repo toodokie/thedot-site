@@ -174,19 +174,29 @@ async function main() {
       run(['scripts/portal-inbox.ts', 'apply-edit', slug, plan.reconcileRequestIds[0], '--apply'])
     }
 
-    if (plan.release || plan.courtesyRelease) {
-      // Releasing queues a "Needs review" email, and the courtesy release does not cancel it, so
-      // the client would be invited to approve a piece that is already live and that the portal
-      // will refuse to let her approve.
+    if (plan.release && plan.courtesyRelease) {
+      // One command promotes the version and records the agency override, and it arms no client
+      // review, so nothing has to be switched off. Before migration 0085 this ran as
+      // `client_alerts off` -> `portal-admin ready` -> `client_alerts on`, because releasing
+      // queued a "Needs review" email that the courtesy release did not cancel. That window
+      // dropped every other client email for the tenant, and a throw between the two switches
+      // left alerts off.
+      run(['scripts/portal-write.ts', 'applied-release', payload('applied-release', {
+        contentId, contentVersion: plan.targetVersion, reason, idempotencyKey: randomUUID(),
+      })])
+    } else if (plan.courtesyRelease) {
+      // The version is already the client-visible one; only the override needs recording.
+      run(['scripts/portal-write.ts', 'courtesy-release', payload('courtesy', {
+        contentId, contentVersion: plan.targetVersion, reason, idempotencyKey: randomUUID(),
+      })])
+    } else if (plan.release) {
+      // Promotion with no override to record, which means the client genuinely approved this
+      // version or an override is already on file. `ready` still arms her review, so this narrow
+      // case keeps the quiet window.
       run(['scripts/portal-admin.ts', 'switch', slug, 'client_alerts', 'off',
         `Quiet window for the ${contentId} close-out. The piece is already live.`])
       alertsClosed = true
-      if (plan.release) run(['scripts/portal-admin.ts', 'ready', slug, contentId, String(plan.targetVersion)])
-      if (plan.courtesyRelease) {
-        run(['scripts/portal-write.ts', 'courtesy-release', payload('courtesy', {
-          contentId, contentVersion: plan.targetVersion, reason, idempotencyKey: randomUUID(),
-        })])
-      }
+      run(['scripts/portal-admin.ts', 'ready', slug, contentId, String(plan.targetVersion)])
     }
 
     for (const destination of plan.overrideDestinations) {
