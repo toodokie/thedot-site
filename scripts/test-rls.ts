@@ -4373,6 +4373,38 @@ async function main(): Promise<void> {
         decision.error?.message ?? overDecision.error?.message ?? JSON.stringify(stillV1.data))
     }
 
+    // 0088: a client edit carries the whole rewritten block, and long-form blocks are far larger
+    // than the caption-era 8,000 limit allowed. Maria could not edit a 15,483-character article
+    // body, and the refusal was silent to the agency.
+    {
+      const LONG = `Long-form paragraph. ${'The article continues at length. '.repeat(600)}`
+      const SHORT = 'A caption-sized edit.'
+      check('LF0: the fixture text is genuinely past the old limit',
+        LONG.length > 8000 && LONG.length < 50000, `${LONG.length} characters`)
+
+      const longEdit = await bClient.rpc('request_content_edit', {
+        p_content_id: bItemId, p_content_version: 1, p_block_key: 'main',
+        p_proposed_text: LONG, p_idempotency_key: randomUUID(),
+      })
+      check('LF1: a long-form block can be edited by the client',
+        !longEdit.error, longEdit.error?.message ?? 'accepted')
+
+      // The bound still exists. A limit that quietly disappears is as bad as one set too small.
+      const tooLong = await bClient.rpc('request_content_edit', {
+        p_content_id: bItemId, p_content_version: 1, p_block_key: 'main',
+        p_proposed_text: 'x'.repeat(50001), p_idempotency_key: randomUUID(),
+      })
+      check('LF2: text beyond the new limit is still refused', !!tooLong.error,
+        tooLong.error?.message ?? 'NO ERROR')
+
+      const empty = await bClient.rpc('request_content_edit', {
+        p_content_id: bItemId, p_content_version: 1, p_block_key: 'main',
+        p_proposed_text: '   ', p_idempotency_key: randomUUID(),
+      })
+      check('LF3: an empty edit is still refused', !!empty.error, empty.error?.message ?? 'NO ERROR')
+      check('LF4: a caption-sized edit is unaffected', SHORT.length < 8000, `${SHORT.length} characters`)
+    }
+
     {
       const stop = await admin.rpc('set_portal_feature_switch', {
         p_client_id: bClientId, p_feature: 'client_mutations', p_enabled: false,

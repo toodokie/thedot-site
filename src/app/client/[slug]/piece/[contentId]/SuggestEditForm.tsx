@@ -84,7 +84,7 @@ export default function SuggestEditForm({
       <blockquote>{quote}</blockquote>
     </div>}
     <Textarea id={`review-edit-${targetKind}-${targetKey}`} label={fieldLabel}
-      rows={targetKind === 'copy_block' ? 10 : 4} maxLength={8000}
+      rows={targetKind === 'copy_block' ? 18 : 4} maxLength={50000}
       value={value} onChange={(event) => update(event.target.value)}
       placeholder={targetKind === 'copy_block' ? undefined : 'Describe the visual change'} />
     <Text as="div" size="sm" tone="grey">
