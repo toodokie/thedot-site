@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { transporter } from '@/lib/email'
 import { rateLimit, getClientIP } from '@/lib/rate-limit'
+import { safeNext } from '@/lib/portal/redirect'
 
 // App-native portal sign-in email.
 //
@@ -54,8 +55,9 @@ export async function POST(request: NextRequest) {
   if (!limit.success) return NextResponse.json({ ok: true }, { status: 200 })
 
   let email: unknown
+  let requestedNext: unknown
   try {
-    ;({ email } = await request.json())
+    ;({ email, next: requestedNext } = await request.json())
   } catch {
     return generic
   }
@@ -81,11 +83,18 @@ export async function POST(request: NextRequest) {
     if (!props?.hashed_token) return generic
     const type = props.verification_type ?? 'magiclink'
 
+    // The page she was trying to open when she was asked to sign in, so a piece link shared with
+    // her opens that piece. safeNext accepts only a same-origin /client path and otherwise falls
+    // back to the workspace landing, so a crafted request cannot turn the sign-in email into an
+    // off-site redirect. The confirm page and its verify POST validate it once more.
+    const wanted = safeNext(typeof requestedNext === 'string' ? requestedNext : null, origin)
+    const next = `${wanted.pathname}${wanted.search}`
+
     const url =
       `${origin}/client/auth/confirm` +
       `?token_hash=${encodeURIComponent(props.hashed_token)}` +
       `&type=${encodeURIComponent(type)}` +
-      `&next=/client/kanset`
+      `&next=${encodeURIComponent(next)}`
 
     const requestedAt = requestedAtLabel()
     await transporter.sendMail({

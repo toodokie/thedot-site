@@ -28,5 +28,11 @@ export async function GET(request: Request) {
   const { data: { user }, error: userError } = await supabase.auth.getUser()
   if (user) return NextResponse.redirect(destination, noStore)
   const errCode = userError && !isAuthSessionMissingError(userError) ? 'service' : 'expired'
-  return NextResponse.redirect(`${origin}/client/login?error=${errCode}`, noStore)
+  // Same as the confirm route: a dead link must not also lose where she was going.
+  const retry = new URL('/client/login', origin)
+  retry.searchParams.set('error', errCode)
+  if (destination.pathname !== '/client/kanset' || destination.search) {
+    retry.searchParams.set('next', `${destination.pathname}${destination.search}`)
+  }
+  return NextResponse.redirect(retry, noStore)
 }

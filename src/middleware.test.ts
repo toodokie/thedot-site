@@ -58,8 +58,25 @@ describe('portal middleware auth routing', () => {
     const response = await middleware(request('/client/kanset/piece/example'))
 
     expect(response.status).toBe(307)
-    expect(response.headers.get('location')).toBe('https://www.thedotcreative.co/client/login')
     expect(response.headers.get('cache-control')).toContain('no-store')
+    const location = new URL(response.headers.get('location') ?? '')
+    expect(location.origin + location.pathname).toBe('https://www.thedotcreative.co/client/login')
+  })
+
+  // A piece link shared with the client used to sign her in and then land her on the workspace
+  // instead of the piece, because the login redirect threw the destination away here.
+  it('carries the page she was trying to open into the login redirect', async () => {
+    const response = await middleware(request('/client/kanset/piece/example'))
+    const location = new URL(response.headers.get('location') ?? '')
+
+    expect(location.searchParams.get('next')).toBe('/client/kanset/piece/example')
+  })
+
+  it('does not add a destination for the portal landing itself', async () => {
+    const response = await middleware(request('/client'))
+    const location = new URL(response.headers.get('location') ?? '')
+
+    expect(location.searchParams.get('next')).toBeNull()
   })
 
   it('keeps the login route public', async () => {

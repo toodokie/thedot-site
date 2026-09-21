@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import LoginForm from './LoginForm'
 import { getClientSession } from '@/lib/portal/auth'
+import { safeNext } from '@/lib/portal/redirect'
 
 // Server wrapper: turns ?error= into a visible, human explanation. Without this, a dead sign-in link
 // silently re-rendered the email form, which reads as an endless login loop.
@@ -11,7 +12,7 @@ const NOTICES: Record<string, string> = {
 }
 
 export default async function ClientLogin(
-  { searchParams }: { searchParams: Promise<{ error?: string }> },
+  { searchParams }: { searchParams: Promise<{ error?: string; next?: string }> },
 ) {
   // Already signed in -> straight to the workspace. Browsers preload pasted/typed links before Enter,
   // which can consume a one-time sign-in link AND establish the session invisibly; without this check
@@ -26,8 +27,14 @@ export default async function ClientLogin(
   } catch {
     outage = true
   }
-  if (signedIn) redirect('/client/kanset') // outside the try: redirect() throws internally by design
-  const { error } = await searchParams
+  const { error, next: rawNext } = await searchParams
+  // The page she was sent to, preserved through the sign-in so a shared piece link opens the piece.
+  // safeNext rejects anything that is not a same-origin /client path, so a crafted link cannot
+  // redirect her off the site after a real authentication. ORIGIN is only a parsing base here.
+  const destination = safeNext(rawNext ?? null, 'https://www.thedotcreative.co')
+  const next = `${destination.pathname}${destination.search}`
+  // outside the try: redirect() throws internally by design
+  if (signedIn) redirect(next)
   const notice = outage ? NOTICES.service : error ? NOTICES[error] ?? NOTICES.auth : undefined
-  return <LoginForm notice={notice} />
+  return <LoginForm notice={notice} next={next} />
 }

@@ -80,5 +80,12 @@ export async function POST(request: Request) {
   // an auth-service outage distinguishable from a genuinely dead link.
   purgeStale()
   const code = userError && !isAuthSessionMissingError(userError) ? 'service' : 'expired'
-  return seeOther(`${origin}/client/login?error=${code}`)
+  // Keep the destination across a dead link, so the fresh sign-in she requests from the notice
+  // still opens the page she was sent to instead of the workspace landing.
+  const retry = new URL('/client/login', origin)
+  retry.searchParams.set('error', code)
+  if (destination.pathname !== '/client/kanset' || destination.search) {
+    retry.searchParams.set('next', `${destination.pathname}${destination.search}`)
+  }
+  return seeOther(retry)
 }

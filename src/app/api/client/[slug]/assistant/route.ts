@@ -422,16 +422,53 @@ export async function POST(
         emptyPortalNotice = 'Nothing is waiting on Maria\'s review right now. The live Overview review queue is clear.'
       }
     } else if (isUpcomingContentQuestion(question)) {
-      // Chronology is not a keyword-search problem. Read the same client-visible weekly
-      // plan used by the Plan surface, under the caller's own JWT and RLS, then preserve
-      // its date + position order for the model. Only the client-facing planning snapshot
-      // enters the prompt.
+      // Chronology is not a keyword-search problem, and it is not a plan question either.
+      // This branch used to read ONLY the weekly plan, so the moment a week's plan cycle was
+      // closed the client view returned nothing and "when does my next post go out?" answered
+      // "I can't find that in the portal" while a piece sat scheduled for the next morning.
+      // The calendar is the surface that actually holds planned dates, so read it first and
+      // keep the weekly plan as supporting context. Both are client-visible projections read
+      // under the caller's own JWT and RLS.
       const today = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'America/Toronto',
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
       }).format(new Date())
+      const upcoming = await supabase
+        .from('content_calendar_client')
+        .select('id,content_id,title,planned_date,platforms,format,client_state,schedule_state')
+        .eq('client_id', clientId)
+        .gte('planned_date', today)
+        .order('planned_date', { ascending: true })
+        .order('content_id', { ascending: true })
+        .limit(8)
+      if (upcoming.error) {
+        console.error('assistant upcoming-calendar lookup failed:', upcoming.error.message)
+        await logRun({ clientId, userId, mode: 'portal_workspace', queryHmac, outcome: 'error' })
+        return json({ error: 'Something went wrong. Please try again.' }, 500)
+      }
+      const calendarChunks: RetrievedChunk[] = (upcoming.data ?? []).map((row, index) => {
+        const fields = [
+          `Upcoming scheduled piece: ${row.title}`,
+          row.planned_date ? `Planned date: ${row.planned_date}` : null,
+          `Workflow status: ${String(row.client_state).replaceAll('_', ' ')}`,
+          row.format ? `Format: ${row.format}` : null,
+          Array.isArray(row.platforms) && row.platforms.length > 0
+            ? `Platforms: ${row.platforms.join(', ')}`
+            : null,
+        ].filter((field): field is string => field !== null)
+        return {
+          chunk_id: String(row.id),
+          document_id: String(row.id),
+          source_type: 'upcoming_calendar',
+          title: String(row.title),
+          related_route: `piece/${row.content_id}`,
+          answer_eligibility: 'grounded_answer',
+          excerpt: fields.join('. ').slice(0, 700) + '.',
+          rank: 1400 - index,
+        }
+      })
       const cycle = await supabase
         .from('plan_cycles_client')
         .select('id,title,week_start,week_end,revision')
@@ -448,7 +485,7 @@ export async function POST(
       }
       const cycleData = cycle.data
       if (!cycleData) {
-        chunks = []
+        chunks = calendarChunks
       } else {
         const items = await supabase
           .from('plan_cycle_items_client')
@@ -487,6 +524,10 @@ export async function POST(
             rank: 1000 - item.position,
           }
         })
+        chunks = [...calendarChunks, ...chunks]
+      }
+      if (chunks.length === 0) {
+        emptyPortalNotice = 'Nothing is scheduled in the portal calendar from today onward.'
       }
     } else if (isContentPlanQuestion(question)) {
       // Plans were added after the original full-text index and are structured, ordered

@@ -5,7 +5,7 @@ import { Heading, Text, Input, Button } from '@thedot/design-system'
 
 // Client half of the login page; the server component page.tsx maps ?error= into `notice` so a dead
 // link produces a visible explanation instead of silently re-showing the form (the "endless loop" UX).
-export default function LoginForm({ notice }: { notice?: string }) {
+export default function LoginForm({ notice, next }: { notice?: string; next?: string }) {
   const [email, setEmail] = useState(''); const [sent, setSent] = useState(false)
   async function send(e: React.FormEvent) {
     e.preventDefault()
@@ -16,7 +16,8 @@ export default function LoginForm({ notice }: { notice?: string }) {
       await fetch('/api/client/auth/request-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        // `next` is the page she was trying to reach before sign-in; the API re-validates it.
+        body: JSON.stringify({ email, next }),
       })
     } catch {
       // Swallow: show the same confirmation regardless, so the UI reveals no error and no account signal.

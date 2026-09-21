@@ -125,7 +125,15 @@ export async function middleware(request: NextRequest) {
       return portalUnavailableResponse(pathname);
     }
     if (!portalSession.userId) {
-      response = NextResponse.redirect(new URL('/client/login', request.url), 307);
+      // Carry the page she was actually trying to open. Without this, a piece link copied out of
+      // the portal and sent to her signed her in and then dropped her on the workspace landing,
+      // which read as the link going somewhere else entirely. Every later hop re-validates the
+      // destination with safeNext, so this cannot become an open redirect.
+      const loginUrl = new URL('/client/login', request.url);
+      if (pathname !== '/client') {
+        loginUrl.searchParams.set('next', `${pathname}${request.nextUrl.search}`);
+      }
+      response = NextResponse.redirect(loginUrl, 307);
       response.headers.set('Cache-Control', 'private, no-cache, no-store, max-age=0, must-revalidate');
     }
   }
