@@ -6,6 +6,7 @@ import { getClientSession } from '@/lib/portal/auth'
 import { getContentItem } from '@/lib/portal/data'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { REVIEW_FLOW_ANNOUNCEMENT_KEY } from '@/lib/portal/review-flow-announcement'
+import { recordRefusal, type RefusalReason, type RefusedDraft } from '@/lib/portal/refusal-log'
 
 // Must stay in step with migration 0088, which raised the same bound in four database
 // functions, and with the form's maxLength. 0088 fixed the database and the form and
@@ -15,6 +16,28 @@ import { REVIEW_FLOW_ANNOUNCEMENT_KEY } from '@/lib/portal/review-flow-announcem
 const MAX_PROPOSED_TEXT = 50000
 
 export type RequestActionState = { error?: string; success?: string }
+
+// Every refusal on a path that carries the client's own copy goes through here, so the attempt and
+// her wording survive somewhere we can see. Returning the error is its whole job, which is what
+// makes the "no bare return { error }" rule in refusal-logging.test.ts enforceable: a new refusal
+// path that forgets to log fails that test instead of silently losing her work. Logging can never
+// change what the caller gets back.
+async function refuse(
+  message: string,
+  reason: RefusalReason,
+  context: {
+    clientId: string
+    contentItemId?: string | null
+    contentId?: string | null
+    contentVersion?: number | null
+    requestedBy?: string | null
+    requesterName?: string | null
+    drafts?: RefusedDraft[]
+  },
+): Promise<RequestActionState> {
+  await recordRefusal({ ...context, reason, clientMessage: message })
+  return { error: message }
+}
 export type ReviewBundleDraft = {
   targetKind: 'copy_block' | 'asset' | 'design_link'
   targetKey: string
@@ -57,34 +80,61 @@ export async function sendReviewBundle(input: {
 }): Promise<ReviewBundleResult> {
   const session = await getClientSession(input.slug)
   if (!session) redirect('/client/login')
-  if (!session.canSubmitRequests) return { error: 'Your account cannot send edits.' }
+  const bundle = {
+    clientId: session.clientId,
+    contentId: input.contentId,
+    contentVersion: input.contentVersion,
+    requestedBy: session.userId,
+    requesterName: session.name,
+    drafts: Array.isArray(input.drafts) ? input.drafts : [],
+  }
+  if (!session.canSubmitRequests) {
+    return refuse('Your account cannot send edits.', 'cannot_submit_requests', bundle)
+  }
   if (!validKey(input.idempotencyKey) || !Number.isInteger(input.contentVersion) || input.contentVersion < 1) {
-    return { error: 'This review expired. Reload the page and try again.' }
+    return refuse('This review expired. Reload the page and try again.', 'expired_review', bundle)
   }
   if (!Array.isArray(input.drafts) || input.drafts.length < 1 || input.drafts.length > 50) {
-    return { error: 'Add at least one edit before sending.' }
+    return refuse('Add at least one edit before sending.', 'empty_bundle', bundle)
   }
   const seen = new Set<string>()
   for (const draft of input.drafts) {
     const identity = `${draft.targetKind}:${draft.targetKey}`
+    // Length gets its own message. "One of the edits is incomplete. Review it and try again" was
+    // what Maria saw when the article was too long: it names no cause and invites her to send the
+    // identical thing again, which is roughly what happened.
+    if (draft.proposedText && draft.proposedText.trim().length > MAX_PROPOSED_TEXT) {
+      return refuse(
+        `One of the edits is too long (${MAX_PROPOSED_TEXT.toLocaleString('en-CA')} characters max, `
+          + `"${draft.targetLabel?.trim() || draft.targetKey}" is `
+          + `${draft.proposedText.trim().length.toLocaleString('en-CA')}). `
+          + 'We have your text and will be in touch.',
+        'draft_too_long', bundle)
+    }
     if (!['copy_block', 'asset', 'design_link'].includes(draft.targetKind)
         || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(draft.targetKey)
         || !draft.targetLabel?.trim() || draft.targetLabel.trim().length > 120
-        || !draft.proposedText?.trim() || draft.proposedText.trim().length > MAX_PROPOSED_TEXT
+        || !draft.proposedText?.trim()
         || seen.has(identity)) {
-      return { error: 'One of the edits is incomplete. Review it and try again.' }
+      return refuse('One of the edits is incomplete. Review it and try again.', 'draft_invalid', bundle)
     }
     if (draft.urlSnapshot && (!/^https:\/\/[^\s]+$/i.test(draft.urlSnapshot) || draft.urlSnapshot.length > 2048)) {
-      return { error: 'One of the visual references is no longer valid. Reload the page and try again.' }
+      return refuse('One of the visual references is no longer valid. Reload the page and try again.',
+        'url_invalid', bundle)
     }
     seen.add(identity)
   }
   const note = input.note?.trim() ?? ''
-  if (note.length > 2000) return { error: 'The overall note is too long (2,000 characters max).' }
+  if (note.length > 2000) {
+    return refuse('The overall note is too long (2,000 characters max).', 'note_too_long', bundle)
+  }
   const item = await getContentItem(session.clientId, input.contentId)
-  if (!item) return { error: 'That piece is no longer available.' }
+  if (!item) {
+    return refuse('That piece is no longer available.', 'piece_unavailable', bundle)
+  }
   if (item.version !== input.contentVersion) {
-    return { error: 'A newer version is ready. Reload the page before sending edits.' }
+    return refuse('A newer version is ready. Reload the page before sending edits.', 'version_stale',
+      { ...bundle, contentItemId: item.id })
   }
   const supabase = await createSupabaseServer()
   const { data, error } = await supabase.rpc('request_content_edit_bundle', {
@@ -101,16 +151,20 @@ export async function sendReviewBundle(input: {
     p_idempotency_key: input.idempotencyKey,
   })
   if (error) {
+    const failed = { ...bundle, contentItemId: item.id }
     if (error.message.includes('revision_already_in_progress')) {
-      return { error: 'The Dot has started this revision. Your saved edits were not sent. Please review the updated version when it returns.' }
+      return refuse('The Dot has started this revision. Your saved edits were not sent. Please review the updated version when it returns.',
+        'revision_in_progress', failed)
     }
     if (error.message.includes('stale') || error.message.includes('locked')) {
-      return { error: 'This version changed while you were reviewing it. Reload to see the current package.' }
+      return refuse('This version changed while you were reviewing it. Reload to see the current package.',
+        'stale_or_locked', failed)
     }
     if (error.message.includes('rate_limited')) {
-      return { error: 'Too many requests were submitted. Please try again in an hour.' }
+      return refuse('Too many requests were submitted. Please try again in an hour.', 'rate_limited', failed)
     }
-    return { error: 'Your edits could not be sent. They are still saved in this browser. Please try again.' }
+    return refuse('Your edits could not be sent. We have your text and will be in touch, and it is still saved in this browser.',
+      'write_failed', failed)
   }
   const result = data && typeof data === 'object' ? data as Record<string, unknown> : {}
   revalidatePath(`/client/${input.slug}`)
@@ -141,17 +195,36 @@ export async function suggestContentEdit(
   const blockKey = textField(formData, 'blockKey')
   const proposedText = (textField(formData, 'proposedText') ?? '').trim()
   const idempotencyKey = textField(formData, 'idempotencyKey')
+  // The single-block path predates the bundle and is still reachable. It carries her copy too, so
+  // it logs on exactly the same terms. The one case that cannot log is a missing session or a
+  // malformed form, where there is no client to attribute the attempt to.
   if (!context || !contentId || !blockKey || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(blockKey)
       || !validKey(idempotencyKey)) return { error: 'This form expired. Please reload and try again.' }
-  if (!context.session.canSubmitRequests) return { error: 'Your account cannot submit content requests.' }
-  if (!proposedText) return { error: 'Add the copy you would like us to use.' }
+  const attempt = {
+    clientId: context.session.clientId,
+    contentId,
+    requestedBy: context.session.userId,
+    requesterName: context.session.name,
+    drafts: [{ targetKind: 'copy_block', targetKey: blockKey, targetLabel: blockKey, proposedText }],
+  }
+  if (!context.session.canSubmitRequests) {
+    return refuse('Your account cannot submit content requests.', 'cannot_submit_requests', attempt)
+  }
+  if (!proposedText) return refuse('Add the copy you would like us to use.', 'draft_invalid', attempt)
   if (proposedText.length > MAX_PROPOSED_TEXT) {
-    return { error: `The proposed copy is too long (${MAX_PROPOSED_TEXT.toLocaleString('en-CA')} characters max).` }
+    return refuse(
+      `The proposed copy is too long (${MAX_PROPOSED_TEXT.toLocaleString('en-CA')} characters max, `
+        + `this is ${proposedText.length.toLocaleString('en-CA')}). We have your text and will be in touch.`,
+      'draft_too_long', attempt)
   }
   const item = await getContentItem(context.session.clientId, contentId)
-  if (!item) return { error: 'That piece is no longer available.' }
+  if (!item) return refuse('That piece is no longer available.', 'piece_unavailable', attempt)
+  const withItem = { ...attempt, contentItemId: item.id, contentVersion: item.version }
   const block = item.copy_blocks.find((candidate) => candidate.key === blockKey)
-  if (!block) return { error: 'That copy block changed. Reload the page before suggesting an edit.' }
+  if (!block) {
+    return refuse('That copy block changed. Reload the page before suggesting an edit.', 'stale_or_locked', withItem)
+  }
+  // Not a refusal worth recording: she has changed nothing, so there is nothing of hers to lose.
   if (block.body.trim() === proposedText) return { error: 'The proposed copy is unchanged.' }
   const supabase = await createSupabaseServer()
   const { data, error } = await supabase.rpc('request_content_edit', {
@@ -162,14 +235,16 @@ export async function suggestContentEdit(
     p_idempotency_key: idempotencyKey,
   })
   if (error) {
-    if (error.message.includes('already_open')) return { error: 'An edit for this copy block is already in progress.' }
-    if (error.message.includes('stale') || error.message.includes('copy_block')) {
-      return { error: 'This copy changed. Reload the page and review the latest version.' }
+    if (error.message.includes('already_open')) {
+      return refuse('An edit for this copy block is already in progress.', 'revision_in_progress', withItem)
     }
-    return { error: 'Could not save the edit request. Please try again.' }
+    if (error.message.includes('stale') || error.message.includes('copy_block')) {
+      return refuse('This copy changed. Reload the page and review the latest version.', 'stale_or_locked', withItem)
+    }
+    return refuse('Could not save the edit request. We have your text and will be in touch.', 'write_failed', withItem)
   }
   if (responseOutcome(data) === 'rate_limited') {
-    return { error: 'Too many requests were submitted. Please try again in an hour.' }
+    return refuse('Too many requests were submitted. Please try again in an hour.', 'rate_limited', withItem)
   }
   revalidatePath(`/client/${context.slug}`)
   revalidatePath(`/client/${context.slug}/requests`)

@@ -68,6 +68,9 @@ async function main() {
     .eq('client_id', client.id)
   const { data: versions } = await admin.from('content_item_versions').select('content_item_id,version,producer,copy_blocks')
   const { data: requests } = await admin.from('content_change_requests').select('content_id,status,updated_at')
+  const { data: refusals } = await admin.from('client_request_failures')
+    .select('content_id,reason_code,requester_name,created_at,proposed_length,resolved_at')
+    .eq('client_id', client.id).is('resolved_at', null)
   const { data: outbox } = await admin.from('notification_outbox')
     .select('template_key,subject,related_url,channel,status,created_at')
 
@@ -108,6 +111,25 @@ async function main() {
   measures.push({ key: 'missing_producer', label: 'Unshipped versions with no producer', count: blocking.length,
     detail: blocking.map((v) => `${openItems.get(v.content_item_id)!.content_id} v${v.version}`),
     note: `${noProducer.length} of ${(versions ?? []).length} versions lack one; the rest have shipped and cannot be re-shared` })
+
+  // F12: the portal refused one of the client's edits and she is the only one who knew.
+  // Open rows carry her wording, so each one is an edit we can still apply rather than one she has
+  // to write again. Anything here is worth acting on the same day: she has already been told no.
+  const openRefusals = refusals ?? []
+  const refusalsByAttempt = new Map<string, typeof openRefusals>()
+  for (const row of openRefusals) {
+    const key = `${row.content_id ?? 'unknown'}:${row.reason_code}:${String(row.created_at).slice(0, 16)}`
+    refusalsByAttempt.set(key, [...(refusalsByAttempt.get(key) ?? []), row])
+  }
+  measures.push({ key: 'refused_client_edits', label: 'Client edits the portal refused, still open',
+    count: refusalsByAttempt.size,
+    detail: [...refusalsByAttempt.entries()].slice(0, 5).map(([key, rows]) => {
+      const [contentId, reason] = key.split(':')
+      const chars = rows.reduce((total, row) => total + (row.proposed_length ?? 0), 0)
+      return `${contentId} (${reason.replaceAll('_', ' ')}, ${rows[0].requester_name ?? 'client'}, `
+        + `${chars.toLocaleString('en-CA')} chars of her text kept)`
+    }),
+    note: openRefusals.length === 0 ? 'nothing refused' : `${openRefusals.length} refused blocks` })
 
   // F2: requests parked in a transaction state.
   const stuck = (requests ?? []).filter((r) => ['applying', 'prepared'].includes(String(r.status))
