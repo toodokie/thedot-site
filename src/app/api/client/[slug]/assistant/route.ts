@@ -440,6 +440,10 @@ export async function POST(
         .select('id,content_id,title,planned_date,platforms,format,client_state,schedule_state')
         .eq('client_id', clientId)
         .gte('planned_date', today)
+        // A piece that already went out today is not the next one going out. Without this the
+        // answer to "when does my next post go out" was this morning's reel, correctly labelled
+        // live, which is true and useless.
+        .not('client_state', 'in', '("live","partially_live")')
         .order('planned_date', { ascending: true })
         .order('content_id', { ascending: true })
         .limit(8)

@@ -68,7 +68,8 @@ async function main() {
     .eq('client_id', client.id)
   const { data: versions } = await admin.from('content_item_versions').select('content_item_id,version,producer,copy_blocks')
   const { data: requests } = await admin.from('content_change_requests').select('content_id,status,updated_at')
-  const { data: outbox } = await admin.from('notification_outbox').select('template_key,subject,related_url')
+  const { data: outbox } = await admin.from('notification_outbox')
+    .select('template_key,subject,related_url,channel,status,created_at')
 
   const now = Date.now()
   const measures: Measure[] = []
@@ -92,8 +93,21 @@ async function main() {
 
   // F5: versions missing a field a later guard requires.
   const noProducer = (versions ?? []).filter((v) => !v.producer)
-  measures.push({ key: 'missing_producer', label: 'Versions with no producer', count: noProducer.length,
-    detail: [], note: `of ${(versions ?? []).length} versions` })
+  // Only a version that could still need a courtesy release matters here. producer is written at
+  // sync and cannot be patched in place, so every July import is permanently without one, and a
+  // piece that is already live can never be re-shared anyway (publication lock). Counting those
+  // kept this measure permanently red at 34 while blocking nothing: on 2026-09-21 all 17 "current"
+  // ones were live or partially live July history. Count the current version of a piece that has
+  // not shipped, which is the only case where the release guard can actually bite.
+  const liveStates = new Set(['posted', 'archived'])
+  const openItems = new Map((items ?? []).filter((i) => !liveStates.has(String(i.status))).map((i) => [i.id, i]))
+  const blocking = noProducer.filter((v) => {
+    const item = openItems.get(v.content_item_id)
+    return Boolean(item) && (v.version === item!.working_version || v.version === item!.client_visible_version)
+  })
+  measures.push({ key: 'missing_producer', label: 'Unshipped versions with no producer', count: blocking.length,
+    detail: blocking.map((v) => `${openItems.get(v.content_item_id)!.content_id} v${v.version}`),
+    note: `${noProducer.length} of ${(versions ?? []).length} versions lack one; the rest have shipped and cannot be re-shared` })
 
   // F2: requests parked in a transaction state.
   const stuck = (requests ?? []).filter((r) => ['applying', 'prepared'].includes(String(r.status))
@@ -183,8 +197,14 @@ async function main() {
   }
 
   // F10: the no-re-review rule, measured from what actually reached her inbox.
-  const reviewMails = (outbox ?? []).filter((r) => /needs.?review/i.test(String(r.template_key))
+  // Every notification is written once per channel: one in_app row and one email row for the same
+  // event. Counting both made this measure read about twice as bad as reality, and on 2026-09-21 it
+  // looked like every release since the rule had emailed her twice. Only the email channel is an
+  // ask; the in-app row is the same event rendered in the portal. A row that never sent is not an
+  // ask either, so failed and queued rows are excluded too.
+  const reviewMails = (outbox ?? []).filter((r) => (/needs.?review/i.test(String(r.template_key))
     || /Needs review/i.test(String(r.subject)))
+    && r.channel === 'email' && r.status === 'succeeded')
   const perPiece = new Map<string, number>()
   for (const r of reviewMails) {
     const k = String(r.related_url ?? r.subject)
