@@ -60,20 +60,31 @@ export type ScheduleRequestRow = {
 // snapshot plus calendar_note, and keeps this reader aligned with the column/grant contract added
 // by the piece-architecture migration. `version` is required to join the safe Google-calendar
 // projection to the exact released piece version.
-const SELECT = 'id, content_id, title, format, pillar, platforms, status, client_state, planned_date, version, calendar_note, schedule_state, current_decision'
+export const CALENDAR_SELECT = 'id, content_id, title, format, pillar, platforms, status, client_state, planned_date, version, calendar_note, schedule_state'
+
+// current_decision is NOT a column on the calendar view, only on content_with_state, which the
+// client seat can also read (the piece page selects it there). Asking the calendar view for it
+// threw "column does not exist" and took down every surface that reads this model: Overview,
+// Calendar and Plan all rendered "Something went wrong loading your workspace". Fetch it from the
+// view that has it instead of widening the calendar view's column contract.
+export const DECISION_SELECT = 'id, current_decision'
 
 export async function getSchedule(clientId: string): Promise<ScheduleRow[]> {
   const supabase = await createSupabaseServer()
-  const [contentResult, calendarResult, activePlans] = await Promise.all([
-    supabase.from('content_calendar_client').select(SELECT).eq('client_id', clientId)
+  const [contentResult, decisionResult, calendarResult, activePlans] = await Promise.all([
+    supabase.from('content_calendar_client').select(CALENDAR_SELECT).eq('client_id', clientId)
       .order('planned_date', { ascending: true, nullsFirst: false }).order('content_id', { ascending: true }),
+    supabase.from('content_with_state').select(DECISION_SELECT).eq('client_id', clientId),
     supabase.from('calendar_events_client')
       .select('content_id,content_version,event_html_link,sync_status,sync_label,event_role')
       .eq('client_id', clientId).eq('event_role','editorial_plan'),
     getActivePlanCycles(clientId),
   ])
   if (contentResult.error) throw new PortalDataError(contentResult.error.message)
+  if (decisionResult.error) throw new PortalDataError(decisionResult.error.message)
   if (calendarResult.error) throw new PortalDataError(calendarResult.error.message)
+  const decisionMap = new Map((decisionResult.data ?? []).map((row) =>
+    [row.id as string, (row.current_decision ?? null) as string | null]))
   const calendarMap = new Map((calendarResult.data ?? []).map((row) => [`${row.content_id}:${row.content_version}`,row]))
   // Normalise platforms to a real array so callers never guard against null.
   const released = (contentResult.data ?? []).map((value) => {
@@ -83,6 +94,7 @@ export async function getSchedule(clientId: string): Promise<ScheduleRow[]> {
     // an unexpected state used to route fail-open to the piece page and could crash a later
     // getContentItem. parseClientState throws PortalDataError-adjacent on an unknown value.
     return { ...row, client_state: parseClientState(row.client_state),
+      current_decision: decisionMap.get(row.id as string) ?? null,
       platforms: Array.isArray(row.platforms) ? row.platforms : [],
       calendar_note: typeof row.calendar_note === 'string' ? row.calendar_note : null,
       calendar_sync_status: calendar?.sync_status ?? null,
