@@ -117,11 +117,22 @@ async function main() {
 
   // The client's own view: genuinely waiting on her, per the SQL rule
   // (status='draft' AND review_ready_at IS NOT NULL).
+  //
+  // What makes one URGENT is its planned date, not how long ago we released it. We release about
+  // four days ahead, so measuring time-since-release flagged three pieces as stale on 2026-09-21
+  // while every one of them was for a date still in the future and Maria was actively working in
+  // the portal that same day. That is a report describing our own cadence back to us, and it reads
+  // as the client being slow. Count the ones whose date is today or already past: those are the
+  // only ones where her not having decided actually costs us a slot.
+  const todayIso = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date())
   const waiting = (items ?? []).filter((i) => i.status === 'draft' && i.review_ready_at)
-  const waitingLong = waiting.filter((i) => (now - new Date(String(i.review_ready_at)).getTime()) > STALE_REVIEW_DAYS * 86400_000)
-  measures.push({ key: 'awaiting_review_stale', label: `Awaiting client review over ${STALE_REVIEW_DAYS} days`,
-    count: waitingLong.length, detail: waitingLong.map((i) => i.content_id),
-    note: `${waiting.length} awaiting review in total` })
+  const due = waiting.filter((i) => i.planned_date && String(i.planned_date).slice(0, 10) <= todayIso)
+  measures.push({ key: 'awaiting_review_due', label: 'Awaiting client review, planned for today or earlier',
+    count: due.length,
+    detail: due.map((i) => `${i.content_id} (${i.planned_date})`),
+    note: `${waiting.length} awaiting review in total, released ${STALE_REVIEW_DAYS}+ days ahead as usual` })
 
   // F11: scheduled but the planned date has passed.
   const today = new Date().toISOString().slice(0, 10)
