@@ -90,8 +90,16 @@ export async function middleware(request: NextRequest) {
     );
   }
 
-  const isAdminPortalRoute = pathname === '/admin/portal' || pathname.startsWith('/admin/portal/');
-  if (isAdminPortalRoute && !(await hasValidAdminMiddlewareSession(request))) {
+  // Every /admin route except the login and its API is session-guarded here.
+  // /admin/dashboard used to be excluded, which let it render for anyone AND be
+  // served from the shared CDN cache (x-vercel-cache: HIT with no cookie). That
+  // both exposed the page and hid a failed sign-in: the dashboard looked logged
+  // in, then /admin/portal correctly rejected the request, which read to the
+  // operator as a login loop. Guard the whole tree, never just the portal.
+  const isAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/');
+  const isPublicAdminRoute = pathname === '/admin/login' || pathname.startsWith('/admin/auth/');
+  const isGuardedAdminRoute = isAdminRoute && !isPublicAdminRoute;
+  if (isGuardedAdminRoute && !(await hasValidAdminMiddlewareSession(request))) {
     const response = NextResponse.redirect(new URL('/admin/login', request.url), 307);
     response.headers.set('Cache-Control', 'private, no-cache, no-store, max-age=0, must-revalidate');
     response.headers.set('Link', `<https://www.thedotcreative.co${pathname}>; rel="canonical"`);
@@ -120,6 +128,14 @@ export async function middleware(request: NextRequest) {
       response = NextResponse.redirect(new URL('/client/login', request.url), 307);
       response.headers.set('Cache-Control', 'private, no-cache, no-store, max-age=0, must-revalidate');
     }
+  }
+
+  // No admin page is ever shared-cacheable. The dashboard is a client component, so it
+  // prerenders and was being served from the CDN with `public` caching and no session
+  // (x-vercel-cache: HIT). Even behind the guard above, a cached copy must never be
+  // handed to a second person or replayed from the browser after sign-out.
+  if (isAdminRoute) {
+    response.headers.set('Cache-Control', 'private, no-cache, no-store, max-age=0, must-revalidate');
   }
 
   // Add canonical header to help with SEO

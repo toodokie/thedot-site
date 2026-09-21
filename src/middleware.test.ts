@@ -19,6 +19,35 @@ function request(pathname: string) {
   })
 }
 
+describe('admin route guarding', () => {
+  // Regression, 2026-09-21. /admin/dashboard was outside the guard and publicly
+  // cacheable: it returned 200 with x-vercel-cache HIT and no cookie. That exposed
+  // the page and disguised a failed sign-in as a login loop, because the dashboard
+  // rendered while /admin/portal correctly rejected the same request.
+  it('sends a logged-out admin dashboard request to the login page', async () => {
+    const response = await middleware(request('/admin/dashboard'))
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toContain('/admin/login')
+  })
+
+  it('still guards the admin portal', async () => {
+    const response = await middleware(request('/admin/portal/pieces'))
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toContain('/admin/login')
+  })
+
+  it('leaves the admin login page reachable, or nobody can sign in', async () => {
+    const response = await middleware(request('/admin/login'))
+    expect(response.status).not.toBe(307)
+  })
+
+  it('never lets an admin response be shared-cacheable', async () => {
+    const response = await middleware(request('/admin/login'))
+    expect(response.headers.get('cache-control')).toContain('no-store')
+    expect(response.headers.get('cache-control')).not.toContain('public')
+  })
+})
+
 describe('portal middleware auth routing', () => {
   beforeEach(() => {
     refreshPortalSession.mockReset()
