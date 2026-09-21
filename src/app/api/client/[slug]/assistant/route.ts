@@ -453,10 +453,16 @@ export async function POST(
         return json({ error: 'Something went wrong. Please try again.' }, 500)
       }
       const calendarChunks: RetrievedChunk[] = (upcoming.data ?? []).map((row, index) => {
+        // Say plainly that it has not gone out. Given "Workflow status: approved" the model
+        // answered "it is live on Instagram, Facebook and YouTube", which is not in the data and
+        // is exactly the kind of confident gloss a client would act on.
+        const state = String(row.client_state)
+        const published = state === 'live' || state === 'partially_live'
         const fields = [
           `Upcoming scheduled piece: ${row.title}`,
           row.planned_date ? `Planned date: ${row.planned_date}` : null,
-          `Workflow status: ${String(row.client_state).replaceAll('_', ' ')}`,
+          published ? 'This piece has already been published' : 'This piece has NOT been published yet',
+          `Workflow status: ${state.replaceAll('_', ' ')}`,
           row.format ? `Format: ${row.format}` : null,
           Array.isArray(row.platforms) && row.platforms.length > 0
             ? `Platforms: ${row.platforms.join(', ')}`
