@@ -41,6 +41,21 @@ describe('piece-vs-plan routing (audit B1)', () => {
     expect(routesToPiecePage('with_dot')).toBe(false)
   })
 
+  // Regression, 2026-09-21. Maria edited the Sep 21 news roundup; all four requests were
+  // stored, but revisiting the piece sent her to the plan view, which shows nothing about
+  // review, so her edits looked lost. Submitting edits flips a piece back to with_dot,
+  // and that is the same flag the plan surface uses for "never produced".
+  it('keeps a piece the client has decided on off the plan surface, even at with_dot', () => {
+    expect(routesToPiecePage('with_dot', 'change_requested')).toBe(true)
+    expect(routesToPiecePage('with_dot', 'approved')).toBe(true)
+  })
+
+  it('still sends a genuinely unproduced row to the plan surface', () => {
+    expect(routesToPiecePage('with_dot', null)).toBe(false)
+    expect(routesToPiecePage('with_dot', undefined)).toBe(false)
+    expect(routesToPiecePage('with_dot', '')).toBe(false)
+  })
+
   it('the Plan list shows quiet drafts and ideas only', () => {
     // the exact B1 shape: released for review while still status=draft
     expect(belongsOnPlanSurface('draft', 'needs_review')).toBe(false)

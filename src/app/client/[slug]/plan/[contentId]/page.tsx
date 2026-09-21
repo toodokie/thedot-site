@@ -81,7 +81,7 @@ export default async function PlanPiece({ params }: { params: Promise<{ slug: st
   // Resolve the door by STATE first (Codex review 2026-07-21): a stale Plan URL for a piece
   // that has moved on (approved, scheduled, posted) must REDIRECT to the decidable piece
   // page, not 404. Checking status before this sent every produced piece to notFound().
-  if (routesToPiecePage(item.state)) {
+  if (routesToPiecePage(item.state, item.current_decision)) {
     redirect(`/client/${encodeURIComponent(slug)}/piece/${encodeURIComponent(item.content_id)}`)
   }
   // Here the state is a quiet with_dot; the plan surface is truthful only for a genuinely

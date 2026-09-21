@@ -24,6 +24,9 @@ export type ScheduleRow = {
   calendar_sync_status: string | null
   calendar_sync_label: string | null
   calendar_event_link: string | null
+  // Whether the client has ever decided on this piece. Needed to tell a genuinely
+  // unproduced row apart from one she reviewed and sent back; both read with_dot.
+  current_decision: string | null
 }
 
 export type ScheduleTargetRow = {
@@ -57,7 +60,7 @@ export type ScheduleRequestRow = {
 // snapshot plus calendar_note, and keeps this reader aligned with the column/grant contract added
 // by the piece-architecture migration. `version` is required to join the safe Google-calendar
 // projection to the exact released piece version.
-const SELECT = 'id, content_id, title, format, pillar, platforms, status, client_state, planned_date, version, calendar_note, schedule_state'
+const SELECT = 'id, content_id, title, format, pillar, platforms, status, client_state, planned_date, version, calendar_note, schedule_state, current_decision'
 
 export async function getSchedule(clientId: string): Promise<ScheduleRow[]> {
   const supabase = await createSupabaseServer()
@@ -113,6 +116,7 @@ export async function getSchedule(clientId: string): Promise<ScheduleRow[]> {
       calendar_sync_status: null,
       calendar_sync_label: null,
       calendar_event_link: null,
+      current_decision: null,
     }]
   })
   return [...released, ...ideas].sort((a, b) =>
@@ -149,7 +153,15 @@ export async function getScheduleDetails(
 // client_state 'needs_review' at the same time; routing on status sent the client to a
 // plan subpage saying "still in planning" while the Overview said the same piece was
 // waiting on her. Every state except a quiet with_dot lands on the decidable piece page.
-export function routesToPiecePage(clientState: string): boolean {
+// Second fix, 2026-09-21. Routing on client_state alone had a hole: submitting edits
+// flips a piece BACK to with_dot, which is correct (it has returned to us) but is the
+// same flag the plan surface uses to mean "never produced". So the act of sending
+// edits moved the client onto a page whose whole job is to say "still in planning",
+// and her edits vanished from view. They were never lost, only unreachable.
+// A piece she has decided on has been through review and never belongs on the plan
+// surface again, whatever its current state.
+export function routesToPiecePage(clientState: string, currentDecision?: string | null): boolean {
+  if (currentDecision) return true
   return clientState !== 'with_dot'
 }
 

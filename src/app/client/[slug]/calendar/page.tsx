@@ -49,7 +49,7 @@ export default async function Calendar({ params }: { params: Promise<{ slug: str
   // Audit B1: the door routes on client_state (needs_review lands on the decidable
   // piece page), never on status.
   const hrefFor = (r: ScheduleRow) =>
-    routesToPiecePage(r.client_state)
+    routesToPiecePage(r.client_state, r.current_decision)
       ? `/client/${encodeURIComponent(slug)}/piece/${encodeURIComponent(r.content_id)}`
       : `/client/${encodeURIComponent(slug)}/plan/${encodeURIComponent(r.content_id)}`
 

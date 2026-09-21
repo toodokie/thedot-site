@@ -163,7 +163,7 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
   const calendarDays: Record<string, WeekCalendarChip[]> = {}
   for (const row of schedule) {
     if (!row.planned_date) continue
-    const href = routesToPiecePage(row.client_state)
+    const href = routesToPiecePage(row.client_state, row.current_decision)
       ? `/client/${encodeURIComponent(slug)}/piece/${encodeURIComponent(row.content_id)}`
       : `/client/${encodeURIComponent(slug)}/plan/${encodeURIComponent(row.content_id)}`
     const chip: WeekCalendarChip = {
