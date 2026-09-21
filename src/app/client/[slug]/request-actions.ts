@@ -7,6 +7,13 @@ import { getContentItem } from '@/lib/portal/data'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { REVIEW_FLOW_ANNOUNCEMENT_KEY } from '@/lib/portal/review-flow-announcement'
 
+// Must stay in step with migration 0088, which raised the same bound in four database
+// functions, and with the form's maxLength. 0088 fixed the database and the form and
+// missed this server action in between, so a long-form edit passed validation at both
+// ends and was refused here. That is why Maria still could not send edits on the ep3
+// article, 15,483 characters, four days after the cap was supposedly lifted.
+const MAX_PROPOSED_TEXT = 50000
+
 export type RequestActionState = { error?: string; success?: string }
 export type ReviewBundleDraft = {
   targetKind: 'copy_block' | 'asset' | 'design_link'
@@ -63,7 +70,7 @@ export async function sendReviewBundle(input: {
     if (!['copy_block', 'asset', 'design_link'].includes(draft.targetKind)
         || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(draft.targetKey)
         || !draft.targetLabel?.trim() || draft.targetLabel.trim().length > 120
-        || !draft.proposedText?.trim() || draft.proposedText.trim().length > 8000
+        || !draft.proposedText?.trim() || draft.proposedText.trim().length > MAX_PROPOSED_TEXT
         || seen.has(identity)) {
       return { error: 'One of the edits is incomplete. Review it and try again.' }
     }
@@ -138,7 +145,9 @@ export async function suggestContentEdit(
       || !validKey(idempotencyKey)) return { error: 'This form expired. Please reload and try again.' }
   if (!context.session.canSubmitRequests) return { error: 'Your account cannot submit content requests.' }
   if (!proposedText) return { error: 'Add the copy you would like us to use.' }
-  if (proposedText.length > 8000) return { error: 'The proposed copy is too long (8,000 characters max).' }
+  if (proposedText.length > MAX_PROPOSED_TEXT) {
+    return { error: `The proposed copy is too long (${MAX_PROPOSED_TEXT.toLocaleString('en-CA')} characters max).` }
+  }
   const item = await getContentItem(context.session.clientId, contentId)
   if (!item) return { error: 'That piece is no longer available.' }
   const block = item.copy_blocks.find((candidate) => candidate.key === blockKey)

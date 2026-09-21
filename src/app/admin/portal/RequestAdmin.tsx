@@ -7,6 +7,11 @@ import StatusPill, { type PillTone } from './StatusPill'
 import AdminPageHeader from './AdminPageHeader'
 import type { AdminClientProposal } from './data'
 
+// The agency safe-merge candidate feeds upsert_content_request_review_candidate, which
+// migration 0088 raised to 50,000. This field was left at 8,000 and, worse, sliced
+// silently: a 15,483-character article would have been cut in half with no error shown.
+const MAX_CANDIDATE_TEXT = 50000
+
 export type AdminContentRequest = {
   id: string; clientName: string; requestType: string; status: string; requesterName: string
   createdAt: string; title: string; contentUuid: string | null; baseVersion: number | null; resolutionNote: string | null
@@ -126,8 +131,8 @@ function SafeMergeReview({ request }: { request: AdminContentRequest }) {
     </div>
     <label className={styles.fieldLabel} htmlFor={`candidate-copy-${request.id}`}>Recommended final copy</label>
     <textarea id={`candidate-copy-${request.id}`} value={candidateText}
-      onChange={(event) => setCandidateText(event.target.value.slice(0, 8000))}
-      rows={12} maxLength={8000} className={styles.safeMergeInput}
+      onChange={(event) => setCandidateText(event.target.value.slice(0, MAX_CANDIDATE_TEXT))}
+      rows={12} maxLength={MAX_CANDIDATE_TEXT} className={styles.safeMergeInput}
       placeholder="Write the complete recommended replacement, not only the changed sentence." />
     <label className={styles.fieldLabel} htmlFor={`candidate-summary-${request.id}`}>Change map and reasons</label>
     <textarea id={`candidate-summary-${request.id}`} value={changeSummary}
