@@ -45,7 +45,10 @@ export async function createSession(userId: string = 'admin') {
   cookieStore.set('session', session, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    // Lax, not Strict: Strict withholds the cookie on a top-level navigation arriving from any
+    // other site, so an Ops link opened from outside bounced to login despite a valid session.
+    // Lax still withholds it from cross-site POSTs, which is the protection that matters.
+    sameSite: 'lax',
     expires: expiresAt,
     path: '/',
   });

@@ -141,7 +141,17 @@ describe('portal middleware auth routing', () => {
     const response = await middleware(request('/admin/portal'))
 
     expect(response.status).toBe(307)
-    expect(response.headers.get('location')).toBe('https://www.thedotcreative.co/admin/login')
     expect(response.headers.get('cache-control')).toContain('no-store')
+    const location = new URL(response.headers.get('location') ?? '')
+    expect(location.origin + location.pathname).toBe('https://www.thedotcreative.co/admin/login')
+  })
+
+  // An operator bounced out of Ops used to land on a bare password box and be dropped on the
+  // dashboard afterwards, so a session that had merely run out read as a broken page.
+  it('carries the Ops page you were trying to open back to the login form', async () => {
+    const response = await middleware(request('/admin/portal/ideas'))
+    const location = new URL(response.headers.get('location') ?? '')
+
+    expect(location.searchParams.get('next')).toBe('/admin/portal/ideas')
   })
 })
