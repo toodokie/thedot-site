@@ -302,6 +302,41 @@ describe('deriveMyTasks', () => {
     expect(buckets).toEqual(['overdue', 'today', 'this_week', 'upcoming', 'watch'])
   })
 
+  // A daily monitor raises its alert daily. Before 2026-09-25 only the notification-volume alert
+  // was grouped, by a regex on its title, so every monitor written after it repeated in full: the
+  // task count read 12, of which ten were the same "Portal record is behind the work" sentence.
+  it('groups ANY repeated alert, not only the one that was hard-coded', () => {
+    const ops = (over: Partial<import('./gates').OpsTaskRow>): import('./gates').OpsTaskRow => ({
+      id: 'x', clientId: 'client-kanset', clientName: 'Kanset', title: 't', category: 'portal',
+      due_date: null, trigger_note: null, status: 'open', ...over,
+    })
+    const tasks = deriveMyTasks([], [
+      ops({ id: 'a', title: 'Portal record is behind the work', due_date: '2026-09-16', trigger_note: 'Monday' }),
+      ops({ id: 'b', title: 'Portal record is behind the work', due_date: '2026-09-20', trigger_note: 'Friday' }),
+      ops({ id: 'c', title: 'Portal record is behind the work', due_date: '2026-09-25', trigger_note: 'Today, current numbers' }),
+    ], '2026-09-25').filter((task) => task.kind === 'ops')
+
+    expect(tasks).toHaveLength(1)
+    expect(tasks[0]).toMatchObject({
+      title: 'Portal record is behind the work', occurrences: 3,
+      // The newest occurrence wins, so the note carries today's numbers rather than last week's.
+      dueDate: '2026-09-25', triggerNote: 'Today, current numbers',
+    })
+  })
+
+  it('keeps genuinely different alerts apart', () => {
+    const ops = (over: Partial<import('./gates').OpsTaskRow>): import('./gates').OpsTaskRow => ({
+      id: 'x', clientId: 'client-kanset', clientName: 'Kanset', title: 't', category: 'portal',
+      due_date: null, trigger_note: null, status: 'open', ...over,
+    })
+    const tasks = deriveMyTasks([], [
+      ops({ id: 'a', title: 'Portal record is behind the work', due_date: '2026-09-25' }),
+      ops({ id: 'b', title: 'Review YouTube transcript', due_date: '2026-09-25' }),
+    ], '2026-09-25').filter((task) => task.kind === 'ops')
+
+    expect(tasks).toHaveLength(2)
+  })
+
   it('groups repeated notification-volume alerts into one current incident', () => {
     const ops = (over: Partial<import('./gates').OpsTaskRow>): import('./gates').OpsTaskRow => ({
       id: 'x', clientId: 'client-kanset', clientName: 'Kanset', title: 't', category: 'portal',

@@ -569,28 +569,41 @@ export function deriveMyTasks(
   const weekAhead = new Date(todayIso.slice(0, 10) + 'T00:00:00Z')
   weekAhead.setUTCDate(weekAhead.getUTCDate() + 7)
   const weekIso = weekAhead.toISOString().slice(0, 10)
+  // A monitor that runs daily raises the same alert daily until someone acts on it, so the task
+  // list fills with identical rows and the real work is buried. The panel promises these are
+  // "grouped into one incident", and they were: for ONE alert, matched by a regex on its title.
+  // Every monitor added since repeated in full. On 2026-09-25 the count read 12, which was one
+  // grouped notification alert plus TEN copies of the same "Portal record is behind the work"
+  // sentence, one per day since the 16th, plus one real task.
+  //
+  // Group on what actually makes two rows the same incident: same client, same category, same
+  // title. Keep the newest, count the rest. Nothing is hidden, the repeats just stop shouting.
   const collapsedOps: Array<{ task: OpsTaskRow; occurrences: number }> = []
-  const notificationVolumeIndex = new Map<string, number>()
+  const incidentIndex = new Map<string, number>()
+  // Two rows are the same incident when they say the same thing. Title is that test, with one
+  // exception: the notification-volume monitor was reworded once ("Review Maria notification
+  // volume baseline" became "Review client notification volume"), and a rewording should not
+  // split an incident that is still the same one. Named families absorb that; everything else
+  // groups on its own title, so a NEW monitor is covered the day it is written.
+  const incidentKey = (title: string): string =>
+    /notification volume/i.test(title) ? 'family:notification-volume' : title.trim().toLowerCase()
   for (const task of opsTasks) {
     if (task.status !== 'open') continue
-    if (/notification volume/i.test(task.title)) {
-      const key = `${task.clientId ?? 'agency'}:${task.category}`
-      const existingIndex = notificationVolumeIndex.get(key)
-      if (existingIndex === undefined) {
-        notificationVolumeIndex.set(key, collapsedOps.length)
-        collapsedOps.push({ task, occurrences: 1 })
-      } else {
-        const existing = collapsedOps[existingIndex]
-        const existingDate = existing.task.due_date ?? ''
-        const incomingDate = task.due_date ?? ''
-        collapsedOps[existingIndex] = {
-          task: incomingDate >= existingDate ? task : existing.task,
-          occurrences: existing.occurrences + 1,
-        }
-      }
+    const key = `${task.clientId ?? 'agency'}:${task.category}:${incidentKey(task.title)}`
+    const existingIndex = incidentIndex.get(key)
+    if (existingIndex === undefined) {
+      incidentIndex.set(key, collapsedOps.length)
+      collapsedOps.push({ task, occurrences: 1 })
       continue
     }
-    collapsedOps.push({ task, occurrences: 1 })
+    const existing = collapsedOps[existingIndex]
+    const existingDate = existing.task.due_date ?? ''
+    const incomingDate = task.due_date ?? ''
+    collapsedOps[existingIndex] = {
+      // Show the newest occurrence: its note carries the current numbers, not August's.
+      task: incomingDate >= existingDate ? task : existing.task,
+      occurrences: existing.occurrences + 1,
+    }
   }
 
   for (const { task, occurrences } of collapsedOps) {
@@ -601,7 +614,7 @@ export function deriveMyTasks(
       : task.due_date <= weekIso ? 'this_week'
       : 'upcoming'
     tasks.push({ kind: 'ops', id: task.id, clientName: task.clientName,
-      title: occurrences > 1 ? 'Review client notification volume' : task.title,
+      title: task.title,
       category: task.category, bucket, dueDate: task.due_date, triggerNote: task.trigger_note,
       occurrences })
   }
