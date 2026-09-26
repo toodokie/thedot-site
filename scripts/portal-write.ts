@@ -53,7 +53,7 @@ const assertNoteGrammarSafe = (value: string | null, field: string) => {
 
 async function main() {
   const [command, inputPath, ...rest] = process.argv.slice(2)
-  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|report-notify|communication|proposal-draft|proposal-revise|proposal-submit|proposal-reply|external-decision|courtesy-release|applied-release|supersede|override-destination|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|visual-revision|visual-revision-ready|review-asset|plan-cycle|plan-cycle-stage|plan-cycle-close|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete> <payload.json> [--dry-run] [--pack <path>]')
+  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|report-notify|communication|proposal-draft|proposal-revise|proposal-submit|proposal-reply|external-decision|courtesy-release|applied-release|supersede|override-destination|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|visual-revision|visual-revision-ready|review-asset|plan-cycle|plan-cycle-stage|plan-cycle-close|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete|archive-draft> <payload.json> [--dry-run] [--pack <path>]')
   const dryRun = rest.includes('--dry-run')
   const packIndex = rest.indexOf('--pack')
   const packPath = packIndex >= 0 ? rest[packIndex + 1] ?? null : null
@@ -543,6 +543,19 @@ async function main() {
       p_trigger_note: optionalText(payload.triggerNote, 'triggerNote', 1000),
       p_owner: stringArray(payload.owner ?? 'anastasia', 'owner', ['anastasia', 'studio', 'agent']),
       p_source: requiredText(payload.source, 'source', 1000),
+      p_actor_key: actor, p_idempotency_key: idempotency }
+  } else if (command === 'archive-draft') {
+    // Retire a piece the client has NEVER seen. Migration 0090 refuses anything ever released,
+    // so this can only touch drafts; a piece she has seen goes through her own removal request.
+    const reason = requiredText(payload.reason, 'reason', 1000)
+    if (reason.length < 10) throw new Error('reason must be at least 10 characters')
+    // NOT externalContentId: that shared path swaps the text id for the row UUID and adds a
+    // p_content_version, and this function takes the text id and no version. It resolves the
+    // piece itself, because refusing an unknown content_id is part of what it guards.
+    rpc = 'agency_archive_unreleased_content'; args = {
+      p_client_id: null,
+      p_content_id: requiredText(payload.contentId, 'contentId', 200),
+      p_reason: reason,
       p_actor_key: actor, p_idempotency_key: idempotency }
   } else if (command === 'ops-task-complete') {
     const completionNote = optionalText(payload.note, 'note', 1000)

@@ -82,8 +82,11 @@ export async function getContentItem(clientId: string, contentId: string): Promi
 // 'agency_supersession_recorded' (0087) joins them: replacing copy on a piece she has not yet
 // decided on is agency housekeeping. She sees the corrected copy on a piece already waiting for
 // her, which is the point; "Superseded before review" would read as a problem.
+// 'agency_draft_archived' (0090) joins them, for the same reason as working_version_discarded:
+// the piece was never released, so she has never seen it. "Draft archived" in her feed would be
+// news about work she did not know existed.
 const CLIENT_FEED_EXCLUDED_EVENTS = ['design_link_updated', 'working_version_discarded',
-  'agency_supersession_recorded']
+  'agency_supersession_recorded', 'agency_draft_archived']
 
 export async function getActivity(clientId: string): Promise<ActivityRow[]> {
   const supabase = await createSupabaseServer()
