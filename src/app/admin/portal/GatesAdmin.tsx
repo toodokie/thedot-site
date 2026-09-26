@@ -74,6 +74,9 @@ function TaskRow({ task, showClient, todayIso }: { task: MyTask; showClient: boo
     trail = <>
       <StatusPill tone={clientChange ? 'open' : 'muted'}
         label={label} />
+      {/* "Schedule: instagram" on a three-platform reel is three actions, not one. Every other
+          task kind already showed this; the action row, the one you work from, did not. */}
+      {task.moreOpen > 0 && <span className={styles.meta}>+{task.moreOpen} more destination{task.moreOpen === 1 ? '' : 's'}</span>}
       {task.plannedDate && <time className={task.plannedDate <= todayIso ? styles.taskDateDue : styles.meta}
         dateTime={task.plannedDate}>{task.plannedDate === todayIso ? 'Today' : `Planned ${shortDate(task.plannedDate)}`}</time>}
     </>

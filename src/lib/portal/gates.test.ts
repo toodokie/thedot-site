@@ -246,7 +246,7 @@ describe('deriveMyTasks', () => {
       kind: 'action', gate: 'review-client-changes', clientEditCount: 2,
     })])
   })
-  it('surfaces the first open gate in canonical order with the open-gate count', () => {
+  it('surfaces the first open gate in canonical order', () => {
     // platforms empty so gates 7-9 add no lines: open = design/proofed/approval + copy
     const tasks = deriveMyTasks([piece({
       platforms: [],
@@ -254,7 +254,26 @@ describe('deriveMyTasks', () => {
         gate('proofed', 'open'), gate('approval_sent', 'open')],
     })], [], '2026-07-21')
     expect(tasks).toHaveLength(1)
-    expect(tasks[0]).toMatchObject({ kind: 'action', gate: 'design-built', moreOpen: 3 })
+    // moreOpen counts the other destinations waiting on THIS gate, and there are no platforms
+    // here. It used to count every later gate on the piece, which is why "+3 more" beside
+    // "Design" was never rendered: next to a destination-shaped label it reads as 3 more designs.
+    expect(tasks[0]).toMatchObject({ kind: 'action', gate: 'design-built', moreOpen: 0 })
+  })
+
+  // "Schedule: instagram" on a three-platform reel is three separate actions. The panel showed
+  // one label and no count, so two pieces on 2026-09-26 each read as a single scheduling job
+  // when six were waiting.
+  it('counts the other destinations still open on the same gate', () => {
+    const tasks = deriveMyTasks([piece({
+      platforms: ['instagram', 'facebook', 'youtube'],
+      reviewMode: 'courtesy',
+      ideaApprovalSentAt: '2026-07-26T12:00:00Z',
+      gates: [gate('source_in_hand', 'na'), gate('design_built', 'done'),
+        gate('proofed', 'done'), gate('approval_sent', 'done')],
+      dests: [dest('instagram'), dest('facebook'), dest('youtube')],
+    })], [], '2026-07-30').filter((task) => task.kind === 'action')
+
+    expect(tasks[0]).toMatchObject({ gate: 'scheduled', dest: 'instagram', moreOpen: 2 })
   })
 
   it('routes an out-for-approval piece to Waiting-on-Maria and flags nudge at 2 business days', () => {

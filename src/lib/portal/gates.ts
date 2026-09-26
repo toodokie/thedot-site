@@ -559,7 +559,13 @@ export function deriveMyTasks(
       continue
     }
     tasks.push({ kind: 'action', ...pieceTask,
-      gate: first.key, dest: first.dest, moreOpen: open.length - 1,
+      // The OTHER destinations still open on THIS gate, not the count of every open gate left on
+      // the piece. Gates are emitted one per platform, so a three-platform reel carries nine open
+      // gates and the old count said 8, which is why nothing rendered it: it was meaningless.
+      // What the reader needs from "Schedule: instagram" is that Facebook and YouTube are waiting
+      // too, so the row reads as three actions rather than one.
+      gate: first.key, dest: first.dest,
+      moreOpen: open.filter((gate) => gate.key === first.key).length - 1,
       // A publication record proves a live destination, not that the required pre-publish
       // proof happened. Keep the missing audit record visible, but name it honestly.
       postPublishProofRecord: first.key === 'proofed'
