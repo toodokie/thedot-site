@@ -160,6 +160,7 @@ fact_check_ledger: []`)
       'https://data.worldbank.org/indicator/VA.EST.PER.RNK?locations=CA',
       'https://www.who.int/data/gho/data/indicators',
       'https://www.transparency.org/en/countries/canada',
+      'https://www150.statcan.gc.ca/n1/daily-quotidien/260923/dq260923a-eng.htm',
     ]
     for (const url of reviewed) {
       expect(parseContentFile(replaceUrl(url), 'ranking.md').fact_check_ledger[0].source_url)
@@ -171,6 +172,8 @@ fact_check_ledger: []`)
       'https://worldbank.org.evil.example/data',
       'https://fakewho.int.example/data',
       'https://eviltransparency.org/report',
+      'https://evilstatcan.gc.ca/n1/daily-quotidien',
+      'https://statcan.gc.ca.evil.example/n1/daily-quotidien',
     ]) {
       expect(() => parseContentFile(replaceUrl(url), 'ranking.md'))
         .toThrow(/approved primary source/)

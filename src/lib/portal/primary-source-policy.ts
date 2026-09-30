@@ -11,6 +11,7 @@ export const OFFICIAL_PRIMARY_SOURCE_HOSTS = [
 
 export const REVIEWED_RESEARCH_SOURCE_HOSTS = [
   'henleyglobal.com',
+  'statcan.gc.ca',
   'transparency.org',
   'usnews.com',
   'who.int',
