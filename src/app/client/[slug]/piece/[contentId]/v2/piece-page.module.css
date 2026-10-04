@@ -157,6 +157,7 @@
   padding: var(--dot-space-6) var(--dot-space-7) var(--dot-space-7); touch-action: pan-y; }
 .block + .block { margin-top: var(--dot-space-7); }
 .blockHead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--dot-space-4); margin-bottom: var(--dot-space-3); }
+.blockTitle { margin: 0; }
 .hint { font-size: 0.9375rem; color: var(--dot-grey-accessible); margin: 0 0 var(--dot-space-5); font-weight: var(--dot-weight-regular); }
 .copy { font-size: 1.125rem; line-height: 1.7; max-width: 66ch; }
 .copy p { margin: 0 0 1em; }
@@ -180,6 +181,8 @@
 .frameText { font-size: 1.0625rem; line-height: 1.5; }
 .ractions { display: flex; flex-direction: column; align-items: flex-end; }
 .ptext > li[aria-current='true'] { box-shadow: inset 3px 0 0 var(--dot-black); padding-left: var(--dot-space-4); margin-left: calc(-1 * var(--dot-space-4)); }
+.pn { display: grid; place-items: center; aspect-ratio: 4 / 5; padding: 4px; border: 1px solid var(--dot-hairline); background: var(--dot-off-white);
+  font-size: 0.75rem; line-height: 1.2; color: var(--dot-graphite); text-align: center; }
 
 /* Structured read views */
 .field { margin-bottom: var(--dot-space-6); }
@@ -214,6 +217,7 @@
 
 /* Draft written against the previous version */
 .carryNotice { margin: 0 0 var(--dot-space-5); padding: var(--dot-space-4); border: 1px solid var(--dot-black); background: var(--dot-off-white); }
+.carryNotice > strong { display: block; margin-bottom: var(--dot-space-2); }
 .carry { display: grid; grid-template-columns: 1fr 1fr; gap: var(--dot-space-4); margin-top: var(--dot-space-2); }
 .carry > div { border-top: 1px solid var(--dot-hairline); padding-top: var(--dot-space-2); min-width: 0; }
 
