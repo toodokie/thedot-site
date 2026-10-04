@@ -18,6 +18,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'node:crypto'
+import { ensureReleaseMedia, validateNoMediaReason } from '../src/lib/portal/release-media-guard'
 
 loadEnvConfig(process.cwd())
 
@@ -227,7 +228,7 @@ async function signinLink(email: string, origin: string) {
 // Explicit human release gate after an immutable snapshot has synced. Sync itself never advances
 // client_visible_version. Supplying an optional version makes automation fail closed if the local
 // file advanced after it was reviewed; omitting it releases the currently locked working version.
-async function ready(slug: string, contentId: string, expectedVersion?: string) {
+async function ready(slug: string, contentId: string, expectedVersion?: string, noMediaReason: string | null = null) {
   const parsedVersion = expectedVersion === undefined ? null : Number(expectedVersion)
   if (parsedVersion !== null && (!Number.isInteger(parsedVersion) || parsedVersion < 1)) {
     throw new Error('version must be an integer >= 1')
@@ -286,6 +287,12 @@ async function ready(slug: string, contentId: string, expectedVersion?: string) 
     ledger_status_counts: statusCounts,
     deterministic_gate_codes: [...new Set(gateCodes)],
   })
+
+  // Release media guard (0092): refuse before the database does, naming what is missing.
+  const media = await ensureReleaseMedia(admin, {
+    clientId: client.id, contentItemId: item.id, contentId, version, noMediaReason, actorKey: 'thedot-admin',
+  })
+  if (media === 'override') console.log(`release media: none attached; Anastasia's override is on file for v${version}`)
 
   const { error } = await admin.rpc('mark_content_ready', {
     p_content_id: item.id,
@@ -513,11 +520,22 @@ async function main() {
     return
   }
   if (action === 'ready') {
-    const [, slug, contentId, version] = process.argv.slice(2)
+    const [, slug, contentId, ...rest] = process.argv.slice(2)
     if (!slug || !contentId) {
-      throw new Error('usage: portal-admin.ts ready <slug> <content_id> [version]')
+      throw new Error('usage: portal-admin.ts ready <slug> <content_id> [version] [--no-media "Approved by Anastasia: <why>"]')
     }
-    await ready(slug, contentId, version)
+    let version: string | undefined
+    let noMediaReason: string | null = null
+    for (let i = 0; i < rest.length; i += 1) {
+      if (rest[i] === '--no-media') {
+        const value = rest[i + 1]
+        if (!value || value.startsWith('--')) throw new Error('--no-media requires "Approved by Anastasia: <why>"')
+        noMediaReason = validateNoMediaReason(value)
+        i += 1
+      } else if (version === undefined && !rest[i].startsWith('--')) version = rest[i]
+      else throw new Error(`unexpected argument: ${rest[i]}`)
+    }
+    await ready(slug, contentId, version, noMediaReason)
     return
   }
   if (action === 'begin-revision') {

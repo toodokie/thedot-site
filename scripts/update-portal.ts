@@ -16,6 +16,9 @@
 //                        (with --apply) --confirm.
 //     --change-note "…"  Required for --re-share (single line, <=300 chars).
 //     --confirm          Required to actually execute a --re-share --apply.
+//     --no-media "…"     With --re-share, only with Anastasia's written approval: release a version
+//                        with no review asset, portal preview or design link. Must start
+//                        "Approved by Anastasia:"; recorded for that exact version (0092).
 //     --quiet            With --re-share: promote the new version WITHOUT arming Maria's review,
 //                        for a released version she has not decided on. One audited RPC (0087).
 //                        Replaces the old client_alerts off / release / on window, which dropped
@@ -24,7 +27,9 @@
 //
 // EXIT CODES: 2 = refused input (open fact-check gate, missing pack or change note), 3 = locked,
 // 4 = open client edit request or version reconcile, 5 = on-screen text block missing (a reel,
-// short, carousel or single without its frame-by-frame text; spec 2026-10-03 section 9.3).
+// short, carousel or single without its frame-by-frame text; spec 2026-10-03 section 9.3),
+// 6 = release media missing (no review asset, portal preview or design link on the version being
+// released, and no "Approved by Anastasia:" override; migration 0092).
 //
 // SAFETY (Codex-reviewed): default is preview. Writes happen only under --apply. On --apply the repo
 // is preflighted BEFORE any mutation; the whole per-piece operation is serialized by a lock; stranded
@@ -57,6 +62,7 @@ import {
   type ContentState,
 } from '../src/lib/portal/update-portal-core'
 import { isUnresolvedContentRequest } from '../src/lib/portal/request-status'
+import { ensureReleaseMedia, ReleaseMediaMissingError, validateNoMediaReason } from '../src/lib/portal/release-media-guard'
 import { checkOnScreenTextBlock, readOnScreenTextOptOut } from '../src/lib/portal/on-screen-text-rule'
 
 loadEnvConfig(process.cwd())
@@ -85,6 +91,7 @@ type Flags = {
   quiet: boolean
   changeNote: string | null
   confirm: boolean
+  noMediaReason: string | null
 }
 
 function parseArgs(argv: string[]): Flags {
@@ -95,6 +102,7 @@ function parseArgs(argv: string[]): Flags {
   let quiet = false
   let confirm = false
   let changeNote: string | null = null
+  let noMediaReason: string | null = null
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     if (arg === '--apply') apply = true
@@ -109,6 +117,12 @@ function parseArgs(argv: string[]): Flags {
       i += 1
     }
     else if (arg.startsWith('--change-note=')) changeNote = arg.slice('--change-note='.length)
+    else if (arg === '--no-media') {
+      const candidate = argv[i + 1]
+      if (!candidate || candidate.startsWith('--')) throw new Error('--no-media requires "Approved by Anastasia: <why>"')
+      noMediaReason = validateNoMediaReason(candidate)
+      i += 1
+    }
     else if (arg.startsWith('--')) throw new Error(`Unknown flag: ${arg}`)
     else positional.push(arg)
   }
@@ -120,8 +134,9 @@ function parseArgs(argv: string[]): Flags {
   if (quiet && !reShare) throw new Error('--quiet is only valid with --re-share')
   if (confirm && !reShare) throw new Error('--confirm is only valid with --re-share')
   if (changeNote !== null && !reShare) throw new Error('--change-note is only valid with --re-share')
+  if (noMediaReason !== null && !reShare) throw new Error('--no-media is only valid with --re-share')
   const note = changeNote !== null ? validateChangeNote(changeNote) : null
-  return { target: positional[0], apply: apply && !previewOnly, reShare, quiet, changeNote: note, confirm }
+  return { target: positional[0], apply: apply && !previewOnly, reShare, quiet, changeNote: note, confirm, noMediaReason }
 }
 
 function logRun(entry: Record<string, unknown>): void {
@@ -433,7 +448,7 @@ async function main() {
           packPath, extractedBody: extractedBody!, releasedVersion: clientVisibleVersion, workingVersion,
           canonicalVersion, bodyChanged, revisionInProgress, newVersion: plan.newVersion,
           pendingRelease: plan.pendingRelease, changeNote: flags.changeNote!,
-          apply: flags.apply, confirm: flags.confirm, quiet: flags.quiet, report })
+          apply: flags.apply, confirm: flags.confirm, quiet: flags.quiet, noMediaReason: flags.noMediaReason, report })
         return
     }
   } finally {
@@ -520,7 +535,7 @@ async function runReshare(ctx: {
   canonicalName: string; contentId: string; packPath: string | null; extractedBody: string
   releasedVersion: number; workingVersion: number; canonicalVersion: number | null; bodyChanged: boolean
   revisionInProgress: boolean; newVersion: number; pendingRelease: boolean
-  changeNote: string; apply: boolean; confirm: boolean; quiet: boolean
+  changeNote: string; apply: boolean; confirm: boolean; quiet: boolean; noMediaReason: string | null
   report: (extra?: Record<string, unknown>) => void
 }) {
   if (!ctx.apply || !ctx.confirm) {
@@ -532,6 +547,8 @@ async function runReshare(ctx: {
     console.log(`   Change note: "${ctx.changeNote}"`)
     console.log('   Pre-launch: Maria is NOT notified (email is the ask until the launch switch flips).')
     console.log('   To execute: add --apply --confirm.')
+    console.log('   The release needs media on the new version (review asset, portal preview or design link),')
+    console.log('   or, only with Anastasia\'s written approval, --no-media "Approved by Anastasia: <why>".')
     return
   }
 
@@ -546,7 +563,7 @@ async function runReshare(ctx: {
     inspect(ctx.portalDir, 'apply')
     assertCanonicalIdentity(parseContentFile(readFileSync(ctx.canonicalPath, 'utf8'), ctx.canonicalName), ctx.contentId)
     reopenGateOrThrow(ctx.packPath, ctx.changeNote) // SF7: before release
-    await releaseReshared(ctx, ctx.workingVersion)
+    if (!(await releaseReshared(ctx, ctx.workingVersion))) return
     ctx.report({ outcome: 'reshared-release-retry', released_version: ctx.workingVersion }); clearPendingMarker(ctx.contentId)
     console.log(`RE-RELEASED ${ctx.contentId} v${ctx.workingVersion} (retried a stranded release of unchanged content). Re-ask Maria by EMAIL.`)
     return
@@ -582,7 +599,7 @@ async function runReshare(ctx: {
     throw new Error(`sync failed during re-share (left an unreleased draft — safe; re-run to retry): ${error.message}`)
   }
   reopenGateOrThrow(ctx.packPath, ctx.changeNote) // SF7: re-open the pack gate BEFORE release
-  await releaseReshared(ctx, ctx.newVersion)
+  if (!(await releaseReshared(ctx, ctx.newVersion))) return
   ctx.report({ outcome: 'reshared', new_version: ctx.newVersion, change_note: ctx.changeNote }); clearPendingMarker(ctx.contentId)
   console.log(`RE-SHARED ${ctx.contentId} v${ctx.newVersion}. Pack copy-approved gate re-opened; prior approval no longer covers this version. Re-ask Maria by EMAIL.`)
 }
@@ -592,16 +609,34 @@ async function runReshare(ctx: {
 // review exactly as it already was, for copy corrected before she ever decided. The quiet path is
 // one audited RPC with the guards inside it, not a switch held open around a release.
 async function releaseReshared(
-  ctx: { supabase: Db; clientId: string; contentId: string; changeNote: string; quiet: boolean },
+  ctx: {
+    supabase: Db; clientId: string; contentId: string; changeNote: string; quiet: boolean
+    noMediaReason: string | null; report: (extra?: Record<string, unknown>) => void
+  },
   version: number,
-): Promise<void> {
-  if (!ctx.quiet) {
-    runAdmin(['ready', CLIENT_SLUG, ctx.contentId, String(version)])
-    return
-  }
+): Promise<boolean> {
   const { data: item, error: itemError } = await ctx.supabase.from('content_items')
     .select('id').eq('client_id', ctx.clientId).eq('content_id', ctx.contentId).single()
-  if (itemError || !item) throw new Error(`content item unavailable for quiet release: ${itemError?.message ?? 'missing'}`)
+  if (itemError || !item) throw new Error(`content item unavailable for release: ${itemError?.message ?? 'missing'}`)
+  // Release media guard (0092). The database refuses too; this names what is missing and keeps the
+  // run recoverable: the version stays synced but unshared, and re-running retries the release.
+  try {
+    await ensureReleaseMedia(ctx.supabase, {
+      clientId: ctx.clientId, contentItemId: item.id, contentId: ctx.contentId, version,
+      noMediaReason: ctx.noMediaReason, actorKey: 'thedot-admin',
+    })
+  } catch (error) {
+    if (!(error instanceof ReleaseMediaMissingError)) throw error
+    ctx.report({ outcome: 'refused', reason: 'release media missing', version, missing: error.missing })
+    console.error(error.message)
+    console.error(`   v${version} is synced but not shared. Attach media to v${version}, then re-run this exact command; it retries the release.`)
+    process.exitCode = 6
+    return false
+  }
+  if (!ctx.quiet) {
+    runAdmin(['ready', CLIENT_SLUG, ctx.contentId, String(version)])
+    return true
+  }
   const { error } = await ctx.supabase.rpc('record_agency_supersession', {
     p_content_id: item.id,
     p_content_version: version,
@@ -611,6 +646,7 @@ async function releaseReshared(
   })
   if (error) throw new Error(`quiet supersession refused: ${error.message}`)
   console.log(`Superseded v${version} quietly: the portal shows the corrected copy and Maria's review stays as it was. No email.`)
+  return true
 }
 
 function runAdmin(args: string[]): void {

@@ -9,6 +9,7 @@ import {
   optionalText, requiredText, sha256,
 } from '../src/lib/portal/agency-write'
 import { parseProposalBlocks } from '../src/lib/portal/proposals'
+import { ensureReleaseMedia, validateNoMediaReason } from '../src/lib/portal/release-media-guard'
 import { buildReportNotificationCopy } from '../src/lib/portal/report-email'
 import { purgePreviewsAfterPublication } from '../src/lib/portal/review-preview-retention'
 import {
@@ -75,6 +76,9 @@ async function main() {
     ? '' : requiredText(payload.idempotencyKey, 'idempotencyKey', 200)
   let rpc: string; let args: Record<string, unknown>
   let externalContentId: string | null = null
+  // Release media guard (0092): the three commands that release or approve a version for the client.
+  let releaseCommand = false
+  let releaseMediaReason: string | null = null
   let externalContentVersion: number | null = null
   let publication: {
     contentId: string
@@ -211,6 +215,7 @@ async function main() {
     if (reason.length < 10) throw new Error('reason must be at least 10 characters')
     externalContentId = requiredText(payload.contentId, 'contentId', 200)
     externalContentVersion = integer(payload.contentVersion, 'contentVersion', 1)
+    releaseCommand = true; releaseMediaReason = validateNoMediaReason(payload.noMediaReason)
     rpc = 'record_content_courtesy_release'; args = {
       p_content_id: null, p_content_version: externalContentVersion, p_reason: reason,
       p_actor_key: actor, p_idempotency_key: idempotency,
@@ -224,6 +229,7 @@ async function main() {
     if (reason.length < 10) throw new Error('reason must be at least 10 characters')
     externalContentId = requiredText(payload.contentId, 'contentId', 200)
     externalContentVersion = integer(payload.contentVersion, 'contentVersion', 1)
+    releaseCommand = true; releaseMediaReason = validateNoMediaReason(payload.noMediaReason)
     rpc = 'record_agency_applied_release'; args = {
       p_content_id: null, p_content_version: externalContentVersion, p_reason: reason,
       p_actor_key: actor, p_idempotency_key: idempotency,
@@ -236,6 +242,7 @@ async function main() {
     if (reason.length < 10) throw new Error('reason must be at least 10 characters')
     externalContentId = requiredText(payload.contentId, 'contentId', 200)
     externalContentVersion = integer(payload.contentVersion, 'contentVersion', 1)
+    releaseCommand = true; releaseMediaReason = validateNoMediaReason(payload.noMediaReason)
     rpc = 'record_agency_supersession'; args = {
       p_content_id: null, p_content_version: externalContentVersion, p_reason: reason,
       p_actor_key: actor, p_idempotency_key: idempotency,
@@ -618,6 +625,14 @@ async function main() {
       .eq('client_id',clientId).eq('content_id',externalContentId).single()
     if(itemError||!item) throw new Error(`content unavailable: ${itemError?.message ?? 'missing'}`)
     args.p_content_id=item.id; args.p_content_version=externalContentVersion ?? item.working_version
+    if (releaseCommand) {
+      if (!clientId) throw new Error(`${command} requires a client`)
+      // Release media guard (0092): name what is missing before the database refuses.
+      await ensureReleaseMedia(admin, {
+        clientId, contentItemId: item.id, contentId: externalContentId,
+        version: args.p_content_version as number, noMediaReason: releaseMediaReason, actorKey: actor,
+      })
+    }
   }
   if (publication) {
     if (!clientId) throw new Error('publication confirmation requires a client')

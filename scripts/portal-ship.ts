@@ -1,7 +1,8 @@
 // portal-ship: close a piece out in the portal at the moment it is posted.
 //
 //   pnpm exec tsx scripts/portal-ship.ts kanset <content-id> \
-//     --instagram <url> --facebook <url> --youtube <url> [--published-at <iso>] [--apply]
+//     --instagram <url> --facebook <url> --youtube <url> [--published-at <iso>]
+//     [--no-media "Approved by Anastasia: <why>"] [--apply]
 //
 // Reconciles Maria's open copy edits verbatim, releases the resulting version, records the agency
 // override, attaches every permalink, and verifies that no client email escaped. Preview by
@@ -20,6 +21,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parseContentFile } from '../src/lib/portal/frontmatter'
 import { planShip, shipOverrideReason, type ShipDestination, type ShipInput } from '../src/lib/portal/ship-plan'
+import { validateNoMediaReason } from '../src/lib/portal/release-media-guard'
 
 loadEnvConfig(process.cwd())
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -37,15 +39,21 @@ function parseArgs() {
   const [slug, contentId, ...rest] = process.argv.slice(2)
   if (!slug || !contentId) {
     throw new Error('usage: portal-ship <clientSlug> <content-id> --<destination> <url> ... '
-      + '[--published-at <iso>] [--apply]')
+      + '[--published-at <iso>] [--no-media "Approved by Anastasia: <why>"] [--apply]')
   }
   const links: Array<{ destination: ShipDestination; liveUrl: string }> = []
   let apply = false
   let publishedAt: string | null = null
+  let noMediaReason: string | null = null
   for (let i = 0; i < rest.length; i += 1) {
     const arg = rest[i]
     if (arg === '--apply') { apply = true; continue }
     if (arg === '--published-at') { publishedAt = rest[i + 1] ?? null; i += 1; continue }
+    if (arg === '--no-media') {
+      const value = rest[i + 1]
+      if (!value || value.startsWith('--')) throw new Error('--no-media requires "Approved by Anastasia: <why>"')
+      noMediaReason = validateNoMediaReason(value); i += 1; continue
+    }
     const destination = arg.replace(/^--/, '') as ShipDestination
     if (!arg.startsWith('--') || !DESTINATIONS.includes(destination)) {
       throw new Error(`unknown argument ${arg}`)
@@ -54,7 +62,7 @@ function parseArgs() {
     if (!liveUrl || liveUrl.startsWith('--')) throw new Error(`${arg} needs a URL`)
     links.push({ destination, liveUrl }); i += 1
   }
-  return { slug, contentId, links, apply, publishedAt }
+  return { slug, contentId, links, apply, publishedAt, noMediaReason }
 }
 
 async function readState(slug: string, contentId: string, links: ShipInput['links']) {
@@ -139,7 +147,7 @@ async function readState(slug: string, contentId: string, links: ShipInput['link
 }
 
 async function main() {
-  const { slug, contentId, links, apply, publishedAt } = parseArgs()
+  const { slug, contentId, links, apply, publishedAt, noMediaReason } = parseArgs()
   const { input } = await readState(slug, contentId, links)
   const plan = planShip(input)
 
@@ -183,11 +191,13 @@ async function main() {
       // left alerts off.
       run(['scripts/portal-write.ts', 'applied-release', payload('applied-release', {
         contentId, contentVersion: plan.targetVersion, reason, idempotencyKey: randomUUID(),
+        ...(noMediaReason ? { noMediaReason } : {}),
       })])
     } else if (plan.courtesyRelease) {
       // The version is already the client-visible one; only the override needs recording.
       run(['scripts/portal-write.ts', 'courtesy-release', payload('courtesy', {
         contentId, contentVersion: plan.targetVersion, reason, idempotencyKey: randomUUID(),
+        ...(noMediaReason ? { noMediaReason } : {}),
       })])
     } else if (plan.release) {
       // Promotion with no override to record, which means the client genuinely approved this
@@ -196,7 +206,8 @@ async function main() {
       run(['scripts/portal-admin.ts', 'switch', slug, 'client_alerts', 'off',
         `Quiet window for the ${contentId} close-out. The piece is already live.`])
       alertsClosed = true
-      run(['scripts/portal-admin.ts', 'ready', slug, contentId, String(plan.targetVersion)])
+      run(['scripts/portal-admin.ts', 'ready', slug, contentId, String(plan.targetVersion),
+        ...(noMediaReason ? ['--no-media', noMediaReason] : [])])
     }
 
     for (const destination of plan.overrideDestinations) {
