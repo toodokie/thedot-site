@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Text } from '@thedot/design-system'
 import type { ContentRow } from '@/lib/portal/data'
-import { clientRequestLabel, contentRequestTarget, type ContentRequestMessage, type ContentRequestRow } from '@/lib/portal/requests'
+import { clientRequestLabel, contentRequestTarget, type ContentRequestMessage, type ContentRequestRow } from '@/lib/portal/request-target'
 import RequestConversation from './RequestConversation'
 import CopyRequestedText from './CopyRequestedText'
 import styles from './requests.module.css'
