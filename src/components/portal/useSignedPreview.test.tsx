@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import type { SignedReviewPreview } from '@/lib/portal/review-preview-core'
 import { useSignedPreview } from './useSignedPreview'
@@ -9,7 +9,15 @@ const PREVIEW: SignedReviewPreview = {
   expiresAt: '2026-10-03T12:10:00.000Z',
 }
 
-afterEach(() => vi.unstubAllGlobals())
+// The session clock: 12:00 UTC on the day the fixture links were signed.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-10-03T12:00:00.000Z'))
+})
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
 
 describe('useSignedPreview', () => {
   it('fetches fresh links once per expiry and swaps them in', async () => {
@@ -46,7 +54,7 @@ describe('useSignedPreview', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
-  it('refreshes silently at most once per mount, even when every refresh brings new links', async () => {
+  it('stops after one silent refresh per set of links when a file never loads', async () => {
     let n = 0
     const fetchMock = vi.fn(async () => {
       n += 1
@@ -56,17 +64,38 @@ describe('useSignedPreview', () => {
     const { result } = renderHook(() => useSignedPreview(PREVIEW, '/api/client/kanset/review-previews/p1'))
     const answers: boolean[] = []
     for (let i = 0; i < 4; i += 1) {
-      // A file that never loads fails again on every new set of links.
+      // A file that never loads fails again on every new set of links; links still valid mean the file is the problem.
       await act(async () => { answers.push(await result.current.refresh()) })
     }
     expect(answers).toEqual([true, false, false, false])
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    // Retry may ask again, once per click; it does not re-arm the silent refresh.
+    // Retry may ask again, once per click; its links get no extra silent refresh while valid.
     await act(async () => { await result.current.forceRefresh() })
     await act(async () => { await result.current.forceRefresh() })
     expect(fetchMock).toHaveBeenCalledTimes(3)
     await act(async () => { answers.push(await result.current.refresh()) })
     expect(answers.at(-1)).toBe(false)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('refreshes silently at each expiry through a 25-minute session, even after a broken thumbnail', async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ preview: {
+      ...PREVIEW, videoUrl: `https://signed.example/v.mp4?at=${Date.now()}`, expiresAt: new Date(Date.now() + 10 * 60_000 + 30_000).toISOString(),
+    } }) }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result } = renderHook(() => useSignedPreview(PREVIEW, '/api/client/kanset/review-previews/p1'))
+    const answers: boolean[] = []
+    // 12:00 a broken thumbnail takes the first set's refresh.
+    await act(async () => { answers.push(await result.current.refresh()) })
+    // 12:11 and 12:22 (each set lasts ten minutes from when it was signed) the video's links have expired: each set gets its own refresh.
+    vi.setSystemTime(new Date('2026-10-03T12:11:00.000Z'))
+    await act(async () => { answers.push(await result.current.refresh()) })
+    vi.setSystemTime(new Date('2026-10-03T12:22:00.000Z'))
+    await act(async () => { answers.push(await result.current.refresh()) })
+    // 12:23 the newest links are still valid, so a failure now is the file, not the link.
+    vi.setSystemTime(new Date('2026-10-03T12:23:00.000Z'))
+    await act(async () => { answers.push(await result.current.refresh()) })
+    expect(answers).toEqual([true, true, true, false])
     expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 

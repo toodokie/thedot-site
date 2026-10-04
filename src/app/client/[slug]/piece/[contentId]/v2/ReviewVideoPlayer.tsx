@@ -26,8 +26,9 @@ export default function ReviewVideoPlayer({ preview, label, className, refresh, 
 }) {
   const [failure, setFailure] = useState<{ notified: boolean } | null>(null)
   const [attempt, setAttempt] = useState(0)
-  const silentRefreshUsed = useRef(false)
-  const reportedOk = useRef<boolean | null>(null)
+  // One report per page load. The promise is kept so a stall and an error landing together share
+  // it, and both wait for its answer before choosing the message.
+  const reportOnce = useRef<Promise<boolean> | null>(null)
   const playRequested = useRef(false)
   const stallTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -44,26 +45,23 @@ export default function ReviewVideoPlayer({ preview, label, className, refresh, 
 
   async function fail(code: PlaybackErrorCode) {
     clearStall()
-    if (report && reportedOk.current === null) {
-      try {
-        reportedOk.current = (await report({
-          contentVersion: preview.contentVersion, previewKey: preview.previewKey, errorCode: code,
-        })).ok
-      } catch {
-        reportedOk.current = false
-      }
+    let notified = false
+    if (report) {
+      reportOnce.current ??= report({
+        contentVersion: preview.contentVersion, previewKey: preview.previewKey, errorCode: code,
+      }).then((result) => result.ok, () => false)
+      notified = await reportOnce.current
     }
-    setFailure({ notified: reportedOk.current === true })
+    setFailure({ notified })
   }
 
   async function onError(event: SyntheticEvent<HTMLVideoElement>) {
     // Read the code before awaiting: React clears currentTarget once the handler returns.
     const code = mediaErrorCode(event.currentTarget.error?.code)
     const expired = Date.now() >= Date.parse(preview.expiresAt)
-    if (!silentRefreshUsed.current) {
-      silentRefreshUsed.current = true
-      if (await refresh()) return
-    }
+    // The hook decides whether these links may be refreshed silently (once per set of links, and
+    // never again for valid links that came from a refresh), so this cannot loop.
+    if (await refresh()) return
     await fail(expired ? 'link_expired' : code)
   }
 
@@ -71,13 +69,13 @@ export default function ReviewVideoPlayer({ preview, label, className, refresh, 
     if (!playRequested.current || stallTimer.current) return
     stallTimer.current = setTimeout(() => {
       stallTimer.current = null
+      if (!playRequested.current) return // Paused since: a wait she chose is not a failure.
       void fail('stalled')
     }, STALL_TIMEOUT_MS)
   }
 
   async function retry() {
     await forceRefresh()
-    silentRefreshUsed.current = false
     playRequested.current = false
     setFailure(null)
     setAttempt((value) => value + 1)
@@ -92,5 +90,6 @@ export default function ReviewVideoPlayer({ preview, label, className, refresh, 
   return <video ref={videoRef} key={attempt} className={className} src={preview.videoUrl ?? undefined}
     poster={preview.posterUrl ?? undefined} controls playsInline preload="metadata" aria-label={label} tabIndex={0}
     onError={(event) => void onError(event)} onPlay={() => { playRequested.current = true }}
+    onPause={() => { playRequested.current = false; clearStall() }}
     onWaiting={armStall} onStalled={armStall} onPlaying={clearStall} onTimeUpdate={clearStall} />
 }
