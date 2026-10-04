@@ -11,11 +11,17 @@ import styles from '../piece-page.module.css'
 // Spec 4.4: search title, search description, web address, preview text when shared. Each writes
 // back into its own "- **Label:** value" line; every other line stays as written.
 export default function SearchForm({ target, source }: { target: ReviewTarget; source: string }) {
-  const { saveDraft } = useReviewDrafts()
+  const { saveDraft, readFieldScratch, saveFieldScratch } = useReviewDrafts()
   const [list, setList] = useState(() => parseLabeledList(source))
-  // What she typed, shown even when a value cannot be written back (a lone backticked word).
-  const [typed, setTyped] = useState<Record<string, string>>({})
-  const [refused, setRefused] = useState<string | null>(null)
+  // What she typed, shown even when a value cannot be written back (a lone backticked word). A
+  // refused value is kept as she typed it in the provider's field scratch, so it comes back on
+  // reopen; it is dropped once the field takes a value it can write back.
+  const [typed, setTyped] = useState<Record<string, string>>(() => Object.fromEntries(SEARCH_FIELDS.flatMap((field) => {
+    const kept = readFieldScratch(target, `search:${field.label}`)
+    return kept === null ? [] : [[field.label, kept]]
+  })))
+  const [refused, setRefused] = useState<string | null>(() =>
+    SEARCH_FIELDS.find((field) => readFieldScratch(target, `search:${field.label}`) !== null)?.label ?? null)
 
   function change(label: string, value: string) {
     setTyped((current) => ({ ...current, [label]: value }))
@@ -23,9 +29,11 @@ export default function SearchForm({ target, source }: { target: ReviewTarget; s
       const next = setLabeledValue(list, label, value)
       setRefused(null)
       setList(next)
+      saveFieldScratch(target, `search:${label}`, null)
       saveDraft(target, serializeLabeledList(next), null)
     } catch {
       setRefused(label)
+      saveFieldScratch(target, `search:${label}`, value)
     }
   }
 

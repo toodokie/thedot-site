@@ -82,6 +82,16 @@ describe('ChaptersForm', () => {
 })
 
 describe('SearchForm', () => {
+  it('keeps a value it cannot write back as she typed it, and shows it again on reopen', () => {
+    const view = renderInPage(<SearchForm target={seoTarget} source={SEO} />)
+    fireEvent.change(screen.getByLabelText('Search title'), { target: { value: '`draft`' } })
+    expect(screen.getByRole('alert')).toHaveTextContent('This cannot be a single word in backticks.')
+    view.rerender(<PageProviders><p>closed</p></PageProviders>)
+    view.rerender(<PageProviders><SearchForm target={seoTarget} source={SEO} /></PageProviders>)
+    expect(screen.getByLabelText('Search title')).toHaveValue('`draft`')
+    expect(screen.getByRole('alert')).toHaveTextContent('This cannot be a single word in backticks.')
+  })
+
   it('edits the search title with a counter and keeps every other line', async () => {
     renderInPage(<><SearchForm target={seoTarget} source={SEO} /><DraftProbe of={seoTarget} /></>)
     expect(screen.getByText('40 of 60 characters')).toBeInTheDocument()
