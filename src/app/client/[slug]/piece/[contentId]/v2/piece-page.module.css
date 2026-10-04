@@ -349,9 +349,11 @@
 .editorSheet .editorBody { padding: var(--dot-space-4); }
 .inlineEditor .sheetT { padding: var(--dot-space-3) 0 0; background: transparent; border-top: 0; }
 .sheetActions > button, .sheetActions > a { min-height: 44px; min-width: 44px; }
-.fieldInput { width: 100%; min-height: 48px; padding: 12px 14px; font-family: var(--dot-font-text); font-size: 1.0625rem; color: var(--dot-black);
+.fieldInput { width: 100%; min-height: 48px; padding: 12px 14px; font-family: var(--dot-font-text); font-weight: var(--dot-weight-book); font-size: 1.0625rem; color: var(--dot-black);
   background: var(--dot-white); border: 1px solid var(--dot-black); border-radius: var(--dot-radius); }
 .fieldInput:focus-visible { outline: 3px solid var(--dot-black); outline-offset: 3px; }
+/* The 6px focus ring must not sit on the character count under a field. */
+.field .charcount, .field .errText { display: block; margin-top: var(--dot-space-3); }
 textarea.fieldInput { min-height: 96px; line-height: 1.5; resize: vertical; }
 .chipAdded { background: var(--dot-grad-highlight); border-color: var(--dot-grey-light); }
 .chipRemoved { color: var(--dot-grey-accessible); text-decoration: line-through; background: transparent; border-style: dashed; border-color: var(--dot-grey-light); }

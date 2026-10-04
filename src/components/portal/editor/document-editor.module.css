@@ -5,7 +5,7 @@
   letter-spacing: 0.18em; font-size: 0.7rem; color: var(--dot-grey-accessible); }
 .surface { min-height: 6rem; padding: var(--dot-space-3) var(--dot-space-4); border: 1px solid var(--dot-black);
   border-radius: var(--dot-radius); background: var(--dot-white); color: var(--dot-black); font-family: var(--dot-font-text);
-  font-size: 1.0625rem; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: anywhere;
+  font-weight: var(--dot-weight-book); font-size: 1.0625rem; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: anywhere;
   font-variant-ligatures: none; font-feature-settings: "liga" 0; }
 .surface:focus-visible { outline: 3px solid var(--dot-black); outline-offset: 3px; }
 .surface p { margin: 0 0 0.9em; }
