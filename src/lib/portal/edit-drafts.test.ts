@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { editDraftKey, editDraftPrefix, hasUnsentEditDrafts } from './edit-drafts'
+import { editDraftKey, editDraftPiecePrefix, editDraftPrefix, hasUnsentEditDrafts, parseEditDraftKey } from './edit-drafts'
 
 function memoryStorage(): Storage {
   const values = new Map<string, string>()
@@ -34,5 +34,28 @@ describe('portal edit drafts', () => {
       storage,
       editDraftPrefix('maria-user', 'kanset', 'piece-one', 2),
     )).toBe(false)
+  })
+
+  it('keeps the existing key for a whole-block draft and appends a frame anchor only when present', () => {
+    const block = editDraftKey('maria-user', 'kanset', 'piece-one', 2, 'copy_block', 'caption')
+    expect(block).toBe('portal-edit-draft:maria-user:kanset:piece-one:v2:copy_block:caption')
+    const frame = editDraftKey('maria-user', 'kanset', 'piece-one', 2, 'asset', 'reel-cover', 'frame:3')
+    expect(frame).toBe('portal-edit-draft:maria-user:kanset:piece-one:v2:asset:reel-cover:frame%3A3')
+  })
+
+  it('shares one piece prefix across versions', () => {
+    const prefix = editDraftPiecePrefix('maria-user', 'kanset', 'piece-one')
+    expect(editDraftPrefix('maria-user', 'kanset', 'piece-one', 2).startsWith(prefix)).toBe(true)
+    expect(editDraftPrefix('maria-user', 'kanset', 'piece-one', 3).startsWith(prefix)).toBe(true)
+  })
+
+  it('parses a key back into its version, target and anchor', () => {
+    const prefix = editDraftPiecePrefix('maria-user', 'kanset', 'piece-one')
+    expect(parseEditDraftKey(prefix, editDraftKey('maria-user', 'kanset', 'piece-one', 4, 'asset', 'reel-cover', 'page:2')))
+      .toEqual({ version: 4, targetKind: 'asset', targetKey: 'reel-cover', anchor: 'page:2' })
+    expect(parseEditDraftKey(prefix, editDraftKey('maria-user', 'kanset', 'piece-one', 1, 'copy_block', 'caption')))
+      .toEqual({ version: 1, targetKind: 'copy_block', targetKey: 'caption', anchor: '' })
+    expect(parseEditDraftKey(prefix, 'portal-edit-draft:maria-user:kanset:piece-two:v1:copy_block:caption')).toBeNull()
+    expect(parseEditDraftKey(prefix, `${prefix}garbage`)).toBeNull()
   })
 })
