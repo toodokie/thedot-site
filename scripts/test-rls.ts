@@ -4698,6 +4698,123 @@ async function main(): Promise<void> {
       }
     }
 
+    // 0092 (amended 2026-10-03): the release media guard. Every release of a version with no review
+    // asset, no portal preview and no design link is refused unless an override for that exact
+    // version starts "Approved by Anastasia:". Overrides are agency-only and notify nobody.
+    {
+      const rmId = (name: string) => `rls-media-${name}-${RUN_ID}`
+      const rmSync = async (name: string) => {
+        const [synced] = await sync([snapshot(bClientId!, rmId(name), 1, `Media ${name}`, 'Media guard body', 'caption')])
+        return synced.item_id
+      }
+      const ready = (itemId: string) => rawAdmin.rpc('mark_content_ready', { p_content_id: itemId, p_content_version: 1 })
+      const override = (name: string, reason: string) => rawAdmin.rpc('agency_record_release_media_override', {
+        p_client_id: bClientId, p_content_id: rmId(name), p_content_version: 1, p_reason: reason,
+        p_actor_key: 'thedot-admin',
+      })
+      const outcome = (result: { data: unknown }) => (result.data as { outcome?: string } | null)?.outcome
+      const visible = async (itemId: string) => (await rawAdmin.from('content_items')
+        .select('client_visible_version').eq('id', itemId).single()).data?.client_visible_version ?? null
+
+      const bareId = await rmSync('bare')
+      const bare = await ready(bareId)
+      check('RM1: a version with no review asset, preview or design link is refused',
+        !!bare.error && /release_media_missing/.test(bare.error.message) && (await visible(bareId)) === null,
+        bare.error?.message ?? 'released without media')
+
+      const designId = await rmSync('design')
+      const design = await rawAdmin.rpc('set_content_design_links', {
+        p_client_id: bClientId, p_content_id: rmId('design'),
+        p_canva_url: 'https://www.canva.com/design/MEDIAGUARD/view', p_drive_url: null,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-media-design-${RUN_ID}`,
+      })
+      const assetId = await rmSync('asset')
+      const asset = await rawAdmin.rpc('set_content_review_asset', {
+        p_client_id: bClientId, p_content_id: rmId('asset'), p_content_version: 1,
+        p_asset_key: 'media-guard-cover', p_label: 'Media guard cover', p_channel: 'social', p_asset_kind: 'cover',
+        p_url: 'https://www.canva.com/design/MEDIAGUARDCOVER/view', p_width_px: 1080, p_height_px: 1350,
+        p_caption_status: 'not_applicable', p_review_note: null, p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-media-asset-${RUN_ID}`,
+      })
+      const previewItemId = await rmSync('preview')
+      const sha = 'c'.repeat(64)
+      const prefix = `${bClientId}/${previewItemId}/v1/reel/${sha.slice(0, 16)}/`
+      const preview = await rawAdmin.rpc('agency_register_review_preview', {
+        p_client_id: bClientId, p_content_id: rmId('preview'), p_content_version: 1, p_preview_key: 'reel',
+        p_review_asset_key: null, p_media_kind: 'video', p_object_prefix: prefix,
+        p_video_path: `${prefix}video.mp4`, p_poster_path: `${prefix}poster.jpg`, p_frames: [],
+        p_width_px: 1080, p_height_px: 1920, p_duration_seconds: 24, p_byte_total: 1000,
+        p_source_sha256: sha, p_actor_key: 'thedot-admin',
+      })
+      const designReady = await ready(designId)
+      const assetReady = await ready(assetId)
+      const previewReady = await ready(previewItemId)
+      check('RM2: a design link, a review asset or a portal preview each lets the release through',
+        !design.error && !asset.error && !preview.error && !designReady.error && !assetReady.error && !previewReady.error
+          && (await visible(designId)) === 1 && (await visible(assetId)) === 1 && (await visible(previewItemId)) === 1,
+        JSON.stringify([design, asset, preview, designReady, assetReady, previewReady].map((r) => r.error?.message ?? 'ok')))
+
+      const lower = await override('bare', 'approved by anastasia: lowercase prefix')
+      const wrongWords = await override('bare', 'Agency override authorized by Anastasia: wrong words')
+      const empty = await override('bare', 'Approved by Anastasia:')
+      const stillRefused = await ready(bareId)
+      check('RM3: an override without the exact "Approved by Anastasia:" prefix and a reason is refused',
+        !!lower.error && !!wrongWords.error && !!empty.error
+          && !!stillRefused.error && /release_media_missing/.test(stillRefused.error.message),
+        JSON.stringify([lower, wrongWords, empty, stillRefused].map((r) => r.error?.message ?? 'NO ERROR')))
+
+      const REASON = 'Approved by Anastasia: text-only fixture with nothing to preview.'
+      const recorded = await override('bare', REASON)
+      const repeated = await override('bare', REASON)
+      const changed = await override('bare', 'Approved by Anastasia: a different reason for the same version.')
+      const overridden = await ready(bareId)
+      const bareLog = await bClient.from('activity_log').select('id, summary, actor_type')
+        .eq('content_id', bareId).eq('event_type', 'release_media_override')
+      check('RM4: a valid override is recorded once, logged, and lets that exact version release',
+        !recorded.error && outcome(recorded) === 'recorded' && outcome(repeated) === 'unchanged' && !!changed.error
+          && !overridden.error && (await visible(bareId)) === 1
+          && bareLog.data?.length === 1 && bareLog.data[0].summary === REASON && bareLog.data[0].actor_type === 'anastasia',
+        JSON.stringify({ recorded: recorded.data ?? recorded.error?.message, repeated: repeated.data,
+          changed: changed.error?.message, released: overridden.error?.message, log: bareLog.data }))
+
+      // A courtesy release approves without promoting, so it carries its own check. Remove the
+      // design link from the released piece, then try.
+      const cleared = await rawAdmin.rpc('set_content_design_links', {
+        p_client_id: bClientId, p_content_id: rmId('design'), p_canva_url: null, p_drive_url: null,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-media-design-clear-${RUN_ID}`,
+      })
+      const courtesy = (key: string) => rawAdmin.rpc('record_content_courtesy_release', {
+        p_content_id: designId, p_content_version: 1,
+        p_reason: 'Agency override authorized by Anastasia: media guard courtesy test.',
+        p_actor_key: 'thedot-admin', p_idempotency_key: key,
+      })
+      const courtesyRefused = await courtesy(randomUUID())
+      const designOverride = await override('design', 'Approved by Anastasia: courtesy fixture after its link was removed.')
+      const courtesyOk = await courtesy(randomUUID())
+      check('RM5: a courtesy release of a version with no media is refused until an override is on file',
+        !cleared.error && !!courtesyRefused.error && /release_media_missing/.test(courtesyRefused.error.message)
+          && !designOverride.error && !courtesyOk.error,
+        JSON.stringify([cleared, courtesyRefused, designOverride, courtesyOk].map((r) => r.error?.message ?? 'ok')))
+
+      const overrideRows = await bClient.from('activity_log').select('id')
+        .in('content_id', [bareId, designId]).eq('event_type', 'release_media_override')
+      const overrideIds = (overrideRows.data ?? []).map((row) => row.id as string)
+      const outbox = overrideIds.length
+        ? await rawAdmin.from('notification_outbox').select('recipient_kind, channel').in('source_activity_id', overrideIds)
+        : { data: [] as Array<{ recipient_kind: string }>, error: null }
+      const clientRead = await bClient.from('content_release_media_overrides').select('reason')
+      const clientStatus = await bClient.rpc('agency_release_media_status', { p_content_item_id: bareId, p_content_version: 1 })
+      const clientOverride = await bClient.rpc('agency_record_release_media_override', {
+        p_client_id: bClientId, p_content_id: rmId('asset'), p_content_version: 1,
+        p_reason: 'Approved by Anastasia: a client trying to approve itself.', p_actor_key: 'thedot-admin',
+      })
+      check('RM6: overrides queue no notification for anyone, and a client can neither read nor write them',
+        !overrideRows.error && overrideIds.length === 2 && !outbox.error && (outbox.data ?? []).length === 0
+          && (!!clientRead.error || clientRead.data?.length === 0) && !!clientStatus.error && !!clientOverride.error,
+        JSON.stringify({ ids: overrideIds.length, outbox: outbox.data, read: clientRead.data ?? clientRead.error?.message,
+          status: clientStatus.error?.message ?? 'NO ERROR', write: clientOverride.error?.message ?? 'NO ERROR' }))
+    }
+
     {
       const stop = await admin.rpc('set_portal_feature_switch', {
         p_client_id: bClientId, p_feature: 'client_mutations', p_enabled: false,
