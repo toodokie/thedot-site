@@ -7,6 +7,7 @@ import { getScheduleDetails } from '@/lib/portal/schedule'
 import { getPublicationDetails } from '@/lib/portal/publication'
 import { getContentRequestMessages, getContentRequests } from '@/lib/portal/requests'
 import { getReviewAssets } from '@/lib/portal/review-assets'
+import { getMyReviewDrafts } from '@/lib/portal/review-drafts'
 import PieceReviewScreen from './PieceReviewScreen'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { REVIEW_FLOW_ANNOUNCEMENT_KEY } from '@/lib/portal/review-flow-announcement'
@@ -27,7 +28,7 @@ export default async function Piece({ params }: {
   const item = await getPieceItem(session.clientId, contentId)
   if (!item) redirect(`/client/${slug}`)
   const supabase = await createSupabaseServer()
-  const [comments, schedule, publication, requests, reviewAssets, acknowledgment] = await Promise.all([
+  const [comments, schedule, publication, requests, reviewAssets, acknowledgment, serverDrafts] = await Promise.all([
     getComments(session.clientId, item.id),
     getScheduleDetails(session.clientId, item.id, item.version),
     getPublicationDetails(session.clientId, item.id, item.version),
@@ -37,6 +38,8 @@ export default async function Piece({ params }: {
       .eq('client_id', session.clientId)
       .eq('announcement_key', REVIEW_FLOW_ANNOUNCEMENT_KEY)
       .maybeSingle(),
+    // A seat that cannot send edits has no drafts to sync. null keeps the page browser-only.
+    session.canSubmitRequests ? getMyReviewDrafts(item.id) : Promise.resolve(null),
   ])
   const requestMessages = await getContentRequestMessages(
     session.clientId,
@@ -55,6 +58,7 @@ export default async function Piece({ params }: {
     capabilities={session}
     draftScope={session.userId}
     showReviewIntro={!acknowledgment.data}
+    serverDrafts={serverDrafts}
     backHref={`/client/${slug}`}
   />
 }

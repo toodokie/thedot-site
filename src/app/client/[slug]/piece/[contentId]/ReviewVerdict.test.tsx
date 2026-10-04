@@ -12,9 +12,10 @@ const { sendReviewBundle, decide } = vi.hoisted(() => ({
 const writeText = vi.fn(async () => undefined)
 vi.mock('../../request-actions', () => ({ sendReviewBundle }))
 vi.mock('../../actions', () => ({ decide }))
-vi.mock('../../draft-actions', () => ({
+const draftActions = vi.hoisted(() => ({
   saveReviewDraft: vi.fn(), discardReviewDraft: vi.fn(), sendReviewDrafts: vi.fn(), reportReviewSendFailure: vi.fn(),
 }))
+vi.mock('../../draft-actions', () => draftActions)
 
 function AddDraft() {
   const { saveDraft } = useReviewDrafts()
@@ -125,5 +126,39 @@ describe('ReviewVerdict resolver', () => {
     await waitFor(() => expect(sendReviewBundle).toHaveBeenCalledTimes(1))
     expect(await screen.findByText('Your edit was sent to The Dot.')).toBeVisible()
     expect(screen.queryByRole('button', { name: /send my edits/i })).not.toBeInTheDocument()
+  })
+
+  function serverSubject(rows: Array<Record<string, unknown>>) {
+    return <ReviewDraftProvider draftScope="maria" slug="kanset" contentId="piece" version={4}
+      serverSync initialServerDrafts={rows as never}>
+      <ReviewVerdict slug="kanset" contentId="piece" contentVersion={4} isPublished={false} needsReview
+        packageReady missing={[]} sentEdits={[]} revisionStarted={false} canDecide />
+    </ReviewDraftProvider>
+  }
+  const serverRow = (overrides: Record<string, unknown> = {}) => ({
+    id: '11111111-1111-4111-8111-111111111111', content_item_id: 'item', base_version: 4,
+    target_kind: 'copy_block', target_key: 'caption', anchor: '', anchor_label: null, target_label: 'Instagram caption',
+    url_snapshot: null, quoted_text: null, body: 'Saved on the server', status: 'unsent',
+    saved_at: '2026-10-03T10:00:00.000Z', updated_at: '2026-10-03T10:00:00.000Z', carried_over_at: null,
+    carried_over_to_version: null, send_failed_at: null, last_send_error: null, ...overrides,
+  })
+
+  it('blocks approval while a carried edit waits, and asks before discarding it', () => {
+    render(serverSubject([serverRow({ base_version: 3, carried_over_at: '2026-10-03T11:00:00.000Z', carried_over_to_version: 4 })]))
+    expect(screen.queryByRole('button', { name: 'Approve package' })).not.toBeInTheDocument()
+    expect(screen.getByText('Written against the previous version')).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }))
+    expect(screen.getByText('Discard this edit? It cannot be recovered.')).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, discard' }))
+    expect(screen.getByRole('button', { name: 'Approve package' })).toBeVisible()
+  })
+
+  it('offers a retry and keeps the edit when sending fails', async () => {
+    draftActions.sendReviewDrafts.mockResolvedValue({ error: 'Your edits could not be sent. They are still saved, and we have your text.' })
+    render(serverSubject([serverRow()]))
+    fireEvent.click(screen.getByRole('button', { name: 'Send my edits (1)' }))
+    expect(await screen.findByText('Your edits could not be sent. They are still saved, and we have your text.')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Retry sending (1)' })).toBeVisible()
+    expect(screen.getByText("Couldn't send. Retry")).toBeVisible()
   })
 })

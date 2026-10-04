@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Button, Heading, Text, Textarea } from '@thedot/design-system'
-import { sendReviewBundle } from '../../request-actions'
+import { draftIdentity } from '@/lib/portal/review-drafts-core'
 import { decide } from '../../actions'
 import { useReviewDrafts } from './ReviewDraftProvider'
 import CopyBlock from './CopyBlock'
@@ -33,34 +33,27 @@ export default function ReviewVerdict({
   revisionStarted: boolean
   canDecide: boolean
 }) {
-  const { drafts, clearDrafts, ready } = useReviewDrafts()
+  const {
+    drafts, currentDrafts, carriedDrafts, ready, send, statusText, sendError, keepCarriedDraft, removeDraft,
+  } = useReviewDrafts()
   const [note, setNote] = useState('')
   const [message, setMessage] = useState<{ kind: 'error' | 'success'; text: string } | null>(null)
-  const [bundleKey, setBundleKey] = useState(() => crypto.randomUUID())
+  const [confirmingDiscard, setConfirmingDiscard] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const hasSent = sentEdits.length > 0
+  // contentVersion is still passed by PieceReviewScreen; the provider owns the version since 0093.
+  void contentVersion
 
-  function send() {
+  function sendEdits() {
     setMessage(null)
     startTransition(async () => {
-      const result = await sendReviewBundle({
-        slug, contentId, contentVersion, note, idempotencyKey: bundleKey,
-        drafts: drafts.map((draft) => ({
-          targetKind: draft.kind,
-          targetKey: draft.key,
-          targetLabel: draft.label,
-          proposedText: draft.proposedText,
-          urlSnapshot: draft.urlSnapshot,
-        })),
-      })
-      if (result.error) {
-        setMessage({ kind: 'error', text: result.error })
+      const result = await send(note)
+      if (!result.ok) {
+        setMessage({ kind: 'error', text: result.message })
         return
       }
-      clearDrafts()
       setNote('')
-      setBundleKey(crypto.randomUUID())
-      setMessage({ kind: 'success', text: result.success ?? 'Your edits were sent to The Dot.' })
+      setMessage({ kind: 'success', text: result.message })
     })
   }
 
@@ -108,12 +101,41 @@ export default function ReviewVerdict({
 
     {ready && drafts.length > 0 && !revisionStarted && <>
       <Text tone="graphite">You changed {drafts.length} {drafts.length === 1 ? 'block' : 'blocks'}, so this version cannot be approved as is.</Text>
-      <ul className={styles.draftSummary}>{drafts.map((draft) => <li key={`${draft.kind}:${draft.key}`}>{draft.label}</li>)}</ul>
+      {currentDrafts.length > 0 && <ul className={styles.draftSummary}>
+        {currentDrafts.map((draft) => <li key={draftIdentity(draft)}>
+          {draft.anchorLabel ? `${draft.label} · ${draft.anchorLabel}` : draft.label}
+        </li>)}
+      </ul>}
+      {carriedDrafts.length > 0 && <div className={styles.verdictStatus}>
+        <strong>Written against the previous version</strong>
+        <p>Keep an edit to send it with this version, or discard it.</p>
+        <ul>{carriedDrafts.map((draft) => {
+          const id = draftIdentity(draft)
+          return <li key={id}>
+            {draft.anchorLabel ? `${draft.label} · ${draft.anchorLabel}` : draft.label} (version {draft.carriedFromVersion}){' '}
+            {confirmingDiscard === id
+              ? <>
+                <span>Discard this edit? It cannot be recovered.</span>{' '}
+                <Button as="button" type="button" variant="black" size="sm"
+                  onClick={() => { removeDraft(draft); setConfirmingDiscard(null) }}>Yes, discard</Button>{' '}
+                <Button as="button" type="button" variant="ghost" size="sm" onClick={() => setConfirmingDiscard(null)}>Cancel</Button>
+              </>
+              : <>
+                <Button as="button" type="button" variant="ghost" size="sm" onClick={() => keepCarriedDraft(draft)}>Keep</Button>{' '}
+                <Button as="button" type="button" variant="ghost" size="sm" onClick={() => setConfirmingDiscard(id)}>Discard</Button>
+              </>}
+          </li>
+        })}</ul>
+      </div>}
       <Textarea id="bundle-note" label="Anything else about this version? (optional)" rows={3} maxLength={2000}
         value={note} onChange={(event) => setNote(event.target.value)} />
-      <Button as="button" type="button" variant="black" disabled={pending} onClick={send}>
-        {pending ? 'Sending…' : hasSent ? `Send additional edits (${drafts.length})` : `Send my edits (${drafts.length})`}
-      </Button>
+      {currentDrafts.length > 0 && <Button as="button" type="button" variant="black" disabled={pending} onClick={sendEdits}>
+        {pending ? 'Sending…'
+          : sendError ? `Retry sending (${currentDrafts.length})`
+          : hasSent ? `Send additional edits (${currentDrafts.length})`
+          : `Send my edits (${currentDrafts.length})`}
+      </Button>}
+      {statusText && <Text tone="grey">{statusText}</Text>}
     </>}
 
     {ready && drafts.length === 0 && !hasSent && !revisionStarted && packageReady && needsReview && canDecide && <>

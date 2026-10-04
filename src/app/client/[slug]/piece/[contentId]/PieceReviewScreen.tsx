@@ -21,6 +21,7 @@ import { reReviewContext } from '@/lib/portal/re-review'
 import { contentReviewPackageReadiness } from '@/lib/portal/podcast-review'
 import ReviewAssets from './ReviewAssets'
 import ReviewDraftProvider from './ReviewDraftProvider'
+import type { ServerDraftRow } from '@/lib/portal/review-drafts-core'
 import ReviewVerdict from './ReviewVerdict'
 import SuggestEditForm from './SuggestEditForm'
 import { contentRequestTarget, isUnresolvedContentRequest } from '@/lib/portal/requests'
@@ -58,6 +59,7 @@ export default function PieceReviewScreen({
   backLabel = 'Back',
   draftScope,
   showReviewIntro,
+  serverDrafts = null,
 }: {
   slug: string
   item: ContentRow
@@ -72,6 +74,7 @@ export default function PieceReviewScreen({
   backLabel?: string
   draftScope: string
   showReviewIntro: boolean
+  serverDrafts?: ServerDraftRow[] | null
 }) {
   const reReview = reReviewContext(item.version, item.state, item.current_decision, requests)
   const progress = clientProgress({
@@ -160,7 +163,8 @@ export default function PieceReviewScreen({
         {!isPublished && <a href="#review-decision">Finish review</a>}
       </nav>
 
-      <ReviewDraftProvider draftScope={draftScope} slug={slug} contentId={item.content_id} version={item.version}>
+      <ReviewDraftProvider key={item.version} draftScope={draftScope} slug={slug} contentId={item.content_id}
+        version={item.version} serverSync={Array.isArray(serverDrafts)} initialServerDrafts={serverDrafts}>
       <ReviewPackage
         blocks={blocks}
         platforms={item.platforms || []}

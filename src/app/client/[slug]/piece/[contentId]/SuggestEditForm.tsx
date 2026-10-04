@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Text, Textarea } from '@thedot/design-system'
+import { DRAFT_STATUS_TEXT } from '@/lib/portal/review-drafts-core'
 import { useReviewDrafts, type ReviewTarget } from './ReviewDraftProvider'
 import styles from './piece-review.module.css'
 
@@ -29,22 +30,29 @@ export default function SuggestEditForm({
     currentText,
     urlSnapshot,
   }), [currentText, targetKey, targetKind, targetLabel, urlSnapshot])
-  const { readDraft, saveDraft, removeDraft, storageAvailable } = useReviewDrafts()
+  const {
+    readDraft, saveDraft, removeDraft, keepCarriedDraft, flush, storageAvailable, serverSync, statusText, ready,
+  } = useReviewDrafts()
   const [loaded, setLoaded] = useState(false)
   const [open, setOpen] = useState(false)
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false)
   const [value, setValue] = useState(currentText ?? '')
   const [quote, setQuote] = useState<string | null>(null)
+  const restoredRef = useRef(false)
   const draft = loaded ? readDraft(target) : null
 
   useEffect(() => {
+    if (!ready) return
     const restored = readDraft(target)
     if (restored) {
-      setValue(restored.proposedText)
+      setValue((current) => (current === restored.proposedText ? current : restored.proposedText))
       setQuote(restored.quotedText ?? null)
-      setOpen(true)
+      // Open a restored draft once, on load; never reopen an editor she closed.
+      if (!restoredRef.current) setOpen(true)
     }
+    restoredRef.current = true
     setLoaded(true)
-  }, [readDraft, target])
+  }, [readDraft, ready, target])
 
   useEffect(() => {
     if (!openSignal) return
@@ -57,15 +65,17 @@ export default function SuggestEditForm({
     saveDraft(target, next, quote)
   }
 
-  function cancel() {
+  function discard() {
     removeDraft(target)
     setValue(currentText ?? '')
     setQuote(null)
+    setConfirmingDiscard(false)
     setOpen(false)
   }
 
   function reviewAndSend() {
     setOpen(false)
+    void flush()
     document.getElementById('review-decision')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
@@ -78,29 +88,49 @@ export default function SuggestEditForm({
   const fieldLabel = targetKind === 'copy_block'
     ? `Edit ${targetLabel}`
     : `What should change in ${targetLabel}?`
+  const status = serverSync
+    ? (draft ? statusText ?? DRAFT_STATUS_TEXT.saved : 'Your edits save automatically and stay unsent until you send them.')
+    : (draft
+      ? 'Draft saved in this browser. It has not been sent yet.'
+      : 'Make a change here. Your draft will stay in this browser until you send all edits.')
   return <div className={styles.editComposer}>
     {quote && <div className={styles.selectionQuote}>
       <span>Selected text</span>
       <blockquote>{quote}</blockquote>
     </div>}
+    {draft?.carriedFromVersion != null && <div className={styles.verdictStatus}>
+      <Text as="div" size="sm" tone="graphite">
+        Written against version {draft.carriedFromVersion}. Compare it with the current text before you send.
+      </Text>
+      <Button as="button" type="button" variant="ghost" size="sm" onClick={() => keepCarriedDraft(draft)}>
+        Keep this edit
+      </Button>
+    </div>}
     <Textarea id={`review-edit-${targetKind}-${targetKey}`} label={fieldLabel}
       rows={targetKind === 'copy_block' ? 18 : 4} maxLength={50000}
-      value={value} onChange={(event) => update(event.target.value)}
+      value={value} onChange={(event) => update(event.target.value)} onBlur={() => { void flush() }}
       placeholder={targetKind === 'copy_block' ? undefined : 'Describe the visual change'} />
     <Text as="div" size="sm" tone="grey">
-      {draft
-        ? 'Draft saved in this browser. It has not been sent yet.'
-        : 'Make a change here. Your draft will stay in this browser until you send all edits.'}
-      {!storageAvailable ? ' Browser storage is unavailable, so keep this tab open.' : ''}
+      {status}
+      {!storageAvailable && !serverSync ? ' Browser storage is unavailable, so keep this tab open.' : ''}
     </Text>
-    <div className={styles.editComposerActions}>
-      {draft && <Button as="button" type="button" variant="ghost" size="sm" onClick={cancel}>Discard edit</Button>}
-      <Button as="button" type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
-        {draft ? 'Save and close' : 'Close editor'}
-      </Button>
-      {draft && <Button as="button" type="button" variant="black" size="sm" onClick={reviewAndSend}>
-        Review and send edits
-      </Button>}
-    </div>
+    {confirmingDiscard
+      ? <div className={styles.editComposerActions}>
+        <Text as="span" size="sm" tone="graphite">Discard this edit? It cannot be recovered.</Text>
+        <Button as="button" type="button" variant="black" size="sm" onClick={discard}>Yes, discard</Button>
+        <Button as="button" type="button" variant="ghost" size="sm" onClick={() => setConfirmingDiscard(false)}>
+          Keep editing
+        </Button>
+      </div>
+      : <div className={styles.editComposerActions}>
+        {draft && <Button as="button" type="button" variant="ghost" size="sm"
+          onClick={() => setConfirmingDiscard(true)}>Discard edit</Button>}
+        <Button as="button" type="button" variant="ghost" size="sm" onClick={() => { setOpen(false); void flush() }}>
+          {draft ? 'Save and close' : 'Close editor'}
+        </Button>
+        {draft && <Button as="button" type="button" variant="black" size="sm" onClick={reviewAndSend}>
+          Review and send edits
+        </Button>}
+      </div>}
   </div>
 }
