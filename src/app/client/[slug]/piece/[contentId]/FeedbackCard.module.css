@@ -1,8 +1,11 @@
-/* Feedback card (spec 9.1, mockup 09a). Sits above the decision bar; plan 4 publishes its height
-   as --piece-bar-h, with a safe fallback until then. */
+/* Feedback card (spec 9.1, mockup 09a). Sits above plan 4's decision bar. The bar's --bar-h is
+   scoped to the page root and the card mounts beside that root, so it cannot inherit it; --clear is
+   the bar's height as derived from its CSS (1px border, 12px padding each side, 44px controls): one
+   row at 1100px and up, two wrapped rows below (plan 5 Task 15; confirm in Task 18's phone check). */
 .card {
+  --clear: 88px;
   position: fixed; z-index: 35; right: var(--dot-space-6); width: 360px;
-  bottom: calc(var(--piece-bar-h, 88px) + var(--dot-space-5) + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--clear) + var(--dot-space-5) + env(safe-area-inset-bottom, 0px));
   background: var(--dot-white); border: 1px solid var(--dot-black); padding: var(--dot-space-5);
   font-family: var(--dot-font-text); color: var(--dot-black);
 }
@@ -22,7 +25,8 @@
 .close:focus-visible { outline: 2px solid var(--dot-black); outline-offset: 2px; }
 .error { margin: var(--dot-space-2) 0 0; font-size: 0.9375rem; color: var(--dot-danger); }
 .thanks { margin: var(--dot-space-3) 0 0; font-size: 1rem; }
+@media (max-width: 1099px) { .card { --clear: 128px; } }
 @media (max-width: 640px) {
-  .card { left: var(--dot-space-4); right: var(--dot-space-4); width: auto;
-    bottom: calc(var(--piece-bar-h, 76px) + var(--dot-space-3) + env(safe-area-inset-bottom, 0px)); }
+  .card { --clear: 104px; left: var(--dot-space-4); right: var(--dot-space-4); width: auto;
+    bottom: calc(var(--clear) + var(--dot-space-3) + env(safe-area-inset-bottom, 0px)); }
 }
