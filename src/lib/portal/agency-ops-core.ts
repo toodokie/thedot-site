@@ -1,10 +1,11 @@
 import { AGENCY_LABELS } from './progress-bar-model'
 import { GATE_ORDER, type GateKey, type ResolvedGate } from './gates'
+import { playbackErrorLabel } from './piece-page/playback-failure'
 
 // Pure helpers for Agency Ops (piece page plan 5). Browser-safe: no server imports.
 
 export const CLIENT_SIGNAL_TYPES = [
-  'review_send_failed', 'review_drafts_carried_over', 'portal_feedback_submitted',
+  'review_send_failed', 'review_drafts_carried_over', 'portal_feedback_submitted', 'review_playback_failed',
 ] as const
 export type ClientSignalType = (typeof CLIENT_SIGNAL_TYPES)[number]
 
@@ -66,6 +67,14 @@ export function clientSignalFromRow(row: OpenClientSignalRow): ClientSignal | nu
     const reason = (str(row.payload.reason_code) ?? 'unknown').replaceAll('_', ' ')
     return { ...base, headline: `Edits not sent: ${piece}`,
       detail: `${count === 0 ? 'An edit' : plural(count, 'edit')} refused (${reason}). Her text is saved.` }
+  }
+  if (kind === 'review_playback_failed') {
+    // 0094 (amended 2026-10-03): her player reported a failed play, once per preview per day.
+    const what = str(row.payload.media_kind) === 'pages' ? "pages didn't load" : "video didn't play"
+    const version = num(row.payload.content_version)
+    return { ...base,
+      headline: `${firstName(row.actor_name)}'s ${what}: ${str(row.payload.device) ?? 'Other device'}, ${str(row.payload.browser) ?? 'Other browser'}`,
+      detail: `${piece}${version ? ` v${version}` : ''} · ${playbackErrorLabel(str(row.payload.error_code) ?? 'unknown')}` }
   }
   const count = num(row.payload.draft_count) ?? 0
   return { ...base, headline: `Edits carried to v${num(row.payload.to_version) ?? '?'}: ${piece}`,
@@ -204,4 +213,27 @@ export function requestAnchors(
     if (anchor) seen.set(`${anchor.kind}:${anchor.index}`, anchor)
   }
   return [...seen.values()].sort((a, b) => a.index - b.index)
+}
+
+// One row of agency_release_media_alerts (0095, amended 2026-10-03): a piece in front of Maria whose
+// released version has no review asset, no portal preview and no design link.
+export type ReleaseMediaAlert = {
+  client_id: string
+  content_item_id: string
+  content_key: string
+  title: string
+  content_version: number
+  planned_date: string | null
+  waiting_on: 'review' | 'posting'
+  override_reason: string | null
+}
+
+export function releaseMediaAlertLine(alert: ReleaseMediaAlert): string {
+  const state = alert.waiting_on === 'review' ? 'Maria is reviewing it' : 'approved, not live yet'
+  return `No media on ${alert.title} v${alert.content_version}: ${state}`
+}
+
+export function releaseMediaAlertDetail(alert: ReleaseMediaAlert, todayIso: string): string {
+  const why = alert.override_reason ?? 'Attach a review asset, preview or design link'
+  return `${why} · ${postsInLabel(alert.planned_date, todayIso)}`
 }

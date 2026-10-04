@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { ResolvedGate } from './gates'
 import {
   clientSignalFromRow, feedbackLine, gateDots, gateSummary, mariaViewLine, parseAnchor,
-  postsInLabel, requestAnchors, requestStateLabel, unsentAlertDetail, versionRows,
-  type OpenClientSignalRow,
+  postsInLabel, releaseMediaAlertDetail, releaseMediaAlertLine, requestAnchors, requestStateLabel,
+  unsentAlertDetail, versionRows, type OpenClientSignalRow, type ReleaseMediaAlert,
 } from './agency-ops-core'
 
 const signal = (overrides: Partial<OpenClientSignalRow> = {}): OpenClientSignalRow => ({
@@ -147,5 +147,36 @@ describe('requests', () => {
       { sent_bundle_id: 'b2', target_kind: 'asset', target_key: 'reel-video', anchor: 'frame:5', anchor_label: null },
     ])
     expect(anchors.map((anchor) => anchor.index)).toEqual([1, 3])
+  })
+})
+
+describe('media signals (amended 2026-10-03)', () => {
+  it('names a failed play with the device and browser', () => {
+    const row = signal({ event_type: 'review_playback_failed', content_key: 'kanset-reel', title: 'Hiring cost reel',
+      payload: { media_kind: 'video', device: 'iPhone', browser: 'Safari', error_code: 'media_err_network', content_version: 2 } })
+    expect(clientSignalFromRow(row)).toMatchObject({
+      kind: 'review_playback_failed', pieceKey: 'kanset-reel', resolvable: true,
+      headline: "Maria's video didn't play: iPhone, Safari",
+      detail: 'Hiring cost reel v2 · network error',
+    })
+  })
+
+  it('says pages for a page preview', () => {
+    const row = signal({ event_type: 'review_playback_failed', title: 'Carousel',
+      payload: { media_kind: 'pages', device: 'Mac', browser: 'Chrome', error_code: 'unknown', content_version: 1 } })
+    expect(clientSignalFromRow(row)?.headline).toBe("Maria's pages didn't load: Mac, Chrome")
+  })
+
+  const alert = (overrides: Partial<ReleaseMediaAlert> = {}): ReleaseMediaAlert => ({
+    client_id: 'c', content_item_id: 'i', content_key: 'kanset-article', title: 'Work permit article',
+    content_version: 3, planned_date: '2026-10-06', waiting_on: 'review', override_reason: null, ...overrides,
+  })
+
+  it('describes a piece with Maria that has nothing to look at', () => {
+    expect(releaseMediaAlertLine(alert())).toBe('No media on Work permit article v3: Maria is reviewing it')
+    expect(releaseMediaAlertLine(alert({ waiting_on: 'posting' }))).toBe('No media on Work permit article v3: approved, not live yet')
+    expect(releaseMediaAlertDetail(alert(), '2026-10-03')).toBe('Attach a review asset, preview or design link · posts in 3 days')
+    expect(releaseMediaAlertDetail(alert({ override_reason: 'Approved by Anastasia: article, no visual' }), '2026-10-03'))
+      .toBe('Approved by Anastasia: article, no visual · posts in 3 days')
   })
 })
