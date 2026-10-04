@@ -51,6 +51,13 @@
     "next": "^15.3.8",
     "nodemailer": "^9.0.5",
     "openai": "^6.47.0",
+    "prosemirror-commands": "^1.7.2",
+    "prosemirror-history": "^1.5.1",
+    "prosemirror-keymap": "^1.2.3",
+    "prosemirror-model": "^1.25.12",
+    "prosemirror-schema-list": "^1.5.1",
+    "prosemirror-state": "^1.4.4",
+    "prosemirror-view": "^1.42.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
