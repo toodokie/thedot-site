@@ -32,8 +32,21 @@ describe('preview retention cron', () => {
     expect(runPreviewRetention).toHaveBeenCalledWith({ admin: true }, { now: expect.any(Date) })
   })
 
-  it('reports a failure as 500 so Vercel shows the cron as failed', async () => {
+  it('refuses every call when CRON_SECRET is not set', async () => {
+    vi.stubEnv('CRON_SECRET', '')
+    expect((await call()).status).toBe(401)
+    expect((await call('Bearer ')).status).toBe(401)
+    expect((await call('Bearer cron-secret-value')).status).toBe(401)
+    expect(runPreviewRetention).not.toHaveBeenCalled()
+  })
+
+  it('reports a failure as 500 with a generic body and logs the real error', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
     runPreviewRetention.mockRejectedValue(new Error('agency_retire_review_previews: boom'))
-    expect((await call('Bearer cron-secret-value')).status).toBe(500)
+    const response = await call('Bearer cron-secret-value')
+    expect(response.status).toBe(500)
+    expect(await response.json()).toEqual({ error: 'Preview retention failed' })
+    expect(log).toHaveBeenCalledWith('portal preview retention failed:', 'agency_retire_review_previews: boom')
+    log.mockRestore()
   })
 })

@@ -108,4 +108,12 @@ describe('signReviewPreview', () => {
     })))
     await expect(signReviewPreview(s, row())).rejects.toThrow('Object not found')
   })
+
+  it('fails when an entry has no link even without an error', async () => {
+    const { storage: s } = storage(vi.fn(async (paths: string[], _ttl?: number) => ({
+      data: paths.map((path, i) => ({ path, signedUrl: i === 0 ? null : `https://signed.example/${path}`, error: null })),
+      error: null,
+    })))
+    await expect(signReviewPreview(s, row())).rejects.toThrow('missing link')
+  })
 })

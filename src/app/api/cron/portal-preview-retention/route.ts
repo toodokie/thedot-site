@@ -23,9 +23,8 @@ export async function GET(request: Request) {
   try {
     return NextResponse.json(await runPreviewRetention(createSupabaseAdmin(), { now: new Date() }))
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Preview retention failed' },
-      { status: 500 },
-    )
+    const message = error instanceof Error ? error.message : String(error)
+    console.error('portal preview retention failed:', message)
+    return NextResponse.json({ error: 'Preview retention failed' }, { status: 500 })
   }
 }

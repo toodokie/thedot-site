@@ -58,6 +58,29 @@ describe('client review preview reader', () => {
     expect(sign).not.toHaveBeenCalled()
   })
 
+  it('reads a single preview through the seat session (RLS), then signs with the service role', async () => {
+    const order: string[] = []
+    const q = query([ROW])
+    serverFrom.mockImplementation((table: string) => { order.push(`read:${table}`); return q })
+    adminFrom.mockImplementation(() => { throw new Error('service role must not read the preview row') })
+    sign.mockImplementationOnce(async (paths: string[]) => {
+      order.push('sign')
+      return { data: paths.map((path) => ({ path, signedUrl: `https://signed.example/${path}`, error: null })), error: null }
+    })
+    const preview = await getClientReviewPreviewById('c1', ROW.id)
+    expect(adminFrom).not.toHaveBeenCalled()
+    expect(q.filters).toEqual([['client_id', 'c1'], ['id', ROW.id]])
+    expect(order).toEqual(['read:content_review_previews', 'sign'])
+    expect(preview?.videoUrl).toContain('video.mp4')
+  })
+
+  it('signs nothing when RLS hides the single preview', async () => {
+    serverFrom.mockReturnValue(query([]))
+    expect(await getClientReviewPreviewById('c1', ROW.id)).toBeNull()
+    expect(adminFrom).not.toHaveBeenCalled()
+    expect(sign).not.toHaveBeenCalled()
+  })
+
   it('refuses a malformed preview id without querying', async () => {
     expect(await getClientReviewPreviewById('c1', '../../etc')).toBeNull()
     expect(serverFrom).not.toHaveBeenCalled()
