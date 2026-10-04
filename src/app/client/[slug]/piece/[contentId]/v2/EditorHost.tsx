@@ -165,6 +165,8 @@ function CopyEditor({ request, onDone }: { request: CopyEditRequest; onDone: () 
   const [initial] = useState(() => anchor.initial)
   const [composed, setComposed] = useState(anchor.before + anchor.piece + anchor.after)
   const [conflict, setConflict] = useState(false)
+  // The newer draft as it arrived, and the text her part follows, once both versions are kept.
+  const conflictRef = useRef<{ body: string; before: string } | null>(null)
   // The bodies this editor wrote last; a draft equal to one of them is still ours.
   const writtenRef = useRef<string[]>([anchor.before + anchor.piece + anchor.after])
 
@@ -180,8 +182,10 @@ function CopyEditor({ request, onDone }: { request: CopyEditRequest; onDone: () 
       anchor.after = found.after
       return
     }
+    // Both versions are kept: the newer draft exactly as it is, then her part.
     anchor.before = current.trim() === '' ? '' : `${current.replace(/\s+$/, '')}\n\n`
     anchor.after = ''
+    conflictRef.current = { body: current, before: anchor.before }
     setConflict(true)
   }
 
@@ -204,6 +208,13 @@ function CopyEditor({ request, onDone }: { request: CopyEditRequest; onDone: () 
       return true
     }
     settle()
+    const kept = conflictRef.current
+    if (kept) {
+      // Both versions were kept: drop her part only and leave the newer draft exactly as it was.
+      // Never put the released part back; the other device may have changed or removed it.
+      write(anchor.before === kept.before && anchor.after === '' ? kept.body : anchor.before + anchor.after)
+      return true
+    }
     // Put back the released text of the part she opened; every other edit stays.
     const restored = anchor.before + anchor.restore + anchor.after
     if (restored.trim() === released.trim()) removeDraft(request.target)
@@ -327,6 +338,8 @@ type SegmentAnchor = {
   // draft lost that segment's marker before the editor opened, so she edits the whole draft.
   // 'whole': a whole-block edit, composed through the caller.
   mode: 'segment' | 'free' | 'whole'
+  // How the block is split into parts, for finding her part again; null unless mode is 'segment'.
+  split: SegmentMode | null
   // Text before and after her part. Mutable while open: re-found when a newer draft arrives.
   before: string
   after: string
@@ -344,7 +357,7 @@ type SegmentAnchor = {
 }
 
 function anchorFor(request: CopyEditRequest, body: string, hasDraft: boolean): SegmentAnchor {
-  const plain = { before: '', after: '', piece: body, original: body, trailing: '', crlf: false, restore: null, compose: request.compose }
+  const plain = { split: null, before: '', after: '', piece: body, original: body, trailing: '', crlf: false, restore: null, compose: request.compose }
   if (!request.segment) return { ...plain, mode: 'whole', initial: hasDraft ? body : request.initialText }
   const segmented = segmentBlock(body, request.segment.mode)
   const found = segmented.segments[request.segment.index]
@@ -354,7 +367,7 @@ function anchorFor(request: CopyEditRequest, body: string, hasDraft: boolean): S
   const releasedParts = released === undefined ? [] : segmentBlock(released, request.segment.mode).segments
   const releasedPart = releasedParts.length === segmented.segments.length ? releasedParts[found.index]?.raw ?? null : null
   return {
-    mode: 'segment', before: body.slice(0, start), after: body.slice(start + found.raw.length), piece: found.raw,
+    mode: 'segment', split: request.segment.mode, before: body.slice(0, start), after: body.slice(start + found.raw.length), piece: found.raw,
     original: found.raw, trailing: /\s*$/.exec(found.raw)?.[0] ?? '', crlf: found.raw.includes('\r\n'),
     initial: segmentText(found), restore: releasedPart ?? found.raw, compose: request.compose,
   }
@@ -372,13 +385,24 @@ function pieceFor(anchor: SegmentAnchor, text: string): string {
   return replacement + anchor.trailing
 }
 
-// Finds her part in a body that changed underneath: the only place it appears, or the place that
-// keeps the text before or after it as captured. Null when it cannot be told apart.
+// Finds her part in a body that changed underneath: the only place it appears as a whole part (from
+// a part start to a part end, or the end of the body), or the one such place that keeps the text
+// before or after it as captured. Null when it cannot be told apart.
 function locate(body: string, anchor: SegmentAnchor): { before: string; after: string } | null {
-  if (anchor.mode !== 'segment') return null
+  if (anchor.mode !== 'segment' || anchor.split === null) return null
+  const segmented = segmentBlock(body, anchor.split)
+  const starts = new Set<number>()
+  const ends = new Set<number>([body.length])
+  let offset = segmented.preamble.length
+  for (const part of segmented.segments) {
+    starts.add(offset)
+    offset += part.raw.length
+    ends.add(offset)
+  }
+  const whole = (index: number) => starts.has(index) && ends.has(index + anchor.piece.length)
   const at: number[] = []
   for (let index = body.indexOf(anchor.piece); index >= 0 && at.length < 50; index = body.indexOf(anchor.piece, index + 1)) {
-    at.push(index)
+    if (whole(index)) at.push(index)
     if (anchor.piece === '') break
   }
   const split = (index: number) => ({ before: body.slice(0, index), after: body.slice(index + anchor.piece.length) })

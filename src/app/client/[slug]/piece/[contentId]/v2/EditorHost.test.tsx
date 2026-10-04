@@ -293,10 +293,74 @@ describe('EditorHost', () => {
   })
 
   describe('when a newer draft arrives while she types', () => {
-    function OtherDevice({ body }: { body: string }) {
+    function OtherDevice({ body, target = copyTarget }: { body: string; target?: ReviewTarget }) {
       const { saveDraft } = useReviewDrafts()
-      return <button type="button" onClick={() => saveDraft(copyTarget, body, null)}>other device</button>
+      return <button type="button" onClick={() => saveDraft(target, body, null)}>other device</button>
     }
+
+    function discardNow() {
+      fireEvent.click(screen.getByRole('button', { name: 'Discard' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Yes, discard' }))
+    }
+
+    it('discard after both versions were kept leaves the newer draft as it was', () => {
+      const phone = '**1.** Frame one\n\n**2.** Frame 2 from the phone\n\n**3.** Frame three'
+      renderInPage(<><Opener request={frame} /><OtherDevice body={phone} /><DraftProbe target={copyTarget} /></>)
+      fireEvent.click(screen.getByRole('button', { name: 'open' }))
+      typeAtEnd('Frame 2 of 3 · On-screen text', 'A')
+      fireEvent.click(screen.getByRole('button', { name: 'other device' }))
+      typeAtEnd('Frame 2 of 3 · On-screen text', 'B')
+      discardNow()
+      expect(screen.getByTestId('draft').textContent).toBe(phone)
+    })
+
+    it('discard keeps a frame the other device removed, removed', () => {
+      const phone = '**1.** Frame one\n\n**3.** Frame three, phone'
+      renderInPage(<><Opener request={frame} /><OtherDevice body={phone} /><DraftProbe target={copyTarget} /></>)
+      fireEvent.click(screen.getByRole('button', { name: 'open' }))
+      typeAtEnd('Frame 2 of 3 · On-screen text', 'A')
+      fireEvent.click(screen.getByRole('button', { name: 'other device' }))
+      discardNow()
+      expect(screen.getByTestId('draft').textContent).toBe(phone)
+    })
+
+    it('keeps both texts when the other device grew the last frame past what she typed', () => {
+      const last: EditorRequest = { ...frame, slotId: 'reel-script:frame:2', title: 'Frame 3 of 3', initialText: '**3.** Frame three', baseText: '**3.** Frame three', segment: { mode: 'frames', index: 2 } }
+      renderInPage(<><Opener request={last} /><OtherDevice body={'**1.** Frame one\n\n**2.** Frame two\n\n**3.** Frame threeA, from the phone'} /><DraftProbe target={copyTarget} /></>)
+      fireEvent.click(screen.getByRole('button', { name: 'open' }))
+      typeAtEnd('Frame 3 of 3', 'A')
+      fireEvent.click(screen.getByRole('button', { name: 'other device' }))
+      typeAtEnd('Frame 3 of 3', 'B')
+      const draft = screen.getByTestId('draft').textContent ?? ''
+      expect(draft).toContain('**3.** Frame threeA, from the phone')
+      expect(draft).toContain('**3.** Frame threeAB')
+      expect(screen.getByText(/Both versions are kept in your draft/)).toBeInTheDocument()
+    })
+
+    it('never matches her text inside another list frame', () => {
+      const LIST = '- One\n- Two\n- Three'
+      const listTarget: ReviewTarget = { kind: 'copy_block', key: 'reel-script', label: 'Reel, on screen', currentText: LIST }
+      const second: EditorRequest = { kind: 'copy', slotId: 'reel-script:frame:1', target: listTarget, title: 'Frame 2 of 3', initialText: '- Two', baseText: '- Two', compose: (t) => t, segment: { mode: 'frames', index: 1 } }
+      renderInPage(<><Opener request={second} /><OtherDevice target={listTarget} body={'- Same\n- Two\n- Three'} /><DraftProbe target={listTarget} /></>)
+      fireEvent.click(screen.getByRole('button', { name: 'open' }))
+      replaceEditorText('Frame 2 of 3', 'Same')
+      fireEvent.click(screen.getByRole('button', { name: 'other device' }))
+      typeAtEnd('Frame 2 of 3', 'B')
+      const draft = screen.getByTestId('draft').textContent ?? ''
+      expect(draft.startsWith('- Same\n- Two\n- Three')).toBe(true)
+      expect(draft).toContain('SameB')
+    })
+
+    it('discard after she deleted her marker never doubles a marker', () => {
+      const first: EditorRequest = { ...frame, slotId: 'reel-script:frame:0', title: 'Frame 1 of 3', initialText: '**1.** Frame one', baseText: '**1.** Frame one', segment: { mode: 'frames', index: 0 } }
+      const phone = '**1.** Frame one\n\n**2.** Frame two\n\n**3.** Frame three, phone'
+      renderInPage(<><Opener request={first} /><OtherDevice body={phone} /><DraftProbe target={copyTarget} /></>)
+      fireEvent.click(screen.getByRole('button', { name: 'open' }))
+      replaceEditorText('Frame 1 of 3', 'Frame one')
+      fireEvent.click(screen.getByRole('button', { name: 'other device' }))
+      discardNow()
+      expect(screen.getByTestId('draft').textContent).toBe(phone)
+    })
 
     it('composes onto the newer draft and keeps the other device edit to another frame', () => {
       renderInPage(<>
