@@ -61,7 +61,8 @@
 
 /* Condensed bar: fixed overlay shown with transform and opacity only; the page height never changes */
 .cbar { position: fixed; top: 0; left: var(--portal-sidebar-w, 0px); right: 0; z-index: 25; background: var(--dot-cream);
-  border-bottom: 1px solid var(--dot-hairline); transform: translateY(-100%); opacity: 0; visibility: hidden; }
+  border-bottom: 1px solid var(--dot-hairline); padding-top: env(safe-area-inset-top, 0px);
+  transform: translateY(-100%); opacity: 0; visibility: hidden; }
 .cbar[data-collapsed='true'] { transform: none; opacity: 1; visibility: visible; }
 .cbarIn { max-width: 1344px; margin: 0 auto; height: var(--cbar-h); padding: 0 var(--dot-space-7); display: flex;
   align-items: center; justify-content: space-between; gap: var(--dot-space-5); }
@@ -101,7 +102,7 @@
 .stack > .readw:first-child, .page > .readw:first-child { margin-top: 0; }
 @media (min-width: 1100px) {
   .split { grid-template-columns: var(--media-col) minmax(0, 1fr); gap: var(--dot-space-8); }
-  .media { position: sticky; top: calc(var(--cbar-h) + var(--dot-space-4));
+  .media { position: sticky; top: calc(var(--cbar-h) + env(safe-area-inset-top, 0px) + var(--dot-space-4));
     max-height: calc(100vh - var(--cbar-h) - var(--bar-h) - var(--dot-space-4)); overflow-y: auto; overflow-x: hidden; }
 }
 @media (min-width: 768px) and (max-width: 1099px) {

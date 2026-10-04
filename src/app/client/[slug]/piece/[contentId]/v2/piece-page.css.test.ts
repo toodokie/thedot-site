@@ -11,6 +11,10 @@ describe('piece page stylesheet (spec 10, 10a; mockups v3)', () => {
     expect(css).not.toMatch(/\.cbar[^{]*\{[^}]*\bheight:\s*0/)
   })
 
+  it('keeps the condensed bar clear of the phone notch', () => {
+    expect(css).toMatch(/\.cbar\s*\{[^}]*padding-top:\s*env\(safe-area-inset-top, 0px\)/)
+  })
+
   it('animates only when the viewer allows motion', () => {
     expect(css).toMatch(/@media \(prefers-reduced-motion: no-preference\)\s*\{\s*\.cbar\s*\{\s*transition:/)
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)/)
