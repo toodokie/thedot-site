@@ -5579,6 +5579,33 @@ async function main(): Promise<void> {
           && (outbox.data ?? []).every((row) => row.recipient_kind === 'agency')
           && (outbox.data ?? []).some((row) => row.channel === 'email'),
         JSON.stringify(outbox.data ?? outbox.error?.message))
+
+      // 0095 (review fix): a feedback answer is private to the seat. The activity row that notifies
+      // the agency carries no rating or comment, so a sibling seat reading activity_log learns nothing.
+      const FB_COMMENT = `Private feedback note ${RUN_ID}`
+      const fb = await pClient.rpc('submit_portal_feedback', {
+        p_client_id: bClientId, p_prompt_key: `rls-fb-${RUN_ID}`, p_rating: 2,
+        p_comment: FB_COMMENT, p_content_item_id: playItemId,
+      })
+      const fbOwn = await pClient.from('portal_feedback_responses').select('rating, comment')
+        .eq('prompt_key', `rls-fb-${RUN_ID}`)
+      const fbSibling = await bClient.from('activity_log')
+        .select('id, title, summary, actor_type, actor_name, related_url, event_type')
+        .eq('event_type', 'portal_feedback_submitted')
+      const fbSiblingText = JSON.stringify(fbSibling.data ?? [])
+      const fbOutbox = await admin.from('notification_outbox').select('recipient_kind, channel')
+        .in('source_activity_id', (fbSibling.data ?? []).map((row) => row.id as string))
+      check('FBP1: feedback stays with its seat; a sibling seat sees no rating or comment in activity_log',
+        !fb.error && (fb.data as { outcome?: string } | null)?.outcome === 'submitted'
+          && fbOwn.data?.length === 1 && fbOwn.data[0].rating === 2 && fbOwn.data[0].comment === FB_COMMENT
+          && !fbSibling.error && fbSibling.data?.length === 1
+          && !fbSiblingText.includes(FB_COMMENT) && !fbSiblingText.includes('Private feedback')
+          && !/\b2 of 5\b/.test(fbSiblingText)
+          && !fbOutbox.error && (fbOutbox.data ?? []).length >= 1
+          && (fbOutbox.data ?? []).every((row) => row.recipient_kind === 'agency')
+          && (fbOutbox.data ?? []).some((row) => row.channel === 'email'),
+        JSON.stringify({ fb: fb.data ?? fb.error?.message, own: fbOwn.data, sibling: fbSibling.data ?? fbSibling.error?.message,
+          outbox: fbOutbox.data ?? fbOutbox.error?.message }))
     }
 
     {
@@ -5597,6 +5624,18 @@ async function main(): Promise<void> {
       check('A3: tenant mutation kill switch rejects before any write', !stop.error
         && !!blocked.error && before.count === after.count,
       stop.error?.message ?? blocked.error?.message ?? `before=${before.count} after=${after.count}`)
+
+      // 0095 (review fix): the feedback writer honours the launch and mutation switches.
+      const fbStopped = await bViewerClient.rpc('submit_portal_feedback', {
+        p_client_id: bClientId, p_prompt_key: `rls-fb-stop-${RUN_ID}`, p_rating: 4,
+        p_comment: null, p_content_item_id: null,
+      })
+      const fbStoppedRows = await admin.from('portal_feedback_responses').select('id')
+        .eq('prompt_key', `rls-fb-stop-${RUN_ID}`)
+      check('FBP2: the tenant mutation kill switch refuses feedback before any write',
+        !!fbStopped.error && /portal_action_not_allowed/.test(fbStopped.error.message)
+          && !fbStoppedRows.error && fbStoppedRows.data?.length === 0,
+        JSON.stringify({ err: fbStopped.error?.message ?? 'NO ERROR', rows: fbStoppedRows.data ?? fbStoppedRows.error?.message }))
 
       const secondDecider = await admin.rpc('upsert_portal_membership', {
         p_client_id: bClientId, p_auth_user_id: bViewerUserId, p_email: B_VIEWER_EMAIL,

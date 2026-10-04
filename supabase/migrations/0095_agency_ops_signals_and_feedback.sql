@@ -26,7 +26,8 @@ begin
      or pg_catalog.to_regclass('public.content_review_drafts') is null
      or pg_catalog.to_regprocedure('public.agency_unsent_review_draft_alerts(timestamptz)') is null
      or pg_catalog.to_regprocedure('public.portal_activity_notify()') is null
-     or pg_catalog.to_regprocedure('public.portal_note_grammar_safe(text)') is null then
+     or pg_catalog.to_regprocedure('public.portal_note_grammar_safe(text)') is null
+     or pg_catalog.to_regprocedure('public.portal_require_client_action(uuid,text)') is null then
     raise exception '0095 requires durable review drafts (0093), request failures (0089) and the portal inbox';
   end if;
 end;
@@ -83,6 +84,8 @@ declare
   v_key text;
 begin
   if v_uid is null then raise exception 'not authenticated'; end if;
+  -- Same boundary as every client writer (0013): a seat of this client, launch and mutations on.
+  perform public.portal_require_client_action(p_client_id, 'member');
   if p_client_id is null or p_prompt_key is null or p_prompt_key !~ '^[a-z0-9][a-z0-9_-]{0,63}$'
      or p_rating is null or p_rating not between 1 and 5 then
     raise exception 'invalid feedback';
@@ -116,11 +119,13 @@ begin
 
   v_key := 'portal-feedback:' || v_row.id::text;
   -- actor_type 'client' routes this to the agency (0078): one email and one in-app row, never the client.
+  -- Every seat of the client can read activity_log, so this row carries no rating and no comment.
+  -- The answer lives only in portal_feedback_responses (own-seat RLS) and the agency inbox payload.
   insert into public.activity_log (client_id, event_type, event_key, title, summary,
     actor_type, actor_name, related_url)
   values (p_client_id, 'portal_feedback_submitted', v_key,
-    'Feedback on the review page: ' || p_rating::text || ' of 5',
-    coalesce(v_comment, 'No comment.'),
+    'Review page feedback received',
+    'See Agency Ops.',
     'client', v_name, 'https://www.thedotcreative.co/admin/portal')
   on conflict do nothing;
   insert into public.portal_inbox_events (client_id, event_key, event_type, object_type, object_id,
@@ -381,6 +386,12 @@ begin
      or pg_catalog.pg_get_functiondef('public.ack_portal_inbox(text,uuid,bigint)'::pg_catalog.regprocedure)
        not like '%agency_inbox_resolutions%' then
     raise exception 'ack_portal_inbox lost a terminal rule';
+  end if;
+  if pg_catalog.pg_get_functiondef('public.submit_portal_feedback(uuid,text,integer,text,uuid)'::pg_catalog.regprocedure)
+       not like '%portal_require_client_action(p_client_id, ''member'')%'
+     or pg_catalog.pg_get_functiondef('public.submit_portal_feedback(uuid,text,integer,text,uuid)'::pg_catalog.regprocedure)
+       like '%of 5%' then
+    raise exception 'feedback writer lost its client boundary or leaks the answer into activity_log';
   end if;
   if not exists (select 1 from public.activity_event_types t where t.event_type = 'portal_feedback_submitted') then
     raise exception 'portal_feedback_submitted event type missing';
