@@ -23,7 +23,7 @@ const SUB_ID = 'decision-bar-sub'
 // Spec 4.6 and 4.7: progress, the single derived action, or the state line. Client wording is a
 // draft for kanset-copywriting (first person singular, no em dashes).
 export default function DecisionBar({
-  action, ticks, version, reReview, approvedLabel, postedLabel, sentSummary, slug, contentId, mode,
+  action, ticks, version, reReview, approvedLabel, postedLabel, sentSummary, slug, contentId, mode, canEdit,
   onOpenPastEdits, onShowCarried,
 }: {
   action: PieceAction
@@ -36,6 +36,7 @@ export default function DecisionBar({
   slug: string
   contentId: string
   mode: 'client' | 'preview'
+  canEdit: boolean
   onOpenPastEdits: () => void
   onShowCarried: () => void
 }) {
@@ -167,7 +168,9 @@ export default function DecisionBar({
         <span className={styles.sub}>I still need to add: {action.missing.join(', ')}.</span></>
       break
     case 'decider-only':
-      prog = <>{progress}<span className={styles.sub}>Only Maria can approve this piece. You can still edit the text.</span></>
+      prog = <>{progress}<span className={styles.sub}>
+        {canEdit ? 'Only Maria can approve this piece. You can still edit the text.' : 'Only Maria can approve this piece.'}
+      </span></>
       break
   }
 

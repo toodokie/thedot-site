@@ -23,7 +23,7 @@ function AddDraft() {
 function bar(action: PieceAction, overrides: Partial<React.ComponentProps<typeof DecisionBar>> = {}) {
   return <DecisionBar action={action} ticks={{ total: 3, done: 2 }} version={2} reReview={false}
     approvedLabel="Approved · posts Fri Oct 2" postedLabel="Posted Fri Oct 2" sentSummary={{ count: 2, dateLabel: 'Sep 30' }}
-    slug="kanset" contentId="piece" mode="client" onOpenPastEdits={vi.fn()} onShowCarried={vi.fn()} {...overrides} />
+    slug="kanset" contentId="piece" mode="client" canEdit onOpenPastEdits={vi.fn()} onShowCarried={vi.fn()} {...overrides} />
 }
 
 beforeEach(() => {
@@ -105,6 +105,12 @@ describe('DecisionBar', () => {
     rerender(<PageProviders>{bar({ kind: 'decider-only' })}</PageProviders>)
     expect(screen.getByText('Only Maria can approve this piece. You can still edit the text.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
+  })
+
+  it('does not promise editing to a seat that cannot edit', () => {
+    renderInPage(bar({ kind: 'decider-only' }, { canEdit: false }))
+    expect(screen.getByText('Only Maria can approve this piece.')).toBeInTheDocument()
+    expect(screen.queryByText(/You can still edit the text/)).not.toBeInTheDocument()
   })
 
   it('points to drafts written against the previous version', () => {

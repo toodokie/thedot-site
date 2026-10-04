@@ -200,7 +200,7 @@ function WorkspaceBody({ data, mode }: { data: WorkspaceData; mode: WorkspaceMod
     </div>
     <DecisionBar action={action} ticks={{ total: data.tabs.length, done: data.tabs.length - unticked.length }}
       version={data.version} reReview={data.reReview} approvedLabel={data.approvedLabel} postedLabel={data.postedLabel}
-      sentSummary={data.sentSummary} slug={data.slug} contentId={data.contentId} mode={mode}
+      sentSummary={data.sentSummary} slug={data.slug} contentId={data.contentId} mode={mode} canEdit={data.canEdit}
       onOpenPastEdits={() => setDrawer({ open: true, tab: 'past' })} onShowCarried={showCarried} />
     <QuestionsDrawer open={drawer.open} tab={drawer.tab} onTabChange={(tab) => setDrawer((d) => ({ ...d, tab }))}
       onClose={() => setDrawer((d) => ({ ...d, open: false }))} slug={data.slug} contentId={data.contentId}
