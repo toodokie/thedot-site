@@ -1054,8 +1054,9 @@ begin
      or v_qual not like '%portal_agency_internal_event_types()%' then
     raise exception 'act_read no longer hides agency_internal activity from client seats';
   end if;
-  if pg_catalog.has_table_privilege('service_role', 'public.activity_log', 'SELECT')
-     or pg_catalog.has_function_privilege('anon', 'public.agency_internal_activity(uuid,uuid)', 'EXECUTE')
+  -- The service role may read activity_log directly (production grants it and the admin pages use
+  -- it); approved by Anastasia 2026-10-04. Only the client roles are checked here.
+  if pg_catalog.has_function_privilege('anon', 'public.agency_internal_activity(uuid,uuid)', 'EXECUTE')
      or pg_catalog.has_function_privilege('authenticated', 'public.agency_internal_activity(uuid,uuid)', 'EXECUTE')
      or not pg_catalog.has_function_privilege('service_role', 'public.agency_internal_activity(uuid,uuid)', 'EXECUTE')
      or pg_catalog.has_function_privilege('anon', 'public.portal_agency_internal_event_types()', 'EXECUTE') then
