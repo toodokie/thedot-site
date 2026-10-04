@@ -1,5 +1,5 @@
 // Layout checks for the redesigned piece page (plan 4a). Drives the read-only "View as Maria"
-// preview with ?layout=v2 at 375px (phone) and 1440px (desktop):
+// preview with ?layout=v2 at 375px and 430px (phones) and 1440px (desktop):
 //   - no horizontal scroll on the phone
 //   - every button, link and tab outside running text is at least 44px tall on the phone
 //   - one h1; body copy at least 16px
@@ -7,6 +7,8 @@
 //   - the condensed header collapses past 120px, stays at 60px, expands under 40px, and the page
 //     height never changes while it does
 //   - with reduced motion the condensed bar has no transition
+//   - the header's More actions menu opens inside the viewport (a bottom sheet on a phone, 16px
+//     clear of both edges as a dropdown on a computer), Escape closes it and focus returns to it
 // Writes PNGs to OUT. Exits 1 on any failure.
 //
 //   BASE=http://localhost:3000 PIECES=<reel id>,<podcast id>,<linkedin id>,<article id> node scripts/piece-page-phone-check.mjs
@@ -39,7 +41,8 @@ const token = await new SignJWT({ role: 'admin' }).setProtectedHeader({ alg: 'HS
   .setIssuedAt().setExpirationTime('2h').sign(new TextEncoder().encode(secret))
 
 const VIEWPORTS = [
-  { name: 'phone', width: 375, height: 812, isMobile: true, hasTouch: true },
+  { name: 'phone', width: 375, height: 812, isMobile: true, hasTouch: true, phone: true },
+  { name: 'phone-430', width: 430, height: 932, isMobile: true, hasTouch: true, phone: true },
   { name: 'desktop', width: 1440, height: 900, isMobile: false, hasTouch: false },
 ]
 const failures = []
@@ -62,6 +65,32 @@ try {
       if (page.url().includes('/admin/login')) { failures.push(`${label}: bounced to login`); continue }
       await page.waitForSelector('[data-piece-page-v2]', { timeout: 20000 })
       await page.screenshot({ path: `${OUT}/${vp.name}-${id}-top.png` })
+
+      // The header's More actions menu stays inside the viewport and hands focus back on Escape.
+      const header = page.locator('[data-piece-page-v2] header').first()
+      await header.screenshot({ path: `${OUT}/${vp.name}-${id}-header.png` })
+      const more = header.getByRole('button', { name: 'More actions' })
+      await more.click()
+      const menu = page.getByRole('menu', { name: 'More actions' })
+      await menu.waitFor({ timeout: 5000 })
+      await page.waitForTimeout(100)
+      const menuBox = await menu.boundingBox()
+      const variant = await menu.getAttribute('data-variant')
+      const edge = vp.phone ? 0 : 16
+      if (!menuBox || menuBox.x < edge - 0.5 || menuBox.x + menuBox.width > vp.width - edge + 0.5
+        || menuBox.y < 0 || menuBox.y + menuBox.height > vp.height + 0.5) {
+        failures.push(`${label}: More actions menu outside the viewport ${JSON.stringify(menuBox)}`)
+      }
+      if (vp.phone && variant !== 'sheet') failures.push(`${label}: More actions menu is a ${variant}, not a bottom sheet`)
+      if (vp.phone && menuBox && Math.abs(menuBox.width - vp.width) > 1) failures.push(`${label}: bottom sheet is ${menuBox.width}px wide, not full width`)
+      const shortItems = await menu.getByRole('menuitem').evaluateAll((items) => items
+        .filter((item) => item.getBoundingClientRect().height < 44).map((item) => item.textContent))
+      for (const item of shortItems) failures.push(`${label}: menu item under 44px: ${item}`)
+      await page.screenshot({ path: `${OUT}/${vp.name}-${id}-header-menu.png` })
+      await page.keyboard.press('Escape')
+      await menu.waitFor({ state: 'detached', timeout: 5000 })
+      if (!(await more.evaluate((el) => el === document.activeElement))) failures.push(`${label}: focus did not return to More actions`)
+      console.log(`${label}: More actions menu ${variant} ${JSON.stringify(menuBox)}`)
 
       const facts = await page.evaluate(() => {
         const root = document.querySelector('[data-piece-page-v2]')
@@ -95,7 +124,7 @@ try {
       if (facts.bodyFont < 16) failures.push(`${label}: body copy ${facts.bodyFont}px`)
       if (!facts.barInView) failures.push(`${label}: decision bar outside the viewport`)
       if (facts.barCovered) failures.push(`${label}: decision bar covered by another element`)
-      if (vp.name === 'phone') {
+      if (vp.phone) {
         if (facts.overflow > 0) failures.push(`${label}: horizontal scroll of ${facts.overflow}px`)
         for (const item of facts.small) failures.push(`${label}: touch target under 44px: ${item}`)
       }
@@ -126,7 +155,7 @@ try {
       if (await edit.count()) {
         await edit.scrollIntoViewIfNeeded()
         await edit.click()
-        if (vp.name === 'phone') {
+        if (vp.phone) {
           const sheet = page.locator('dialog[open]')
           await sheet.waitFor({ timeout: 5000 })
           const box = await sheet.boundingBox()
@@ -155,5 +184,5 @@ try {
   await browser.close()
 }
 for (const failure of failures) console.error(`FAIL ${failure}`)
-console.log(failures.length === 0 ? `PASS: ${PIECES.length} pieces at 375px and 1440px` : `${failures.length} failures`)
+console.log(failures.length === 0 ? `PASS: ${PIECES.length} pieces at 375px, 430px and 1440px` : `${failures.length} failures`)
 process.exit(failures.length === 0 ? 0 : 1)
