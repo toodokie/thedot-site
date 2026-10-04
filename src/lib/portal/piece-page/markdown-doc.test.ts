@@ -36,6 +36,8 @@ const ADVERSARIAL: Record<string, string> = {
   quotes: '>No space\n> with space\n>\n> after empty',
   mixedBullets: '* one\n- two\n+ three',
   checks: '- [ ] a\n- [x] b\n- [X] c\n1. [ ] d',
+  trailingSpace: 'Ends with a space. \n\nNext.  ',
+  crlfEdges: '\r\n\r\nText \r\n  \r\n> q\r\n\r\n',
 }
 
 // True when `edited` is `original` with exactly one extra "X" somewhere.
@@ -90,6 +92,21 @@ describe('parseMarkdown and serializeMarkdown', () => {
         expect(oneInsertedX(body, edited), `${name} at ${middle}: ${JSON.stringify(edited)}`).toBe(true)
       })
     }
+  })
+
+  it('keeps every character of a block, trailing spaces included, when it is re-read on its own', () => {
+    for (const [name, body] of Object.entries({ ...SHAPES, ...ADVERSARIAL })) {
+      parseMarkdown(body).forEach((node, _offset, index) => {
+        expect(parseMarkdown(normalizedBlock(node)).textContent, `${name} node ${index}`).toBe(node.textContent)
+      })
+    }
+  })
+
+  it('reads Windows line endings as the same blocks', () => {
+    const doc = parseMarkdown('# Head\r\n\r\n> quoted\r\n> on\r\n\r\n- a\r\n- b\r\n\r\n---\r\n\r\nText')
+    expect(doc.content.content.map((n) => n.type.name)).toEqual(['heading', 'blockquote', 'bullet_list', 'horizontal_rule', 'paragraph'])
+    expect(doc.textContent).not.toContain('#')
+    expect(doc.textContent).not.toContain('>')
   })
 
   it('continues a zero-padded numbered list in the same style', () => {

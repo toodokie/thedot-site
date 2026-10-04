@@ -64,10 +64,11 @@ export const schema = new Schema({
   },
 })
 
-const HEADING = /^(#{1,6})([ \t]+)(\S.*)$/
-const HR = /^[ \t]{0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/
+// A line may end in \r (Windows line endings): it is kept as text, never dropped.
+const HEADING = /^(#{1,6})([ \t]+)(\S[^\n]*)$/
+const HR = /^[ \t]{0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*\r?$/
 const LIST = /^([ \t]{0,3})(?:[-+*]|(\d{1,9})[.)])[ \t]+(?:\[[ xX]\][ \t]+)?/
-const QUOTE = /^([ \t]{0,3}>[ \t]?)(.*)$/
+const QUOTE = /^([ \t]{0,3}>[ \t]?)([^\n]*)$/
 const INLINE = /(\*\*[^*\n]+\*\*|__[^_\n]+__|`[^`\n]+`|\[[^\]\n]+\]\(https:\/\/[^)\s]+\)|\*[^*\n]+\*|_[^_\n]+_)/g
 const BULLET_MARKER = /^[ \t]{0,3}[-+*][ \t]+(?:\[[ xX]\][ \t]+)?$/
 const ORDERED_MARKER = /^([ \t]{0,3})(\d{1,9})([.)])([ \t]+)(\[[ xX]\][ \t]+)?$/
@@ -80,7 +81,7 @@ function lineKind(line: string): Kind {
   if (HEADING.test(line)) return 'heading'
   if (HR.test(line)) return 'hr'
   const list = LIST.exec(line)
-  if (list && list[0].length < line.length) return 'list'
+  if (list && list[0].length < line.replace(/\r$/, '').length) return 'list'
   if (QUOTE.test(line)) return 'quote'
   return 'paragraph'
 }
@@ -163,7 +164,7 @@ function buildLists(lines: string[], sep: string): PMNode[] {
   const items: Item[] = []
   for (const line of lines) {
     const match = LIST.exec(line)
-    if (match && match[0].length < line.length) {
+    if (match && match[0].length < line.replace(/\r$/, '').length) {
       items.push({ marker: match[0], ordered: match[2] !== undefined, lines: [{ lead: '', text: line.slice(match[0].length) }], raw: [line] })
       continue
     }
@@ -216,11 +217,15 @@ function buildGroup(group: Group, sep: string): PMNode[] {
 export function parseMarkdown(body: string): PMNode {
   const lead = /^\n*/.exec(body)?.[0] ?? ''
   const rest = body.slice(lead.length)
-  const trail = /\s*$/.exec(rest)?.[0] ?? ''
+  // The trail starts at the first line break of the closing whitespace run, so spaces at the end of
+  // the last line stay with that line (as they do on every other line) and a block re-read on its own
+  // keeps them.
+  const closing = /\s*$/.exec(rest)?.[0] ?? ''
+  const trail = closing.includes('\n') ? closing.slice(closing.indexOf('\n')) : ''
   const core = rest.slice(0, rest.length - trail.length)
   const nodes: PMNode[] = []
   if (core.length > 0) {
-    const pieces = core.split(/(\n(?:[ \t]*\n)+)/)
+    const pieces = core.split(/(\n(?:[ \t\r]*\n)+)/)
     for (let i = 0; i < pieces.length; i += 2) {
       groupLines(pieces[i].split('\n')).forEach((group, g) => {
         nodes.push(...buildGroup(group, g === 0 ? (i === 0 ? '\n\n' : pieces[i - 1]) : '\n'))
