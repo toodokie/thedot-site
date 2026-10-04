@@ -260,9 +260,11 @@ export async function uploadReviewPreview(
     return { outcome: response.outcome, previewId: response.preview_id, objectPrefix: prefix, bytes }
   } catch (error) {
     if (uploaded.length > 0) {
-      const { data: kept } = await admin.from('content_review_previews')
+      // A re-run overwrites a live preview's objects (same prefix), so only remove when the lookup
+      // succeeded and found no registered preview. On a lookup error leave it to the retention drain.
+      const { data: kept, error: lookupError } = await admin.from('content_review_previews')
         .select('id').eq('object_prefix', prefix).maybeSingle()
-      if (!kept) await admin.storage.from(REVIEW_PREVIEW_BUCKET).remove(uploaded)
+      if (!lookupError && !kept) await admin.storage.from(REVIEW_PREVIEW_BUCKET).remove(uploaded)
     }
     throw error
   }

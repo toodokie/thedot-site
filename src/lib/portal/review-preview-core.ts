@@ -16,6 +16,8 @@ export const PREVIEW_LIMITS = {
   maxTotalBytes: 138_412_032,
 } as const
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export const PREVIEW_KEY_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/
 
 export type PreviewContentType = 'video/mp4' | 'image/jpeg' | 'image/png' | 'image/webp'
@@ -48,6 +50,8 @@ export function previewObjectPrefix(input: {
   previewKey: string
   sourceSha256: string
 }): string {
+  if (!UUID_PATTERN.test(input.clientId)) throw new Error('invalid client id')
+  if (!UUID_PATTERN.test(input.contentItemId)) throw new Error('invalid content item id')
   if (!PREVIEW_KEY_PATTERN.test(input.previewKey)) throw new Error('invalid preview key')
   if (!/^[0-9a-f]{64}$/.test(input.sourceSha256)) throw new Error('invalid source checksum')
   return `${input.clientId.toLowerCase()}/${input.contentItemId.toLowerCase()}/v${input.contentVersion}`

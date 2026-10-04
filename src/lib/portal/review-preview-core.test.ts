@@ -7,11 +7,13 @@ import {
 } from './review-preview-core'
 
 const SHA = 'ab'.repeat(32)
+const C1 = '11111111-1111-4111-8111-111111111111'
+const I1 = '22222222-2222-4222-8222-222222222222'
 
 function row(overrides: Partial<ReviewPreviewRow> = {}): ReviewPreviewRow {
-  const prefix = `c1/i1/v2/reel/${SHA.slice(0, 16)}/`
+  const prefix = `${C1}/${I1}/v2/reel/${SHA.slice(0, 16)}/`
   return {
-    id: 'p1', client_id: 'c1', content_item_id: 'i1', content_version: 2, preview_key: 'reel',
+    id: 'p1', client_id: C1, content_item_id: I1, content_version: 2, preview_key: 'reel',
     review_asset_key: null, media_kind: 'video', object_prefix: prefix,
     video_path: `${prefix}video.mp4`, poster_path: `${prefix}poster.jpg`,
     frames: [{ path: `${prefix}frames/01.jpg`, label: 'Hook' }, { path: `${prefix}frames/02.jpg`, label: 'Answer' }],
@@ -31,14 +33,21 @@ function storage(sign = vi.fn(async (paths: string[], _ttl?: number) => ({
 describe('review preview paths', () => {
   it('builds a content-addressed prefix scoped to client, item, version and key', () => {
     expect(previewObjectPrefix({
-      clientId: 'C1', contentItemId: 'I1', contentVersion: 2, previewKey: 'reel', sourceSha256: SHA,
-    })).toBe(`c1/i1/v2/reel/${SHA.slice(0, 16)}/`)
+      clientId: C1.toUpperCase(), contentItemId: I1.toUpperCase(), contentVersion: 2, previewKey: 'reel', sourceSha256: SHA,
+    })).toBe(`${C1}/${I1}/v2/reel/${SHA.slice(0, 16)}/`)
   })
 
   it('refuses a key or checksum the database would refuse', () => {
-    const base = { clientId: 'c1', contentItemId: 'i1', contentVersion: 1, sourceSha256: SHA }
+    const base = { clientId: C1, contentItemId: I1, contentVersion: 1, sourceSha256: SHA }
     expect(() => previewObjectPrefix({ ...base, previewKey: 'Reel One' })).toThrow('invalid preview key')
     expect(() => previewObjectPrefix({ ...base, previewKey: 'reel', sourceSha256: 'xyz' })).toThrow('invalid source checksum')
+  })
+
+  it('refuses a client or item id that is not a UUID, before anything is uploaded', () => {
+    const base = { contentVersion: 1, previewKey: 'reel', sourceSha256: SHA }
+    expect(() => previewObjectPrefix({ ...base, clientId: 'client-1', contentItemId: I1 })).toThrow('invalid client id')
+    expect(() => previewObjectPrefix({ ...base, clientId: C1, contentItemId: '../x' })).toThrow('invalid content item id')
+    expect(() => previewObjectPrefix({ ...base, clientId: `${C1}/..`, contentItemId: I1 })).toThrow('invalid client id')
   })
 
   it('names frames in order and keeps the image extension', () => {
@@ -81,7 +90,7 @@ describe('signReviewPreview', () => {
   })
 
   it('signs a page preview without a video or poster', async () => {
-    const prefix = `c1/i1/v1/pdf/${SHA.slice(0, 16)}/`
+    const prefix = `${C1}/${I1}/v1/pdf/${SHA.slice(0, 16)}/`
     const { storage: s } = storage()
     const signed = await signReviewPreview(s, row({
       media_kind: 'pages', video_path: null, poster_path: null, duration_seconds: null,

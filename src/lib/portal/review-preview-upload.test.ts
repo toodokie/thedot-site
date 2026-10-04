@@ -13,6 +13,7 @@ function fakeAdmin(options: {
   registerOutcome?: 'registered' | 'unchanged' | 'replaced'
   registerError?: string
   prefixStillUsed?: boolean
+  lookupError?: string
 } = {}) {
   const uploads: Array<{ bucket: string; path: string; contentType?: string; bytes: number }> = []
   const removed: string[][] = []
@@ -38,7 +39,9 @@ function fakeAdmin(options: {
     },
     from: () => ({
       select: () => ({
-        eq: () => ({ maybeSingle: async () => ({ data: options.prefixStillUsed ? { id: 'kept' } : null, error: null }) }),
+        eq: () => ({ maybeSingle: async () => options.lookupError
+          ? { data: null, error: { message: options.lookupError } }
+          : ({ data: options.prefixStillUsed ? { id: 'kept' } : null, error: null }) }),
       }),
     }),
   }
@@ -76,14 +79,14 @@ function videoRequest(overrides: Partial<ReviewPreviewRequest> = {}): ReviewPrev
   }
 }
 
-const target = { clientId: 'client-1', contentItemId: 'item-1' }
+const target = { clientId: '11111111-1111-4111-8111-111111111111', contentItemId: '22222222-2222-4222-8222-222222222222' }
 
 describe('uploadReviewPreview', () => {
   it('uploads video, poster and frames under one content-addressed prefix, then registers them', async () => {
     const { admin, uploads, rpcs } = fakeAdmin()
     const result = await uploadReviewPreview(admin, fakeTools(FILES), { ...target, request: videoRequest() })
     expect(result.outcome).toBe('registered')
-    expect(result.objectPrefix).toMatch(/^client-1\/item-1\/v2\/reel\/[0-9a-f]{16}\/$/)
+    expect(result.objectPrefix).toMatch(/^11111111-1111-4111-8111-111111111111\/22222222-2222-4222-8222-222222222222\/v2\/reel\/[0-9a-f]{16}\/$/)
     expect(uploads.map((u) => [u.bucket, u.path.slice(result.objectPrefix.length), u.contentType])).toEqual([
       [REVIEW_PREVIEW_BUCKET, 'video.mp4', 'video/mp4'],
       [REVIEW_PREVIEW_BUCKET, 'poster.jpg', 'image/jpeg'],
@@ -92,7 +95,7 @@ describe('uploadReviewPreview', () => {
     ])
     const register = rpcs.find((r) => r.fn === 'agency_register_review_preview')!.args
     expect(register).toMatchObject({
-      p_client_id: 'client-1', p_content_id: 'kanset-2026-10-reel', p_content_version: 2,
+      p_client_id: '11111111-1111-4111-8111-111111111111', p_content_id: 'kanset-2026-10-reel', p_content_version: 2,
       p_preview_key: 'reel', p_media_kind: 'video', p_object_prefix: result.objectPrefix,
       p_video_path: `${result.objectPrefix}video.mp4`, p_poster_path: `${result.objectPrefix}poster.jpg`,
       p_width_px: 1080, p_height_px: 1920, p_duration_seconds: 24, p_actor_key: 'thedot-admin',
@@ -141,6 +144,27 @@ describe('uploadReviewPreview', () => {
     const { admin, removed } = fakeAdmin({ registerError: 'boom', prefixStillUsed: true })
     await expect(uploadReviewPreview(admin, fakeTools(FILES), { ...target, request: videoRequest() })).rejects.toThrow('boom')
     expect(removed).toEqual([])
+  })
+
+  it('keeps the objects and reports the registration error when the cleanup lookup fails', async () => {
+    const { admin, removed } = fakeAdmin({ registerError: 'boom', lookupError: 'db down' })
+    await expect(uploadReviewPreview(admin, fakeTools(FILES), { ...target, request: videoRequest() })).rejects.toThrow('boom')
+    expect(removed).toEqual([])
+  })
+
+  it('refuses a preview whose files together exceed the total limit, before uploading', async () => {
+    const files: Record<string, string> = { ...FILES }
+    const sizes: Record<string, number> = {}
+    const frames = Array.from({ length: 45 }, (_, i) => {
+      files[`/r/g${i}.jpg`] = `g${i}`
+      sizes[`/r/g${i}.jpg`] = 2 * 1024 * 1024
+      return { path: `/r/g${i}.jpg`, label: `G${i}` }
+    })
+    sizes['/r/reel.mp4'] = 50 * 1024 * 1024
+    const { admin, uploads } = fakeAdmin()
+    await expect(uploadReviewPreview(admin, fakeTools(files, sizes), { ...target, request: videoRequest({ frames }) }))
+      .rejects.toThrow('preview totals')
+    expect(uploads).toEqual([])
   })
 
   it('drains the queue when a preview was replaced', async () => {
