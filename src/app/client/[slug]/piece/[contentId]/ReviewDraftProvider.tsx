@@ -67,8 +67,15 @@ function isOnline(): boolean {
   return typeof navigator === 'undefined' || navigator.onLine !== false
 }
 
-// A failed autosave is retried on the next edit, on reconnect, on hide, and after this pause.
+// A failed autosave is retried on the next edit, on reconnect, on hide, and on its own after this
+// pause, doubling each time, at most SAVE_RETRY_LIMIT times so a dead page cannot retry forever.
 const SAVE_RETRY_DELAY_MS = 15000
+const SAVE_RETRY_LIMIT = 5
+
+function stamp(value: string | null | undefined): number {
+  const parsed = value ? Date.parse(value) : Number.NaN
+  return Number.isNaN(parsed) ? 0 : parsed
+}
 
 // Decision 6 as approved 2026-10-03: "this phone" on a touch device, "this device" on a desktop.
 function isMobileDevice(): boolean {
@@ -82,6 +89,11 @@ function isMobileDevice(): boolean {
 
 function offlineLine(mobile: boolean): string {
   return mobile ? DRAFT_STATUS_TEXT.offline : DRAFT_STATUS_TEXT.offline.replace('this phone', 'this device')
+}
+
+// The portal refused the edit for good. Fixed wording: the server's own error text is never shown.
+function rejectedLine(mobile: boolean): string {
+  return `Couldn't save this edit to the portal. It is still on ${mobile ? 'this phone' : 'this device'}.`
 }
 
 export default function ReviewDraftProvider({
@@ -110,6 +122,10 @@ export default function ReviewDraftProvider({
   const failureReportRef = useRef<FailureReport | null>(null)
   const reportTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const flushRef = useRef<() => Promise<boolean>>(async () => true)
+  const mountedRef = useRef(true)
+  const retryAttemptRef = useRef(0)
+  // Targets whose last save the portal refused for good. Kept here, not retried on a timer.
+  const rejectedRef = useRef<Set<string>>(new Set())
   const [revision, bump] = useReducer((count: number) => count + 1, 0)
   const [pendingCount, setPendingCount] = useState(0)
   const [inFlight, setInFlight] = useState(false)
@@ -149,8 +165,16 @@ export default function ReviewDraftProvider({
           reason: op.reason, savedAt: op.savedAt,
         })
         if ('error' in result) return result.retryable ? 'retry' : 'give_up'
-        // Another device saved newer text after this one was discarded: newest wins, it comes back.
-        if (result.outcome === 'stale' && result.draft) putDraft(serverRowToDraft(result.draft, version))
+        if (result.outcome === 'stale' && result.draft) {
+          const local = storeRef.current[id]
+          // Another device saved newer text after this one was discarded: newest wins, it comes back.
+          // Text she typed here since the discard is newer still: keep it and make sure it is saved.
+          if (!local || stamp(result.draft.saved_at) > stamp(local.savedAt)) {
+            putDraft(serverRowToDraft(result.draft, version))
+          } else if (!pendingRef.current.has(id)) {
+            pendingRef.current.set(id, { op: 'save' })
+          }
+        }
         return 'ok'
       }
       const draft = storeRef.current[id]
@@ -163,18 +187,25 @@ export default function ReviewDraftProvider({
       })
       if ('error' in result) return result.retryable ? 'retry' : 'give_up'
       if (!result.draft) return 'retry'
+      const latest = storeRef.current[id]
+      // Discarded while this save was in flight: the queued discard settles it. Never write it back.
+      if (!latest) return 'ok'
       if (result.outcome === 'stale') {
+        if (latest.savedAt !== draft.savedAt && stamp(result.draft.saved_at) <= stamp(latest.savedAt)) {
+          // She typed again while this save was in flight and her text is newer than the server's.
+          if (!pendingRef.current.has(id)) pendingRef.current.set(id, { op: 'save' })
+          return 'ok'
+        }
         putDraft(serverRowToDraft(result.draft, version))
         return 'ok'
       }
-      const latest = storeRef.current[id]
-      if (latest && latest.savedAt !== draft.savedAt) {
+      if (latest.savedAt !== draft.savedAt) {
         // She typed again while this save was in flight. Her newer text is already queued.
         storeRef.current = { ...storeRef.current, [id]: { ...latest, serverId: result.draft.id } }
         return 'ok'
       }
       putDraft({
-        ...(latest ?? draft),
+        ...latest,
         serverId: result.draft.id,
         syncedAt: draft.savedAt,
         baseVersion: result.draft.base_version,
@@ -190,7 +221,8 @@ export default function ReviewDraftProvider({
   const flush = useCallback(async (): Promise<boolean> => {
     if (!serverSync) return true
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null }
-    if (inFlightRef.current) await inFlightRef.current
+    // Wait out every run, including one a concurrent flush starts meanwhile, so true means settled.
+    while (inFlightRef.current) await inFlightRef.current
     if (!pendingRef.current.size) return true
     if (!isOnline()) { setOnline(false); return false }
     const run = (async () => {
@@ -202,6 +234,10 @@ export default function ReviewDraftProvider({
         for (const [id, op] of batch) {
           const outcome = await pushOne(id, op)
           if (outcome === 'retry' && !pendingRef.current.has(id)) pendingRef.current.set(id, op)
+          if (op.op === 'save') {
+            if (outcome === 'give_up') rejectedRef.current.add(id)
+            else if (outcome === 'ok') rejectedRef.current.delete(id)
+          }
           if (outcome !== 'ok') ok = false
         }
         setPendingCount(pendingRef.current.size)
@@ -219,8 +255,13 @@ export default function ReviewDraftProvider({
       setInFlight(false)
       // A failed server save keeps the draft in memory and in the browser buffer, and says so.
       setSaveFailed(!ok)
-      if (!ok && pendingRef.current.size && !timerRef.current) {
-        timerRef.current = setTimeout(() => { timerRef.current = null; void flushRef.current() }, SAVE_RETRY_DELAY_MS)
+      bump()
+      if (ok) retryAttemptRef.current = 0
+      else if (mountedRef.current && pendingRef.current.size && !timerRef.current
+          && retryAttemptRef.current < SAVE_RETRY_LIMIT) {
+        const delay = SAVE_RETRY_DELAY_MS * 2 ** retryAttemptRef.current
+        retryAttemptRef.current += 1
+        timerRef.current = setTimeout(() => { timerRef.current = null; void flushRef.current() }, delay)
       }
     }
   }, [pushOne, serverSync])
@@ -236,6 +277,7 @@ export default function ReviewDraftProvider({
     // Any change to the drafts makes a new send: a retry may reuse its key only if nothing changed.
     sendKeyRef.current = null
     if (!serverSync) return
+    retryAttemptRef.current = 0
     pendingRef.current.set(id, op)
     setPendingCount(pendingRef.current.size)
     schedule()
@@ -390,11 +432,19 @@ export default function ReviewDraftProvider({
     }
     // The server action has already written a refusal down; the browser does not report it again.
     if (result.error) return fail(result.error, false)
-    for (const draft of current) dropDraft(draft)
+    for (const draft of current) {
+      const id = draftIdentity(draft)
+      const latest = storeRef.current[id]
+      if (!latest) continue
+      if (latest.savedAt === draft.savedAt) { dropDraft(draft); continue }
+      // She typed again while the send was in flight: that newer text is a new unsent draft.
+      putDraft({ ...latest, serverId: null, syncedAt: null, sendFailedAt: null })
+      if (!pendingRef.current.has(id)) markPending(id, { op: 'save' })
+    }
     sendKeyRef.current = null
     setSendError(null)
     return { ok: true, message: result.success ?? 'Your edits were sent to The Dot.' }
-  }, [contentId, deliverFailureReport, dropDraft, flush, mobile, serverSync, slug, version])
+  }, [contentId, deliverFailureReport, dropDraft, flush, markPending, mobile, putDraft, serverSync, slug, version])
 
   // Reconcile the browser buffer with the server once per page load.
   useEffect(() => {
@@ -426,7 +476,7 @@ export default function ReviewDraftProvider({
     if (!serverSync) return
     setOnline(isOnline())
     setMobile(isMobileDevice())
-    const goOnline = () => { setOnline(true); void flush(); void deliverFailureReport() }
+    const goOnline = () => { retryAttemptRef.current = 0; setOnline(true); void flush(); void deliverFailureReport() }
     const goOffline = () => setOnline(false)
     const hide = () => { if (document.visibilityState === 'hidden') void flush() }
     const leave = () => { void flush() }
@@ -442,12 +492,21 @@ export default function ReviewDraftProvider({
     }
   }, [deliverFailureReport, flush, serverSync])
 
-  useEffect(() => () => {
-    if (timerRef.current) clearTimeout(timerRef.current)
-    if (reportTimerRef.current) clearTimeout(reportTimerRef.current)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null }
+      if (reportTimerRef.current) { clearTimeout(reportTimerRef.current); reportTimerRef.current = null }
+      // Best effort: the browser copy already holds every edit; this tries to get them to the server too.
+      void flushRef.current()
+    }
   }, [])
 
   const drafts = useMemo(() => Object.values(storeRef.current),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [revision])
+  const rejected = useMemo(() => [...rejectedRef.current].some((id) => storeRef.current[id] !== undefined),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [revision])
   const currentDrafts = useMemo(() => drafts.filter((draft) => draft.baseVersion === version), [drafts, version])
@@ -456,10 +515,11 @@ export default function ReviewDraftProvider({
     draftCount: drafts.length, pending: pendingCount, inFlight, online, sendFailed: sendError !== null,
   })
   // The server refused or never answered an autosave: the text is safe here, not yet there.
-  const syncState: DraftSyncState = saveFailed && !inFlight && drafts.length > 0 && derived !== 'send_failed'
-    ? 'offline' : derived
+  const syncState: DraftSyncState = (rejected || saveFailed) && !inFlight && drafts.length > 0
+    && derived !== 'send_failed' ? 'offline' : derived
   const statusText = !serverSync || syncState === 'idle' ? null
-    : syncState === 'offline' ? offlineLine(mobile) : DRAFT_STATUS_TEXT[syncState]
+    : syncState === 'offline' ? (rejected ? rejectedLine(mobile) : offlineLine(mobile))
+      : DRAFT_STATUS_TEXT[syncState]
 
   const value = useMemo<ReviewDraftContextValue>(() => ({
     drafts, currentDrafts, carriedDrafts, readDraft, saveDraft, removeDraft, keepCarriedDraft, clearDrafts,

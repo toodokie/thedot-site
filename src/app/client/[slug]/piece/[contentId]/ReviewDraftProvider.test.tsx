@@ -164,22 +164,74 @@ describe('autosave', () => {
     expect(api.drafts).toHaveLength(1)
   })
 
-  it('saves straight away when the page is hidden or left, without waiting for the timer', async () => {
+  it('saves straight away when the page is hidden, without waiting for the timer', async () => {
     vi.useFakeTimers()
     mount()
     act(() => api.saveDraft(caption, 'Switching apps'))
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' })
     await act(async () => {
-      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' })
       document.dispatchEvent(new Event('visibilitychange'))
+      await vi.advanceTimersByTimeAsync(100)
     })
-    await act(async () => { await api.flush() })
-    expect(actions.saveReviewDraft).toHaveBeenCalledTimes(1)
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
+    expect(actions.saveReviewDraft).toHaveBeenCalledTimes(1)
+    expect(actions.saveReviewDraft).toHaveBeenLastCalledWith(expect.objectContaining({ body: 'Switching apps' }))
+  })
+
+  it('saves straight away when the page is left, without waiting for the timer', async () => {
+    vi.useFakeTimers()
+    mount()
     act(() => api.saveDraft(caption, 'Closing the tab'))
-    await act(async () => { window.dispatchEvent(new Event('pagehide')) })
-    await act(async () => { await api.flush() })
-    expect(actions.saveReviewDraft).toHaveBeenCalledTimes(2)
+    await act(async () => {
+      window.dispatchEvent(new Event('pagehide'))
+      await vi.advanceTimersByTimeAsync(100)
+    })
+    expect(actions.saveReviewDraft).toHaveBeenCalledTimes(1)
     expect(actions.saveReviewDraft).toHaveBeenLastCalledWith(expect.objectContaining({ body: 'Closing the tab' }))
+  })
+
+  it('retries a failed save after 15 seconds on its own', async () => {
+    vi.useFakeTimers()
+    actions.saveReviewDraft.mockResolvedValueOnce({ error: 'Could not save.', retryable: true })
+    mount()
+    act(() => api.saveDraft(caption, 'Try again later'))
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+    expect(actions.saveReviewDraft).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId('status')).toHaveTextContent('Saved on this device · will sync when online')
+    await act(async () => { await vi.advanceTimersByTimeAsync(14000) })
+    expect(actions.saveReviewDraft).toHaveBeenCalledTimes(1)
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
+    expect(actions.saveReviewDraft).toHaveBeenCalledTimes(2)
+    expect(screen.getByTestId('status')).toHaveTextContent('Saved · not sent yet')
+  })
+
+  it('backs off and stops retrying a save that keeps failing', async () => {
+    vi.useFakeTimers()
+    actions.saveReviewDraft.mockResolvedValue({ error: 'Could not save.', retryable: true })
+    mount()
+    act(() => api.saveDraft(caption, 'Dead server'))
+    await act(async () => { await vi.advanceTimersByTimeAsync(60 * 60 * 1000) })
+    const attempts = actions.saveReviewDraft.mock.calls.length
+    expect(attempts).toBeGreaterThan(1)
+    expect(attempts).toBeLessThanOrEqual(6)
+    await act(async () => { await vi.advanceTimersByTimeAsync(24 * 60 * 60 * 1000) })
+    expect(actions.saveReviewDraft.mock.calls.length).toBe(attempts)
+    expect(api.drafts.map((draft) => draft.proposedText)).toEqual(['Dead server'])
+  })
+
+  it('says plainly when the portal will not take an edit, keeps it here and stops retrying', async () => {
+    vi.useFakeTimers()
+    actions.saveReviewDraft.mockResolvedValue({ error: 'raw server detail 42P01', retryable: false })
+    mount()
+    act(() => api.saveDraft(caption, 'Refused text'))
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+    const status = screen.getByTestId('status').textContent ?? ''
+    expect(status).toBe("Couldn't save this edit to the portal. It is still on this device.")
+    expect(status).not.toContain('will sync when online')
+    expect(status).not.toContain('42P01')
+    expect(JSON.parse(window.localStorage.getItem(KEY(2)) ?? '{}').proposedText).toBe('Refused text')
+    await act(async () => { await vi.advanceTimersByTimeAsync(24 * 60 * 60 * 1000) })
+    expect(actions.saveReviewDraft).toHaveBeenCalledTimes(1)
   })
 
   it('adopts newer text another device saved instead of overwriting it', async () => {
@@ -347,5 +399,114 @@ describe('when the browser blocks storage', () => {
     await act(async () => { await api.flush() })
     expect(api.drafts.map((draft) => draft.proposedText)).toEqual(['No storage at all'])
     expect(actions.saveReviewDraft).toHaveBeenCalledWith(expect.objectContaining({ body: 'No storage at all' }))
+  })
+})
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no })
+  return { promise, resolve, reject }
+}
+
+describe('races that must never lose her text', () => {
+  it('keeps newer local text when a stale save answer carries older server text', async () => {
+    const answer = deferred<unknown>()
+    actions.saveReviewDraft.mockImplementationOnce(() => answer.promise)
+    mount()
+    act(() => api.saveDraft(caption, 'First'))
+    let flushing!: Promise<boolean>
+    act(() => { flushing = api.flush() })
+    act(() => api.saveDraft(caption, 'Second, typed while saving'))
+    const typedAt = api.drafts[0].savedAt
+    answer.resolve({ outcome: 'stale', draft: row({ body: 'Older server text',
+      saved_at: new Date(Date.parse(typedAt) - 1).toISOString() }) })
+    await act(async () => { await flushing; await api.flush() })
+    expect(api.drafts[0].proposedText).toBe('Second, typed while saving')
+    expect(actions.saveReviewDraft).toHaveBeenLastCalledWith(expect.objectContaining({ body: 'Second, typed while saving' }))
+  })
+
+  it('keeps text typed after a discard when the discard answer is stale with older text', async () => {
+    const answer = deferred<unknown>()
+    actions.discardReviewDraft.mockImplementationOnce(() => answer.promise)
+    mount([row()])
+    act(() => api.removeDraft(caption))
+    let flushing!: Promise<boolean>
+    act(() => { flushing = api.flush() })
+    act(() => api.saveDraft(caption, 'Started again'))
+    answer.resolve({ outcome: 'stale', draft: row({ body: 'Older server text', saved_at: '2026-10-03T10:30:00.000Z' }) })
+    await act(async () => { await flushing; await api.flush() })
+    expect(api.drafts.map((draft) => draft.proposedText)).toEqual(['Started again'])
+    expect(actions.saveReviewDraft).toHaveBeenLastCalledWith(expect.objectContaining({ body: 'Started again' }))
+  })
+
+  it('does not bring back a draft she discarded while its save was in flight', async () => {
+    const answer = deferred<unknown>()
+    actions.saveReviewDraft.mockImplementationOnce(() => answer.promise)
+    mount()
+    act(() => api.saveDraft(caption, 'About to discard'))
+    let flushing!: Promise<boolean>
+    act(() => { flushing = api.flush() })
+    act(() => api.removeDraft(caption))
+    answer.resolve({ outcome: 'saved', draft: row({ body: 'About to discard' }) })
+    await act(async () => { await flushing; await api.flush() })
+    expect(api.drafts).toEqual([])
+    expect(window.localStorage.getItem(KEY(2))).toBeNull()
+    expect(actions.discardReviewDraft).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps text typed while a send was in flight as a new unsent draft', async () => {
+    const answer = deferred<unknown>()
+    actions.sendReviewDrafts.mockImplementationOnce(() => answer.promise)
+    mount([row()])
+    let sending!: Promise<{ ok: boolean; message: string }>
+    act(() => { sending = api.send('') })
+    await waitFor(() => expect(actions.sendReviewDrafts).toHaveBeenCalledTimes(1))
+    act(() => api.saveDraft(caption, 'One more thing'))
+    answer.resolve({ success: 'Your edit was sent to The Dot.', sentDraftIds: [SERVER_ID] })
+    let outcome: { ok: boolean; message: string } | undefined
+    await act(async () => { outcome = await sending; await api.flush() })
+    expect(outcome?.ok).toBe(true)
+    expect(api.drafts.map((draft) => draft.proposedText)).toEqual(['One more thing'])
+    expect(JSON.parse(window.localStorage.getItem(KEY(2)) ?? '{}').proposedText).toBe('One more thing')
+    expect(actions.saveReviewDraft).toHaveBeenLastCalledWith(expect.objectContaining({ body: 'One more thing' }))
+  })
+
+  it('only reports a flush done when nothing is in flight, so send never fails falsely', async () => {
+    const first = deferred<unknown>()
+    const second = deferred<unknown>()
+    actions.saveReviewDraft.mockImplementationOnce(() => first.promise).mockImplementationOnce(() => second.promise)
+    actions.sendReviewDrafts.mockResolvedValue({ success: 'Your edit was sent to The Dot.' })
+    mount()
+    act(() => api.saveDraft(caption, 'A'))
+    const savedAt = api.drafts[0].savedAt
+    let a!: Promise<boolean>
+    let b!: Promise<boolean>
+    let c!: Promise<boolean>
+    act(() => { a = api.flush(); b = api.flush(); c = api.flush() })
+    let cDone = false
+    void c.then(() => { cDone = true })
+    // The first attempt fails and is queued again; one waiting flush starts the retry.
+    first.resolve({ error: 'Could not save.', retryable: true })
+    await act(async () => { await a; for (let i = 0; i < 10; i += 1) await Promise.resolve() })
+    expect(actions.saveReviewDraft).toHaveBeenCalledTimes(2)
+    expect(cDone).toBe(false)
+    second.resolve({ outcome: 'saved', draft: row({ id: SERVER_ID, body: 'A', saved_at: savedAt }) })
+    await act(async () => { await b; await c })
+    let outcome: { ok: boolean; message: string } | undefined
+    await act(async () => { outcome = await api.send('') })
+    expect(outcome?.ok).toBe(true)
+  })
+
+  it('flushes pending saves when the page unmounts and arms no retry afterwards', async () => {
+    vi.useFakeTimers()
+    actions.saveReviewDraft.mockResolvedValue({ error: 'Could not save.', retryable: true })
+    const view = mount()
+    act(() => api.saveDraft(caption, 'Leaving now'))
+    await act(async () => { view.unmount(); await vi.advanceTimersByTimeAsync(0) })
+    expect(actions.saveReviewDraft).toHaveBeenCalledTimes(1)
+    expect(vi.getTimerCount()).toBe(0)
+    await act(async () => { await vi.advanceTimersByTimeAsync(60 * 60 * 1000) })
+    expect(actions.saveReviewDraft).toHaveBeenCalledTimes(1)
   })
 })
