@@ -8,6 +8,8 @@
   min-height: 100dvh;
   /* The brand grey misses AA contrast on cream at small portal text sizes. */
   --dot-grey: var(--dot-grey-accessible);
+  /* Fixed bars on the piece page start after the desktop sidebar. */
+  --portal-sidebar-w: 0px;
 }
 
 .content {
@@ -130,6 +132,7 @@
   .shell {
     display: flex;
     flex-direction: row;
+    --portal-sidebar-w: 216px;
   }
 
   .topbar {
@@ -199,4 +202,14 @@
     padding: 40px 48px;
     max-width: 1120px;
   }
+}
+
+/* The redesigned piece page (plan 4a) lays out its own width, header and bottom bar. */
+.main:has([data-piece-page-v2]) {
+  padding: 0;
+  max-width: none;
+}
+
+@media (max-width: 767px) {
+  .shell:has([data-piece-page-v2]) .nav { display: none; }
 }
