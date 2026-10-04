@@ -29,6 +29,7 @@ const model = (overrides: Partial<AgencyPanelModel> = {}): AgencyPanelModel => (
     frames: Array.from({ length: 8 }, (_, i) => ({ label: `Frame ${i + 1}`, url: `https://signed/f${i}.jpg` })),
     expiresAt: 'x' }],
   previewError: null,
+  mediaOverride: null,
   design: { canva: 'https://www.canva.com/design/X/view', drive: null },
   drafts: [{ seatName: 'Maria Guerts', unsentCount: 2, failedCount: 0, carriedCount: 0,
     oldestSavedAt: '2026-10-02T14:00:00.000Z', lastError: null }],
@@ -108,5 +109,31 @@ describe('AgencyStateBar ticks (0094 server ticks)', () => {
     const bar = screen.getByRole('region', { name: "Maria's view" })
     expect(bar).toHaveTextContent('2 of 3 reviewed · Waiting for her review')
     expect(within(bar).queryByRole('button')).not.toBeInTheDocument()
+  })
+})
+
+describe('AgencyPanel release media (amended 2026-10-03)', () => {
+  it('shows Anastasia\'s no-media override for the version Maria sees', () => {
+    render(<AgencyPanel model={model({ previews: [], reviewAssets: [], design: { canva: null, drive: null },
+      mediaOverride: 'Approved by Anastasia: article, no visual' })} />)
+    expect(screen.getByText('Released without media. Approved by Anastasia: article, no visual')).toBeInTheDocument()
+    expect(screen.queryByText(/nothing to look at/)).not.toBeInTheDocument()
+  })
+
+  it('says plainly when Maria has nothing to look at', () => {
+    render(<AgencyPanel model={model({ previews: [], reviewAssets: [], design: { canva: null, drive: null } })} />)
+    expect(screen.getByText('Maria has nothing to look at on this version. Attach a review asset, preview or design link.'))
+      .toBeInTheDocument()
+  })
+
+  it('says nothing about media when something is attached', () => {
+    render(<AgencyPanel model={model()} />)
+    expect(screen.queryByText(/nothing to look at/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Released without media/)).not.toBeInTheDocument()
+  })
+
+  it('offers no control that creates an override', () => {
+    render(<AgencyPanel model={model({ previews: [], reviewAssets: [], design: { canva: null, drive: null } })} />)
+    expect(screen.getByRole('complementary', { name: 'Agency panel' }).querySelector('button, form, input')).toBeNull()
   })
 })

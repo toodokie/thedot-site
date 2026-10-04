@@ -35,6 +35,9 @@ export type AgencyPieceData = {
   reviewAssets: Array<{ id: string; label: string; channel: string; asset_kind: string; url: string }>
   previews: SignedReviewPreview[]
   previewError: string | null
+  // Amended 2026-10-03: Anastasia's no-media override for the version Maria sees (0092), if any. Shown as an
+  // informational line, read-only; it also silences the My Tasks alert for that version.
+  mediaOverride: string | null
   design: { canva: string | null; drive: string | null }
   working: { blocks: Array<{ key: string | null; label: string; body: string }>; clientBody: string | null }
   drafts: DraftSeatSummary[]
@@ -138,6 +141,12 @@ export async function loadAgencyPieceData(contentId: string): Promise<AgencyPiec
     }
   }
 
+  const overrideRow = shownVersion != null
+    ? await admin.from('content_release_media_overrides').select('reason')
+      .eq('client_id', clientId).eq('content_item_id', item.id).eq('content_version', shownVersion).maybeSingle()
+    : { data: null, error: null }
+  if (overrideRow.error) throw new Error(`Agency piece data unavailable: ${overrideRow.error.message}`)
+
   const seatNames = new Map(((seats.data ?? []) as Array<{ client_id: string; auth_user_id: string; name: string | null }>)
     .filter((seat) => seat.client_id === clientId)
     .map((seat) => [seat.auth_user_id, seat.name?.trim() || 'Client']))
@@ -174,6 +183,7 @@ export async function loadAgencyPieceData(contentId: string): Promise<AgencyPiec
     reviewAssets: (assetRows.data ?? []) as AgencyPieceData['reviewAssets'],
     previews: shownPreviews,
     previewError,
+    mediaOverride: (overrideRow.data as { reason: string } | null)?.reason ?? null,
     design: { canva: https(design?.canva_url ?? working?.canva_url), drive: https(design?.drive_url ?? working?.drive_url) },
     working: {
       blocks: Array.isArray(working?.copy_blocks) ? working!.copy_blocks as AgencyPieceData['working']['blocks'] : [],

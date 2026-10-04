@@ -6,7 +6,7 @@ import styles from './agency-panel.module.css'
 
 export type AgencyPanelModel = Pick<AgencyPieceData,
   'contentId' | 'stageLabel' | 'gates' | 'gatesSummary' | 'versions' | 'requestViews' | 'reviewAssets'
-  | 'previews' | 'previewError' | 'design' | 'drafts' | 'feedback' | 'plannedDate' | 'todayIso' | 'nowIso'> & {
+  | 'previews' | 'previewError' | 'mediaOverride' | 'design' | 'drafts' | 'feedback' | 'plannedDate' | 'todayIso' | 'nowIso'> & {
   released: boolean
 }
 
@@ -21,6 +21,7 @@ export default function AgencyPanel({ model }: { model: AgencyPanelModel }) {
   const now = new Date(model.nowIso)
   const video = model.previews.find((preview) => preview.mediaKind === 'video')
   const frames = model.previews.reduce((count, preview) => count + preview.frames.length, 0)
+  const noMedia = model.previews.length === 0 && model.reviewAssets.length === 0 && !model.design.canva && !model.design.drive
   return (
     <aside className={styles.panel} aria-label="Agency panel">
       <section>
@@ -90,6 +91,10 @@ export default function AgencyPanel({ model }: { model: AgencyPanelModel }) {
           {frames > 0 && <li><span>{video ? 'Frame strip' : 'Page images'}, {frames} images</span><span className={styles.when}>uploaded</span></li>}
           {model.previews.length === 0 && <li><span>No portal preview. Maria sees the Drive button.</span></li>}
           {model.previewError && <li><span>Preview check failed: {model.previewError}</span></li>}
+          {model.mediaOverride && <li><span>Released without media. {model.mediaOverride}</span></li>}
+          {model.released && noMedia && !model.mediaOverride && <li><span>
+            Maria has nothing to look at on this version. Attach a review asset, preview or design link.
+          </span></li>}
           {model.reviewAssets.map((asset) => <li key={asset.id}>
             <span>{asset.label}</span>
             <a href={asset.url} target="_blank" rel="noreferrer" aria-label={`Open ${asset.label}`}>open</a>
