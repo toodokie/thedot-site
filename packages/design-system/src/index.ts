@@ -15,6 +15,7 @@ export * from './components/Selector';
 export * from './components/Dot';
 export * from './components/DotGrid';
 export * from './components/TickDot';
+export * from './components/ReviewDots';
 export * from './components/Stripe';
 export * from './components/Arrow';
 export * from './components/Logo';
