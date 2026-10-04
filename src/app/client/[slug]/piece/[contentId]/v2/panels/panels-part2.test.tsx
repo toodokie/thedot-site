@@ -38,7 +38,9 @@ describe('YouTubePanel', () => {
       .toEqual(['LMIA', 'LMIA cost', 'foreign worker'])
     expect(document.body.textContent).not.toContain('**Title')
     fireEvent.click(screen.getByRole('button', { name: 'Edit YouTube Short package' }))
-    expect(screen.getByLabelText('Text')).toHaveValue(PACKAGE)
+    expect(screen.getByLabelText('Title')).toHaveValue('What does a permit cost?')
+    expect(screen.getByRole('textbox', { name: 'Description' })).toHaveTextContent('Three things to know.')
+    expect(screen.getByRole('button', { name: 'Remove tag LMIA cost' })).toBeInTheDocument()
   })
 
   it('shows separate episode blocks as the same three fields', () => {

@@ -100,6 +100,19 @@ export function formatTags(tags: string[]): string {
   return tags.map((tag) => tag.trim()).filter(Boolean).join(', ')
 }
 
+// Writes tags back in the style they were written in: unchanged tags return the original value
+// byte for byte; changed tags are joined with the original's first separator (", ", ",", a line
+// break) and keep a trailing comma if it had one. With no separator to copy, ", ".
+export function formatTagsLike(original: string, tags: string[]): string {
+  const clean = tags.map((tag) => tag.trim()).filter(Boolean)
+  const before = parseTags(original)
+  if (clean.length === before.length && clean.every((tag, index) => tag === before[index])) return original
+  const trailing = /\s*,\s*$/.exec(original)?.[0] ?? ''
+  const body = original.slice(0, original.length - trailing.length)
+  const separator = /\s*,\s*|(?:\r?\n)+/.exec(body)?.[0] ?? ', '
+  return clean.length > 0 ? clean.join(separator) + trailing : ''
+}
+
 const CHAPTER = /^((?:\d{1,2}:)?\d{1,2}:\d{2})[ \t]+(\S.*?)[ \t]*(\r?)$/
 
 export type ChapterItem = { time: string; title: string }

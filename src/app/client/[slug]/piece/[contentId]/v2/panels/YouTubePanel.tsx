@@ -8,6 +8,7 @@ import type { ReviewCopyBlock } from '@/lib/portal/review-package'
 import ChangedMarkdown from '../ChangedMarkdown'
 import CarriedDraftNotice from '../CarriedDraftNotice'
 import { EditSlot, useEditorHost } from '../EditorHost'
+import { TagsBlockForm, TitleBlockForm, YouTubePackageForm } from '../editors/YouTubeForms'
 import styles from '../piece-page.module.css'
 import { useBlockDraft } from './use-block-draft'
 
@@ -33,9 +34,19 @@ function YouTubeBlock({ block, before, canEdit, version }: Props & { block: Revi
   const { open } = useEditorHost()
   const { target, draft, carried, source } = useBlockDraft(block)
   const slotId = `${block.key}:whole`
-  const openEditor = () => open({
-    kind: 'copy', slotId, target, title: block.label, initialText: source, baseText: block.body, compose: (text) => text,
-  })
+  const openEditor = () => {
+    if (block.key === 'youtube-title') {
+      open({ kind: 'form', slotId, targets: [target], title: 'YouTube title', render: () => <TitleBlockForm target={target} source={source} /> })
+    } else if (block.key === 'youtube-tags') {
+      open({ kind: 'form', slotId, targets: [target], title: 'YouTube tags',
+        render: () => <TagsBlockForm target={target} source={source} base={block.body} /> })
+    } else if (block.key !== 'youtube-description' && parseYouTubePackage(source) !== null) {
+      open({ kind: 'form', slotId, targets: [target], title: block.label,
+        render: () => <YouTubePackageForm target={target} source={source} base={block.body} /> })
+    } else {
+      open({ kind: 'copy', slotId, target, title: block.label, initialText: source, baseText: block.body, compose: (text) => text })
+    }
+  }
   const previous = draft ? null : before[block.key ?? ''] ?? null
   const previousPackage = previous === null ? null : parseYouTubePackage(previous)
   const previousDescription = previousPackage ? youTubeFieldValue(previousPackage, 'description') : null

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  findChapters, formatTags, parseTags, parseYouTubePackage, replaceChapters,
+  findChapters, formatTags, formatTagsLike, parseTags, parseYouTubePackage, replaceChapters,
   serializeYouTubePackage, setYouTubeField, youTubeFieldValue, type YouTubeFieldName,
 } from './youtube-fields'
 
@@ -274,5 +274,22 @@ describe('replaceChapters no-op (review fix)', () => {
     const text = 'Intro\n\n00:00   Hello  \n01:00 Next\r\nafter'
     const found = findChapters(text)!
     expect(replaceChapters(text, found, found.items)).toBe(text)
+  })
+})
+
+describe('formatTagsLike (Task 8: tags keep their separator style)', () => {
+  it('returns the original value byte for byte when the tags are unchanged', () => {
+    for (const original of ['LMIA,LMIA cost , foreign worker', 'a\nb\nc', 'a\r\nb', 'a, b,', '']) {
+      expect(formatTagsLike(original, parseTags(original))).toBe(original)
+    }
+  })
+
+  it('writes changed tags with the separator the original used', () => {
+    expect(formatTagsLike('LMIA,LMIA cost,foreign worker', ['LMIA', 'foreign worker'])).toBe('LMIA,foreign worker')
+    expect(formatTagsLike('a\nb\nc', ['a', 'c', 'd'])).toBe('a\nc\nd')
+    expect(formatTagsLike('a\r\nb', ['a', 'b', 'c'])).toBe('a\r\nb\r\nc')
+    expect(formatTagsLike('a, b,', ['a'])).toBe('a,')
+    expect(formatTagsLike('only', ['only', 'more'])).toBe('only, more')
+    expect(formatTagsLike('', ['first'])).toBe('first')
   })
 })
