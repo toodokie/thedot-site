@@ -53,12 +53,13 @@ export default function ReviewPreviewMedia({ preview: initial, title, refreshUrl
           {preview.frames.map((frame, index) => (
             <li key={`${index}-${frame.label}`} className={styles.frame}>
               {/* Signed, expiring storage links: next/image would cache and re-host them. */}
+              {/* Decorative alt: the visible label beside the image already names the frame. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 className={styles.frameImage}
                 style={{ aspectRatio: ratio }}
                 src={frame.url}
-                alt={frame.label}
+                alt=""
                 loading="lazy"
                 onError={refresh}
               />

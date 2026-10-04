@@ -3,7 +3,7 @@
 .media {
   margin: 0;
   display: grid;
-  gap: 16px;
+  gap: var(--dot-space-4);
 }
 .video {
   display: block;
@@ -18,14 +18,14 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 8px;
+  gap: var(--dot-space-2);
 }
 /* Spec 4.2: the frame strip under a video is a 4-across grid, never a horizontal scroll. */
 .frames { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .pages { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .frame {
   display: grid;
-  gap: 4px;
+  gap: var(--dot-space-1);
   min-width: 0;
 }
 .frameImage {

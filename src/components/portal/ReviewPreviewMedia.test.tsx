@@ -21,7 +21,9 @@ describe('ReviewPreviewMedia', () => {
     expect(video).toHaveAttribute('poster', VIDEO.posterUrl)
     expect(video).toHaveAttribute('playsinline')
     expect(screen.getByRole('list', { name: 'Work permit reel: frames' })).toBeInTheDocument()
-    expect(screen.getByAltText('Hook')).toHaveAttribute('src', VIDEO.frames[0].url)
+    const hook = screen.getByText('Hook').previousElementSibling
+    expect(hook).toHaveAttribute('src', VIDEO.frames[0].url)
+    expect(hook).toHaveAttribute('alt', '')
     expect(screen.getByText('Answer')).toBeInTheDocument()
   })
 
@@ -41,7 +43,7 @@ describe('ReviewPreviewMedia', () => {
     render(<ReviewPreviewMedia preview={VIDEO} title="Reel" refreshUrl="/api/client/kanset/review-previews/p1" />)
     const video = screen.getByLabelText('Reel: preview video')
     fireEvent.error(video)
-    fireEvent.error(screen.getByAltText('Hook'))
+    fireEvent.error(screen.getByText('Hook').previousElementSibling!)
     await waitFor(() => expect(video).toHaveAttribute('src', fresh.videoUrl))
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(fetchMock).toHaveBeenCalledWith('/api/client/kanset/review-previews/p1', { cache: 'no-store' })
