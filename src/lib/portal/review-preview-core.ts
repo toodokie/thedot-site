@@ -92,6 +92,9 @@ export type SignedReviewPreview = {
   contentItemId: string
   contentVersion: number
   previewKey: string
+  // The review asset this preview renders (migration 0092 column review_asset_key), so a visual
+  // edit on a frame targets that asset. Optional only so older fixtures still type-check.
+  reviewAssetKey?: string | null
   mediaKind: 'video' | 'pages'
   width: number
   height: number
@@ -138,6 +141,7 @@ export async function signReviewPreview(
     contentItemId: row.content_item_id,
     contentVersion: row.content_version,
     previewKey: row.preview_key,
+    reviewAssetKey: row.review_asset_key,
     mediaKind: row.media_kind,
     width: row.width_px,
     height: row.height_px,

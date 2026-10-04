@@ -72,6 +72,12 @@ describe('review preview paths', () => {
 })
 
 describe('signReviewPreview', () => {
+  it('carries the linked review asset key so a visual edit can target it', async () => {
+    const { storage: s } = storage()
+    expect((await signReviewPreview(s, row())).reviewAssetKey).toBeNull()
+    expect((await signReviewPreview(s, row({ review_asset_key: 'reel-video' }))).reviewAssetKey).toBe('reel-video')
+  })
+
   it('signs every object once, from the private bucket, for the short TTL', async () => {
     const { storage: s, sign, bucket } = storage()
     const signed = await signReviewPreview(s, row(), Date.parse('2026-10-03T12:00:00Z'))

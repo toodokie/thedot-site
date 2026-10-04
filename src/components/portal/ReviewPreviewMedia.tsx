@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
 import type { SignedReviewPreview } from '@/lib/portal/review-preview-core'
+import { useSignedPreview } from './useSignedPreview'
 import styles from './ReviewPreviewMedia.module.css'
 
 type Props = {
@@ -13,21 +13,9 @@ type Props = {
 }
 
 export default function ReviewPreviewMedia({ preview: initial, title, refreshUrl }: Props) {
-  const [preview, setPreview] = useState(initial)
-  const refreshedFor = useRef<string | null>(null)
-
-  const refresh = useCallback(async () => {
-    if (!refreshUrl || refreshedFor.current === preview.expiresAt) return
-    refreshedFor.current = preview.expiresAt
-    try {
-      const response = await fetch(refreshUrl, { cache: 'no-store' })
-      if (!response.ok) return
-      const body = (await response.json()) as { preview?: SignedReviewPreview }
-      if (body.preview) setPreview(body.preview)
-    } catch {
-      // The Drive link stays beside the preview; a failed refresh leaves the current links.
-    }
-  }, [refreshUrl, preview.expiresAt])
+  const signed = useSignedPreview(initial, refreshUrl)
+  const preview = signed.preview ?? initial
+  const refresh = signed.refresh
 
   const ratio = `${preview.width} / ${preview.height}`
   const isVideo = preview.mediaKind === 'video' && preview.videoUrl !== null
