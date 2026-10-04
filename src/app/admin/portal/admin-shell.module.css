@@ -8,6 +8,8 @@
 .shell {
   min-height: 100dvh;
   --dot-grey: var(--dot-grey-accessible);
+  /* Fixed bars on the new piece page preview start after the desktop sidebar. */
+  --portal-sidebar-w: 0px;
 }
 
 .content {
@@ -148,6 +150,7 @@
   .shell {
     display: flex;
     flex-direction: row;
+    --portal-sidebar-w: 216px;
   }
 
   .topbar {
@@ -216,4 +219,15 @@
     padding: 52px 48px 88px; /* generous top + bottom air, matching the client wrap */
     max-width: 1120px;
   }
+}
+
+/* The redesigned piece page (plan 4a, the ?layout=v2 preview) lays out its own width, header
+   and bottom bar, as in the client shell. */
+.main:has([data-piece-page-v2]) {
+  padding: 0;
+  max-width: none;
+}
+
+@media (max-width: 767px) {
+  .shell:has([data-piece-page-v2]) .nav { display: none; }
 }
