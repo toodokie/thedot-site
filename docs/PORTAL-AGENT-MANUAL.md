@@ -713,6 +713,41 @@ stable `assetKey`, channel, kind, Canva or Drive URL, pixel dimensions, and capt
 `burned_in_verified` only after the teaser captions were proofed. A generic item-level design link
 does not satisfy the podcast readiness contract.
 
+**Release media guard (since 0092):** every release refuses a version with no review asset, no
+portal preview and no design link: `portal-admin ready`, `update-portal --re-share` (with or
+without `--quiet`), `portal-write applied-release`, `courtesy-release` and `supersede`, and
+`portal-ship`. The database enforces it (`mark_content_ready` and `record_content_courtesy_release`
+call `portal_assert_release_media`); the commands refuse first and name the fix. Review assets and
+previews belong to one version, so a new version needs its own (an item-level design link covers
+every version). Only with Anastasia's written approval, release without media by passing
+`--no-media "Approved by Anastasia: <why>"` (CLI) or `"noMediaReason"` (portal-write payload). That
+records one override for that exact version in `content_release_media_overrides` and an
+agency-internal `release_media_override` activity row; nobody is notified and Maria's feed does not
+show it. A piece with no media in front of Maria shows in Ops My Tasks until media is attached or it
+goes live (plan 5). `update-portal` exits 6 on this refusal; the new version stays synced but
+unshared, and re-running the same command retries the release.
+
+**Agency-internal activity rows (since 0092):** event types flagged `agency_internal` (preview
+upload and deletion, `release_media_override`) are hidden from client seats at the database: `act_read`
+excludes them, so Maria's own JWT cannot read them. The agency reads them with the service-role-only
+`agency_internal_activity(p_client_id, p_content_item_id)` (the item argument is optional); querying
+`activity` through a client seat will not show them. To see a no-media override reason, call that function.
+
+**Read-only rollout query (SELECT only; run after 0092 is applied):** lists pieces Maria currently
+holds and what each released version carries. Rows with `review_assets = 0`, `previews = 0` and
+`design_link = false` have nothing to look at; the guard acts on the next release, so list them for
+Anastasia.
+
+```sql
+select ci.content_id, ci.client_visible_version, ci.status, ci.planned_date,
+  public.agency_release_media_status(ci.id, ci.client_visible_version) as media
+from public.content_items ci
+join public.clients c on c.id = ci.client_id and c.slug = 'kanset'
+where ci.client_visible and ci.archived_at is null and ci.client_visible_version is not null
+  and ci.status in ('draft', 'approved', 'scheduled')
+order by ci.planned_date nulls last, ci.content_id;
+```
+
 **Deploy a display change:** §15 worktree recipe.
 
 ---
