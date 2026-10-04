@@ -5008,6 +5008,351 @@ async function main(): Promise<void> {
           retry: retry.error?.message ?? retryData }))
     }
 
+    // 0093: durable review drafts. One unsent draft per seat, piece, target and frame; the seat
+    // reads only its own rows; nobody writes the table directly; a send marks drafts sent in the
+    // same transaction as the bundle; a release carries unsent drafts forward; a refused send
+    // reaches the agency inbox; forgotten drafts near the planned date raise an alert.
+    {
+      const D_EMAIL = `rls-drafts-${RUN_ID}@example.com`
+      const createdSeat = await admin.auth.admin.createUser({ email: D_EMAIL, email_confirm: true })
+      if (createdSeat.error || !createdSeat.data.user) {
+        throw new Error(`drafts seat: ${createdSeat.error?.message ?? 'missing'}`)
+      }
+      const dUserId = createdSeat.data.user.id
+      const seatMembership = await admin.rpc('upsert_portal_membership', {
+        p_client_id: bClientId, p_auth_user_id: dUserId, p_email: D_EMAIL, p_name: 'RLS Drafts Seat',
+        p_can_decide: false, p_can_comment: true, p_can_submit_requests: true, p_can_manage_schedule: false,
+        p_can_use_assistant: false, p_actor_key: 'thedot-admin', p_idempotency_key: `rls-drafts-seat-${RUN_ID}`,
+      })
+      if (seatMembership.error) throw new Error(`drafts seat membership: ${seatMembership.error.message}`)
+      const dClient = clientForToken(await tokenFor(D_EMAIL))
+
+      const torontoDate = (offsetDays: number) => {
+        const today = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit',
+        }).format(new Date())
+        const base = new Date(`${today}T12:00:00Z`)
+        base.setUTCDate(base.getUTCDate() + offsetDays)
+        return base.toISOString().slice(0, 10)
+      }
+      const sendId = `rls-drafts-send-${RUN_ID}`
+      const carryId = `rls-drafts-carry-${RUN_ID}`
+      const COVER = 'https://www.canva.com/design/DRAFTSCOVER/view'
+      const sendSnap = snapshot(bClientId!, sendId, 1, 'Drafts send fixture', 'Caption base', 'caption')
+      sendSnap.copy_blocks = [
+        { key: 'caption', label: 'Caption', body: 'Caption base' },
+        { key: 'script', label: 'Script', body: 'Script base' },
+      ]
+      const carrySnap = snapshot(bClientId!, carryId, 1, 'Drafts carry fixture', 'Carry caption base', 'caption',
+        { planned_date: torontoDate(2) })
+      const draftSync = await sync([sendSnap, carrySnap])
+      const sendItemId = draftSync.find((row) => row.content_id === sendId)?.item_id
+      const carryItemId = draftSync.find((row) => row.content_id === carryId)?.item_id
+      if (!sendItemId || !carryItemId) throw new Error('draft fixtures did not sync')
+      const cover = await admin.rpc('set_content_review_asset', {
+        p_client_id: bClientId, p_content_id: sendId, p_content_version: 1,
+        p_asset_key: 'reel-cover', p_label: 'Reel cover', p_channel: 'social', p_asset_kind: 'cover',
+        p_url: COVER, p_width_px: 1080, p_height_px: 1920, p_caption_status: 'not_applicable',
+        p_review_note: null, p_actor_key: 'thedot-admin', p_idempotency_key: `rls-drafts-asset-${RUN_ID}`,
+      })
+      if (cover.error) throw new Error(`draft fixture asset: ${cover.error.message}`)
+      for (const itemId of [sendItemId, carryItemId]) {
+        const released = await admin.rpc('mark_content_ready', { p_content_id: itemId, p_content_version: 1 })
+        if (released.error) throw new Error(`draft fixture release: ${released.error.message}`)
+      }
+
+      type DraftJson = {
+        id: string; body: string; status: string; base_version: number
+        carried_over_to_version: number | null; send_failed_at: string | null; last_send_error: string | null
+      }
+      const draftOf = (result: { data: unknown }) => (result.data as { draft?: DraftJson } | null)?.draft
+      const outcomeOf = (result: { data: unknown }) => (result.data as { outcome?: string } | null)?.outcome
+      const save = (client: SupabaseClient, overrides: Record<string, unknown> = {}) => client.rpc('save_review_draft', {
+        p_content_id: sendItemId, p_base_version: 1, p_target_kind: 'copy_block', p_target_key: 'caption',
+        p_anchor: '', p_anchor_label: null, p_target_label: 'Caption', p_url_snapshot: null,
+        p_quoted_text: null, p_body: 'Maria rewrote the caption.', p_saved_at: new Date().toISOString(),
+        ...overrides,
+      })
+      const inboxRows = async () => {
+        const inbox = await admin.rpc('read_portal_inbox', {
+          p_consumer_key: `rls-drafts-${RUN_ID}`, p_client_id: bClientId, p_limit: 500,
+        })
+        if (inbox.error) throw new Error(`drafts inbox: ${inbox.error.message}`)
+        return (inbox.data ?? []) as Array<PortalInboxRow & { event_key?: string }>
+      }
+      // agency_internal rows are read through the service-role reader, never activity_log directly.
+      const internalActivity = async (itemId: string, eventType: string) => {
+        const rows = await rawAdmin.rpc('agency_internal_activity', { p_client_id: bClientId, p_content_item_id: itemId })
+        if (rows.error) throw new Error(`agency_internal_activity: ${rows.error.message}`)
+        return { data: ((rows.data ?? []) as Array<{ id: string; event_type: string }>)
+          .filter((row) => row.event_type === eventType) }
+      }
+
+      const first = await save(dClient)
+      const firstDraft = draftOf(first)
+      if (!firstDraft) throw new Error(`first draft: ${first.error?.message ?? JSON.stringify(first.data)}`)
+      const own = await dClient.from('content_review_drafts').select('id, body, status').eq('id', firstDraft.id)
+      const otherSeat = await bClient.from('content_review_drafts').select('id').eq('id', firstDraft.id)
+      const otherTenant = await kansetClient.from('content_review_drafts').select('id').eq('id', firstDraft.id)
+      const anonRead = await anonClient.from('content_review_drafts').select('id').eq('id', firstDraft.id)
+      check('DR1: a seat saves a draft and only that seat reads it',
+        outcomeOf(first) === 'saved' && !own.error && own.data?.length === 1
+          && own.data[0].body === 'Maria rewrote the caption.' && own.data[0].status === 'unsent'
+          && !otherSeat.error && otherSeat.data?.length === 0
+          && !otherTenant.error && otherTenant.data?.length === 0
+          && (!!anonRead.error || anonRead.data?.length === 0),
+        own.error?.message ?? JSON.stringify({ own: own.data, otherSeat: otherSeat.data, otherTenant: otherTenant.data }))
+
+      const directInsert = await dClient.from('content_review_drafts').insert({
+        content_item_id: sendItemId, base_version: 1, target_kind: 'copy_block', target_key: 'script',
+        target_label: 'Script', body: 'forged', saved_at: new Date().toISOString(),
+      })
+      const directUpdate = await dClient.from('content_review_drafts').update({ body: 'forged' })
+        .eq('id', firstDraft.id).select('id')
+      const directDelete = await dClient.from('content_review_drafts').delete().eq('id', firstDraft.id).select('id')
+      const agencyRead = await admin.from('content_review_drafts').select('id, auth_user_id, body').eq('id', firstDraft.id)
+      const agencyWrite = await admin.from('content_review_drafts').update({ body: 'agency overwrite' })
+        .eq('id', firstDraft.id).select('id')
+      const stillMine = await dClient.from('content_review_drafts').select('body').eq('id', firstDraft.id).single()
+      check('DR2: nobody writes drafts directly; the agency reads them and cannot change them',
+        !!directInsert.error && (!!directUpdate.error || directUpdate.data?.length === 0)
+          && (!!directDelete.error || directDelete.data?.length === 0)
+          && !agencyRead.error && agencyRead.data?.[0]?.auth_user_id === dUserId
+          && !!agencyWrite.error && stillMine.data?.body === 'Maria rewrote the caption.',
+        directInsert.error?.message ?? agencyRead.error?.message ?? JSON.stringify({ agencyWrite: agencyWrite.data, stillMine: stillMine.data }))
+
+      const older = await save(dClient, { p_body: 'An older tab', p_saved_at: new Date(Date.now() - 60_000).toISOString() })
+      const afterStale = await dClient.from('content_review_drafts').select('body').eq('id', firstDraft.id).single()
+      check('DR3: an older save never overwrites a newer one',
+        !older.error && outcomeOf(older) === 'stale' && draftOf(older)?.body === 'Maria rewrote the caption.'
+          && afterStale.data?.body === 'Maria rewrote the caption.',
+        older.error?.message ?? JSON.stringify({ older: older.data, after: afterStale.data }))
+
+      const futureVersion = await save(dClient, { p_base_version: 9 })
+      const unknownBlock = await save(dClient, { p_target_key: 'no-such-block' })
+      const anchoredCopy = await save(dClient, { p_target_key: 'script', p_anchor: 'frame:2' })
+      const viewerSave = await save(bViewerClient, { p_target_key: 'script' })
+      const anonSave = await save(anonClient, { p_target_key: 'script' })
+      check('DR4: drafts are refused for a future version, an unknown block, an anchored copy block, a viewer seat and anon',
+        !!futureVersion.error && /review_draft_stale_version/.test(futureVersion.error.message)
+          && !!unknownBlock.error && !!anchoredCopy.error && !!viewerSave.error && !!anonSave.error,
+        JSON.stringify([futureVersion, unknownBlock, anchoredCopy, viewerSave, anonSave].map((r) => r.error?.message ?? 'NO ERROR')))
+
+      const assetArgs = { p_target_kind: 'asset', p_target_key: 'reel-cover', p_target_label: 'Reel cover', p_url_snapshot: COVER }
+      const general = draftOf(await save(dClient, { ...assetArgs, p_body: 'Use the closed-mouth cover.' }))
+      const frameThree = draftOf(await save(dClient, {
+        ...assetArgs, p_anchor: 'frame:3', p_anchor_label: 'Frame 3 (0:04)', p_body: 'Fix the typo in line two.',
+      }))
+      const frameOne = draftOf(await save(dClient, { ...assetArgs, p_anchor: 'frame:1', p_body: 'Brighter first frame.' }))
+      const allIds = [firstDraft.id, general?.id, frameThree?.id, frameOne?.id].filter((id): id is string => !!id)
+      check('DR5: one visual takes a general note and separate per-frame drafts',
+        allIds.length === 4 && new Set(allIds).size === 4, JSON.stringify(allIds))
+
+      const partial = await dClient.rpc('send_review_drafts', {
+        p_content_id: sendItemId, p_content_version: 1, p_draft_ids: allIds.slice(1), p_note: null,
+        p_idempotency_key: randomUUID(),
+      })
+      const stillUnsent = await dClient.from('content_review_drafts').select('id').in('id', allIds).eq('status', 'unsent')
+      check('DR6: a send that leaves out an unsent draft is refused and nothing is sent',
+        !!partial.error && /drafts_changed/.test(partial.error.message) && stillUnsent.data?.length === 4,
+        partial.error?.message ?? 'NO ERROR')
+
+      const sendKey = randomUUID()
+      const sent = await dClient.rpc('send_review_drafts', {
+        p_content_id: sendItemId, p_content_version: 1, p_draft_ids: allIds, p_note: null, p_idempotency_key: sendKey,
+      })
+      const sentData = sent.data as { bundle_id?: string; request_ids?: string[]; outcome?: string } | null
+      const sentRows = await dClient.from('content_review_drafts').select('id, status').in('id', allIds)
+      const sentRequests = await admin.from('content_change_requests').select('payload').in('id', sentData?.request_ids ?? [])
+      const assetText = (sentRequests.data ?? [])
+        .map((r) => r.payload as { target_kind?: string; proposed_text?: string })
+        .find((payload) => payload.target_kind === 'asset')?.proposed_text
+      check('DR7: one send turns every draft into one bundle and composes the frame notes in order',
+        !sent.error && sentData?.outcome === 'created' && sentData.request_ids?.length === 2
+          && sentRows.data?.length === 4 && sentRows.data.every((r) => r.status === 'sent')
+          && assetText === 'General note: Use the closed-mouth cover.\n\nFrame 1: Brighter first frame.\n\nFrame 3 (0:04): Fix the typo in line two.',
+        sent.error?.message ?? JSON.stringify({ sentData, assetText, rows: sentRows.data }))
+
+      const retried = await dClient.rpc('send_review_drafts', {
+        p_content_id: sendItemId, p_content_version: 1, p_draft_ids: allIds, p_note: null, p_idempotency_key: sendKey,
+      })
+      const retriedData = retried.data as { bundle_id?: string; outcome?: string } | null
+      check('DR8: retrying a send that already landed answers with the same bundle',
+        !retried.error && retriedData?.outcome === 'unchanged' && retriedData.bundle_id === sentData?.bundle_id,
+        retried.error?.message ?? JSON.stringify(retriedData))
+
+      const scriptDraft = draftOf(await save(dClient, {
+        p_target_key: 'script', p_target_label: 'Script', p_body: 'Maria rewrote the script.',
+      }))
+      if (!scriptDraft) throw new Error('script draft was not saved')
+      const attemptId = randomUUID()
+      const failureRow = await admin.from('client_request_failures').insert({
+        attempt_id: attemptId, client_id: bClientId, content_item_id: sendItemId, content_id: sendId,
+        content_version: 1, target_kind: 'copy_block', target_key: 'script', target_label: 'Script',
+        reason_code: 'network_unreachable', client_message: "Couldn't send. Retry",
+        proposed_text: 'Maria rewrote the script.', proposed_length: 25,
+        requested_by: dUserId, requester_name: 'RLS Drafts Seat',
+      })
+      if (failureRow.error) throw new Error(`failure fixture: ${failureRow.error.message}`)
+      const recorded = await admin.rpc('agency_record_review_send_failure', { p_attempt_id: attemptId, p_draft_ids: [scriptDraft.id] })
+      const recordedAgain = await admin.rpc('agency_record_review_send_failure', { p_attempt_id: attemptId, p_draft_ids: [scriptDraft.id] })
+      const clientRecord = await dClient.rpc('agency_record_review_send_failure', { p_attempt_id: attemptId, p_draft_ids: [scriptDraft.id] })
+      // review_send_failed is a client-visible row (decision 1), so the seat reads it; the service
+      // role has no SELECT on activity_log.
+      const failedActivity = await dClient.from('activity_log').select('id, actor_type')
+        .eq('client_id', bClientId!).eq('event_type', 'review_send_failed').eq('content_id', sendItemId)
+      const failedInbox = (await inboxRows()).filter((event) =>
+        event.event_type === 'review_send_failed' && event.object_id === attemptId)
+      const markedDraft = await dClient.from('content_review_drafts').select('send_failed_at, last_send_error')
+        .eq('id', scriptDraft.id).single()
+      check('DR9: a refused send reaches the agency inbox once and marks her draft failed but unsent',
+        !recorded.error && (recorded.data as { drafts_marked?: number } | null)?.drafts_marked === 1
+          && !recordedAgain.error && (recordedAgain.data as { drafts_marked?: number } | null)?.drafts_marked === 0
+          && !!clientRecord.error
+          && failedActivity.data?.length === 1 && failedActivity.data[0].actor_type === 'client'
+          && failedInbox.length === 1 && failedInbox[0].requires_reconciliation
+          && !!markedDraft.data?.send_failed_at && markedDraft.data.last_send_error === 'network_unreachable',
+        recorded.error?.message ?? JSON.stringify({ activity: failedActivity.data, inbox: failedInbox.length, draft: markedDraft.data }))
+
+      const retrySend = await dClient.rpc('send_review_drafts', {
+        p_content_id: sendItemId, p_content_version: 1, p_draft_ids: [scriptDraft.id], p_note: null,
+        p_idempotency_key: randomUUID(),
+      })
+      const resolvedFailure = await admin.from('client_request_failures').select('resolved_by')
+        .eq('attempt_id', attemptId).single()
+      const retryActivity = await internalActivity(sendItemId, 'review_send_retry_succeeded')
+      check('DR10: a later successful send resolves the failure and logs the retry',
+        !retrySend.error && resolvedFailure.data?.resolved_by === 'system:retry' && retryActivity.data?.length === 1,
+        retrySend.error?.message ?? JSON.stringify({ resolved: resolvedFailure.data, activity: retryActivity.data }))
+
+      const carryDraft = draftOf(await save(dClient, {
+        p_content_id: carryItemId, p_body: 'Maria rewrote the carry caption.',
+        p_saved_at: new Date(Date.now() - 30 * 3600_000).toISOString(),
+      }))
+      if (!carryDraft) throw new Error('carry draft was not saved')
+      type AlertRow = { content_item_id: string; auth_user_id: string; seat_name: string; stale_count: number }
+      const alertsNow = await admin.rpc('agency_unsent_review_draft_alerts', { p_now: new Date().toISOString() })
+      const alertsEarly = await admin.rpc('agency_unsent_review_draft_alerts', {
+        p_now: new Date(Date.now() - 3 * 86400_000).toISOString(),
+      })
+      const clientAlerts = await dClient.rpc('agency_unsent_review_draft_alerts', { p_now: new Date().toISOString() })
+      const nowRows = (alertsNow.data ?? []) as AlertRow[]
+      const nowRow = nowRows.find((r) => r.content_item_id === carryItemId && r.auth_user_id === dUserId)
+      const earlyRow = ((alertsEarly.data ?? []) as AlertRow[]).find((r) => r.content_item_id === carryItemId)
+      check('DR11: an unsent draft older than 24 hours on a piece due within 3 days raises an alert',
+        !alertsNow.error && nowRow?.seat_name === 'RLS Drafts Seat' && nowRow.stale_count === 1
+          && !alertsEarly.error && !earlyRow && !!clientAlerts.error
+          && !nowRows.some((r) => r.content_item_id === sendItemId),
+        alertsNow.error?.message ?? JSON.stringify({ nowRow, earlyRow, client: clientAlerts.error?.message ?? 'NO ERROR' }))
+
+      const carryRevision = await admin.rpc('begin_content_revision', { p_content_id: carryItemId, p_content_version: 1 })
+      if (carryRevision.error) throw new Error(`carry revision: ${carryRevision.error.message}`)
+      const carryV2 = snapshot(bClientId!, carryId, 2, 'Drafts carry fixture v2', 'Carry caption v2', 'caption',
+        { planned_date: torontoDate(2) })
+      carryV2.source_commit_sha = '5'.repeat(40)
+      await sync([carryV2])
+      const carryRelease = await admin.rpc('mark_content_ready', { p_content_id: carryItemId, p_content_version: 2 })
+      if (carryRelease.error) throw new Error(`carry release: ${carryRelease.error.message}`)
+      const carried = await dClient.from('content_review_drafts')
+        .select('status, base_version, carried_over_to_version, body').eq('id', carryDraft.id).single()
+      const carryActivity = await internalActivity(carryItemId, 'review_drafts_carried_over')
+      const carryInbox = (await inboxRows()).filter((event) =>
+        event.event_type === 'review_drafts_carried_over' && event.object_id === carryItemId)
+      check('DR12: releasing a new version carries her unsent draft forward instead of dropping it',
+        carried.data?.status === 'unsent' && carried.data.base_version === 1
+          && carried.data.carried_over_to_version === 2 && carried.data.body === 'Maria rewrote the carry caption.'
+          && carryActivity.data?.length === 1 && carryInbox.length === 1,
+        JSON.stringify({ carried: carried.data, activity: carryActivity.data, inbox: carryInbox.length }))
+
+      const carriedSend = await dClient.rpc('send_review_drafts', {
+        p_content_id: carryItemId, p_content_version: 2, p_draft_ids: [carryDraft.id], p_note: null,
+        p_idempotency_key: randomUUID(),
+      })
+      const kept = await save(dClient, { p_content_id: carryItemId, p_base_version: 2, p_body: 'Maria rewrote the carry caption.' })
+      check('DR13: a carried draft is kept before it is sent, and keeping rebases it onto the new version',
+        !!carriedSend.error && /drafts_carried_over/.test(carriedSend.error.message)
+          && !kept.error && draftOf(kept)?.id === carryDraft.id && draftOf(kept)?.base_version === 2
+          && draftOf(kept)?.carried_over_to_version === null,
+        carriedSend.error?.message ?? kept.error?.message ?? JSON.stringify(kept.data))
+
+      const badReason = await dClient.rpc('discard_review_draft', {
+        p_content_id: carryItemId, p_target_kind: 'copy_block', p_target_key: 'caption', p_anchor: '',
+        p_reason: 'because', p_saved_at: new Date().toISOString(),
+      })
+      const discarded = await dClient.rpc('discard_review_draft', {
+        p_content_id: carryItemId, p_target_kind: 'copy_block', p_target_key: 'caption', p_anchor: '',
+        p_reason: 'client_discarded', p_saved_at: new Date(Date.now() + 1000).toISOString(),
+      })
+      const afterDiscard = await dClient.from('content_review_drafts').select('status, discard_reason')
+        .eq('id', carryDraft.id).single()
+      const alertsAfter = await admin.rpc('agency_unsent_review_draft_alerts', { p_now: new Date().toISOString() })
+      check('DR14: an explicit discard keeps the row as discarded and clears the alert',
+        !!badReason.error && !discarded.error && outcomeOf(discarded) === 'discarded'
+          && afterDiscard.data?.status === 'discarded' && afterDiscard.data.discard_reason === 'client_discarded'
+          && !((alertsAfter.data ?? []) as AlertRow[]).some((r) => r.content_item_id === carryItemId),
+        discarded.error?.message ?? JSON.stringify(afterDiscard.data))
+
+      const assertion = await admin.rpc('assert_portal_security')
+      const clientAssertion = await dClient.rpc('assert_review_draft_security')
+      check('DR15: the cumulative security assertion includes the draft guards and is agency-only',
+        !assertion.error && !!clientAssertion.error, assertion.error?.message ?? 'client could run the assertion')
+
+      // Amended 2026-10-03: a send-failure event must never freeze the agency inbox cursor. A fresh
+      // tenant, so no other block's open reconciliation event can hold the ack.
+      const inboxTenant = await admin.rpc('create_portal_client', {
+        p_name: 'RLS Drafts Inbox', p_slug: `rls-drafts-inbox-${RUN_ID}`,
+      })
+      if (inboxTenant.error || !inboxTenant.data) throw new Error(`drafts inbox tenant: ${inboxTenant.error?.message ?? 'missing'}`)
+      const inboxClientId = inboxTenant.data as string
+      const inboxConsumer = `rls-drafts-inbox-${RUN_ID}`
+      const inboxAttemptId = randomUUID()
+      const inboxFailure = await admin.from('client_request_failures').insert({
+        attempt_id: inboxAttemptId, client_id: inboxClientId, reason_code: 'write_failed',
+        proposed_text: 'Her exact words.', proposed_length: 16, requester_name: 'RLS Drafts Seat',
+      })
+      if (inboxFailure.error) throw new Error(`drafts inbox failure row: ${inboxFailure.error.message}`)
+      const inboxRecorded = await admin.rpc('agency_record_review_send_failure', { p_attempt_id: inboxAttemptId, p_draft_ids: [] })
+      if (inboxRecorded.error) throw new Error(`drafts inbox record: ${inboxRecorded.error.message}`)
+      const inboxRead = await admin.rpc('read_portal_inbox', { p_consumer_key: inboxConsumer, p_client_id: inboxClientId, p_limit: 50 })
+      const failureEvent = ((inboxRead.data ?? []) as Array<{ seq: number; event_type: string; object_id: string }>)
+        .find((event) => event.event_type === 'review_send_failed' && event.object_id === inboxAttemptId)
+      if (!failureEvent) throw new Error(`drafts inbox event missing: ${inboxRead.error?.message ?? 'not listed'}`)
+      const ackFailure = () => admin.rpc('ack_portal_inbox', {
+        p_consumer_key: inboxConsumer, p_client_id: inboxClientId, p_seq: failureEvent.seq,
+      })
+      const ackBlocked = await ackFailure()
+      const inboxResolved = await admin.from('client_request_failures').update({
+        resolved_at: new Date().toISOString(), resolved_by: 'thedot-admin', resolution_note: 'Applied her text by hand.',
+      }).eq('attempt_id', inboxAttemptId)
+      const ackPassed = await ackFailure()
+      check('DR16: an open send failure holds the inbox cursor, and once its rows are resolved the cursor moves past it',
+        !!ackBlocked.error && /unresolved/.test(ackBlocked.error.message)
+          && !inboxResolved.error && !ackPassed.error && Number(ackPassed.data) === Number(failureEvent.seq),
+        `${ackBlocked.error?.message ?? 'NOT BLOCKED'} | ${inboxResolved.error?.message ?? ''} | ${ackPassed.error?.message ?? JSON.stringify(ackPassed.data)}`)
+
+      // Amended 2026-10-03: carry-over and retry success are agency_internal, so they queue no
+      // notification row at all; a refused send may notify the agency but never the client.
+      const housekeepingRows = [
+        ...(await internalActivity(sendItemId, 'review_send_retry_succeeded')).data,
+        ...(await internalActivity(carryItemId, 'review_drafts_carried_over')).data,
+      ]
+      const housekeeping = { data: housekeepingRows, error: null }
+      const housekeepingIds = (housekeeping.data ?? []).map((row) => row.id as string)
+      const housekeepingOutbox = housekeepingIds.length
+        ? await admin.from('notification_outbox').select('recipient_kind, channel, event_key')
+          .in('source_activity_id', housekeepingIds)
+        : { data: [] as Array<{ recipient_kind: string }>, error: null }
+      const failedIds = (failedActivity.data ?? []).map((row) => row.id as string)
+      const failedOutbox = failedIds.length
+        ? await admin.from('notification_outbox').select('recipient_kind').in('source_activity_id', failedIds)
+        : { data: [] as Array<{ recipient_kind: string }>, error: null }
+      check('DR17: carry-over and retry housekeeping queue no notification, and a refused send never notifies the client',
+        !housekeeping.error && housekeepingIds.length === 2
+          && !housekeepingOutbox.error && (housekeepingOutbox.data ?? []).length === 0
+          && !failedOutbox.error && (failedOutbox.data ?? []).every((row) => row.recipient_kind === 'agency'),
+        JSON.stringify({ activity: housekeeping.data, outbox: housekeepingOutbox.data, failed: failedOutbox.data }))
+    }
+
     {
       const stop = await admin.rpc('set_portal_feature_switch', {
         p_client_id: bClientId, p_feature: 'client_mutations', p_enabled: false,
