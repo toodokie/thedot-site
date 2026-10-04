@@ -99,7 +99,10 @@ const CLIENT_FEED_EXCLUDED_EVENTS = ['design_link_updated', 'working_version_dis
   'release_media_override',
   'review_drafts_carried_over', 'review_send_failed', 'review_send_retry_succeeded',
   // 'review_playback_failed' (0094, amended 2026-10-03): her own failed play, reported to the agency.
-  'review_playback_failed']
+  'review_playback_failed',
+  // 'portal_feedback_submitted' (0095): her answer to the feedback card is a message to the agency,
+  // not news about her pieces.
+  'portal_feedback_submitted']
 
 export async function getActivity(clientId: string): Promise<ActivityRow[]> {
   const supabase = await createSupabaseServer()

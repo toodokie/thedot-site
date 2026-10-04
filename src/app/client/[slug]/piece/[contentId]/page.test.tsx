@@ -7,11 +7,21 @@ const mocks = vi.hoisted(() => {
   const ackQuery = {
     select: vi.fn(() => ackQuery),
     eq: vi.fn((column: string, value: unknown) => { ackEq(column, value); return ackQuery }),
-    maybeSingle: vi.fn(async () => ({ data: null, error: null })),
+    maybeSingle: vi.fn(async () => ({ data: null, error: null } as { data: unknown; error: unknown })),
   }
+  const feedbackEq = vi.fn()
+  const feedbackQuery = {
+    select: vi.fn(() => feedbackQuery),
+    eq: vi.fn((column: string, value: unknown) => { feedbackEq(column, value); return feedbackQuery }),
+    maybeSingle: vi.fn(async () => ({ data: null, error: null } as { data: unknown; error: unknown })),
+  }
+  const from = vi.fn((table: string) => table === 'portal_feedback_responses' ? feedbackQuery : ackQuery)
   return {
     ackEq,
     ackQuery,
+    feedbackEq,
+    feedbackQuery,
+    from,
     getClientSession: vi.fn(),
     getPieceItem: vi.fn(),
     getComments: vi.fn(async () => [{ id: 'comment' }]),
@@ -40,7 +50,7 @@ vi.mock('@/lib/portal/review-drafts', () => ({ getMyReviewDrafts: mocks.getMyRev
 vi.mock('@/lib/portal/review-previews', () => ({ getClientReviewPreviews: mocks.getClientReviewPreviews }))
 vi.mock('@/lib/portal/piece-page/review-ticks', () => ({ getMyReviewTicks: mocks.getMyReviewTicks }))
 vi.mock('@/lib/portal/piece-page/seat-requests', () => ({ getMySeatRequestIds: mocks.getMySeatRequestIds }))
-vi.mock('@/lib/supabase/server', () => ({ createSupabaseServer: vi.fn(async () => ({ from: vi.fn(() => mocks.ackQuery) })) }))
+vi.mock('@/lib/supabase/server', () => ({ createSupabaseServer: vi.fn(async () => ({ from: mocks.from })) }))
 vi.mock('./piece-metadata', () => ({ getPieceItem: mocks.getPieceItem, resolvePieceMetadata: vi.fn() }))
 vi.mock('./PieceReviewScreen', () => ({ default: function PieceReviewScreen() { return null } }))
 vi.mock('./v2/PiecePageV2', () => ({ default: function PiecePageV2() { return null } }))
@@ -94,6 +104,7 @@ describe('piece page switch', () => {
     expect(mocks.getClientReviewPreviews).not.toHaveBeenCalled()
     expect(mocks.getMyReviewTicks).not.toHaveBeenCalled()
     expect(mocks.getMySeatRequestIds).not.toHaveBeenCalled()
+    expect(mocks.from).not.toHaveBeenCalledWith('portal_feedback_responses')
   })
 
   it('renders the new page for a seat on the switch, with previews and ticks from the seat session', async () => {
@@ -118,5 +129,40 @@ describe('piece page switch', () => {
     const element = await render()
     expect(element.type).toBe(PiecePageV2)
     expect(element.props.previews).toEqual([])
+  })
+})
+
+describe('rollout note and feedback card on the new page (plan 5 decisions 3 and 4)', () => {
+  beforeEach(() => { vi.stubEnv('PORTAL_PIECE_PAGE_V2', 'all') })
+
+  it('holds the card back while the note is still unread', async () => {
+    const element = await render()
+    expect(element.props.showIntro).toBe(true)
+    expect(element.props.feedback).toBeNull()
+  })
+
+  it('offers the card once she has read the note and has not answered, reading only this prompt', async () => {
+    mocks.ackQuery.maybeSingle.mockResolvedValueOnce({ data: { acknowledged_at: '2026-10-03T10:00:00Z' }, error: null })
+    const element = await render()
+    expect(element.props.showIntro).toBe(false)
+    expect(element.props.feedback).toEqual({ contentItemId: 'item-1' })
+    expect(mocks.feedbackEq).toHaveBeenCalledWith('client_id', 'client-1')
+    expect(mocks.feedbackEq).toHaveBeenCalledWith('prompt_key', 'review_page_2026_10')
+  })
+
+  it('never asks twice: an answer on record, or an unreadable record, hides the card', async () => {
+    mocks.ackQuery.maybeSingle.mockResolvedValue({ data: { acknowledged_at: '2026-10-03T10:00:00Z' }, error: null })
+    mocks.feedbackQuery.maybeSingle.mockResolvedValueOnce({ data: { created_at: '2026-10-04T10:00:00Z' }, error: null })
+    expect((await render()).props.feedback).toBeNull()
+    mocks.feedbackQuery.maybeSingle.mockResolvedValueOnce({ data: null, error: { message: 'down' } })
+    expect((await render()).props.feedback).toBeNull()
+    mocks.ackQuery.maybeSingle.mockReset()
+    mocks.ackQuery.maybeSingle.mockResolvedValue({ data: null, error: null })
+  })
+
+  it('treats an unreadable note receipt as not pending for the note, but still holds the card', async () => {
+    mocks.ackQuery.maybeSingle.mockResolvedValueOnce({ data: null, error: { message: 'down' } })
+    const element = await render()
+    expect(element.props.feedback).toBeNull()
   })
 })

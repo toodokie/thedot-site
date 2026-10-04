@@ -12,6 +12,7 @@ import { getMyReviewTicks } from '@/lib/portal/piece-page/review-ticks'
 import { getMySeatRequestIds } from '@/lib/portal/piece-page/seat-requests'
 import { usesPiecePageV2 } from '@/lib/portal/piece-page/piece-page-switch'
 import { PIECE_PAGE_INTRO_KEY, REVIEW_FLOW_ANNOUNCEMENT_KEY } from '@/lib/portal/review-flow-announcement'
+import { FEEDBACK_PROMPT_KEY } from '@/lib/portal/portal-feedback'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import PieceReviewScreen from './PieceReviewScreen'
 import PiecePageV2 from './v2/PiecePageV2'
@@ -53,7 +54,7 @@ export default async function Piece({ params }: {
   )
 
   if (v2) {
-    const [previews, ticks, seatRequestIds] = await Promise.all([
+    const [previews, ticks, seatRequestIds, feedback] = await Promise.all([
       // A preview read failure falls back to the Drive buttons; it never fails the page.
       getClientReviewPreviews(session.clientId, item.id, item.version).catch((error: unknown) => {
         console.error('review previews unavailable', error)
@@ -62,7 +63,14 @@ export default async function Piece({ params }: {
       getMyReviewTicks(item.id, item.version),
       // Fails closed to no ids: no sent markers rather than every seat's.
       getMySeatRequestIds(session.clientId, item.id, session.userId),
+      // RLS (0095) returns only this seat's own answer.
+      supabase.from('portal_feedback_responses').select('created_at')
+        .eq('client_id', session.clientId).eq('prompt_key', FEEDBACK_PROMPT_KEY).maybeSingle(),
     ])
+    // Plan 5 decisions 3 and 4: the card waits until the rollout note (the first-visit intro) is on
+    // record, and stops once she answers. Either read failing hides the card rather than risk
+    // asking twice or stacking it on the note.
+    const showFeedback = Boolean(acknowledgment.data) && !acknowledgment.error && !feedback.error && !feedback.data
     return <PiecePageV2
       mode="client"
       slug={slug}
@@ -83,6 +91,7 @@ export default async function Piece({ params }: {
       serverDrafts={serverDrafts}
       ticks={ticks}
       seatRequestIds={seatRequestIds}
+      feedback={showFeedback ? { contentItemId: item.id } : null}
     />
   }
 
