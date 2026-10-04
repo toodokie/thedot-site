@@ -55,7 +55,7 @@ function data(input: { format?: string; blocks?: Array<{ key: string; label: str
     requestMessages: [], reviewAssets: input.assets ?? [VIDEO, REEL_COVER], previews: input.previews ?? [reelPreview],
     capabilities: { canDecide: true, canComment: true, canSubmitRequests: true, canManageSchedule: true },
     showIntro: false, backHref: '/client/kanset', backLabel: 'Back to calendar', previewRefreshBase: '/api/client/kanset/review-previews',
-    removalKey: 'k', ...extra,
+    removalKey: 'k', seatRequestIds: (input.requests ?? []).map((r) => r.id), ...extra,
   })
 }
 

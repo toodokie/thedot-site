@@ -9,6 +9,7 @@ import { getReviewAssets } from '@/lib/portal/review-assets'
 import { getMyReviewDrafts } from '@/lib/portal/review-drafts'
 import { getClientReviewPreviews } from '@/lib/portal/review-previews'
 import { getMyReviewTicks } from '@/lib/portal/piece-page/review-ticks'
+import { getMySeatRequestIds } from '@/lib/portal/piece-page/seat-requests'
 import { usesPiecePageV2 } from '@/lib/portal/piece-page/piece-page-switch'
 import { PIECE_PAGE_INTRO_KEY, REVIEW_FLOW_ANNOUNCEMENT_KEY } from '@/lib/portal/review-flow-announcement'
 import { createSupabaseServer } from '@/lib/supabase/server'
@@ -52,13 +53,15 @@ export default async function Piece({ params }: {
   )
 
   if (v2) {
-    const [previews, ticks] = await Promise.all([
+    const [previews, ticks, seatRequestIds] = await Promise.all([
       // A preview read failure falls back to the Drive buttons; it never fails the page.
       getClientReviewPreviews(session.clientId, item.id, item.version).catch((error: unknown) => {
         console.error('review previews unavailable', error)
         return []
       }),
       getMyReviewTicks(item.id, item.version),
+      // Fails closed to no ids: no sent markers rather than every seat's.
+      getMySeatRequestIds(session.clientId, item.id, session.userId),
     ])
     return <PiecePageV2
       mode="client"
@@ -79,6 +82,7 @@ export default async function Piece({ params }: {
       draftScope={session.userId}
       serverDrafts={serverDrafts}
       ticks={ticks}
+      seatRequestIds={seatRequestIds}
     />
   }
 

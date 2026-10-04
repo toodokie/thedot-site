@@ -99,6 +99,9 @@ export type DeriveInput = {
   // '/api/client/<slug>/review-previews' for a client seat, '/api/admin/portal/review-previews' for the preview.
   previewRefreshBase: string
   removalKey: string
+  // The ids of the requests the viewing seat sent (its review bundles). Sent markers show only
+  // these; an empty list (including a failed read) shows none, never every seat's.
+  seatRequestIds: string[]
 }
 
 const FORMAT_NAMES: Record<string, string> = {
@@ -220,6 +223,7 @@ export function deriveWorkspaceData(input: DeriveInput): WorkspaceData {
     coverKey: coverTile?.target?.key ?? null,
     frameCount: visualTarget?.anchors ? preview?.frames.length ?? 0 : 0,
     visualWord: layout === 'pages' ? 'page' : 'frame',
+    seatRequestIds: new Set(input.seatRequestIds),
   })
 
   const status = headerStatus({

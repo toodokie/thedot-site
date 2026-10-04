@@ -47,6 +47,7 @@ export default async function MariaPiecePreviewPage({ params, searchParams }: {
           draftScope={`read-only-preview:${preview.seatName}`}
           serverDrafts={null}
           ticks={[]}
+          seatRequestIds={preview.seatRequestIds}
         />
       </ReadOnlyPreview>
     )

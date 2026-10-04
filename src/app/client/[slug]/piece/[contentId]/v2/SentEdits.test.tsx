@@ -56,7 +56,7 @@ function data(requests: ContentRequestRow[], extra: Partial<DeriveInput> = {}) {
       asset_kind: 'video', url: 'https://drive.google.com/r', width_px: 1080, height_px: 1920, caption_status: 'not_applicable', review_note: null }],
     previews: [preview], capabilities: { canDecide: true, canComment: true, canSubmitRequests: true, canManageSchedule: true },
     showIntro: false, backHref: '/client/kanset', backLabel: 'Back to calendar', previewRefreshBase: '/api/client/kanset/review-previews',
-    removalKey: 'k', ...extra,
+    removalKey: 'k', seatRequestIds: requests.map((r) => r.id), ...extra,
   })
 }
 
@@ -193,5 +193,19 @@ describe('sent markers follow the released frame through a newer draft (review f
     fireEvent.click(screen.getByRole('tab', { name: /Caption/ }))
     const grid = screen.getByRole('region', { name: 'What does hiring cost?: frames' })
     expect(marker(within(grid).getAllByRole('listitem')[1])).toHaveTextContent('Darker background.')
+  })
+})
+
+describe('sent markers are her own seat\'s (review fix 3)', () => {
+  it('shows only the edits this seat sent, and none when the seat read gave nothing', () => {
+    const mine = request({ target_kind: 'asset', target_key: 'reel-video', proposed_text: 'Mine: slower ending.' })
+    const theirs = request({ target_kind: 'asset', target_key: 'reel-video', proposed_text: 'A colleague: faster ending.' })
+    const { unmount } = show([mine, theirs], 'client', { extra: { seatRequestIds: [mine.id] } })
+    const media = screen.getByRole('complementary', { name: 'Media' })
+    expect(marker(media)).toHaveTextContent('Mine: slower ending.')
+    expect(media).not.toHaveTextContent('A colleague: faster ending.')
+    unmount()
+    show([mine, theirs], 'client', { extra: { seatRequestIds: [] } })
+    expect(screen.queryByText('Sent · being applied')).not.toBeInTheDocument()
   })
 })

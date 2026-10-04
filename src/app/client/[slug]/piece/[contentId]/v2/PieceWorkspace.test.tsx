@@ -45,7 +45,7 @@ function data(overrides: Partial<ContentRow> = {}, extra: Partial<DeriveInput> =
       asset_kind: 'video', url: 'https://drive.google.com/r', width_px: 1080, height_px: 1920, caption_status: 'not_applicable', review_note: null }],
     previews: [preview], capabilities: { canDecide: true, canComment: true, canSubmitRequests: true, canManageSchedule: true },
     showIntro: false, backHref: '/client/kanset', backLabel: 'Back to calendar', previewRefreshBase: '/api/client/kanset/review-previews',
-    removalKey: 'k', ...extra,
+    removalKey: 'k', seatRequestIds: [], ...extra,
   })
 }
 

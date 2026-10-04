@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => {
     getMyReviewDrafts: vi.fn(async () => [{ id: 'draft' }]),
     getClientReviewPreviews: vi.fn(async () => [{ id: 'preview' }]),
     getMyReviewTicks: vi.fn(async () => ['caption']),
+    getMySeatRequestIds: vi.fn(async () => ['request-1']),
   }
 })
 
@@ -38,6 +39,7 @@ vi.mock('@/lib/portal/review-assets', () => ({ getReviewAssets: mocks.getReviewA
 vi.mock('@/lib/portal/review-drafts', () => ({ getMyReviewDrafts: mocks.getMyReviewDrafts }))
 vi.mock('@/lib/portal/review-previews', () => ({ getClientReviewPreviews: mocks.getClientReviewPreviews }))
 vi.mock('@/lib/portal/piece-page/review-ticks', () => ({ getMyReviewTicks: mocks.getMyReviewTicks }))
+vi.mock('@/lib/portal/piece-page/seat-requests', () => ({ getMySeatRequestIds: mocks.getMySeatRequestIds }))
 vi.mock('@/lib/supabase/server', () => ({ createSupabaseServer: vi.fn(async () => ({ from: vi.fn(() => mocks.ackQuery) })) }))
 vi.mock('./piece-metadata', () => ({ getPieceItem: mocks.getPieceItem, resolvePieceMetadata: vi.fn() }))
 vi.mock('./PieceReviewScreen', () => ({ default: function PieceReviewScreen() { return null } }))
@@ -91,6 +93,7 @@ describe('piece page switch', () => {
     expect(mocks.ackEq).toHaveBeenCalledWith('announcement_key', REVIEW_FLOW_ANNOUNCEMENT_KEY)
     expect(mocks.getClientReviewPreviews).not.toHaveBeenCalled()
     expect(mocks.getMyReviewTicks).not.toHaveBeenCalled()
+    expect(mocks.getMySeatRequestIds).not.toHaveBeenCalled()
   })
 
   it('renders the new page for a seat on the switch, with previews and ticks from the seat session', async () => {
@@ -100,7 +103,9 @@ describe('piece page switch', () => {
     expect(element.props).toMatchObject({
       mode: 'client', previews: [{ id: 'preview' }], ticks: ['caption'], serverDrafts: [{ id: 'draft' }],
       draftScope: 'user-1', showIntro: true, previewRefreshBase: '/api/client/kanset/review-previews',
+      seatRequestIds: ['request-1'],
     })
+    expect(mocks.getMySeatRequestIds).toHaveBeenCalledWith('client-1', 'item-1', 'user-1')
     expect(mocks.ackEq).toHaveBeenCalledWith('announcement_key', PIECE_PAGE_INTRO_KEY)
     expect(mocks.getClientReviewPreviews).toHaveBeenCalledWith('client-1', 'item-1', 2)
     expect(mocks.getMyReviewTicks).toHaveBeenCalledWith('item-1', 2)

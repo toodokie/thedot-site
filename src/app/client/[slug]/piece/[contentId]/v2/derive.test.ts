@@ -51,7 +51,7 @@ function input(overrides: Partial<DeriveInput> = {}): DeriveInput {
     requestMessages: [], reviewAssets: [asset('reel-video', 'video')], previews: [preview],
     capabilities: { canDecide: true, canComment: true, canSubmitRequests: true, canManageSchedule: true },
     showIntro: false, backHref: '/client/kanset', backLabel: 'Back to calendar',
-    previewRefreshBase: '/api/client/kanset/review-previews', removalKey: 'key-1', ...overrides,
+    previewRefreshBase: '/api/client/kanset/review-previews', removalKey: 'key-1', seatRequestIds: [], ...overrides,
   }
 }
 

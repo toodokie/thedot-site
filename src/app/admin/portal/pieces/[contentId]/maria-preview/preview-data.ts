@@ -6,6 +6,7 @@ import type { PublicationTargetRow } from '@/lib/portal/publication'
 import type { ContentRequestMessage, ContentRequestRow } from '@/lib/portal/requests'
 import type { ReviewAsset } from '@/lib/portal/review-assets'
 import type { PieceReviewCapabilities } from '@/app/client/[slug]/piece/[contentId]/PieceReviewScreen'
+import { seatRequestIdsFrom, type BundleReader } from '@/lib/portal/piece-page/seat-requests'
 
 const REQUEST_SELECT = 'id, client_id, content_id, request_type, base_version, payload, status, requester_name, created_at, updated_at, reconciled_at, reconciled_by, canonical_version, resolution_note, canonical_content_key'
 
@@ -28,6 +29,8 @@ export type ClientPiecePreviewData = {
   requestMessages: ContentRequestMessage[]
   reviewAssets: ReviewAsset[]
   seatName: string
+  // The request ids Maria's seat sent for this piece (its review bundles), for the sent markers.
+  seatRequestIds: string[]
   capabilities: PieceReviewCapabilities
 }
 
@@ -54,7 +57,7 @@ export async function loadClientPiecePreview(
   const maria = (accessResult.data ?? []).find((row: {
     client_id?: string; email?: string
   }) => row.client_id === clientId && row.email === 'maria@kanset.com') as {
-    name?: string; can_decide?: boolean; can_comment?: boolean
+    auth_user_id?: string; name?: string; can_decide?: boolean; can_comment?: boolean
     can_submit_requests?: boolean; can_manage_schedule?: boolean
   } | undefined
   if (!maria) throw new PortalDataError('Maria portal seat is unavailable')
@@ -112,6 +115,9 @@ export async function loadClientPiecePreview(
       : null,
   })) as ContentRequestRow[]
   const requestIds = new Set(requests.map((request) => request.id))
+  // Admin route only: the service-role read, filtered to the previewed seat. Fails closed to none.
+  const seatRequestIds = await seatRequestIdsFrom(admin as unknown as BundleReader,
+    { clientId, contentItemId: item.id, userId: maria.auth_user_id ?? null })
   const requestMessages = (requestMessagesResult.data ?? [])
     .filter((message) => requestIds.has(message.request_id)) as ContentRequestMessage[]
 
@@ -129,6 +135,7 @@ export async function loadClientPiecePreview(
     requestMessages,
     reviewAssets: (assetsResult.data ?? []) as ReviewAsset[],
     seatName: maria.name ?? 'Maria Guerts',
+    seatRequestIds,
     capabilities: {
       canDecide: maria.can_decide === true,
       canComment: maria.can_comment === true,
