@@ -544,6 +544,11 @@ function parseBatchEditArgs(firstRequestId:string|undefined,args:string[]):{
   return {requestIds,apply,candidatePath,allowPartialCandidate}
 }
 
+const INBOX_UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+// Must match agency_resolve_inbox_event's signal list (migration 0095).
+const SIGNAL_EVENT_TYPES=new Set(['review_send_failed','review_drafts_carried_over','portal_feedback_submitted',
+  'review_unsent_drafts_due','review_playback_failed'])
+
 async function main(){
   const [command='list',slug='kanset',value,...rest]=process.argv.slice(2)
   const {data:client,error}=await admin.from('clients').select('id,slug').eq('slug',slug).single()
@@ -566,6 +571,31 @@ async function main(){
     const result=await admin.rpc('ack_portal_inbox',{p_consumer_key:consumer,p_client_id:client.id,p_seq:seq})
     if(result.error) throw new Error(result.error.message)
     console.log(`Acknowledged through ${result.data} for ${slug}.`)
+  }else if(command==='signals'){
+    // Open client signals for Agency Ops (migration 0095): send failures, carried drafts, feedback, failed plays.
+    const result=await admin.rpc('agency_open_client_signals',{p_limit:200})
+    if(result.error) throw new Error(result.error.message)
+    const rows=((result.data ?? []) as Array<Record<string,unknown>>).filter((row)=>row.client_id===client.id)
+    if(!rows.length){console.log(`No open client signals for ${slug}.`);return}
+    for(const row of rows) console.log(`${row.event_id} ${row.created_at} ${row.event_type} ${row.content_key ?? '-'} ${row.actor_name}`)
+  }else if(command==='resolve'){
+    // Marks one agency signal handled (agency_inbox_resolutions only). Touches nothing Maria can see.
+    const dryRun=rest.includes('--dry-run')
+    const note=rest.filter((arg)=>arg!=='--dry-run').join(' ').trim()
+    if(!value||!INBOX_UUID.test(value)) throw new Error('usage: portal-inbox resolve <clientSlug> <event-uuid> ["<note>"] [--dry-run]')
+    const shown=await admin.rpc('show_portal_inbox_event',{p_client_id:client.id,p_event_id:value})
+    if(shown.error) throw new Error(shown.error.message)
+    const event=shown.data as {id:string;event_type:string;created_at:string;actor_name:string}|null
+    if(!event||event.id!==value) throw new Error('inbox event not found for client')
+    if(!SIGNAL_EVENT_TYPES.has(event.event_type)) throw new Error(`not a client signal: ${event.event_type}`)
+    if(dryRun){
+      console.log(`DRY RUN: would mark ${event.id} (${event.event_type}, ${event.created_at}, ${event.actor_name}) handled for ${slug}${note?` with note "${note}"`:''}. Nothing written.`)
+      return
+    }
+    const result=await admin.rpc('agency_resolve_inbox_event',{p_event_id:event.id,
+      p_note:note||null,p_actor_key:'thedot-admin',p_idempotency_key:randomUUID()})
+    if(result.error) throw new Error(result.error.message)
+    console.log(`${(result.data as {outcome:string}).outcome} ${event.id} for ${slug}.`)
   }else if(command==='retry-projections'){
     const result=await admin.rpc('retry_portal_projections',{p_client_id:client.id})
     if(result.error) throw new Error(result.error.message)
@@ -604,6 +634,6 @@ async function main(){
     const result=await admin.rpc('resolve_content_request',{p_request_id:request.id,p_status:'rejected',
       p_reason:reason,p_actor_key:'thedot-admin',p_idempotency_key:randomUUID()})
     if(result.error)throw new Error(result.error.message);console.log(`Rejected request ${request.id}.`)
-  }else throw new Error('usage: portal-inbox <list|show|ack|apply-edit|apply-edit-batch|resume-edit|apply-create|apply-archive|supersede|reject|retry-projections> <clientSlug> [value]')
+  }else throw new Error('usage: portal-inbox <list|show|ack|signals|resolve|apply-edit|apply-edit-batch|resume-edit|apply-create|apply-archive|supersede|reject|retry-projections> <clientSlug> [value]')
 }
 main().catch((error)=>{console.error(`FAILED: ${error?.message ?? error}`);process.exit(1)})
