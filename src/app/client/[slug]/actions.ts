@@ -39,7 +39,13 @@ export async function decide(formData: FormData): Promise<{ error?: string }> {
   const { error } = await supabase.rpc('record_content_decision', {
     p_content_id: item.id, p_content_version: item.version, p_decision: decision, p_note: note || null,
   })
-  if (error) return { error: 'Could not save your decision. Please try again.' }
+  if (error) {
+    // 0094: the database refuses an approval while this seat still has unsent drafts.
+    if (error.message.includes('unsent_review_drafts')) {
+      return { error: 'You have edits that are not sent yet. Send them or discard them, then approve.' }
+    }
+    return { error: 'Could not save your decision. Please try again.' }
+  }
 
   // Alerts (email to The Dot + in-app) are enqueued transactionally by the 0015 notification trigger
   // on the activity_log row this RPC writes, then delivered by the notification consumer. No inline send.
