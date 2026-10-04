@@ -135,3 +135,16 @@ describe('round-trip property', () => {
     expect(next).toBe(crlf(REAL_SEO).replace('`/news/how-to-choose-an-immigration-representative`', '`/news/choose`'))
   })
 })
+
+describe('setLabeledValue edge cases (review fix)', () => {
+  it('drops stray spaces when filling an empty value', () => {
+    const list = parseLabeledList('- **Slug:**   ')
+    expect(serializeLabeledList(setLabeledValue(list, 'Slug', 'New'))).toBe('- **Slug:** New')
+  })
+
+  it('reads back a value with a backtick from a code-ticked field', () => {
+    const list = parseLabeledList('- **Slug:** `old`')
+    const next = setLabeledValue(list, 'Slug', 'a`b')
+    expect(labeledValue(parseLabeledList(serializeLabeledList(next)), 'Slug')).toBe('a`b')
+  })
+})

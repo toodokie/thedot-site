@@ -39,6 +39,18 @@ export function labeledValue(list: LabeledList, label: string): string | null {
   return field ? field.value : null
 }
 
+function fillField(item: LabeledField, clean: string): LabeledField {
+  let next = { ...item, value: clean }
+  // Filling an empty value: one space after the label, no stray spaces.
+  if (item.value === '') next = { ...next, sep: item.sep.replace(/[ \t]+$/, '') + ' ' }
+  // A backtick cannot sit inside a code-ticked value: drop the ticks so it reads back identical.
+  if (item.wrap === '`' && clean.includes('`')) next = { ...next, wrap: '' }
+  if (next.wrap === '' && /^`[^`]*`$/.test(clean)) {
+    throw new Error('This value cannot be a single code-ticked word; remove the backticks.')
+  }
+  return next
+}
+
 export function setLabeledValue(list: LabeledList, label: string, value: string): LabeledList {
   // A field is one line: any line break in the new value becomes a space.
   const clean = value.replace(/\s*[\r\n]+\s*/g, ' ').trim()
@@ -46,7 +58,7 @@ export function setLabeledValue(list: LabeledList, label: string, value: string)
   const target = list.items.findIndex((item) => item.kind === 'field' && same(item.label, label))
   return {
     items: list.items.map((item, index) => (index === target && item.kind === 'field' && value !== item.value
-      ? { ...item, value: clean }
+      ? fillField(item, clean)
       : item)),
   }
 }

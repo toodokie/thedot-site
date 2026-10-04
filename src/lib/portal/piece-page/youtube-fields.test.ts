@@ -242,3 +242,37 @@ describe('round-trip property', () => {
       .toBe('Intro.\r\n00:00 A\r\n02:00 B\r\n\r\nOutro.')
   })
 })
+
+describe('filling an empty field (review fix)', () => {
+  const fill = (body: string, name: YouTubeFieldName, value: string) =>
+    serializeYouTubePackage(setYouTubeField(parseYouTubePackage(body)!, name, value))
+  const roundTrip = (out: string) => parseYouTubePackage(out)!
+
+  it('keeps the next label on its own line (adjacent)', () => {
+    const out = fill('**Title:**\n**Description:** d', 'title', 'NEW')
+    expect(out).toBe('**Title:** NEW\n**Description:** d')
+    expect(youTubeFieldValue(roundTrip(out), 'title')).toBe('NEW')
+    expect(youTubeFieldValue(roundTrip(out), 'description')).toBe('d')
+  })
+
+  it('keeps the next label on its own line (blank line between)', () => {
+    const out = fill('**Title:**\n\n**Description:** d', 'title', 'NEW')
+    expect(out).toBe('**Title:** NEW\n\n**Description:** d')
+    expect(youTubeFieldValue(roundTrip(out), 'description')).toBe('d')
+  })
+
+  it('puts a space after an empty trailing label and keeps CRLF', () => {
+    expect(fill('**Title:** t\n**Description:**', 'description', 'NEW')).toBe('**Title:** t\n**Description:** NEW')
+    const crlf = fill('**Title:**\r\n**Description:** d', 'title', 'NEW')
+    expect(crlf).toBe('**Title:** NEW\r\n**Description:** d')
+    expect(youTubeFieldValue(roundTrip(crlf), 'description')).toBe('d')
+  })
+})
+
+describe('replaceChapters no-op (review fix)', () => {
+  it('writes unchanged chapters back byte for byte', () => {
+    const text = 'Intro\n\n00:00   Hello  \n01:00 Next\r\nafter'
+    const found = findChapters(text)!
+    expect(replaceChapters(text, found, found.items)).toBe(text)
+  })
+})

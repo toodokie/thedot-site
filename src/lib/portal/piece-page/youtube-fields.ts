@@ -77,6 +77,16 @@ export function setYouTubeField(pkg: YouTubePackage, name: YouTubeFieldName, val
       // Editors hand back LF; a field written with CRLF keeps CRLF.
       let clean = trimmed.replace(/\r\n?/g, '\n')
       if ((field.head + field.value + field.tail).includes('\r\n')) clean = clean.replace(/\n/g, '\r\n')
+      if (field.value === '') {
+        // An empty field has no inline gap: put the value after the label on the same line and
+        // keep the line breaks that followed the label, so the next label stays at line start.
+        const label = field.head.replace(/\s+$/, '')
+        const breaks = /(?:\r?\n[ \t\r\n]*)?$/.exec(field.head)?.[0] ?? ''
+        const eol = (field.head + field.tail).includes('\r\n') ? '\r\n' : '\n'
+        const nextLabel = pkg.fields[pkg.fields.indexOf(field) + 1] !== undefined
+        const tail = breaks.includes('\n') ? breaks : nextLabel ? eol : field.tail
+        return { ...field, head: `${label} `, value: clean, tail }
+      }
       return { ...field, value: clean }
     }),
   }
@@ -118,6 +128,12 @@ export function findChapters(text: string): Chapters | null {
 
 export function replaceChapters(text: string, chapters: Chapters, items: ChapterItem[]): string {
   const breakWith = text.slice(chapters.start, chapters.end).includes('\r\n') ? '\r\n' : '\n'
-  const lines = items.map((item) => `${item.time.trim()} ${item.title.trim()}`).join(breakWith)
+  const original = text.slice(chapters.start, chapters.end).split('\n').map((line) => line.replace(/\r$/, ''))
+  const lines = items.map((item, index) => {
+    const before = chapters.items[index]
+    // An unchanged chapter keeps its exact original line.
+    if (before && before.time === item.time && before.title === item.title && original[index] !== undefined) return original[index]
+    return `${item.time.trim()} ${item.title.trim()}`
+  }).join(breakWith)
   return text.slice(0, chapters.start) + lines + text.slice(chapters.end)
 }
