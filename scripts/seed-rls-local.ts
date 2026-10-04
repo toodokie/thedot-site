@@ -96,6 +96,13 @@ async function main() {
     if (error) throw new Error(`baseline sync: ${error.message}`)
     const itemId = (data as { item_id?: string }[] | null)?.[0]?.item_id
     if (!itemId) throw new Error('baseline sync returned no item_id')
+    // Release media guard (0092): the baseline needs something for the seat to look at.
+    const { error: designError } = await admin.rpc('set_content_design_links', {
+      p_client_id: client.id, p_content_id: CONTENT_ID,
+      p_canva_url: 'https://www.canva.com/design/RLSBASELINE/view', p_drive_url: null,
+      p_actor_key: 'thedot-admin', p_idempotency_key: `local-baseline-design-${randomUUID()}`,
+    })
+    if (designError) throw new Error(`baseline design link: ${designError.message}`)
     const { error: readyError } = await admin.rpc('mark_content_ready', {
       p_content_id: itemId,
       p_content_version: 1,

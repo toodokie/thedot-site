@@ -209,6 +209,14 @@ class Harness {
     const parsed = parseContentFile(readFileSync(join(this.canonicalRoot, `${id}.md`), 'utf8'), `${id}.md`)
     const { data, error } = await this.db.rpc('sync_content_item_versions', { p_items: [rowFromParsed(parsed, this.clientId, git(this.canonicalRoot, ['rev-parse', 'HEAD']))] })
     if (error || !data) throw new Error(`seed sync ${id}: ${error?.message ?? 'no result'}`)
+    // Release media guard (0092): an item-level design link covers every version the harness
+    // later re-shares through the real CLI.
+    const design = await this.db.rpc('set_content_design_links', {
+      p_client_id: this.clientId, p_content_id: id,
+      p_canva_url: 'https://www.canva.com/design/HARNESSDESIGN/view', p_drive_url: null,
+      p_actor_key: 'thedot-admin', p_idempotency_key: `harness-design-${id}-${randomUUID()}`,
+    })
+    if (design.error) throw new Error(`seed design ${id}: ${design.error.message}`)
     if (released) {
       const item = await this.item(id)
       const ready = await this.db.rpc('mark_content_ready', { p_content_id: item.id, p_content_version: 1 })
