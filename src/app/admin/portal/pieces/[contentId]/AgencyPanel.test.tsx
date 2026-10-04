@@ -23,7 +23,9 @@ const model = (overrides: Partial<AgencyPanelModel> = {}): AgencyPanelModel => (
     { id: 'r2', heading: 'YouTube description', kind: 'text', quote: 'New description', date: '2026-09-30',
       state: 'Applied', thumbs: [] },
   ],
-  reviewAssets: [{ id: 'a1', label: 'Reel cover', channel: 'social', asset_kind: 'cover', url: 'https://drive.google.com/x' }],
+  reviewAssets: [{ id: 'a1', label: 'Reel cover', channel: 'social', asset_kind: 'cover', url: 'https://drive.google.com/x',
+    caption_status: 'not_applicable', review_note: null }],
+  workingAssets: null,
   previews: [{ id: 'p', contentItemId: 'i', contentVersion: 2, previewKey: 'reel-video', mediaKind: 'video', width: 1080,
     height: 1920, durationSeconds: 39, videoUrl: 'https://signed/v.mp4', posterUrl: null,
     frames: Array.from({ length: 8 }, (_, i) => ({ label: `Frame ${i + 1}`, url: `https://signed/f${i}.jpg` })),
@@ -135,5 +137,37 @@ describe('AgencyPanel release media (amended 2026-10-03)', () => {
   it('offers no control that creates an override', () => {
     render(<AgencyPanel model={model({ previews: [], reviewAssets: [], design: { canva: null, drive: null } })} />)
     expect(screen.getByRole('complementary', { name: 'Agency panel' }).querySelector('button, form, input')).toBeNull()
+  })
+})
+
+describe('AgencyPanel asset detail (review fixes 2026-10-04)', () => {
+  const video = { id: 'v1', label: 'Reel video', channel: 'social', asset_kind: 'video', url: 'https://drive.google.com/v',
+    caption_status: 'burned_in_proofed', review_note: 'Captions proofed against the jargon list.' }
+
+  it('shows each asset\'s caption proof state and review note', () => {
+    render(<AgencyPanel model={model({ reviewAssets: [video] })} />)
+    expect(screen.getByText('Reel video')).toBeInTheDocument()
+    expect(screen.getByText('Captions: burned in proofed')).toBeInTheDocument()
+    expect(screen.getByText('Captions proofed against the jargon list.')).toBeInTheDocument()
+  })
+
+  it('lists the working version\'s assets when it is ahead of what Maria sees', () => {
+    render(<AgencyPanel model={model({ workingAssets: { version: 3, assets: [{ ...video, id: 'v3', label: 'Reel video v3',
+      caption_status: 'needs_proof', review_note: null }] } })} />)
+    const section = screen.getByRole('region', { name: 'Working copy, v3, not shared yet' })
+    expect(within(section).getByText('Reel video v3')).toBeInTheDocument()
+    expect(within(section).getByText('Captions: needs proof')).toBeInTheDocument()
+    expect(within(section).getByRole('link', { name: 'Open Reel video v3' })).toHaveAttribute('href', 'https://drive.google.com/v')
+  })
+
+  it('says so when the working version has no assets yet', () => {
+    render(<AgencyPanel model={model({ workingAssets: { version: 3, assets: [] } })} />)
+    expect(within(screen.getByRole('region', { name: 'Working copy, v3, not shared yet' }))
+      .getByText('No review assets attached to this version yet.')).toBeInTheDocument()
+  })
+
+  it('shows no working section when the working version is the one Maria sees', () => {
+    render(<AgencyPanel model={model()} />)
+    expect(screen.queryByRole('region', { name: /Working copy/ })).not.toBeInTheDocument()
   })
 })

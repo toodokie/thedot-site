@@ -23,6 +23,12 @@ import {
 export { buildRequestViews, summarizeDrafts, unsentAlertSentence } from './agency-piece-data-view'
 export type { AgencyRequestView, DraftSeatSummary, RequestThumb } from './agency-piece-data-view'
 
+export type AgencyReviewAsset = {
+  id: string; label: string; channel: string; asset_kind: string; url: string
+  caption_status: string; review_note: string | null
+}
+const ASSET_COLUMNS = 'id, label, channel, asset_kind, url, caption_status, review_note'
+
 export type AgencyPieceData = {
   contentId: string
   piece: StagePiece
@@ -33,7 +39,9 @@ export type AgencyPieceData = {
   requestViews: AgencyRequestView[]
   requests: AdminContentRequest[]
   comments: AdminComment[]
-  reviewAssets: Array<{ id: string; label: string; channel: string; asset_kind: string; url: string }>
+  reviewAssets: AgencyReviewAsset[]
+  // The working version's assets when it is ahead of what Maria sees, to check before release.
+  workingAssets: { version: number; assets: AgencyReviewAsset[] } | null
   previews: SignedReviewPreview[]
   previewError: string | null
   // Amended 2026-10-03: Anastasia's no-media override for the version Maria sees (0092), if any. Shown as an
@@ -75,8 +83,10 @@ export async function loadAgencyPieceData(contentId: string): Promise<AgencyPiec
   if (itemRow.error || !itemRow.data) return null
   const item = itemRow.data as { id: string; working_version: number | null; client_visible_version: number | null; planned_date: string | null }
   const shownVersion = item.client_visible_version ?? item.working_version
+  const aheadVersion = item.working_version != null && shownVersion != null && item.working_version > shownVersion
+    ? item.working_version : null
 
-  const [workingRow, designRow, assetRows, comments, requests, context, drafts, seats, feedback] = await Promise.all([
+  const [workingRow, designRow, assetRows, workingAssetRows, comments, requests, context, drafts, seats, feedback] = await Promise.all([
     item.working_version != null
       ? admin.from('content_item_versions').select('copy_blocks, client_body, canva_url, drive_url')
         .eq('content_item_id', item.id).eq('version', item.working_version).single()
@@ -84,8 +94,13 @@ export async function loadAgencyPieceData(contentId: string): Promise<AgencyPiec
     admin.from('content_design_links').select('canva_url, drive_url')
       .eq('client_id', clientId).eq('content_item_id', item.id).maybeSingle(),
     shownVersion != null
-      ? admin.from('content_review_assets').select('id, label, channel, asset_kind, url')
+      ? admin.from('content_review_assets').select(ASSET_COLUMNS)
         .eq('client_id', clientId).eq('content_item_id', item.id).eq('content_version', shownVersion)
+        .order('channel').order('asset_key')
+      : Promise.resolve({ data: [], error: null }),
+    aheadVersion != null
+      ? admin.from('content_review_assets').select(ASSET_COLUMNS)
+        .eq('client_id', clientId).eq('content_item_id', item.id).eq('content_version', aheadVersion)
         .order('channel').order('asset_key')
       : Promise.resolve({ data: [], error: null }),
     loadAdminComments({ clientId, contentUuid: item.id }),
@@ -96,7 +111,7 @@ export async function loadAgencyPieceData(contentId: string): Promise<AgencyPiec
     admin.rpc('list_portal_access'),
     getLatestFeedback(clientId, 1),
   ])
-  const failure = designRow.error ?? assetRows.error ?? seats.error
+  const failure = designRow.error ?? assetRows.error ?? workingAssetRows.error ?? seats.error
   if (failure) throw new Error(`Agency piece data unavailable: ${failure.message}`)
 
   // Previews are a convenience on this page: a storage hiccup must not take the page down.
@@ -185,7 +200,9 @@ export async function loadAgencyPieceData(contentId: string): Promise<AgencyPiec
     requestViews: buildRequestViews(requests, context, previews),
     requests,
     comments,
-    reviewAssets: (assetRows.data ?? []) as AgencyPieceData['reviewAssets'],
+    reviewAssets: (assetRows.data ?? []) as AgencyReviewAsset[],
+    workingAssets: aheadVersion != null
+      ? { version: aheadVersion, assets: (workingAssetRows.data ?? []) as AgencyReviewAsset[] } : null,
     previews: shownPreviews,
     previewError,
     mediaOverride: (overrideRow.data as { reason: string } | null)?.reason ?? null,

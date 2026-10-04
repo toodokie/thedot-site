@@ -1,12 +1,12 @@
 import { Button } from '@thedot/design-system'
 import { feedbackLine } from '@/lib/portal/agency-ops-core'
-import type { AgencyPieceData } from './agency-piece-data'
+import type { AgencyPieceData, AgencyReviewAsset } from './agency-piece-data'
 import { unsentAlertSentence } from './agency-piece-data-view'
 import styles from './agency-panel.module.css'
 
 export type AgencyPanelModel = Pick<AgencyPieceData,
   'contentId' | 'stageLabel' | 'gates' | 'gatesSummary' | 'versions' | 'requestViews' | 'reviewAssets'
-  | 'previews' | 'previewError' | 'mediaOverride' | 'design' | 'drafts' | 'feedback' | 'plannedDate' | 'todayIso' | 'nowIso'> & {
+  | 'workingAssets' | 'previews' | 'previewError' | 'mediaOverride' | 'design' | 'drafts' | 'feedback' | 'plannedDate' | 'todayIso' | 'nowIso'> & {
   released: boolean
 }
 
@@ -15,6 +15,18 @@ function shortDay(iso: string | null): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'UTC', month: 'short', day: 'numeric' })
     .format(new Date(`${iso.slice(0, 10)}T12:00:00Z`))
 }
+// The caption proof is mandatory on videos, so each asset carries its proof state and review note.
+function AssetRow({ asset }: { asset: AgencyReviewAsset }) {
+  return <li>
+    <span>
+      {asset.label}
+      {asset.caption_status !== 'not_applicable' && <span className={styles.assetMeta}>Captions: {asset.caption_status.replaceAll('_', ' ')}</span>}
+      {asset.review_note && <span className={styles.assetMeta}>{asset.review_note}</span>}
+    </span>
+    <a href={asset.url} target="_blank" rel="noreferrer" aria-label={`Open ${asset.label}`}>open</a>
+  </li>
+}
+
 const GATE_CLASS = { done: styles.gateDone, na: styles.gateNa, absent: styles.gateAbsent, open: '' } as const
 
 export default function AgencyPanel({ model }: { model: AgencyPanelModel }) {
@@ -95,16 +107,20 @@ export default function AgencyPanel({ model }: { model: AgencyPanelModel }) {
           {model.released && noMedia && !model.mediaOverride && <li><span>
             Maria has nothing to look at on this version. Attach a review asset, preview or design link.
           </span></li>}
-          {model.reviewAssets.map((asset) => <li key={asset.id}>
-            <span>{asset.label}</span>
-            <a href={asset.url} target="_blank" rel="noreferrer" aria-label={`Open ${asset.label}`}>open</a>
-          </li>)}
+          {model.reviewAssets.map((asset) => <AssetRow key={asset.id} asset={asset} />)}
           {model.design.canva && <li><span>Design source</span>
             <a href={model.design.canva} target="_blank" rel="noreferrer" aria-label="Open design source">open</a></li>}
           {model.design.drive && <li><span>Drive link, from Anastasia</span>
             <a href={model.design.drive} target="_blank" rel="noreferrer" aria-label="Open Drive link">open</a></li>}
         </ul>
       </section>
+
+      {model.workingAssets && <section aria-labelledby="agency-working-assets">
+        <h2 className={styles.label} id="agency-working-assets">Working copy, v{model.workingAssets.version}, not shared yet</h2>
+        {model.workingAssets.assets.length === 0
+          ? <p className={styles.meta}>No review assets attached to this version yet.</p>
+          : <ul className={styles.rows}>{model.workingAssets.assets.map((asset) => <AssetRow key={asset.id} asset={asset} />)}</ul>}
+      </section>}
 
       <section>
         <h2 className={styles.label}>Feedback</h2>
