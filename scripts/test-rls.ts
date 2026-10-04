@@ -56,7 +56,62 @@ const B_BUNDLE_ID = 'rls-test-request-bundle'
 const KANSET_SLUG = 'kanset'
 const KANSET_EMAIL = 'info@thedotcreative.co'
 
-const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
+// Unwrapped service-role client, for any check that must see the release media guard (0092) bare.
+const rawAdmin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
+
+// Release media guard (0092): a release needs a review asset, a portal preview or a design link.
+// Fixtures written to test other rules release bare text pieces, so before each release this
+// gives the piece an item-level design link (placeholder URL, same style as seed-rls-local.ts)
+// when nothing is attached yet. The release then passes the guard legitimately. Items listed in
+// PREVIEW_ONLY get a portal preview instead: a design link or review asset would also satisfy the
+// final-package design check, and FP1 needs a released piece that has neither.
+const PREVIEW_ONLY = new Set<string>()
+const admin = new Proxy(rawAdmin, {
+  get(target, property, receiver) {
+    if (property !== 'rpc') return Reflect.get(target, property, receiver)
+    const rpc = target.rpc.bind(target)
+    return ((fn: string, args?: Record<string, unknown>, options?: Record<string, unknown>) => {
+      if ((fn !== 'mark_content_ready' && fn !== 'record_content_courtesy_release') || !args) {
+        return rpc(fn, args, options as never)
+      }
+      return (async () => {
+        const item = await target.from('content_items').select('client_id, content_id')
+          .eq('id', args.p_content_id as string).maybeSingle()
+        if (item.data) {
+          const status = await rpc('agency_release_media_status', {
+            p_content_item_id: args.p_content_id, p_content_version: args.p_content_version,
+          })
+          const media = status.data as {
+            review_assets?: number; previews?: number; design_link?: boolean
+          } | null
+          if (media && !media.review_assets && !media.previews && !media.design_link) {
+            if (PREVIEW_ONLY.has(args.p_content_id as string)) {
+              const sha = 'a'.repeat(64)
+              const prefix = `${item.data.client_id}/${args.p_content_id}/v${args.p_content_version}/fixture/${sha.slice(0, 16)}/`
+              const previewResult = await rpc('agency_register_review_preview', {
+                p_client_id: item.data.client_id, p_content_id: item.data.content_id,
+                p_content_version: args.p_content_version, p_preview_key: 'fixture',
+                p_review_asset_key: null, p_media_kind: 'pages', p_object_prefix: prefix,
+                p_video_path: null, p_poster_path: null,
+                p_frames: [{ path: `${prefix}page-1.jpg`, label: 'Page 1' }],
+                p_width_px: 1080, p_height_px: 1350, p_duration_seconds: null,
+                p_byte_total: 1000, p_source_sha256: sha, p_actor_key: 'thedot-admin',
+              })
+              if (previewResult.error) console.error('fixture preview:', previewResult.error.message)
+            } else {
+              await rpc('set_content_design_links', {
+                p_client_id: item.data.client_id, p_content_id: item.data.content_id,
+                p_canva_url: 'https://www.canva.com/design/RLSFIXTURE/view', p_drive_url: null,
+                p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+              })
+            }
+          }
+        }
+        return rpc(fn, args, options as never)
+      })()
+    }) as unknown as typeof target.rpc
+  },
+})
 let failures = 0
 
 function check(name: string, passed: boolean, detail = ''): void {
@@ -299,6 +354,7 @@ async function main(): Promise<void> {
     check('S0: TypeScript primary-source hosts all pass the database validator', !hostParity.error,
       hostParity.error?.message ?? `hosts=${PRIMARY_SOURCE_HOSTS.length}`)
 
+    PREVIEW_ONLY.add(bRequestItemId)
     for (const itemId of [bItemId, bLeakItemId, bRequestItemId, bBundleItemId]) {
       const { error } = await admin.rpc('mark_content_ready', { p_content_id: itemId, p_content_version: 1 })
       if (error) throw new Error(`mark_content_ready: ${error.message}`)

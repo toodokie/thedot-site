@@ -1313,6 +1313,437 @@ with:
     if (released) {
 ```
 
+- [ ] **Step 4: Give the test script's fixtures a design link before release**
+
+(Changed 2026-10-04 at Anastasia's choice: fixtures carry a design link, no automated approval wording. The earlier override wrapper is dropped; nothing in the test script records an override.)
+
+In `scripts/test-rls.ts`, replace:
+
+```ts
+const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
+```
+
+with an unwrapped `rawAdmin` client plus an `admin` Proxy over it. Before `mark_content_ready` or `record_content_courtesy_release`, the proxy calls `agency_release_media_status` for that exact version. When it has no review asset, no preview and no design link, it calls `set_content_design_links` with a placeholder Canva URL (`https://www.canva.com/design/RLSFIXTURE/view`, same style as the seed and harness). Errors from that call are not swallowed silently; the release that follows would fail with its own message.
+
+One exception: check FP1 needs a released piece with no design link (a design link or a review asset both count as a design for the final-package check). A module-level `PREVIEW_ONLY` set holds that piece's item id (`bRequestItemId`, added just before the first release loop), and for it the proxy registers a one-page portal preview through `agency_register_review_preview` instead. The preview satisfies the media guard and leaves the final-package design check unsatisfied, so FP1 keeps asserting both outcomes unchanged. Any check that must see the guard bare uses `rawAdmin`.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git -C ~/worktrees/kanset-media-previews add supabase/migrations/0092_review_media_previews.sql
+git -C ~/worktrees/kanset-media-previews commit -m "Add private portal review previews with retention queue (0092)"
+```
+
+---
+
+### Task 1a: Release media guard in 0092 (amended 2026-10-03)
+
+**Files:**
+- Modify: `supabase/migrations/0092_review_media_previews.sql`
+
+Anastasia's rule (2026-10-03): no version reaches Maria with nothing for her to look at. The database refuses every release of a version that has no review asset (0073), no portal preview (this migration) and no design link (0020 item link or a link sealed in the version), unless an override is on file for that exact version with a reason that starts `Approved by Anastasia:`. Enforcing it in the database covers every path: `mark_content_ready` is the one promotion that `portal-admin ready`, `update-portal --re-share` (and `--quiet`, through `record_agency_supersession`, 0087), `portal-write applied-release` (`record_agency_applied_release`, 0085) and `portal-write supersede` all reach, and `record_content_courtesy_release` (0043) is the one approval that does not promote. Both are rewritten in place against their live definitions with a drift guard, the 0085/0086 pattern, adding one `perform` each and changing nothing else. Formats that never carry media (an article, a text-only post) use the override as well: there is no silent exemption.
+
+The in-migration assertion is the first failing test; behaviour is proven with real JWTs in Task 12a.
+
+- [ ] **Step 1: Confirm the two bodies this task rewrites are still the expected ones**
+
+```bash
+cd ~/worktrees/kanset-media-previews
+grep -l "function public.mark_content_ready" supabase/migrations/*.sql | tail -1
+grep -l "courtesy release requires studio content or an explicit Anastasia agency override" supabase/migrations/*.sql | tail -1
+```
+
+Expected: `supabase/migrations/0081_unified_piece_review_bundles.sql` and `supabase/migrations/0086_release_gate_on_override_not_producer.sql`. If a later file prints, read its body and confirm the two anchor lines in Step 2 still appear verbatim; the drift guards refuse otherwise, so the migration cannot rewrite a body it does not recognise.
+
+- [ ] **Step 2: Insert the guard block**
+
+In `supabase/migrations/0092_review_media_previews.sql`, insert the block below immediately **before** the line:
+
+```sql
+-- Cumulative fold. 0090 made assert_portal_security() = slice89 + archive guard; that pair becomes
+```
+
+Block to insert:
+
+```sql
+-- ---------------------------------------------------------------------------------------------
+-- Release media guard (amended 2026-10-03, Anastasia). An agent released a version to Maria with
+-- nothing for her to look at. Releasing now needs, for that exact version, at least one of: a
+-- review asset (0073), a portal preview (this migration) or a design link (the 0020 item link, or a
+-- link sealed in the version). The only way past it is an override recorded for that exact version
+-- whose reason starts "Approved by Anastasia:". Formats that never carry media use the override
+-- too; there is no silent exemption.
+--
+-- mark_content_ready is the one promotion every release reaches (portal-admin ready, update-portal
+-- --re-share, the --quiet supersession 0087, the applied release 0085), and
+-- record_content_courtesy_release (0043) is the one approval that does not promote. Both get one
+-- perform, rewritten against the live definition with a drift guard (the 0085/0086 pattern).
+-- The override writes an agency_internal activity row: recorded, shown in Ops, never notified.
+
+insert into public.activity_event_types (event_type)
+values ('release_media_override')
+on conflict (event_type) do nothing;
+update public.activity_event_types set agency_internal = true
+  where event_type = 'release_media_override';
+
+create table public.content_release_media_overrides (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.clients(id) on delete cascade,
+  content_item_id uuid not null,
+  content_version int not null check (content_version > 0),
+  reason text not null check (
+    pg_catalog.starts_with(reason, 'Approved by Anastasia:')
+    and pg_catalog.char_length(pg_catalog.btrim(pg_catalog.substr(reason, 23))) >= 3
+    and pg_catalog.char_length(reason) <= 500
+    and reason !~ '[[:cntrl:]]'
+  ),
+  recorded_by_actor_id uuid not null references public.agency_actors(id),
+  recorded_at timestamptz not null default pg_catalog.now(),
+  unique (client_id, content_item_id, content_version),
+  foreign key (content_item_id, client_id, content_version)
+    references public.content_item_versions(content_item_id, client_id, version) on delete cascade
+);
+alter table public.content_release_media_overrides enable row level security;
+-- Deliberately no policies: agency-only. Written only by agency_record_release_media_override.
+revoke all on public.content_release_media_overrides from public, anon, authenticated, service_role;
+grant select on public.content_release_media_overrides to service_role;
+
+-- What the exact version carries. Used by the guard, the CLI pre-check and the Ops alert (0095).
+create function public.agency_release_media_status(p_content_item_id uuid, p_content_version int)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select pg_catalog.jsonb_build_object(
+    'review_assets', (select pg_catalog.count(*)::int from public.content_review_assets a
+      where a.content_item_id = p_content_item_id and a.content_version = p_content_version),
+    'previews', (select pg_catalog.count(*)::int from public.content_review_previews p
+      where p.content_item_id = p_content_item_id and p.content_version = p_content_version),
+    'design_link', exists (
+        select 1 from public.content_design_links dl
+        where dl.content_item_id = p_content_item_id
+          and (dl.canva_url is not null or dl.drive_url is not null))
+      or exists (
+        select 1 from public.content_item_versions v
+        where v.content_item_id = p_content_item_id and v.version = p_content_version
+          and (nullif(pg_catalog.btrim(v.canva_url), '') is not null
+            or nullif(pg_catalog.btrim(v.drive_url), '') is not null)),
+    'override_reason', (select o.reason from public.content_release_media_overrides o
+      where o.content_item_id = p_content_item_id and o.content_version = p_content_version)
+  )
+$$;
+revoke all on function public.agency_release_media_status(uuid, integer) from public, anon, authenticated;
+grant execute on function public.agency_release_media_status(uuid, integer) to service_role;
+
+-- The guard. Reachable only from inside the release functions (owner privileges), never directly.
+create function public.portal_assert_release_media(p_content_item_id uuid, p_content_version int)
+returns void
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_status jsonb := public.agency_release_media_status(p_content_item_id, p_content_version);
+begin
+  if coalesce((v_status->>'review_assets')::int, 0) > 0
+     or coalesce((v_status->>'previews')::int, 0) > 0
+     or coalesce((v_status->>'design_link')::boolean, false)
+     or (v_status->>'override_reason') is not null then
+    return;
+  end if;
+  raise exception 'release_media_missing: v% has no review asset, no portal preview and no design link. Attach one, or record a no-media override whose reason starts "Approved by Anastasia:".',
+    p_content_version using errcode = '23514';
+end;
+$$;
+revoke all on function public.portal_assert_release_media(uuid, integer)
+  from public, anon, authenticated, service_role;
+
+create function public.agency_record_release_media_override(
+  p_client_id uuid,
+  p_content_id text,
+  p_content_version int,
+  p_reason text,
+  p_actor_key text
+) returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor public.agency_actors%rowtype;
+  v_item public.content_items%rowtype;
+  v_reason text := pg_catalog.btrim(p_reason);
+  v_existing public.content_release_media_overrides%rowtype;
+  v_title text;
+  v_id uuid;
+begin
+  select * into v_actor from public.agency_actors a where a.actor_key = p_actor_key and a.active;
+  if not found then raise exception 'unknown or inactive agency actor'; end if;
+  if v_reason is null or not pg_catalog.starts_with(v_reason, 'Approved by Anastasia:')
+     or pg_catalog.char_length(pg_catalog.btrim(pg_catalog.substr(v_reason, 23))) < 3
+     or pg_catalog.char_length(v_reason) > 500 or v_reason ~ '[[:cntrl:]]' then
+    raise exception 'a no-media override reason must start "Approved by Anastasia:" and say why';
+  end if;
+  select * into v_item from public.content_items ci
+    where ci.client_id = p_client_id and ci.content_id = pg_catalog.btrim(p_content_id)
+    for update;
+  if not found then raise exception 'content does not belong to client'; end if;
+  select cv.title into v_title from public.content_item_versions cv
+    where cv.content_item_id = v_item.id and cv.client_id = p_client_id and cv.version = p_content_version;
+  if not found then raise exception 'content version not found'; end if;
+
+  select * into v_existing from public.content_release_media_overrides o
+    where o.client_id = p_client_id and o.content_item_id = v_item.id
+      and o.content_version = p_content_version;
+  if found then
+    if v_existing.reason = v_reason then
+      return pg_catalog.jsonb_build_object('override_id', v_existing.id, 'outcome', 'unchanged');
+    end if;
+    raise exception 'v% already has a no-media override with a different reason', p_content_version;
+  end if;
+
+  insert into public.content_release_media_overrides (
+    client_id, content_item_id, content_version, reason, recorded_by_actor_id)
+  values (p_client_id, v_item.id, p_content_version, v_reason, v_actor.id)
+  returning id into v_id;
+
+  insert into public.activity_log (client_id, content_id, content_version, event_type,
+    title, summary, actor_type, actor_name, event_key)
+  values (p_client_id, v_item.id, p_content_version, 'release_media_override',
+    'Released without media: ' || coalesce(v_title, v_item.content_id), v_reason,
+    'anastasia', v_actor.display_name, 'release-media-override:' || v_id::text);
+
+  return pg_catalog.jsonb_build_object('override_id', v_id, 'outcome', 'recorded');
+end;
+$$;
+revoke all on function public.agency_record_release_media_override(uuid, text, integer, text, text)
+  from public, anon, authenticated;
+grant execute on function public.agency_record_release_media_override(uuid, text, integer, text, text)
+  to service_role;
+
+-- Promotion: one perform before the wrapped core (0081's wrapper, unchanged otherwise).
+do $rewrite$
+declare
+  v_def text;
+  v_old text := $old$  perform public.portal_core_review_flow_mark_content_ready(p_content_id,p_content_version);$old$;
+  v_new text := $new$  -- 0092 release media guard: no promotion without media or a named override.
+  perform public.portal_assert_release_media(v_item.id, p_content_version);
+  perform public.portal_core_review_flow_mark_content_ready(p_content_id,p_content_version);$new$;
+begin
+  select pg_catalog.pg_get_functiondef(
+    'public.mark_content_ready(uuid,integer)'::pg_catalog.regprocedure) into v_def;
+  if v_def is null or pg_catalog.strpos(v_def, v_old) = 0 then
+    raise exception 'mark_content_ready drifted; 0092 will not rewrite it blindly';
+  end if;
+  execute pg_catalog.replace(v_def, v_old, v_new);
+end;
+$rewrite$;
+revoke all on function public.mark_content_ready(uuid,integer) from public, anon, authenticated;
+grant execute on function public.mark_content_ready(uuid,integer) to service_role;
+
+-- Courtesy release: the same check right after the 0086 override guard, before anything is written.
+do $rewrite$
+declare
+  v_def text;
+  v_old text := $old$    raise exception 'courtesy release requires studio content or an explicit Anastasia agency override';
+  end if;$old$;
+  v_new text := $new$    raise exception 'courtesy release requires studio content or an explicit Anastasia agency override';
+  end if;
+  -- 0092 release media guard: an agency approval of a version Maria cannot see is refused too.
+  perform public.portal_assert_release_media(v_item.id, p_content_version);$new$;
+begin
+  select pg_catalog.pg_get_functiondef(
+    'public.record_content_courtesy_release(uuid,integer,text,text,uuid)'::pg_catalog.regprocedure
+  ) into v_def;
+  if v_def is null or pg_catalog.strpos(v_def, v_old) = 0 then
+    raise exception 'courtesy release body drifted; 0092 will not rewrite it blindly';
+  end if;
+  execute pg_catalog.replace(v_def, v_old, v_new);
+end;
+$rewrite$;
+revoke all on function public.record_content_courtesy_release(uuid,integer,text,text,uuid)
+  from public, anon, authenticated, service_role;
+grant execute on function public.record_content_courtesy_release(uuid,integer,text,text,uuid)
+  to service_role;
+
+create function public.assert_release_media_guard_security()
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_fn text;
+  v_def text;
+begin
+  if not (select c.relrowsecurity from pg_catalog.pg_class c
+          where c.oid = 'public.content_release_media_overrides'::pg_catalog.regclass)
+     or exists (select 1 from pg_catalog.pg_policies p
+                where p.schemaname = 'public' and p.tablename = 'content_release_media_overrides') then
+    raise exception 'release media overrides must keep RLS on and take no policies';
+  end if;
+  if pg_catalog.has_any_column_privilege('anon', 'public.content_release_media_overrides', 'SELECT')
+     or pg_catalog.has_any_column_privilege('authenticated', 'public.content_release_media_overrides', 'SELECT')
+     or not pg_catalog.has_table_privilege('service_role', 'public.content_release_media_overrides', 'SELECT')
+     or pg_catalog.has_table_privilege('service_role', 'public.content_release_media_overrides', 'INSERT')
+     or pg_catalog.has_table_privilege('service_role', 'public.content_release_media_overrides', 'UPDATE')
+     or pg_catalog.has_table_privilege('service_role', 'public.content_release_media_overrides', 'DELETE') then
+    raise exception 'release media override privileges are unsafe';
+  end if;
+  foreach v_fn in array array[
+    'public.agency_release_media_status(uuid,integer)',
+    'public.agency_record_release_media_override(uuid,text,integer,text,text)'
+  ] loop
+    if pg_catalog.has_function_privilege('anon', v_fn, 'EXECUTE')
+       or pg_catalog.has_function_privilege('authenticated', v_fn, 'EXECUTE')
+       or not pg_catalog.has_function_privilege('service_role', v_fn, 'EXECUTE') then
+      raise exception 'release media function grants are unsafe: %', v_fn;
+    end if;
+  end loop;
+  if pg_catalog.has_function_privilege('anon', 'public.portal_assert_release_media(uuid,integer)', 'EXECUTE')
+     or pg_catalog.has_function_privilege('authenticated', 'public.portal_assert_release_media(uuid,integer)', 'EXECUTE')
+     or pg_catalog.has_function_privilege('service_role', 'public.portal_assert_release_media(uuid,integer)', 'EXECUTE') then
+    raise exception 'the release media check must be reachable only through the release functions';
+  end if;
+  select pg_catalog.pg_get_functiondef('public.mark_content_ready(uuid,integer)'::pg_catalog.regprocedure)
+    into v_def;
+  if v_def is null or v_def not ilike '%portal_assert_release_media%' then
+    raise exception 'mark_content_ready lost the release media guard';
+  end if;
+  select pg_catalog.pg_get_functiondef(
+    'public.record_content_courtesy_release(uuid,integer,text,text,uuid)'::pg_catalog.regprocedure) into v_def;
+  if v_def is null or v_def not ilike '%portal_assert_release_media%' then
+    raise exception 'record_content_courtesy_release lost the release media guard';
+  end if;
+  select pg_catalog.pg_get_functiondef(
+    'public.agency_record_release_media_override(uuid,text,integer,text,text)'::pg_catalog.regprocedure) into v_def;
+  if v_def is null or v_def not like '%Approved by Anastasia:%' then
+    raise exception 'the no-media override prefix rule drifted';
+  end if;
+  if not exists (select 1 from public.activity_event_types t
+                 where t.event_type = 'release_media_override' and t.agency_internal) then
+    raise exception 'release media overrides would notify';
+  end if;
+  if pg_catalog.has_function_privilege('anon', 'public.assert_release_media_guard_security()', 'EXECUTE')
+     or pg_catalog.has_function_privilege('authenticated', 'public.assert_release_media_guard_security()', 'EXECUTE') then
+    raise exception 'release media assertion is exposed';
+  end if;
+end;
+$$;
+revoke all on function public.assert_release_media_guard_security() from public, anon, authenticated;
+grant execute on function public.assert_release_media_guard_security() to service_role;
+
+select public.assert_release_media_guard_security();
+
+```
+
+- [ ] **Step 3: Fold the new assertion**
+
+In the same file, in the final `create or replace function public.assert_portal_security()` body, replace:
+
+```sql
+  perform public.assert_review_preview_security();
+end;
+```
+
+with:
+
+```sql
+  perform public.assert_review_preview_security();
+  perform public.assert_release_media_guard_security();
+end;
+```
+
+- [ ] **Step 4: Fresh replay and upgrade replay**
+
+```bash
+cd ~/worktrees/kanset-media-previews && supabase db reset
+supabase db reset --version 0091 && supabase migration up --local
+psql "$(supabase status -o env | awk -F= '/^DB_URL=/{gsub(/"/,"",$2); print $2}')" -v ON_ERROR_STOP=1 \
+  -c "select public.assert_portal_security();" \
+  -c "select pg_get_functiondef('public.assert_portal_security()'::regprocedure) ~ 'assert_release_media_guard_security' as folded;"
+```
+
+Expected: both replays finish with no `ERROR`; the assertion returns one empty row; `folded = t`. A `drifted; 0092 will not rewrite it blindly` error means a body changed after 0081/0086: read it, confirm the anchor line, and update `v_old` only (never weaken the guard).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git -C ~/worktrees/kanset-media-previews add supabase/migrations/0092_review_media_previews.sql
+git -C ~/worktrees/kanset-media-previews commit -m "Refuse a release with no media unless Anastasia approved it (0092)
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
+### Task 1b: Keep the existing fixtures releasing (amended 2026-10-03)
+
+**Files:**
+- Modify: `scripts/test-rls.ts`
+- Modify: `scripts/seed-rls-local.ts`
+- Modify: `scripts/update-portal-harness.ts`
+
+After Task 1a, `mark_content_ready` refuses a bare text fixture. About 25 existing `test-rls.ts` checks release such fixtures to test other rules, so the script's service-role client records a fixture override first, and only when the version has no media. The guard's own tests (Task 12a) use the unwrapped client. The seed and the update-portal harness give their pieces a design link instead, because the harness re-shares later versions through the real CLI and an item-level link covers every version.
+
+- [ ] **Step 1: Show the failure first**
+
+```bash
+cd ~/worktrees/kanset-media-previews && pnpm test:rls:seed-local
+```
+
+Expected: FAIL with `baseline release: release_media_missing: v1 has no review asset, no portal preview and no design link...`.
+
+- [ ] **Step 2: Seed a design link before the baseline release**
+
+In `scripts/seed-rls-local.ts`, replace:
+
+```ts
+    if (!itemId) throw new Error('baseline sync returned no item_id')
+    const { error: readyError } = await admin.rpc('mark_content_ready', {
+```
+
+with:
+
+```ts
+    if (!itemId) throw new Error('baseline sync returned no item_id')
+    // Release media guard (0092): the baseline needs something for the seat to look at.
+    const { error: designError } = await admin.rpc('set_content_design_links', {
+      p_client_id: client.id, p_content_id: CONTENT_ID,
+      p_canva_url: 'https://www.canva.com/design/RLSBASELINE/view', p_drive_url: null,
+      p_actor_key: 'thedot-admin', p_idempotency_key: `local-baseline-design-${randomUUID()}`,
+    })
+    if (designError) throw new Error(`baseline design link: ${designError.message}`)
+    const { error: readyError } = await admin.rpc('mark_content_ready', {
+```
+
+- [ ] **Step 3: Give every harness piece a design link**
+
+In `scripts/update-portal-harness.ts`, replace:
+
+```ts
+    if (error || !data) throw new Error(`seed sync ${id}: ${error?.message ?? 'no result'}`)
+    if (released) {
+```
+
+with:
+
+```ts
+    if (error || !data) throw new Error(`seed sync ${id}: ${error?.message ?? 'no result'}`)
+    // Release media guard (0092): an item-level design link covers every version the harness
+    // later re-shares through the real CLI.
+    const design = await this.db.rpc('set_content_design_links', {
+      p_client_id: this.clientId, p_content_id: id,
+      p_canva_url: 'https://www.canva.com/design/HARNESSDESIGN/view', p_drive_url: null,
+      p_actor_key: 'thedot-admin', p_idempotency_key: `harness-design-${id}-${randomUUID()}`,
+    })
+    if (design.error) throw new Error(`seed design ${id}: ${design.error.message}`)
+    if (released) {
+```
+
 - [ ] **Step 4: Wrap the test script's service-role client for fixtures**
 
 In `scripts/test-rls.ts`, replace:
