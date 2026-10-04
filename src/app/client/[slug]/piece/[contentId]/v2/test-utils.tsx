@@ -1,6 +1,9 @@
-import { render } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { vi } from 'vitest'
 import type { ServerDraftRow } from '@/lib/portal/review-drafts-core'
+import { editorViews } from '@/components/portal/editor/DocumentEditor'
+import { stubEditorLayout } from '@/components/portal/editor/test-layout'
+import { parseMarkdown, serializeMarkdown } from '@/lib/portal/piece-page/markdown-doc'
 import ReviewDraftProvider from '../ReviewDraftProvider'
 import ReviewTicksProvider from './ReviewTicksProvider'
 import EditorHost from './EditorHost'
@@ -12,6 +15,7 @@ import EditorHost from './EditorHost'
 //   vi.mock('@/app/client/[slug]/tick-actions', () => ({ tickReviewTabs: vi.fn(async () => ({ ok: true })) }))
 
 export function stubDialogs(): void {
+  stubEditorLayout()
   HTMLDialogElement.prototype.showModal = vi.fn(function showModal(this: HTMLDialogElement) {
     this.setAttribute('open', '')
   })
@@ -38,4 +42,15 @@ export function PageProviders({ children, version = 2, mode = 'client', serverDr
 
 export function renderInPage(ui: React.ReactNode, options: PageOptions = {}) {
   return render(<PageProviders {...options}>{ui}</PageProviders>)
+}
+
+// The Markdown the open document editor labelled `name` holds now.
+export function editorMarkdown(name: string): string {
+  return serializeMarkdown(editorViews.get(screen.getByRole('textbox', { name }))!.state.doc)
+}
+
+// Replaces everything in the open document editor labelled `name`, as one edit she typed.
+export function replaceEditorText(name: string, markdown: string): void {
+  const view = editorViews.get(screen.getByRole('textbox', { name }))!
+  act(() => view.dispatch(view.state.tr.replaceWith(0, view.state.doc.content.size, parseMarkdown(markdown).content)))
 }

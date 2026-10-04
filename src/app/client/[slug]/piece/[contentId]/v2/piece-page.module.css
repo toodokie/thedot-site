@@ -327,3 +327,37 @@
 @media (prefers-reduced-motion: reduce) {
   .root *, .root *::before, .root *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }
+
+/* Plan 4b: editing in place, the shared editor frame, structured fields, chips, chapter rows. */
+.inlineEditor { margin: var(--dot-space-2) 0; padding: var(--dot-space-4); border: 1px solid var(--dot-black); background: var(--dot-off-white); }
+.inlineEditor:focus-within { outline: 3px solid var(--dot-black); outline-offset: 3px; }
+.editorFrame { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.editorBody { flex: 1; min-height: 0; overflow: auto; }
+.editorSheet .sheetB { padding: 0; display: flex; }
+.editorSheet .editorBody { padding: var(--dot-space-4); }
+.inlineEditor .sheetT { padding: var(--dot-space-3) 0 0; background: transparent; border-top: 0; }
+.sheetActions > button, .sheetActions > a { min-height: 44px; min-width: 44px; }
+.fieldInput { width: 100%; min-height: 48px; padding: 12px 14px; font-family: var(--dot-font-text); font-size: 1.0625rem; color: var(--dot-black);
+  background: var(--dot-white); border: 1px solid var(--dot-black); border-radius: var(--dot-radius); }
+.fieldInput:focus-visible { outline: 3px solid var(--dot-black); outline-offset: 3px; }
+textarea.fieldInput { min-height: 96px; line-height: 1.5; resize: vertical; }
+.chipAdded { background: var(--dot-grad-highlight); border-color: var(--dot-grey-light); }
+.chipRemoved { color: var(--dot-grey-accessible); text-decoration: line-through; background: transparent; border-style: dashed; border-color: var(--dot-grey-light); }
+.chipX { display: inline-grid; place-items: center; width: 44px; height: 44px; margin: -4px -12px -4px 0; padding: 0; background: none; border: 0;
+  cursor: pointer; color: var(--dot-graphite); font-size: 1.125rem; }
+.chipAdd { min-width: 160px; min-height: 44px; margin-top: var(--dot-space-2); padding: 0 var(--dot-space-3); border: 1px dashed var(--dot-grey-light);
+  background: transparent; font: inherit; }
+.chapterRows { list-style: none; margin: 0 0 var(--dot-space-3); padding: 0; display: grid; gap: var(--dot-space-2); }
+.chapterRow { display: grid; grid-template-columns: 6rem minmax(0, 1fr) auto; gap: var(--dot-space-2); align-items: center; }
+@media (max-width: 767px) {
+  .chapterRow { grid-template-columns: 5rem minmax(0, 1fr); }
+  .chapterRow > button { grid-column: 2; justify-self: start; }
+  .inlineEditor { margin-left: calc(-1 * var(--dot-space-4)); margin-right: calc(-1 * var(--dot-space-4)); }
+  /* The full-screen editor sheet clears the notch and the rounded corners; the toolbar already
+     clears the home indicator, and the keyboard inset is added in script (visualViewport). */
+  .editorSheet .sheetH { padding-top: calc(var(--dot-space-3) + env(safe-area-inset-top, 0px));
+    padding-left: calc(var(--dot-space-4) + env(safe-area-inset-left, 0px)); padding-right: calc(var(--dot-space-4) + env(safe-area-inset-right, 0px)); }
+  .editorSheet .editorBody { padding-left: calc(var(--dot-space-4) + env(safe-area-inset-left, 0px)); padding-right: calc(var(--dot-space-4) + env(safe-area-inset-right, 0px)); }
+  /* Visual notes stay a small sheet on a phone too. */
+  .editorSheet.noteSheet { width: calc(100vw - 32px); height: auto; max-height: calc(100dvh - 32px); margin: auto; border: 1px solid var(--dot-black); }
+}

@@ -6,7 +6,7 @@ vi.mock('@/app/client/[slug]/request-actions', () => ({ sendReviewBundle: vi.fn(
 vi.mock('@/app/client/[slug]/tick-actions', () => ({ tickReviewTabs: vi.fn(async () => ({ ok: true })) }))
 
 import type { CopyTab } from '@/lib/portal/piece-page/copy-tabs'
-import { renderInPage, stubDialogs } from '../test-utils'
+import { editorMarkdown, renderInPage, replaceEditorText, stubDialogs } from '../test-utils'
 import YouTubePanel from './YouTubePanel'
 import ChaptersPanel from './ChaptersPanel'
 import ArticlePanel from './ArticlePanel'
@@ -66,21 +66,22 @@ describe('ArticlePanel', () => {
     expect(screen.getByRole('heading', { level: 3, name: 'Start with the one thing you can check' })).toBeInTheDocument()
     expect(document.body.textContent).not.toContain('###')
     fireEvent.click(screen.getByRole('button', { name: 'Edit section, Start with the one thing you can check' }))
-    expect(screen.getByLabelText('Text')).toHaveValue('### Start with the one thing you can check\n\nSection body.')
+    expect(screen.getByRole('textbox', { name: 'Start with the one thing you can check · Article' }))
+      .toHaveTextContent(/Start with the one thing you can check\s*Section body\./)
   })
 
   it('opens a section on her unsent draft and keeps her other section edits', () => {
     renderInPage(<ArticlePanel tab={article} coverUrl={null} before={{}} canEdit version={2} />)
     fireEvent.click(screen.getByRole('button', { name: 'Edit section, Opening' }))
-    fireEvent.change(screen.getByLabelText('Text'), { target: { value: '# How to Choose a Representative\n\nA new opening.' } })
+    replaceEditorText('Opening · Article', '# How to Choose a Representative\n\nA new opening.')
     fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     fireEvent.click(screen.getByRole('button', { name: 'Edit section, Start with the one thing you can check' }))
-    fireEvent.change(screen.getByLabelText('Text'), { target: { value: '### Start with the one thing you can check\n\nA new body.' } })
+    replaceEditorText('Start with the one thing you can check · Article', '### Start with the one thing you can check\n\nA new body.')
     fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     expect(screen.getByText('A new opening.')).toBeInTheDocument()
     expect(screen.getByText('A new body.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Edit section, Opening' }))
-    expect(screen.getByLabelText('Text')).toHaveValue('# How to Choose a Representative\n\nA new opening.')
+    expect(editorMarkdown('Opening · Article')).toBe('# How to Choose a Representative\n\nA new opening.')
   })
 
   it('highlights a changed paragraph inside a section', () => {

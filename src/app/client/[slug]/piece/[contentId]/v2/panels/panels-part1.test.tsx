@@ -7,7 +7,8 @@ vi.mock('@/app/client/[slug]/tick-actions', () => ({ tickReviewTabs: vi.fn(async
 
 import type { ServerDraftRow } from '@/lib/portal/review-drafts-core'
 import type { CopyTab } from '@/lib/portal/piece-page/copy-tabs'
-import { renderInPage, stubDialogs } from '../test-utils'
+import { editorViews } from '@/components/portal/editor/DocumentEditor'
+import { editorMarkdown, renderInPage, replaceEditorText, stubDialogs } from '../test-utils'
 import OnScreenTextPanel from './OnScreenTextPanel'
 import CopyPanel from './CopyPanel'
 import DocumentPanel from './DocumentPanel'
@@ -42,9 +43,10 @@ describe('OnScreenTextPanel', () => {
   it('edits one frame and marks it edited, not sent', () => {
     renderInPage(<OnScreenTextPanel tab={onscreen} frames={frames} before={{}} canEdit onSuggestFrame={null} version={2} />)
     fireEvent.click(screen.getByRole('button', { name: 'Edit text, Frame 2' }))
-    const field = screen.getByLabelText('Text')
-    expect(field).toHaveValue('**2.** $1,000 PER POSITION')
-    fireEvent.change(field, { target: { value: '**2.** $1,000 PER POSITION, PAID BY THE EMPLOYER' } })
+    const box = screen.getByRole('textbox', { name: 'Frame 2 of 3 · On-screen text' })
+    expect(box).toHaveTextContent('2. $1,000 PER POSITION')
+    const view = editorViews.get(box)!
+    act(() => view.dispatch(view.state.tr.insertText(', PAID BY THE EMPLOYER', view.state.doc.content.size - 1)))
     fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     const rows = screen.getAllByRole('listitem')
     expect(within(rows[1]).getByText('Edited, not sent')).toBeInTheDocument()
@@ -55,13 +57,13 @@ describe('OnScreenTextPanel', () => {
   it('opens a frame on her unsent draft and keeps every other frame edit', () => {
     renderInPage(<OnScreenTextPanel tab={onscreen} frames={frames} before={{}} canEdit onSuggestFrame={null} version={2} />)
     fireEvent.click(screen.getByRole('button', { name: 'Edit text, Frame 2' }))
-    fireEvent.change(screen.getByLabelText('Text'), { target: { value: '**2.** EDITED TWO' } })
+    replaceEditorText('Frame 2 of 3 · On-screen text', '**2.** EDITED TWO')
     fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     fireEvent.click(screen.getByRole('button', { name: 'Edit text, Frame 3' }))
-    fireEvent.change(screen.getByLabelText('Text'), { target: { value: '**3.** EDITED THREE' } })
+    replaceEditorText('Frame 3 of 3 · On-screen text', '**3.** EDITED THREE')
     fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     fireEvent.click(screen.getByRole('button', { name: 'Edit text, Frame 2' }))
-    expect(screen.getByLabelText('Text')).toHaveValue('**2.** EDITED TWO')
+    expect(editorMarkdown('Frame 2 of 3 · On-screen text')).toBe('**2.** EDITED TWO')
     fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     const rows = screen.getAllByRole('listitem')
     expect(within(rows[1]).getByText('EDITED TWO', { exact: false })).toBeInTheDocument()
@@ -117,7 +119,7 @@ describe('CopyPanel', () => {
     await act(async () => {})
     expect(writeText).toHaveBeenCalledWith('First paragraph.\n\nSecond paragraph, edited.')
     fireEvent.click(screen.getByRole('button', { name: 'Edit Caption' }))
-    expect(screen.getByLabelText('Text')).toHaveValue('First paragraph.\n\nSecond paragraph, edited.')
+    expect(screen.getByRole('textbox', { name: 'Caption' })).toHaveTextContent(/First paragraph\.\s*Second paragraph, edited\./)
   })
 })
 
@@ -131,15 +133,15 @@ describe('DocumentPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show page 1' }))
     expect(onPageChange).toHaveBeenCalledWith(0)
     fireEvent.click(screen.getByRole('button', { name: 'Edit text, Page 2' }))
-    expect(screen.getByLabelText('Text')).toHaveValue('**Page 2, the fee**\n\nPAID BEFORE HIRING.')
+    expect(screen.getByRole('textbox', { name: 'Page 2 of 2 · PDF text' })).toHaveTextContent(/Page 2, the fee\s*PAID BEFORE HIRING\./)
   })
 
   it('opens a page on her unsent draft, not the released text', () => {
     renderInPage(<DocumentPanel tab={pdf} page={0} onPageChange={vi.fn()} pageThumbs={[]} before={{}} canEdit version={2} />)
     fireEvent.click(screen.getByRole('button', { name: 'Edit text, Page 2' }))
-    fireEvent.change(screen.getByLabelText('Text'), { target: { value: '**Page 2, the fee**\n\nPAID BY THE EMPLOYER.' } })
+    replaceEditorText('Page 2 of 2 · PDF text', '**Page 2, the fee**\n\nPAID BY THE EMPLOYER.')
     fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     fireEvent.click(screen.getByRole('button', { name: 'Edit text, Page 2' }))
-    expect(screen.getByLabelText('Text')).toHaveValue('**Page 2, the fee**\n\nPAID BY THE EMPLOYER.')
+    expect(editorMarkdown('Page 2 of 2 · PDF text')).toBe('**Page 2, the fee**\n\nPAID BY THE EMPLOYER.')
   })
 })
