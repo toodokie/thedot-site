@@ -26,8 +26,8 @@ export default function FrameGrid({ title, frames, collapsed, onSuggest, onImage
     <ol className={styles.fgrid}>
       {frames.map((frame, index) => <li key={`${index}-${frame.url}`} className={styles.fg}>
         {/* Signed, expiring storage links: next/image would cache and re-host them. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         {/* The visible number and time below name the frame, so the image itself is decorative. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img className={styles.thumb} src={frame.url} alt="" loading="lazy" onError={onImageError} />
         <div className={styles.fgN}>{index + 1} · {frame.label}</div>
         {onSuggest && <button type="button" className={styles.link} aria-label={`Suggest a change to frame ${index + 1}`}

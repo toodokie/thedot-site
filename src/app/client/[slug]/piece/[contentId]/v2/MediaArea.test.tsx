@@ -74,6 +74,19 @@ describe('MediaArea', () => {
     expect(screen.getByRole('dialog', { name: 'Page 1 of 12' })).toBeVisible()
   })
 
+  it('enlarges on the tap after a swipe that produced no click', () => {
+    const onPageChange = vi.fn()
+    render(<MediaArea {...base} layout="pages" preview={pages} page={0} onPageChange={onPageChange} />)
+    const page = screen.getByRole('button', { name: 'Enlarge page 1 of 12' })
+    fireEvent.pointerDown(page, { pointerType: 'touch', clientX: 200, clientY: 100 })
+    fireEvent.pointerUp(page, { pointerType: 'touch', clientX: 80, clientY: 100 })
+    expect(onPageChange).toHaveBeenLastCalledWith(1)
+    fireEvent.pointerDown(page, { pointerType: 'touch', clientX: 120, clientY: 100 })
+    fireEvent.pointerUp(page, { pointerType: 'touch', clientX: 121, clientY: 100 })
+    fireEvent.click(page)
+    expect(screen.getByRole('dialog', { name: 'Page 1 of 12' })).toBeVisible()
+  })
+
   it('shows a placeholder while the media is not ready', () => {
     render(<MediaArea {...base} layout="vertical" preview={null} mediaPending />)
     expect(screen.getByText('Video coming. You can review the text now.')).toBeInTheDocument()

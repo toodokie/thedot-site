@@ -47,7 +47,7 @@ export default function MediaArea(props: {
     setImageAttempt((value) => value + 1)
   }
   const imagesNotice = imagesFailed && <div className={styles.notice} role="alert">
-    <p>Some images didn't load.</p>
+    <p>Some images didn&apos;t load.</p>
     <button type="button" className={styles.ghostButton} onClick={() => void retryImages()}>Retry</button>
   </div>
 

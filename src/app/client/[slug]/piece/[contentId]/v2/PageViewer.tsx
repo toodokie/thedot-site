@@ -36,6 +36,12 @@ export default function PageViewer({ title, pages, page, onPageChange, onSuggest
     }}>
     <div className={styles.pager}>
       <button ref={pageButtonRef} type="button" className={styles.pagerButton} aria-label={`Enlarge page ${page + 1} of ${total}`} {...swipe}
+        onPointerDown={(event) => {
+          // A swipe on a touch screen may end without a click; start every gesture clean so the
+          // next tap still enlarges.
+          swiped.current = false
+          swipe.onPointerDown(event)
+        }}
         onClick={() => {
           if (swiped.current) { swiped.current = false; return }
           setEnlarged(true)
