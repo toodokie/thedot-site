@@ -210,6 +210,7 @@ Each file's top comment states its purpose. Summary:
 | `0079_agency_edit_review_candidates` | n/a | Adds agency-only safe-merge drafts and internal approvals for client copy requests. Candidates stay invisible to the client and do not advance a request, canonical copy or release. |
 | `0080_reviewed_bundle_reconciliation` | n/a | Makes an approved complete safe-merge candidate the exact audited copy boundary for bundled edit reconciliation while preserving Maria's original proposal and the legacy exact-block path. |
 | `0081_unified_piece_review_bundles` | n/a | Unifies copy and visual edits into one atomic client review bundle, aligns unresolved-state guards, adds visual revision lifecycle controls, and records the one-time per-seat review-flow acknowledgment. |
+| `0092_review_media_previews` | n/a | Private `portal-review-previews` bucket (no client storage policy), `content_review_previews` readable only by the owning seat for the released version, signed links served by the app, a removal queue drained through the Storage API, retention on live-everywhere, superseded, archived and planned date + 7 days, and `review_preview_uploaded` / `review_preview_deleted` activity (flagged `activity_event_types.agency_internal`, so `portal_activity_notify` queues no notification for them and the client seat cannot read them). Copy-only revisions carry the previous version's review assets and previews forward (2026-10-04). Full podcast episodes and videos over 240 s are refused. |
 
 **Full v1 architecture + phasing spec:** `~/Kanset/portal-integration-task.md`.
 **Gate-system spec:** `docs/superpowers/specs/2026-07-21-portal-gate-system-design.md`.
@@ -712,6 +713,17 @@ link — the DB is the record.
 stable `assetKey`, channel, kind, Canva or Drive URL, pixel dimensions, and caption status. Use
 `burned_in_verified` only after the teaser captions were proofed. A generic item-level design link
 does not satisfy the podcast readiness contract.
+
+**Attach a review preview (portal-hosted copy of a render):** run `portal-write review-preview` with
+`clientSlug`, `contentId`, the exact `contentVersion`, a `previewKey` (`reel`, `teaser`, `carousel`),
+and absolute local paths: `video` (MP4, at most 50 MiB and 240 s) with optional `poster` and
+`frames` (`[path]` or `[{path,label}]`), or `pages` for a carousel or PDF. It uploads the same
+render file that goes to Drive; Drive stays the master and Anastasia still supplies every Drive
+link. Re-running with the same files answers `unchanged`; changed files replace the old preview and
+delete its objects. It emails nobody. Previews are deleted automatically when every destination is
+confirmed live (`publication-confirm`, `portal-ship`, the admin Publication surface) and nightly by
+`/api/cron/portal-preview-retention` once the planned date is more than 7 days past. Never upload a
+full podcast episode; the database refuses it.
 
 **Release media guard (since 0092):** every release refuses a version with no review asset, no
 portal preview and no design link: `portal-admin ready`, `update-portal --re-share` (with or
