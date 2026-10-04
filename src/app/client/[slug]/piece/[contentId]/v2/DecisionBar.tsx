@@ -144,7 +144,7 @@ export default function DecisionBar({
       break
     case 'sent':
       prog = <><strong className={styles.progStrong}>Your edits are with me</strong>
-        <span className={styles.sub}>I'll apply them and move the piece forward. Nothing else needed from you.</span></>
+        <span className={styles.sub}>I&apos;ll apply them and move the piece forward. Nothing else needed from you.</span></>
       act = pastLink
       break
     case 'revision':
@@ -152,7 +152,7 @@ export default function DecisionBar({
         <span className={styles.sub}>
           {sentSummary.dateLabel
             ? `You sent ${sentSummary.count} ${edits(sentSummary.count)} on ${sentSummary.dateLabel}. You'll see the final version here once it's applied. Editing is paused until then.`
-            : 'You'll see the final version here once it's applied. Editing is paused until then.'}
+            : "You'll see the final version here once it's applied. Editing is paused until then."}
         </span></>
       act = pastLink
       break

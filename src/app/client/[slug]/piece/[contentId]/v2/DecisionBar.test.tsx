@@ -90,7 +90,7 @@ describe('DecisionBar', () => {
     const onOpenPastEdits = vi.fn()
     const { rerender } = renderInPage(bar({ kind: 'revision' }, { onOpenPastEdits }))
     expect(screen.getByText("I'm applying your edits")).toBeInTheDocument()
-    expect(screen.getByText('You sent 2 edits on Sep 30. You'll see the final version here once it's applied. Editing is paused until then.')).toBeInTheDocument()
+    expect(screen.getByText("You sent 2 edits on Sep 30. You'll see the final version here once it's applied. Editing is paused until then.")).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'See what you sent' }))
     expect(onOpenPastEdits).toHaveBeenCalled()
     rerender(<PageProviders>{bar({ kind: 'sent', count: 2 })}</PageProviders>)
