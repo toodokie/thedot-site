@@ -1,0 +1,29 @@
+/* Document-like editor (spec 2026-10-03 section 5): same font and size as the read view, no
+   Markdown visible, highlighter for added words, strike for removed words. Tokens only. */
+.wrap { display: grid; gap: var(--dot-space-2); }
+.label { font-family: var(--dot-font-display); font-weight: var(--dot-weight-demi); text-transform: uppercase;
+  letter-spacing: 0.18em; font-size: 0.7rem; color: var(--dot-grey-accessible); }
+.surface { min-height: 6rem; padding: var(--dot-space-3) var(--dot-space-4); border: 1px solid var(--dot-black);
+  border-radius: var(--dot-radius); background: var(--dot-white); color: var(--dot-black); font-family: var(--dot-font-text);
+  font-size: 1.0625rem; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: anywhere;
+  font-variant-ligatures: none; font-feature-settings: "liga" 0; }
+.surface:focus-visible { outline: 3px solid var(--dot-black); outline-offset: 3px; }
+.surface p { margin: 0 0 0.9em; }
+.surface p:last-child { margin-bottom: 0; }
+.surface h2, .surface h3, .surface h4, .surface h5, .surface h6 { margin: 0 0 0.6em; font-family: var(--dot-font-text);
+  font-weight: var(--dot-weight-medium); font-size: 1.25rem; line-height: 1.3; }
+.surface ul, .surface ol { margin: 0 0 0.9em; padding-left: 1.4em; }
+.surface li[data-check] { list-style: none; }
+.surface li[data-check='unchecked']::before { content: '☐ '; margin-left: -1.2em; }
+.surface li[data-check='checked']::before { content: '☑ '; margin-left: -1.2em; }
+.surface blockquote { margin: 0 0 0.9em; padding-left: var(--dot-space-4); border-left: 3px solid var(--dot-black); }
+.surface hr { border: 0; border-top: 1px solid var(--dot-hairline); margin: var(--dot-space-4) 0; }
+.surface :global(.md-ins), .ins { background: var(--dot-grad-highlight); text-decoration: none; color: var(--dot-black); padding: 0 2px; }
+.surface :global(.md-del), .del { color: var(--dot-grey-accessible); text-decoration: line-through; text-decoration-thickness: 1px; }
+.surface :global(.ProseMirror-hideselection *::selection) { background: transparent; }
+.surface:global(.ProseMirror-hideselection) { caret-color: transparent; }
+.surface :global(.ProseMirror-separator) { display: inline !important; border: none !important; margin: 0 !important; }
+.tracked { white-space: pre-wrap; font-size: 1.0625rem; line-height: 1.6; }
+.count { font-size: 0.8125rem; color: var(--dot-grey-accessible); font-variant-numeric: tabular-nums; }
+.over { font-size: 0.875rem; color: var(--dot-danger); font-weight: var(--dot-weight-medium); }
+.srOnly, .surface :global(.md-sr) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
