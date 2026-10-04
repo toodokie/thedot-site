@@ -48,13 +48,20 @@ export function firstName(name: string | null | undefined): string {
   return (name ?? '').trim().split(/\s+/)[0] || 'The client'
 }
 
+// A send failure closes itself once her retry succeeds (plan 3 resolves its failure rows), so
+// marking one handled by hand would hide a failure she may still be retrying.
+export const SEND_FAILURE_SELF_CLOSES = 'Send failures close themselves when her retry succeeds.'
+export function signalResolveRefusal(eventType: string): string | null {
+  return eventType === 'review_send_failed' ? SEND_FAILURE_SELF_CLOSES : null
+}
+
 export function clientSignalFromRow(row: OpenClientSignalRow): ClientSignal | null {
   if (!(CLIENT_SIGNAL_TYPES as readonly string[]).includes(row.event_type)) return null
   const kind = row.event_type as ClientSignalType
   const piece = row.title ?? row.content_key ?? 'a piece'
   const base = {
     id: row.event_id, kind, pieceKey: row.content_key, pieceTitle: row.title,
-    createdAt: row.created_at, resolvable: true,
+    createdAt: row.created_at, resolvable: signalResolveRefusal(kind) === null,
   }
   if (kind === 'portal_feedback_submitted') {
     const rating = num(row.payload.rating) ?? 0

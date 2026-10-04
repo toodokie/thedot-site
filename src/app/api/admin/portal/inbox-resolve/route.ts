@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { assertSameOriginRequest, requireAdminSession } from '@/lib/admin-security'
-import { resolveClientSignal } from '@/lib/portal/agency-ops'
+import { SignalNotResolvableError, resolveClientSignal } from '@/lib/portal/agency-ops'
 
 // My Tasks "Done" on a client signal (migration 0095). Agency only; writes one resolution row.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -20,6 +20,9 @@ export async function POST(request: Request) {
     const result = await resolveClientSignal({ eventId: body.eventId, note, idempotencyKey: body.idempotencyKey })
     return NextResponse.json({ result }, { headers: NO_STORE })
   } catch (error) {
+    if (error instanceof SignalNotResolvableError) {
+      return NextResponse.json({ error: error.message }, { status: 409, headers: NO_STORE })
+    }
     const message = error instanceof Error ? error.message : ''
     const status = message === 'ADMIN_AUTH_REQUIRED' ? 401 : message === 'INVALID_ORIGIN' ? 403 : 400
     if (status === 400) console.error('inbox resolve failed:', message)

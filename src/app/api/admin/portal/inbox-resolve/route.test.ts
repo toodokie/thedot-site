@@ -7,7 +7,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/admin-security', () => ({
   requireAdminSession: mocks.requireAdminSession, assertSameOriginRequest: mocks.assertSameOriginRequest,
 }))
-vi.mock('@/lib/portal/agency-ops', () => ({ resolveClientSignal: mocks.resolveClientSignal }))
+vi.mock('@/lib/portal/agency-ops', () => ({
+  resolveClientSignal: mocks.resolveClientSignal,
+  SignalNotResolvableError: class SignalNotResolvableError extends Error {},
+}))
 
 import { POST } from './route'
 
@@ -43,6 +46,15 @@ describe('POST /api/admin/portal/inbox-resolve', () => {
     mocks.assertSameOriginRequest.mockImplementationOnce(() => { throw new Error('INVALID_ORIGIN') })
     expect((await post({ eventId: EVENT, idempotencyKey: KEY })).status).toBe(403)
     expect(mocks.resolveClientSignal).not.toHaveBeenCalled()
+  })
+
+  it('refuses a send failure with a plain message', async () => {
+    const { SignalNotResolvableError } = await import('@/lib/portal/agency-ops')
+    mocks.resolveClientSignal.mockRejectedValueOnce(
+      new SignalNotResolvableError('Send failures close themselves when her retry succeeds.'))
+    const response = await post({ eventId: EVENT, idempotencyKey: KEY })
+    expect(response.status).toBe(409)
+    expect(await response.json()).toEqual({ error: 'Send failures close themselves when her retry succeeds.' })
   })
 
   it('never echoes a database error to the caller', async () => {

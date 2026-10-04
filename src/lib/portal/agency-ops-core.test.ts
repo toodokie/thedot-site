@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ResolvedGate } from './gates'
 import {
-  clientSignalFromRow, feedbackLine, gateDots, gateSummary, mariaViewLine, parseAnchor,
+  SEND_FAILURE_SELF_CLOSES, clientSignalFromRow, feedbackLine, gateDots, signalResolveRefusal, gateSummary, mariaViewLine, parseAnchor,
   postsInLabel, releaseMediaAlertDetail, releaseMediaAlertLine, requestAnchors, requestStateLabel,
   unsentAlertDetail, versionRows, type OpenClientSignalRow, type ReleaseMediaAlert,
 } from './agency-ops-core'
@@ -27,8 +27,16 @@ describe('clientSignalFromRow', () => {
       payload: { edit_count: 2, reason_code: 'draft_too_long' } })
     expect(clientSignalFromRow(row)).toMatchObject({
       kind: 'review_send_failed', pieceKey: 'kanset-reel', headline: 'Edits not sent: Hiring cost reel',
-      detail: '2 edits refused (draft too long). Her text is saved.',
+      detail: '2 edits refused (draft too long). Her text is saved.', resolvable: false,
     })
+  })
+
+  it('refuses Done on a send failure and allows it on every other signal', () => {
+    expect(signalResolveRefusal('review_send_failed')).toBe(SEND_FAILURE_SELF_CLOSES)
+    expect(SEND_FAILURE_SELF_CLOSES).toBe('Send failures close themselves when her retry succeeds.')
+    for (const type of ['review_drafts_carried_over', 'portal_feedback_submitted', 'review_playback_failed']) {
+      expect(signalResolveRefusal(type)).toBeNull()
+    }
   })
 
   it('describes carried-over drafts with both versions', () => {

@@ -17,6 +17,7 @@ import {
   resolveReleasedCanonicalSourceForPreparedCandidate,
 } from '../src/lib/portal/canonical-provenance'
 import { assertProducerDeclared, parseContentFile, type ParsedContent } from '../src/lib/portal/frontmatter'
+import { signalResolveRefusal } from '../src/lib/portal/agency-ops-core'
 
 loadEnvConfig(process.cwd())
 const url=process.env.NEXT_PUBLIC_SUPABASE_URL; const key=process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -588,6 +589,8 @@ async function main(){
     const event=shown.data as {id:string;event_type:string;created_at:string;actor_name:string}|null
     if(!event||event.id!==value) throw new Error('inbox event not found for client')
     if(!SIGNAL_EVENT_TYPES.has(event.event_type)) throw new Error(`not a client signal: ${event.event_type}`)
+    const refusal=signalResolveRefusal(event.event_type)
+    if(refusal) throw new Error(refusal)
     if(dryRun){
       console.log(`DRY RUN: would mark ${event.id} (${event.event_type}, ${event.created_at}, ${event.actor_name}) handled for ${slug}${note?` with note "${note}"`:''}. Nothing written.`)
       return

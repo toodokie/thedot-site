@@ -14,7 +14,8 @@ vi.mock('@/lib/supabase/admin', () => ({
 }))
 
 import {
-  getLatestFeedback, getOpenClientSignals, getPieceRequestContext, getReleaseMediaAlerts, resolveClientSignal,
+  SignalNotResolvableError, getLatestFeedback, getOpenClientSignals, getPieceRequestContext, getReleaseMediaAlerts,
+  resolveClientSignal,
 } from './agency-ops'
 
 beforeEach(() => { mocks.rpc.mockReset(); mocks.results.clear() })
@@ -38,11 +39,25 @@ describe('agency ops readers', () => {
   })
 
   it('resolves through the audited RPC with the admin actor', async () => {
-    mocks.rpc.mockResolvedValue({ data: { outcome: 'resolved' }, error: null })
+    mocks.results.set('clients', { data: [{ id: 'c' }], error: null })
+    mocks.rpc.mockImplementation(async (name: string) => name === 'show_portal_inbox_event'
+      ? { data: { id: 'e1', event_type: 'portal_feedback_submitted' }, error: null }
+      : { data: { outcome: 'resolved' }, error: null })
     await resolveClientSignal({ eventId: 'e1', note: null, idempotencyKey: 'k1' })
     expect(mocks.rpc).toHaveBeenCalledWith('agency_resolve_inbox_event', {
       p_event_id: 'e1', p_note: null, p_actor_key: 'thedot-admin', p_idempotency_key: 'k1',
     })
+  })
+
+  it('refuses to mark a send failure handled and never calls the resolve RPC', async () => {
+    mocks.results.set('clients', { data: [{ id: 'c' }], error: null })
+    mocks.rpc.mockImplementation(async (name: string) => name === 'show_portal_inbox_event'
+      ? { data: { id: 'e1', event_type: 'review_send_failed' }, error: null }
+      : { data: { outcome: 'resolved' }, error: null })
+    const outcome = resolveClientSignal({ eventId: 'e1', note: null, idempotencyKey: 'k1' })
+    await expect(outcome).rejects.toBeInstanceOf(SignalNotResolvableError)
+    await expect(outcome).rejects.toThrow('Send failures close themselves when her retry succeeds.')
+    expect(mocks.rpc).not.toHaveBeenCalledWith('agency_resolve_inbox_event', expect.anything())
   })
 
   it('reads the latest feedback answers', async () => {

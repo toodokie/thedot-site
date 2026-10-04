@@ -1,7 +1,7 @@
 import 'server-only'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import {
-  clientSignalFromRow, type ClientSignal, type OpenClientSignalRow, type ReleaseMediaAlert, type SentDraftAnchorRow,
+  clientSignalFromRow, signalResolveRefusal, type ClientSignal, type OpenClientSignalRow, type ReleaseMediaAlert, type SentDraftAnchorRow,
 } from './agency-ops-core'
 
 // Agency Ops readers (migration 0095). Service role only; never imported by a client route.
@@ -16,11 +16,29 @@ export async function getOpenClientSignals(limit = 100): Promise<ClientSignal[]>
     .filter((signal): signal is ClientSignal => signal !== null)
 }
 
+// Thrown when a signal must not be marked handled by hand; the message is safe to show.
+export class SignalNotResolvableError extends Error {}
+
+// The inbox table has no service-role SELECT; the agency RPC reads one event per client.
+async function inboxEventType(eventId: string): Promise<string | null> {
+  const admin = createSupabaseAdmin()
+  const clients = await admin.from('clients').select('id').limit(50)
+  if (clients.error) throw new Error(`clients unavailable: ${clients.error.message}`)
+  for (const client of (clients.data ?? []) as Array<{ id: string }>) {
+    const shown = await admin.rpc('show_portal_inbox_event', { p_client_id: client.id, p_event_id: eventId })
+    const event = shown.data as { id?: string; event_type?: string } | null
+    if (!shown.error && event?.id === eventId) return event.event_type ?? null
+  }
+  return null
+}
+
 export async function resolveClientSignal(input: {
   eventId: string
   note: string | null
   idempotencyKey: string
 }): Promise<{ outcome: 'resolved' | 'already_resolved' }> {
+  const refusal = signalResolveRefusal((await inboxEventType(input.eventId)) ?? '')
+  if (refusal) throw new SignalNotResolvableError(refusal)
   const { data, error } = await createSupabaseAdmin().rpc('agency_resolve_inbox_event', {
     p_event_id: input.eventId, p_note: input.note, p_actor_key: ACTOR_KEY,
     p_idempotency_key: input.idempotencyKey,
