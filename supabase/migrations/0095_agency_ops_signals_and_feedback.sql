@@ -181,7 +181,7 @@ begin
   select * into v_event from public.portal_inbox_events e where e.id = p_event_id;
   if not found then raise exception 'inbox event not found'; end if;
   if v_event.event_type not in ('review_send_failed', 'review_drafts_carried_over',
-      'portal_feedback_submitted', 'review_unsent_drafts_due') then
+      'portal_feedback_submitted', 'review_unsent_drafts_due', 'review_playback_failed') then
     raise exception 'not a client signal';
   end if;
   insert into public.agency_inbox_resolutions (event_id, client_id, resolved_by, note, idempotency_key)
@@ -234,10 +234,11 @@ as $$
   left join public.content_item_versions cv
     on cv.content_item_id = ci.id and cv.client_id = ci.client_id
    and cv.version = coalesce(ci.client_visible_version, ci.working_version)
-  where e.event_type in ('review_send_failed', 'review_drafts_carried_over', 'portal_feedback_submitted')
+  where e.event_type in ('review_send_failed', 'review_drafts_carried_over', 'portal_feedback_submitted',
+      'review_playback_failed')
     and not exists (select 1 from public.agency_inbox_resolutions r where r.event_id = e.id)
     and (
-      e.event_type = 'portal_feedback_submitted'
+      e.event_type in ('portal_feedback_submitted', 'review_playback_failed')
       or (e.event_type = 'review_send_failed' and exists (
         select 1 from public.client_request_failures f
         where f.client_id = e.client_id and f.attempt_id = e.object_id and f.resolved_at is null))
@@ -395,6 +396,103 @@ grant execute on function public.assert_agency_ops_feedback_security() to servic
 
 select public.assert_agency_ops_feedback_security();
 
+-- ---------------------------------------------------------------------------------------------
+-- Media signals (amended 2026-10-03, Anastasia).
+--   * review_playback_failed (0094): listed by agency_open_client_signals until Done.
+--   * agency_release_media_alerts: every piece currently with Maria (released and visible, not
+--     archived, status draft / approved / scheduled, and not yet live and verified on every required
+--     destination) whose released version has no review asset, no portal preview and no design link.
+--     It clears itself when media is attached or the piece goes live. An approved no-media override
+--     (0092, reason starting "Approved by Anastasia:") on that exact released version silences it
+--     (Anastasia, 2026-10-03); a newer released version without media or its own override alerts
+--     again, because the status is read for client_visible_version only. override_reason is kept in
+--     the result for shape stability and is always null here.
+do $$
+begin
+  if pg_catalog.to_regprocedure('public.agency_release_media_status(uuid,integer)') is null
+     or pg_catalog.to_regclass('public.content_review_playback_failures') is null
+     or not exists (select 1 from public.activity_event_types t where t.event_type = 'review_playback_failed') then
+    raise exception '0095 media signals require the release media guard (0092) and playback reports (0094)';
+  end if;
+end;
+$$;
+
+create function public.agency_release_media_alerts()
+returns table (
+  client_id uuid,
+  content_item_id uuid,
+  content_key text,
+  title text,
+  content_version int,
+  planned_date date,
+  waiting_on text,
+  override_reason text
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select ci.client_id, ci.id, ci.content_id, coalesce(cv.title, ci.content_id), ci.client_visible_version,
+    ci.planned_date,
+    case when ci.status = 'draft' then 'review' else 'posting' end,
+    m.status->>'override_reason'
+  from public.content_items ci
+  join public.content_item_versions cv
+    on cv.content_item_id = ci.id and cv.client_id = ci.client_id and cv.version = ci.client_visible_version
+  cross join lateral (
+    select public.agency_release_media_status(ci.id, ci.client_visible_version) as status
+  ) m
+  where ci.client_visible and ci.archived_at is null and ci.client_visible_version is not null
+    and ci.status in ('draft', 'approved', 'scheduled')
+    and coalesce((m.status->>'review_assets')::int, 0) = 0
+    and coalesce((m.status->>'previews')::int, 0) = 0
+    and not coalesce((m.status->>'design_link')::boolean, false)
+    and (m.status->>'override_reason') is null
+    and not (
+      exists (
+        select 1 from public.content_publication_targets t
+        where t.client_id = ci.client_id and t.content_id = ci.id
+          and t.content_version = ci.client_visible_version and t.required)
+      and not exists (
+        select 1 from public.content_publication_targets t
+        where t.client_id = ci.client_id and t.content_id = ci.id
+          and t.content_version = ci.client_visible_version and t.required
+          and not (t.status = 'live' and t.reconciliation_status = 'verified')))
+  order by ci.planned_date nulls last, ci.content_id
+$$;
+revoke all on function public.agency_release_media_alerts() from public, anon, authenticated;
+grant execute on function public.agency_release_media_alerts() to service_role;
+
+create function public.assert_agency_media_signal_security()
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  if pg_catalog.has_function_privilege('anon', 'public.agency_release_media_alerts()', 'EXECUTE')
+     or pg_catalog.has_function_privilege('authenticated', 'public.agency_release_media_alerts()', 'EXECUTE')
+     or not pg_catalog.has_function_privilege('service_role', 'public.agency_release_media_alerts()', 'EXECUTE') then
+    raise exception 'release media alerts are exposed to a client role';
+  end if;
+  if pg_catalog.pg_get_functiondef('public.agency_open_client_signals(integer)'::pg_catalog.regprocedure)
+       not like '%review_playback_failed%'
+     or pg_catalog.pg_get_functiondef('public.agency_resolve_inbox_event(uuid,text,text,text)'::pg_catalog.regprocedure)
+       not like '%review_playback_failed%' then
+    raise exception 'playback failures dropped out of the agency signals';
+  end if;
+  if pg_catalog.pg_get_functiondef('public.agency_release_media_alerts()'::pg_catalog.regprocedure)
+       not like '%override_reason'') is null%' then
+    raise exception 'an approved no-media override must silence the media alert';
+  end if;
+  if pg_catalog.has_function_privilege('anon', 'public.assert_agency_media_signal_security()', 'EXECUTE')
+     or pg_catalog.has_function_privilege('authenticated', 'public.assert_agency_media_signal_security()', 'EXECUTE') then
+    raise exception 'agency media signal assertion exposed';
+  end if;
+end;
+$$;
+revoke all on function public.assert_agency_media_signal_security() from public, anon, authenticated;
+grant execute on function public.assert_agency_media_signal_security() to service_role;
+
+select public.assert_agency_media_signal_security();
+
 -- Cumulative fold, the 0081 and 0093 rename pattern: whatever assert_portal_security() is now
 -- keeps running under a new name, and this slice's assertion joins it.
 alter function public.assert_portal_security() rename to assert_portal_pre_ops_feedback_security;
@@ -406,6 +504,7 @@ returns void language plpgsql security definer set search_path = '' as $$
 begin
   perform public.assert_portal_pre_ops_feedback_security();
   perform public.assert_agency_ops_feedback_security();
+  perform public.assert_agency_media_signal_security();
 end;
 $$;
 revoke all on function public.assert_portal_security() from public, anon, authenticated;
