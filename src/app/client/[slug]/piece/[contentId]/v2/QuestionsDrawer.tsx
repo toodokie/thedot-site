@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect, useRef } from 'react'
+import { useActionState, useEffect, useRef, type KeyboardEvent } from 'react'
 import { useFormStatus } from 'react-dom'
 import { Button, Textarea } from '@thedot/design-system'
 import type { CommentRow } from '@/lib/portal/comments'
@@ -22,8 +22,9 @@ function when(iso: string): string {
   return `${torontoDateLabel(iso)}, ${torontoTimeLabel(iso)}`
 }
 
-function Conversation({ comments }: { comments: CommentRow[] }) {
-  if (comments.length === 0) return <p className={styles.meta}>No questions yet. Ask anything about this piece below.</p>
+function Conversation({ comments, canComment }: { comments: CommentRow[]; canComment: boolean }) {
+  // A read-only seat has no composer below, so the read-only line in the footer is the empty state.
+  if (comments.length === 0) return canComment ? <p className={styles.meta}>No questions yet. Ask anything about this piece below.</p> : null
   return <ol className={styles.msgs}>
     {comments.map((c) => {
       const mine = c.author_type === 'client'
@@ -124,6 +125,20 @@ export default function QuestionsDrawer({
     { key: 'past', label: `Past edits (${requests.length})` },
   ]
 
+  // Roving tabindex: Left and Right move between tabs (wrapping), Home and End jump to the ends.
+  function moveTab(event: KeyboardEvent<HTMLButtonElement>, from: DrawerTab) {
+    const at = tabs.findIndex((entry) => entry.key === from)
+    const next = event.key === 'ArrowRight' ? (at + 1) % tabs.length
+      : event.key === 'ArrowLeft' ? (at - 1 + tabs.length) % tabs.length
+        : event.key === 'Home' ? 0
+          : event.key === 'End' ? tabs.length - 1
+            : -1
+    if (next < 0) return
+    event.preventDefault()
+    onTabChange(tabs[next].key)
+    document.getElementById(`questions-tab-${tabs[next].key}`)?.focus()
+  }
+
   return <dialog ref={ref} className={styles.drawer} aria-labelledby="questions-title" onClose={onClose}>
     <div className={styles.drawerH}>
       <div className={styles.drawerTop}>
@@ -132,16 +147,18 @@ export default function QuestionsDrawer({
           <p className={styles.notice}>Doesn&apos;t change the piece. To change it, edit the text.</p>
         </div>
         <button type="button" className={`${styles.ghostButton} ${styles.iconOnly}`} aria-label="Close"
-          onClick={() => { ref.current?.close(); onClose() }}>×</button>
+          onClick={() => ref.current?.close()}>×</button>
       </div>
       <div className={styles.drawerTabs} role="tablist" aria-label="Questions and sources">
         {tabs.map((entry) => <button key={entry.key} type="button" role="tab" id={`questions-tab-${entry.key}`}
           aria-selected={tab === entry.key} aria-controls="questions-panel" tabIndex={tab === entry.key ? 0 : -1}
-          className={styles.tab} onClick={() => onTabChange(entry.key)}>{entry.label}</button>)}
+          className={styles.tab} onClick={() => onTabChange(entry.key)} onKeyDown={(event) => moveTab(event, entry.key)}>
+          {entry.label}
+        </button>)}
       </div>
     </div>
     <div className={styles.drawerB} role="tabpanel" id="questions-panel" aria-labelledby={`questions-tab-${tab}`}>
-      {tab === 'conversation' && <Conversation comments={comments} />}
+      {tab === 'conversation' && <Conversation comments={comments} canComment={canComment} />}
       {tab === 'sources' && <Sources ledger={ledger} scope={factCheckScope} exemption={factCheckExemption} />}
       {tab === 'past' && (requests.length > 0
         ? <RequestHistory slug={slug} requests={requests} messages={requestMessages} content={[item]} canReply={canReply} />

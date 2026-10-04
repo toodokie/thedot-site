@@ -64,6 +64,31 @@ describe('QuestionsDrawer', () => {
     expect(screen.getByText('Questions are read-only for your account.')).toBeInTheDocument()
   })
 
+  it('gives a read-only seat with no questions a read-only empty state', () => {
+    render(subject({ canComment: false, comments: [] }))
+    expect(screen.queryByText(/Ask anything about this piece below/)).not.toBeInTheDocument()
+    expect(screen.getAllByText('Questions are read-only for your account.')).toHaveLength(1)
+  })
+
+  it('invites a question when a seat that can comment has none yet', () => {
+    render(subject({ comments: [] }))
+    expect(screen.getByText('No questions yet. Ask anything about this piece below.')).toBeInTheDocument()
+  })
+
+  it('moves between tabs with the arrow keys, wrapping at the ends', () => {
+    const onTabChange = vi.fn()
+    render(subject({ onTabChange }))
+    const conversation = screen.getByRole('tab', { name: 'Conversation' })
+    expect(conversation).toHaveAttribute('tabindex', '0')
+    expect(screen.getByRole('tab', { name: 'Sources (1)' })).toHaveAttribute('tabindex', '-1')
+    fireEvent.keyDown(conversation, { key: 'ArrowRight' })
+    expect(onTabChange).toHaveBeenLastCalledWith('sources')
+    expect(screen.getByRole('tab', { name: 'Sources (1)' })).toHaveFocus()
+    fireEvent.keyDown(conversation, { key: 'ArrowLeft' })
+    expect(onTabChange).toHaveBeenLastCalledWith('past')
+    expect(screen.getByRole('tab', { name: 'Past edits (0)' })).toHaveFocus()
+  })
+
   it('lists the sources behind the facts', () => {
     render(subject({ tab: 'sources' }))
     expect(screen.getByText('The LMIA processing fee is $1,000 for each position requested.')).toBeInTheDocument()
@@ -82,6 +107,6 @@ describe('QuestionsDrawer', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Sources (1)' }))
     expect(onTabChange).toHaveBeenCalledWith('sources')
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
-    expect(onClose).toHaveBeenCalled()
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 })
