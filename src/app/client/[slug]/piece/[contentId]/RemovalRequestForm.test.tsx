@@ -24,4 +24,9 @@ describe('RemovalRequestForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(screen.queryByLabelText(/Why should this piece be removed/)).not.toBeInTheDocument()
   })
+
+  it('can start open when the page menu asks for it', () => {
+    render(<RemovalRequestForm slug="kanset" contentId="piece-1" idempotencyKey="key-2" startOpen />)
+    expect(screen.getByLabelText(/Why should this piece be removed/)).toHaveFocus()
+  })
 })

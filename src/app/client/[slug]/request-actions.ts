@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { getClientSession } from '@/lib/portal/auth'
 import { getContentItem } from '@/lib/portal/data'
 import { createSupabaseServer } from '@/lib/supabase/server'
-import { REVIEW_FLOW_ANNOUNCEMENT_KEY } from '@/lib/portal/review-flow-announcement'
+import { PIECE_PAGE_INTRO_KEY, REVIEW_FLOW_ANNOUNCEMENT_KEY } from '@/lib/portal/review-flow-announcement'
 import { recordRefusal, type RefusalReason, type RefusedDraft } from '@/lib/portal/refusal-log'
 
 // Must stay in step with migration 0088, which raised the same bound in four database
@@ -183,6 +183,16 @@ export async function acknowledgeReviewFlowAnnouncement(slug: string): Promise<v
   await supabase.rpc('acknowledge_portal_announcement', {
     p_client_id: session.clientId,
     p_announcement_key: REVIEW_FLOW_ANNOUNCEMENT_KEY,
+  })
+}
+
+export async function acknowledgePiecePageIntro(slug: string): Promise<void> {
+  const session = await getClientSession(slug)
+  if (!session) redirect('/client/login')
+  const supabase = await createSupabaseServer()
+  await supabase.rpc('acknowledge_portal_announcement', {
+    p_client_id: session.clientId,
+    p_announcement_key: PIECE_PAGE_INTRO_KEY,
   })
 }
 

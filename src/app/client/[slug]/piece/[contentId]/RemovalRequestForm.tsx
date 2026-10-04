@@ -13,10 +13,10 @@ function Submit() {
   </Button>
 }
 
-export default function RemovalRequestForm({ slug, contentId, idempotencyKey }: {
-  slug: string; contentId: string; idempotencyKey: string
+export default function RemovalRequestForm({ slug, contentId, idempotencyKey, startOpen = false }: {
+  slug: string; contentId: string; idempotencyKey: string; startOpen?: boolean
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(startOpen)
   const [state, action] = useActionState(requestContentRemoval, {} as RequestActionState)
   if (!open && !state.success) {
     return <Button as="button" type="button" variant="ghost" size="sm"
