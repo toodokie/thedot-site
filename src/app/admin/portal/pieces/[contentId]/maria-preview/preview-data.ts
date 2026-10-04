@@ -29,6 +29,8 @@ export type ClientPiecePreviewData = {
   requestMessages: ContentRequestMessage[]
   reviewAssets: ReviewAsset[]
   seatName: string
+  // Maria's auth user id, so the agency view can read her server ticks (0094) for this version.
+  seatUserId: string | null
   // The request ids Maria's seat sent for this piece (its review bundles), for the sent markers.
   seatRequestIds: string[]
   capabilities: PieceReviewCapabilities
@@ -135,6 +137,7 @@ export async function loadClientPiecePreview(
     requestMessages,
     reviewAssets: (assetsResult.data ?? []) as ReviewAsset[],
     seatName: maria.name ?? 'Maria Guerts',
+    seatUserId: maria.auth_user_id ?? null,
     seatRequestIds,
     capabilities: {
       canDecide: maria.can_decide === true,
