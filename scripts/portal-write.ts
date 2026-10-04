@@ -1,6 +1,6 @@
 import { loadEnvConfig } from '@next/env'
 import { createClient } from '@supabase/supabase-js'
-import { readFile, writeFile } from 'node:fs/promises'
+import { readFile, rm, writeFile } from 'node:fs/promises'
 import { renderStatusGatesBlock } from '../src/lib/portal/gates'
 import { loadAgencyStagePiece } from '../src/lib/portal/gates-loader'
 import { patchStatusGatesBlock } from '../src/lib/portal/status-gates-pack'
@@ -10,6 +10,10 @@ import {
 } from '../src/lib/portal/agency-write'
 import { parseProposalBlocks } from '../src/lib/portal/proposals'
 import { buildReportNotificationCopy } from '../src/lib/portal/report-email'
+import { purgePreviewsAfterPublication } from '../src/lib/portal/review-preview-retention'
+import {
+  ffmpegTools, parseReviewPreviewPayload, uploadReviewPreview, type ReviewPreviewRequest,
+} from '../src/lib/portal/review-preview-upload'
 
 loadEnvConfig(process.cwd())
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -53,7 +57,7 @@ const assertNoteGrammarSafe = (value: string | null, field: string) => {
 
 async function main() {
   const [command, inputPath, ...rest] = process.argv.slice(2)
-  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|report-notify|communication|proposal-draft|proposal-revise|proposal-submit|proposal-reply|external-decision|courtesy-release|applied-release|supersede|override-destination|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|visual-revision|visual-revision-ready|review-asset|plan-cycle|plan-cycle-stage|plan-cycle-close|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete|archive-draft> <payload.json> [--dry-run] [--pack <path>]')
+  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|report-notify|communication|proposal-draft|proposal-revise|proposal-submit|proposal-reply|external-decision|courtesy-release|applied-release|supersede|override-destination|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|visual-revision|visual-revision-ready|review-asset|plan-cycle|plan-cycle-stage|plan-cycle-close|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete|archive-draft|review-preview> <payload.json> [--dry-run] [--pack <path>]')
   const dryRun = rest.includes('--dry-run')
   const packIndex = rest.indexOf('--pack')
   const packPath = packIndex >= 0 ? rest[packIndex + 1] ?? null : null
@@ -65,7 +69,10 @@ async function main() {
   const actor = requiredText(payload.actorKey ?? 'thedot-admin', 'actorKey', 64)
   // status-gates only regenerates the local canonical pack from the portal's already
   // committed state. It invokes no writer, so a command receipt would be misleading.
-  const idempotency = command === 'status-gates' ? '' : requiredText(payload.idempotencyKey, 'idempotencyKey', 200)
+  // review-preview is content-addressed: the same files always land on the same object prefix and
+  // the database answers "unchanged", so a separate idempotency key would add nothing.
+  const idempotency = command === 'status-gates' || command === 'review-preview'
+    ? '' : requiredText(payload.idempotencyKey, 'idempotencyKey', 200)
   let rpc: string; let args: Record<string, unknown>
   let externalContentId: string | null = null
   let externalContentVersion: number | null = null
@@ -89,6 +96,8 @@ async function main() {
     externalId: string | null
   } | null = null
   let statusGatesContentId: string | null = null
+  let reviewPreview: ReviewPreviewRequest | null = null
+  let publicationItemId: string | null = null
   if (command === 'recommendation') {
     const title = requiredText(payload.title, 'title', 300); const body = requiredText(payload.body, 'body', 8000)
     assertClientSafeAgencyText({ title, body })
@@ -405,6 +414,14 @@ async function main() {
       p_actor_key: actor,
       p_idempotency_key: idempotency,
     }
+  } else if (command === 'review-preview') {
+    // Portal-hosted preview of a final render for one exact version (migration 0092). Drive stays
+    // the master: this uploads a temporary copy of the local file and never touches a Drive link.
+    // Payload: { clientSlug, contentId, contentVersion, previewKey, reviewAssetKey?, video?,
+    // poster?, frames?: [path | {path,label}], pages?: [path | {path,label}] }, absolute paths.
+    reviewPreview = parseReviewPreviewPayload(payload)
+    rpc = 'review-preview'
+    args = {}
   } else if (command === 'idea') {
     // Audited agency idea entry (agency_add_idea, migration 0019). authorType records
     // WHOSE idea it is (Maria's emailed ideas stay hers); the receipt + activity trail
@@ -579,6 +596,23 @@ async function main() {
     await emitStatusGatesBlock(clientId, statusGatesContentId, packPath)
     return
   }
+  if (reviewPreview) {
+    if (!clientId) throw new Error('review-preview requires a client')
+    const { data: item, error: itemError } = await admin.from('content_items')
+      .select('id').eq('client_id', clientId).eq('content_id', reviewPreview.contentId).single()
+    if (itemError || !item) throw new Error(`content unavailable: ${itemError?.message ?? 'missing'}`)
+    // Disposable renders live under /tmp/kanset-<content-id>/ (CONTENT-HOUSEKEEPING.md).
+    const workDir = `/tmp/kanset-${reviewPreview.contentId.replace(/[^A-Za-z0-9-]/g, '-')}/review-preview`
+    try {
+      const result = await uploadReviewPreview(admin, ffmpegTools(workDir), {
+        clientId, contentItemId: item.id, request: reviewPreview,
+      })
+      console.log(`OK review-preview ${result.outcome} ${result.previewId} ${result.objectPrefix} (${result.bytes} bytes)`)
+    } finally {
+      await rm(workDir, { recursive: true, force: true })
+    }
+    return
+  }
   if(externalContentId){
     const {data:item,error:itemError}=await admin.from('content_items').select('id,working_version')
       .eq('client_id',clientId).eq('content_id',externalContentId).single()
@@ -590,6 +624,7 @@ async function main() {
     const { data: item, error: itemError } = await admin.from('content_items')
       .select('id').eq('client_id', clientId).eq('content_id', publication.contentId).single()
     if (itemError || !item) throw new Error(`content unavailable: ${itemError?.message ?? 'missing'}`)
+    publicationItemId = item.id
     const { data: target, error: targetError } = await admin.from('content_publication_targets')
       .select('id,current_observation_id').eq('client_id', clientId).eq('content_id', item.id)
       .eq('content_version', publication.contentVersion)
@@ -634,6 +669,7 @@ async function main() {
         && (existing.observed_title ?? null) === publication.observedTitle
       if (!same) throw new Error('publication observation key already belongs to different data')
       console.log(`OK publication-confirm ${existing.id} (existing)`)
+      await purgePreviewsAfterPublication(admin, item.id)
       return
     }
     args = {
@@ -689,6 +725,12 @@ async function main() {
   const { data,error }=await admin.rpc(rpc,args)
   if(error) throw new Error(`${rpc}: ${error.message}`)
   console.log(`OK ${command} ${String(data)}`)
+  if (publicationItemId) {
+    // Spec 7: once every destination is confirmed live, the portal copy is deleted. Never fails
+    // the confirmation above; the nightly cron retries anything left.
+    const purge = await purgePreviewsAfterPublication(admin, publicationItemId)
+    if (purge && purge.retired > 0) console.log(`Preview retention: removed ${purge.retired} preview(s)`)
+  }
   if (command === 'gate' && clientId) {
     await emitStatusGatesBlock(clientId, String(args.p_content_id), packPath)
   }
