@@ -349,6 +349,34 @@ describe('sending', () => {
     expect(actions.reportReviewSendFailure).toHaveBeenCalledTimes(2)
   })
 
+  it('backs off the failure report like a save, stops after five retries and starts again on reconnect', async () => {
+    vi.useFakeTimers()
+    actions.sendReviewDrafts.mockRejectedValue(new TypeError('Failed to fetch'))
+    actions.reportReviewSendFailure.mockResolvedValue({ recorded: false, retryable: true })
+    mount([row()])
+    await act(async () => { await api.send('') })
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(actions.reportReviewSendFailure).toHaveBeenCalledTimes(1)
+    // 15 s, then 30, 60, 120, 240: five retries, doubling.
+    await act(async () => { await vi.advanceTimersByTimeAsync(14999) })
+    expect(actions.reportReviewSendFailure).toHaveBeenCalledTimes(1)
+    await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+    expect(actions.reportReviewSendFailure).toHaveBeenCalledTimes(2)
+    await act(async () => { await vi.advanceTimersByTimeAsync(29999) })
+    expect(actions.reportReviewSendFailure).toHaveBeenCalledTimes(2)
+    await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+    expect(actions.reportReviewSendFailure).toHaveBeenCalledTimes(3)
+    await act(async () => { await vi.advanceTimersByTimeAsync(60000 + 120000 + 240000) })
+    expect(actions.reportReviewSendFailure).toHaveBeenCalledTimes(6)
+    await act(async () => { await vi.advanceTimersByTimeAsync(24 * 3600 * 1000) })
+    expect(actions.reportReviewSendFailure).toHaveBeenCalledTimes(6)
+    // The connection coming back starts a fresh schedule.
+    await act(async () => { window.dispatchEvent(new Event('online')); await vi.advanceTimersByTimeAsync(0) })
+    expect(actions.reportReviewSendFailure).toHaveBeenCalledTimes(7)
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000) })
+    expect(actions.reportReviewSendFailure).toHaveBeenCalledTimes(8)
+  })
+
   it('does not retry a failure report the server says it will never accept', async () => {
     vi.useFakeTimers()
     actions.sendReviewDrafts.mockRejectedValue(new TypeError('Failed to fetch'))

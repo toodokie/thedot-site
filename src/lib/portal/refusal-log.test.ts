@@ -60,17 +60,28 @@ describe('recording a refused edit', () => {
     expect(rpc).toHaveBeenCalledWith('agency_record_review_send_failure', { p_attempt_id: attemptId, p_draft_ids: ['d1', 'd2'] })
   })
 
+  it('never raises an Agency Ops event for a refusal outside the durable draft send', async () => {
+    // The pre-0093 edit paths (rate_limited, version_stale, empty_bundle...) keep writing only the
+    // failure row: an event there would need reconciliation and hold the inbox cursor.
+    await expect(recordRefusal({ ...base, reason: 'rate_limited' })).resolves.toEqual({ recorded: true })
+    await recordRefusal({ ...base, reason: 'version_stale', draftIds: [] })
+    expect(insert).toHaveBeenCalledTimes(2)
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
   it('does not raise an event when the failure row itself could not be written', async () => {
     insert.mockResolvedValue({ error: { message: 'boom' } })
-    await recordRefusal({ ...base })
+    await recordRefusal({ ...base, draftIds: ['d1'] })
     expect(rpc).not.toHaveBeenCalled()
   })
 
   it('never throws when raising the event fails, and says it was not recorded', async () => {
     rpc.mockRejectedValue(new Error('down'))
-    await expect(recordRefusal({ ...base, reason: 'network_unreachable' })).resolves.toEqual({ recorded: false })
+    await expect(recordRefusal({ ...base, reason: 'network_unreachable', draftIds: ['d1'] }))
+      .resolves.toEqual({ recorded: false })
     rpc.mockResolvedValue({ data: null, error: { message: 'boom' } })
-    await expect(recordRefusal({ ...base, reason: 'network_unreachable' })).resolves.toEqual({ recorded: false })
+    await expect(recordRefusal({ ...base, reason: 'network_unreachable', draftIds: ['d1'] }))
+      .resolves.toEqual({ recorded: false })
   })
 
   it('says the failure was recorded once the row and the Agency Ops event are both written', async () => {

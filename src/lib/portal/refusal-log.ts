@@ -93,6 +93,10 @@ export async function recordRefusal(record: RefusalRecord): Promise<RefusalRecor
       console.error('refusal log write failed:', error.message)
       return { recorded: false }
     }
+    // Only the durable draft send (it names server draft ids) raises an Agency Ops event. The
+    // pre-0093 edit paths keep writing just the failure row: an event there would need
+    // reconciliation and hold the inbox cursor with no way to resolve it yet.
+    if (!Array.isArray(record.draftIds) || record.draftIds.length === 0) return { recorded: true }
     // Spec 6.3 and 8: raise it in Agency Ops straight away (activity, inbox event, agency email)
     // and mark her drafts as failed. Migration 0093.
     const { error: eventError } = await admin.rpc('agency_record_review_send_failure', {

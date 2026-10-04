@@ -121,6 +121,9 @@ export default function ReviewDraftProvider({
   const sendKeyRef = useRef<string | null>(null)
   const failureReportRef = useRef<FailureReport | null>(null)
   const reportTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Retries of an unrecorded failure report, on the save schedule, so a failing server cannot be
+  // asked to write a failure row every 15 seconds forever.
+  const reportAttemptRef = useRef(0)
   const flushRef = useRef<() => Promise<boolean>>(async () => true)
   const mountedRef = useRef(true)
   const retryAttemptRef = useRef(0)
@@ -361,12 +364,16 @@ export default function ReviewDraftProvider({
       // The report itself did not arrive: keep it and try again.
     }
     if (failureReportRef.current !== report) return
-    if (!retry) { failureReportRef.current = null; return }
-    // Same schedule as a failed save. Offline, it also goes again when the connection returns.
+    if (!retry) { failureReportRef.current = null; reportAttemptRef.current = 0; return }
+    // Same backoff as a failed save: 15 seconds doubling, at most SAVE_RETRY_LIMIT retries. The
+    // report stays queued after that and goes again when the connection returns.
+    if (reportAttemptRef.current >= SAVE_RETRY_LIMIT) return
+    const delay = SAVE_RETRY_DELAY_MS * 2 ** reportAttemptRef.current
+    reportAttemptRef.current += 1
     reportTimerRef.current = setTimeout(() => {
       reportTimerRef.current = null
       if (isOnline()) void deliverFailureReportRef.current()
-    }, SAVE_RETRY_DELAY_MS)
+    }, delay)
   }, [])
   const deliverFailureReportRef = useRef(deliverFailureReport)
   useEffect(() => { deliverFailureReportRef.current = deliverFailureReport }, [deliverFailureReport])
@@ -406,6 +413,7 @@ export default function ReviewDraftProvider({
       bump()
       setSendError(message)
       if (report) {
+        reportAttemptRef.current = 0
         failureReportRef.current = {
           slug, contentId, contentVersion: version,
           draftIds: current.flatMap((draft) => (draft.serverId ? [draft.serverId] : [])),
@@ -476,7 +484,13 @@ export default function ReviewDraftProvider({
     if (!serverSync) return
     setOnline(isOnline())
     setMobile(isMobileDevice())
-    const goOnline = () => { retryAttemptRef.current = 0; setOnline(true); void flush(); void deliverFailureReport() }
+    const goOnline = () => {
+      retryAttemptRef.current = 0
+      reportAttemptRef.current = 0
+      setOnline(true)
+      void flush()
+      void deliverFailureReport()
+    }
     const goOffline = () => setOnline(false)
     const hide = () => { if (document.visibilityState === 'hidden') void flush() }
     const leave = () => { void flush() }
