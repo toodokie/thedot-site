@@ -2,6 +2,7 @@ import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { getClientSession } from '@/lib/portal/auth'
+import { clientDisplayName, PORTAL_NOINDEX } from '../portal-share-metadata'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import PortalNav from './PortalNav'
 import AssistantWidget from './assistant/AssistantWidget'
@@ -12,12 +13,11 @@ export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> }
 ): Promise<Metadata> {
   const { slug } = await params
-  const name = slug.charAt(0).toUpperCase() + slug.slice(1)
   return {
-    title: `${name} · Client Portal`,
+    title: `${clientDisplayName(slug)} · Client Portal`,
     // Installable-app manifest: opens straight to the workspace, own name + icon ("Kanset Portal").
     manifest: '/kanset-portal.webmanifest',
-    robots: { index: false, follow: false },
+    robots: PORTAL_NOINDEX,
   }
 }
 

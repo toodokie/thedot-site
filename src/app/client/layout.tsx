@@ -7,6 +7,7 @@
 import type { Metadata } from 'next'
 import '@thedot/design-system/styles.css'
 import PortalPwaRegistration from '@/components/PortalPwaRegistration'
+import { PORTAL_NOINDEX, PORTAL_SITE_NAME, portalShareMetadata } from './portal-share-metadata'
 
 // Keep the install identity correct even on /client/login and /client/auth/*,
 // which sit outside the authenticated [slug] layout. Without this parent
@@ -15,7 +16,8 @@ import PortalPwaRegistration from '@/components/PortalPwaRegistration'
 export const metadata: Metadata = {
   title: 'Kanset Portal · The Dot',
   manifest: '/kanset-portal.webmanifest',
-  robots: { index: false, follow: false },
+  robots: PORTAL_NOINDEX,
+  ...portalShareMetadata(PORTAL_SITE_NAME),
 }
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
