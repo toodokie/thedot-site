@@ -5843,6 +5843,94 @@ async function main(): Promise<void> {
       console.log(`cleanup: disposable tenant rls-ops-${RUN_ID} and user ${O_EMAIL} remain until database reset`)
     }
 
+    // 0095 (amended 2026-10-03): a failed play is a From Maria signal until Done; a piece in front of
+    // Maria with no media is listed until media is attached, and an approved override silences it.
+    {
+      const signalRows = async () => {
+        const result = await admin.rpc('agency_open_client_signals', { p_limit: 500 })
+        if (result.error) throw new Error(`open signals: ${result.error.message}`)
+        return (result.data ?? []) as Array<{ event_id: string; event_type: string; content_item_id: string | null }>
+      }
+      const mediaAlerts = async () => {
+        const result = await admin.rpc('agency_release_media_alerts')
+        if (result.error) throw new Error(`media alerts: ${result.error.message}`)
+        return (result.data ?? []) as Array<{ content_item_id: string; override_reason: string | null }>
+      }
+
+      const playId = `rls-sg-playback-${RUN_ID}`
+      const [playSynced] = await sync([snapshot(bClientId!, playId, 1, 'Signal playback', 'Signal playback body', 'caption')])
+      const sha = 'd'.repeat(64)
+      const prefix = `${bClientId}/${playSynced.item_id}/v1/reel/${sha.slice(0, 16)}/`
+      const registered = await admin.rpc('agency_register_review_preview', {
+        p_client_id: bClientId, p_content_id: playId, p_content_version: 1, p_preview_key: 'reel',
+        p_review_asset_key: null, p_media_kind: 'video', p_object_prefix: prefix,
+        p_video_path: `${prefix}video.mp4`, p_poster_path: `${prefix}poster.jpg`, p_frames: [],
+        p_width_px: 1080, p_height_px: 1920, p_duration_seconds: 24, p_byte_total: 1000,
+        p_source_sha256: sha, p_actor_key: 'thedot-admin',
+      })
+      if (registered.error) throw new Error(`signal preview: ${registered.error.message}`)
+      const playReady = await admin.rpc('mark_content_ready', { p_content_id: playSynced.item_id, p_content_version: 1 })
+      if (playReady.error) throw new Error(`signal playback release: ${playReady.error.message}`)
+      const reported = await bClient.rpc('report_review_playback_failure', {
+        p_content_id: playSynced.item_id, p_content_version: 1, p_preview_key: 'reel',
+        p_error_code: 'media_err_decode', p_device: 'iPhone', p_browser: 'Safari',
+      })
+      const listed = (await signalRows())
+        .find((row) => row.event_type === 'review_playback_failed' && row.content_item_id === playSynced.item_id)
+      const done = listed
+        ? await admin.rpc('agency_resolve_inbox_event', {
+          p_event_id: listed.event_id, p_note: null, p_actor_key: 'thedot-admin', p_idempotency_key: `rls-sg9-${RUN_ID}`,
+        })
+        : null
+      const stillListed = (await signalRows()).some((row) => row.event_id === listed?.event_id)
+      check('SG9: a failed play shows under From Maria until Done',
+        !reported.error && (reported.data as { outcome?: string } | null)?.outcome === 'notified'
+          && !!listed && !!done && !done.error && !stillListed,
+        JSON.stringify({ reported: reported.data ?? reported.error?.message, listed, done: done?.error?.message ?? 'ok', stillListed }))
+
+      // A released piece that loses its media: release it with a design link, then remove the link.
+      const lostMedia = async (name: string) => {
+        const contentId = `rls-sg-media-${name}-${RUN_ID}`
+        const [synced] = await sync([snapshot(bClientId!, contentId, 1, `Signal ${name}`, 'No media body', 'caption')])
+        const design = (url: string | null, key: string) => admin.rpc('set_content_design_links', {
+          p_client_id: bClientId, p_content_id: contentId, p_canva_url: url, p_drive_url: null,
+          p_actor_key: 'thedot-admin', p_idempotency_key: `rls-sg-${name}-${key}-${RUN_ID}`,
+        })
+        const linked = await design(`https://www.canva.com/design/SIGNAL${name.toUpperCase()}/view`, 'link')
+        if (linked.error) throw new Error(`signal ${name} design: ${linked.error.message}`)
+        const ready = await admin.rpc('mark_content_ready', { p_content_id: synced.item_id, p_content_version: 1 })
+        if (ready.error) throw new Error(`signal ${name} release: ${ready.error.message}`)
+        const cleared = await design(null, 'clear')
+        if (cleared.error) throw new Error(`signal ${name} clear: ${cleared.error.message}`)
+        return { contentId, itemId: synced.item_id, relink: () => design(`https://www.canva.com/design/SIGNAL${name.toUpperCase()}2/view`, 'relink') }
+      }
+
+      const relinked = await lostMedia('relink')
+      const before = (await mediaAlerts()).find((row) => row.content_item_id === relinked.itemId)
+      const relink = await relinked.relink()
+      const afterLink = (await mediaAlerts()).some((row) => row.content_item_id === relinked.itemId)
+      const previewPiece = (await mediaAlerts()).some((row) => row.content_item_id === playSynced.item_id)
+      const clientCall = await bClient.rpc('agency_release_media_alerts')
+      check('SG10: a piece with Maria and no media is listed until media is attached; clients cannot read the list',
+        !!before && before.override_reason === null && !relink.error && !afterLink && !previewPiece && !!clientCall.error,
+        JSON.stringify({ before, relink: relink.error?.message ?? 'ok', afterLink, previewPiece,
+          client: clientCall.error?.message ?? 'NO ERROR' }))
+
+      // Anastasia, 2026-10-03: an approved no-media override on the released version silences the
+      // alert. The override is the thing under test, written explicitly on a disposable fixture (as
+      // RM2 does); no fixture helper ever writes one on its own.
+      const overridden = await lostMedia('override')
+      const listedBefore = (await mediaAlerts()).some((row) => row.content_item_id === overridden.itemId)
+      const recorded = await admin.rpc('agency_record_release_media_override', {
+        p_client_id: bClientId, p_content_id: overridden.contentId, p_content_version: 1,
+        p_reason: 'Approved by Anastasia: signal test, nothing to preview.', p_actor_key: 'thedot-admin',
+      })
+      const listedAfter = (await mediaAlerts()).some((row) => row.content_item_id === overridden.itemId)
+      check('SG11: an approved no-media override on the released version silences the alert',
+        listedBefore && !recorded.error && !listedAfter,
+        JSON.stringify({ listedBefore, recorded: recorded.error?.message ?? 'ok', listedAfter }))
+    }
+
     {
       const stop = await admin.rpc('set_portal_feature_switch', {
         p_client_id: bClientId, p_feature: 'client_mutations', p_enabled: false,
