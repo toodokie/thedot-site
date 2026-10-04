@@ -675,6 +675,12 @@ Set in Vercel (and `.env.local` for dev). Key vars:
 - `pnpm test:rls` (`scripts/test-rls.ts`): real-JWT two-tenant isolation. Mandatory after any
   RLS/grant change. `pnpm test:rls:seed-local` seeds a local two-tenant fixture.
 - `pnpm exec next build` — full compile; catches JSX/route errors the unit tests don't.
+- `scripts/update-portal.ts` refuses (exit code 5) a sync or re-share of a `reel`, `short`,
+  `vertical_video`, `carousel` or `single` canonical without an on-screen text block
+  (`reel-script`, `on-screen-copy`, `carousel-copy`, ...), unless its frontmatter declares
+  `on_screen_text: captions_only` (talking-head clips whose only on-screen text is dialogue
+  captions). Rule: `src/lib/portal/on-screen-text-rule.ts`; spec 2026-10-03 section 9.3. Applying
+  Maria's own edits (`portal-inbox apply-edit`) is deliberately not gated.
 
 ---
 

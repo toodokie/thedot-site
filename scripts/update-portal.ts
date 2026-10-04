@@ -22,6 +22,10 @@
 //                        every other client email while it was open and could be left off on a
 //                        throw. Refused if she has already decided on the released version.
 //
+// EXIT CODES: 2 = refused input (open fact-check gate, missing pack or change note), 3 = locked,
+// 4 = open client edit request or version reconcile, 5 = on-screen text block missing (a reel,
+// short, carousel or single without its frame-by-frame text; spec 2026-10-03 section 9.3).
+//
 // SAFETY (Codex-reviewed): default is preview. Writes happen only under --apply. On --apply the repo
 // is preflighted BEFORE any mutation; the whole per-piece operation is serialized by a lock; stranded
 // applies (commit-then-sync-failed / sync-then-release-failed) are detected and retried; canonical
@@ -53,6 +57,7 @@ import {
   type ContentState,
 } from '../src/lib/portal/update-portal-core'
 import { isUnresolvedContentRequest } from '../src/lib/portal/request-status'
+import { checkOnScreenTextBlock, readOnScreenTextOptOut } from '../src/lib/portal/on-screen-text-rule'
 
 loadEnvConfig(process.cwd())
 
@@ -437,6 +442,31 @@ async function main() {
   }
 }
 
+// Spec 2026-10-03 section 9.3: a piece whose media carries on-screen text reaches the portal with
+// that text as a block, so the client can read the frames before approving. Runs on the REFRESHED
+// canonical, before any preview RPC, revision, file write or sync. Returns true when the run stops.
+function refuseMissingOnScreenText(
+  parsed: ParsedContent,
+  canonicalRaw: string,
+  canonicalName: string,
+  report: (extra?: Record<string, unknown>) => void,
+): boolean {
+  const verdict = checkOnScreenTextBlock({
+    contentId: parsed.content_id,
+    format: parsed.format,
+    blockKeys: parsed.copy_blocks.map((block) => block.key),
+    optOut: readOnScreenTextOptOut(canonicalRaw, canonicalName),
+  })
+  if (verdict.status === 'opted-out') {
+    console.log(`note: ${parsed.content_id} declares on_screen_text: ${verdict.optOut} (no on-screen text block required).`)
+  }
+  if (verdict.status !== 'missing') return false
+  report({ outcome: 'refused', reason: 'on-screen text block missing' })
+  console.error(`REFUSED: ${verdict.message}`)
+  process.exitCode = 5
+  return true
+}
+
 // Refresh the canonical body + push a new (or first) version. No re-arm. Preview does no writes.
 async function runSync(ctx: {
   supabase: Db; clientId: string; portalDir: string; canonicalPath: string
@@ -450,6 +480,7 @@ async function runSync(ctx: {
   const refreshed = buildRefreshedCanonical(existingRaw, ctx.extractedBody, ctx.newVersion, ctx.canonicalName)
   const parsed = parseContentFile(refreshed, ctx.canonicalName) // structure + PII safety gate (HARD STOP)
   assertCanonicalIdentity(parsed, ctx.contentId)
+  if (refuseMissingOnScreenText(parsed, refreshed, ctx.canonicalName, ctx.report)) return
 
   if (!ctx.apply) {
     const { error } = await ctx.supabase.rpc(PREVIEW_RPC, {
@@ -522,6 +553,7 @@ async function runReshare(ctx: {
   const refreshed = buildRefreshedCanonical(existingRaw, ctx.extractedBody, ctx.newVersion, ctx.canonicalName)
   const parsed = parseContentFile(refreshed, ctx.canonicalName) // safety gate
   assertCanonicalIdentity(parsed, ctx.contentId)
+  if (refuseMissingOnScreenText(parsed, refreshed, ctx.canonicalName, ctx.report)) return
 
   // Preflight before any mutation. Open the database revision before changing the canonical file:
   // begin_content_revision rejects a newly pending client edit, while request_content_edit rejects
