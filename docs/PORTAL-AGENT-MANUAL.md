@@ -212,6 +212,7 @@ Each file's top comment states its purpose. Summary:
 | `0081_unified_piece_review_bundles` | n/a | Unifies copy and visual edits into one atomic client review bundle, aligns unresolved-state guards, adds visual revision lifecycle controls, and records the one-time per-seat review-flow acknowledgment. |
 | `0092_review_media_previews` | n/a | Private `portal-review-previews` bucket (no client storage policy), `content_review_previews` readable only by the owning seat for the released version, signed links served by the app, a removal queue drained through the Storage API, retention on live-everywhere, superseded, archived and planned date + 7 days, and `review_preview_uploaded` / `review_preview_deleted` activity (flagged `activity_event_types.agency_internal`, so `portal_activity_notify` queues no notification for them and the client seat cannot read them). Copy-only revisions carry the previous version's review assets and previews forward (2026-10-04); a revision that adds, removes or changes an on-screen block (`reel-script`, `on-screen-copy`, `carousel-copy` and the rest of the on-screen key set) carries nothing and needs fresh media before release. Full podcast episodes and videos over 240 s are refused. |
 | `0093_durable_review_drafts` | n/a | Client review drafts autosave to `content_review_drafts` (one unsent draft per seat, piece, target and frame or page; seat-only RLS; RPC-only writes; agency read-only). `send_review_drafts` composes them into the 0081 bundle in one transaction and marks them sent; it refuses a reused idempotency key with different drafts (`idempotency key reused with different request`, shown to Maria as reason `drafts_changed`). A release carries unsent drafts forward (`review_drafts_carried_over` activity + inbox event); a refused send writes `client_request_failures` (new reasons `drafts_changed`, `network_unreachable`), a `review_send_failed` activity (agency email) and inbox event, and marks the drafts failed; a later send resolves it (`review_send_retry_succeeded`). `ack_portal_inbox` lets the cursor past a `review_send_failed` event once its failure rows are resolved. Carry-over and retry success are `activity_event_types.agency_internal` (shared with 0092), so they queue no notification, and client seats cannot read them; the service role reads those rows through `agency_internal_activity(...)`. The migration sets `lock_timeout` to 5s. `agency_unsent_review_draft_alerts` lists unsent drafts older than 24 hours on unposted pieces due within 3 days. |
+| `0094_piece_page_review_ticks` | n/a | Stores per-seat, per-version copy-tab ticks for the redesigned piece page (a seat reads only its own rows; the only write is `tick_review_tabs`, on the released version) and makes `record_content_decision` refuse an approval while the approving seat has unsent server drafts. Amended 2026-10-03: `content_review_playback_failures` logs failed review video plays through `report_review_playback_failure` (seat-scoped, released version, rate-limited; the first per preview per Toronto day emails the agency and raises a `review_playback_failed` inbox event, never the client). |
 
 **Full v1 architecture + phasing spec:** `~/Kanset/portal-integration-task.md`.
 **Gate-system spec:** `docs/superpowers/specs/2026-07-21-portal-gate-system-design.md`.
@@ -662,6 +663,7 @@ Set in Vercel (and `.env.local` for dev). Key vars:
 | `OPENAI_PORTAL_API_KEY` / `OPENAI_API_KEY` | the assistant |
 | `PORTAL_ASSISTANT_HMAC_SECRET`, `PORTAL_MODE_INSTRUCTIONS`, `PORTAL_ANSWER_SCHEMA`, `PORTAL_INPUT_CHARS` | assistant runtime |
 | `GOOGLE_CALENDAR_CLIENT_ID/SECRET`, `_CLIENT_READER_EMAIL`, `_SCOPES`, `_TOKEN_ENCRYPTION_KEY` | calendar sync |
+| `PORTAL_PIECE_PAGE_V2` | which client seats see the redesigned piece page: `off` (default), `all`, or a comma list of seat emails. A change needs a redeploy. |
 
 `.vercel/project.json` links the repo to the Vercel project. Prod domain: `www.thedotcreative.co`.
 
@@ -783,6 +785,14 @@ where ci.client_visible and ci.archived_at is null and ci.client_visible_version
   and ci.status in ('draft', 'approved', 'scheduled')
 order by ci.planned_date nulls last, ci.content_id;
 ```
+
+**See the redesigned piece page as Maria (read-only).** Open `/admin/portal/pieces/<content id>/maria-preview?layout=v2`. Nothing is written: ticks, drafts, Send and Approve are off in the preview.
+
+**Turn the redesigned piece page on for a seat.** Set `PORTAL_PIECE_PAGE_V2` in Vercel (Production) to the seat email list, for example `toodokie@gmail.com`, then redeploy. `all` turns it on for every seat; `off` restores today's page everywhere. The old page stays the default until plan 5 retires it.
+
+**When Maria's review video does not play (since 0094).** Her player reports it itself: the first failure per preview per day emails the agency ("Maria's video didn't play: iPhone, Safari") and shows under From Maria in My Tasks (plan 5). She sees "This video didn't load. I've been notified." and a Retry button that fetches fresh links. Read the log with `select occurred_at, preview_key, error_code, device, browser, notified from content_review_playback_failures order by occurred_at desc limit 20` (service role). Only a device and browser name is stored, never the user agent.
+
+**Check the new page's layout at phone width.** `BASE=<origin> PIECES=<reel>,<podcast>,<linkedin>,<article> node scripts/piece-page-phone-check.mjs` (read-only, through the admin preview; screenshots in `/tmp/kanset-piece-page-check`).
 
 **Deploy a display change:** §15 worktree recipe.
 
