@@ -78,8 +78,15 @@
 
 /* Menu */
 .rel { position: relative; }
-.menu { position: absolute; right: 0; top: 52px; width: 240px; background: var(--dot-white); border: 1px solid var(--dot-black);
+.menu { position: absolute; right: 0; top: 52px; width: 240px; max-width: calc(100vw - 32px); background: var(--dot-white); border: 1px solid var(--dot-black);
   z-index: 30; padding: var(--dot-space-1) 0; margin: 0; list-style: none; }
+/* Phone: the ⋯ menu is a bottom sheet portalled to <body>, above the decision bar and the shell. */
+.menuBackdrop { position: fixed; inset: 0; z-index: 50; background: color-mix(in srgb, var(--dot-black) 45%, transparent); }
+.menuSheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 51; margin: 0; list-style: none;
+  padding: var(--dot-space-2) 0 calc(var(--dot-space-2) + env(safe-area-inset-bottom, 0px));
+  background: var(--dot-white); border-top: 1px solid var(--dot-black); font-family: var(--dot-font-text); }
+.menuSheet .menuItem { min-height: 52px; padding: 0 calc(var(--dot-space-4) + env(safe-area-inset-left, 0px)); }
+.menuSheet li + li .menuItem { border-top: 1px solid var(--dot-hairline); }
 .menuItem { display: flex; width: 100%; align-items: center; min-height: 44px; padding: 0 var(--dot-space-4); background: none;
   border: 0; text-align: left; cursor: pointer; font: inherit; font-size: 1rem; color: var(--dot-black); }
 .menu li + li .menuItem { border-top: 1px solid var(--dot-hairline); }
@@ -305,7 +312,12 @@
 /* Phone */
 @media (max-width: 767px) {
   .root { --bar-h: 72px; --cbar-h: 52px; }
-  .pheadIn { padding: var(--dot-space-4); grid-template-columns: minmax(0, 1fr); gap: var(--dot-space-2); }
+  .pheadIn { padding: var(--dot-space-4); grid-template-columns: minmax(0, 1fr) auto; gap: var(--dot-space-2) var(--dot-space-3); }
+  /* The two actions sit top right on the kicker row; the title and status take the full width below. */
+  .crumb { grid-column: 1; grid-row: 1; column-gap: var(--dot-space-3); row-gap: 0; }
+  .hactions { grid-column: 2; grid-row: 1; padding-top: 0; }
+  .hactions .ghostButton:not(.iconOnly) { padding: 10px 12px; }
+  .headMain { grid-column: 1 / -1; grid-row: 2; }
   .title { font-size: 2rem; }
   .status { font-size: 0.9375rem; }
   .page { padding: var(--dot-space-4) var(--dot-space-4) calc(var(--bar-h) + var(--dot-space-7) + env(safe-area-inset-bottom, 0px)); }

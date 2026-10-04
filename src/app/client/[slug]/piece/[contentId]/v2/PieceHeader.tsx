@@ -72,7 +72,7 @@ export default function PieceHeader({
           <a href={backHref}>{backLabel}</a>
           <span className={styles.crumbMeta}>{formatLabel}</span>
         </div>
-        <div>
+        <div className={styles.headMain}>
           <h1 className={styles.title}>{title}</h1>
           <StatusLine status={status} scheduleSlot={scheduleSlot} />
           {updatedLine && <p className={styles.updated}>

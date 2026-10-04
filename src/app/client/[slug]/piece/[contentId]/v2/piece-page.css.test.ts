@@ -4,6 +4,25 @@ import { describe, expect, it } from 'vitest'
 
 const css = readFileSync(resolve(process.cwd(), 'src/app/client/[slug]/piece/[contentId]/v2/piece-page.module.css'), 'utf8')
 
+// The body of every `@media (max-width: 767px)` block, joined: the phone rules only.
+function phoneRules(source: string): string {
+  const out: string[] = []
+  const marker = '@media (max-width: 767px) {'
+  let at = source.indexOf(marker)
+  while (at !== -1) {
+    let depth = 1
+    let i = at + marker.length
+    for (; i < source.length && depth > 0; i++) {
+      if (source[i] === '{') depth++
+      else if (source[i] === '}') depth--
+    }
+    out.push(source.slice(at + marker.length, i - 1))
+    at = source.indexOf(marker, i)
+  }
+  return out.join('\n')
+}
+const phone = phoneRules(css)
+
 describe('piece page stylesheet (spec 10, 10a; mockups v3)', () => {
   it('collapses the header with transform and opacity only, so the page height never changes', () => {
     expect(css).toMatch(/\.cbar\s*\{[^}]*position:\s*fixed[^}]*transform:\s*translateY\(-100%\)[^}]*opacity:\s*0/)
@@ -69,4 +88,22 @@ describe('piece page stylesheet (spec 10, 10a; mockups v3)', () => {
   it('keeps Done at the right of every editor toolbar', () => {
     expect(css).toMatch(/\.sheetActions\s*\{[^}]*margin-left:\s*auto/)
   })
+
+  it('puts the header actions top right on a phone, on the kicker row, with the title below', () => {
+    expect(phone).toMatch(/\.pheadIn\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto/)
+    expect(phone).toMatch(/\.crumb\s*\{[^}]*grid-column:\s*1;[^}]*grid-row:\s*1/)
+    expect(phone).toMatch(/\.hactions\s*\{[^}]*grid-column:\s*2;[^}]*grid-row:\s*1/)
+    expect(phone).toMatch(/\.headMain\s*\{[^}]*grid-column:\s*1 \/ -1;[^}]*grid-row:\s*2/)
+  })
+
+  it('opens the more menu as a bottom sheet on a phone, clear of the home indicator', () => {
+    expect(css).toMatch(/\.menuSheet\s*\{[^}]*position:\s*fixed[^}]*left:\s*0[^}]*right:\s*0[^}]*bottom:\s*0/)
+    expect(css).toMatch(/\.menuSheet\s*\{[^}]*padding:[^;]*calc\(var\(--dot-space-2\) \+ env\(safe-area-inset-bottom, 0px\)\)/)
+    expect(css).toMatch(/\.menuBackdrop\s*\{[^}]*position:\s*fixed[^}]*inset:\s*0[^}]*background:\s*color-mix\(in srgb, var\(--dot-black\)/)
+  })
+
+  it('never lets the dropdown menu run wider than the viewport less 16px a side', () => {
+    expect(css).toMatch(/\.menu\s*\{[^}]*max-width:\s*calc\(100vw - 32px\)/)
+  })
 })
+
