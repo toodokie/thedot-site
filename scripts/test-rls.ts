@@ -5353,6 +5353,124 @@ async function main(): Promise<void> {
         JSON.stringify({ activity: housekeeping.data, outbox: housekeepingOutbox.data, failed: failedOutbox.data }))
     }
 
+    // 0094: review tab ticks (per seat, per version, own rows only, released version only) and
+    // the approve guard (the approving seat's own unsent drafts block 'approved').
+    {
+      const T_EMAIL = `rls-ticks-${RUN_ID}@example.com`
+      const createdSeat = await admin.auth.admin.createUser({ email: T_EMAIL, email_confirm: true })
+      if (createdSeat.error || !createdSeat.data.user) {
+        throw new Error(`ticks seat: ${createdSeat.error?.message ?? 'missing'}`)
+      }
+      const tUserId = createdSeat.data.user.id
+      const seat = await admin.rpc('upsert_portal_membership', {
+        p_client_id: bClientId, p_auth_user_id: tUserId, p_email: T_EMAIL, p_name: 'RLS Ticks Seat',
+        // A client has one primary decider (0013), so this seat ticks and drafts but the approve
+        // guard below is exercised through the primary decider, bClient.
+        p_can_decide: false, p_can_comment: true, p_can_submit_requests: true, p_can_manage_schedule: false,
+        p_can_use_assistant: false, p_actor_key: 'thedot-admin', p_idempotency_key: `rls-ticks-seat-${RUN_ID}`,
+      })
+      if (seat.error) throw new Error(`ticks seat membership: ${seat.error.message}`)
+      const tClient = clientForToken(await tokenFor(T_EMAIL))
+
+      const tickId = `rls-ticks-${RUN_ID}`
+      const tickSync = await sync([snapshot(bClientId!, tickId, 1, 'Ticks fixture', 'Ticks caption', 'caption')])
+      const tickItemId = tickSync.find((row) => row.content_id === tickId)?.item_id
+      if (!tickItemId) throw new Error('ticks fixture did not sync')
+      const design = await admin.rpc('set_content_design_links', {
+        p_client_id: bClientId, p_content_id: tickId,
+        p_canva_url: 'https://www.canva.com/design/TICKSDESIGN/view', p_drive_url: null,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-ticks-design-${RUN_ID}`,
+      })
+      if (design.error) throw new Error(`ticks design: ${design.error.message}`)
+
+      const early = await tClient.rpc('tick_review_tabs', {
+        p_content_id: tickItemId, p_content_version: 1, p_tab_keys: ['caption'],
+      })
+      const released = await admin.rpc('mark_content_ready', { p_content_id: tickItemId, p_content_version: 1 })
+      if (released.error) throw new Error(`ticks release: ${released.error.message}`)
+
+      const ticked = await tClient.rpc('tick_review_tabs', {
+        p_content_id: tickItemId, p_content_version: 1, p_tab_keys: ['caption', 'youtube', 'caption'],
+      })
+      const own = await tClient.from('content_review_tab_ticks').select('tab_key, content_version')
+        .eq('content_item_id', tickItemId)
+      const otherSeat = await bClient.from('content_review_tab_ticks').select('tab_key').eq('content_item_id', tickItemId)
+      const otherTenant = await kansetClient.from('content_review_tab_ticks').select('tab_key').eq('content_item_id', tickItemId)
+      const anonRead = await anonClient.from('content_review_tab_ticks').select('tab_key').eq('content_item_id', tickItemId)
+      check('TK1: a seat ticks tabs on the released version and only that seat reads them',
+        !!early.error && /review_tick_version_not_released/.test(early.error.message)
+          && !ticked.error && ticked.data === 2
+          && !own.error && own.data?.map((row) => row.tab_key).sort().join(',') === 'caption,youtube'
+          && !otherSeat.error && otherSeat.data?.length === 0
+          && !otherTenant.error && otherTenant.data?.length === 0
+          && (!!anonRead.error || anonRead.data?.length === 0),
+        JSON.stringify({ early: early.error?.message, ticked: ticked.data ?? ticked.error?.message, own: own.data }))
+
+      const again = await tClient.rpc('tick_review_tabs', {
+        p_content_id: tickItemId, p_content_version: 1, p_tab_keys: ['caption'],
+      })
+      const directInsert = await tClient.from('content_review_tab_ticks').insert({
+        content_item_id: tickItemId, content_version: 1, tab_key: 'forged',
+      })
+      const directDelete = await tClient.from('content_review_tab_ticks').delete()
+        .eq('content_item_id', tickItemId).select('tab_key')
+      check('TK2: re-ticking is a no-op and nobody writes or deletes ticks directly',
+        !again.error && again.data === 0 && !!directInsert.error
+          && (!!directDelete.error || directDelete.data?.length === 0),
+        again.error?.message ?? directInsert.error?.message ?? JSON.stringify(directDelete.data))
+
+      const badKey = await tClient.rpc('tick_review_tabs', {
+        p_content_id: tickItemId, p_content_version: 1, p_tab_keys: ['Not A Key'],
+      })
+      const futureVersion = await tClient.rpc('tick_review_tabs', {
+        p_content_id: tickItemId, p_content_version: 2, p_tab_keys: ['caption'],
+      })
+      const crossTenant = await kansetClient.rpc('tick_review_tabs', {
+        p_content_id: tickItemId, p_content_version: 1, p_tab_keys: ['caption'],
+      })
+      const anonTick = await anonClient.rpc('tick_review_tabs', {
+        p_content_id: tickItemId, p_content_version: 1, p_tab_keys: ['caption'],
+      })
+      check('TK3: a bad key, an unreleased version, another tenant and anon are refused',
+        !!badKey.error && !!futureVersion.error && !!crossTenant.error && !!anonTick.error,
+        JSON.stringify([badKey, futureVersion, crossTenant, anonTick].map((r) => r.error?.message ?? 'NO ERROR')))
+
+      const savedAt = new Date().toISOString()
+      const draft = await bClient.rpc('save_review_draft', {
+        p_content_id: tickItemId, p_base_version: 1, p_target_kind: 'copy_block', p_target_key: 'caption',
+        p_anchor: '', p_anchor_label: null, p_target_label: 'Caption', p_url_snapshot: null,
+        p_quoted_text: null, p_body: 'A caption edit she has not sent.', p_saved_at: savedAt,
+      })
+      if (draft.error) throw new Error(`ticks draft: ${draft.error.message}`)
+      const draftSavedAt = (draft.data as { draft?: { saved_at?: string } } | null)?.draft?.saved_at ?? savedAt
+      const blocked = await bClient.rpc('record_content_decision', {
+        p_content_id: tickItemId, p_content_version: 1, p_decision: 'approved', p_note: null,
+      })
+      const decisionAfterBlock = await bClient.from('content_with_state')
+        .select('current_decision').eq('id', tickItemId).single()
+      check('TK4: approval is refused while the approving seat has an unsent draft',
+        !!blocked.error && /unsent_review_drafts/.test(blocked.error.message)
+          && decisionAfterBlock.data?.current_decision === null,
+        blocked.error?.message ?? `decision=${decisionAfterBlock.data?.current_decision}`)
+
+      const discarded = await bClient.rpc('discard_review_draft', {
+        p_content_id: tickItemId, p_target_kind: 'copy_block', p_target_key: 'caption',
+        p_anchor: '', p_reason: 'client_discarded', p_saved_at: draftSavedAt,
+      })
+      // Another seat's unsent draft is invisible to the approving seat and does not block her.
+      const otherSeatDraft = await tClient.rpc('save_review_draft', {
+        p_content_id: tickItemId, p_base_version: 1, p_target_kind: 'copy_block', p_target_key: 'caption',
+        p_anchor: '', p_anchor_label: null, p_target_label: 'Caption', p_url_snapshot: null,
+        p_quoted_text: null, p_body: 'Another seat has not sent this.', p_saved_at: new Date().toISOString(),
+      })
+      const approved = await bClient.rpc('record_content_decision', {
+        p_content_id: tickItemId, p_content_version: 1, p_decision: 'approved', p_note: null,
+      })
+      check('TK5: once the draft is discarded the same seat can approve, despite another seat\'s unsent draft',
+        !discarded.error && !otherSeatDraft.error && !approved.error,
+        discarded.error?.message ?? otherSeatDraft.error?.message ?? approved.error?.message ?? '')
+    }
+
     {
       const stop = await admin.rpc('set_portal_feature_switch', {
         p_client_id: bClientId, p_feature: 'client_mutations', p_enabled: false,
