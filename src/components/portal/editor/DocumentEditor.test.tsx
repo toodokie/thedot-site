@@ -68,6 +68,13 @@ describe('DocumentEditor', () => {
     expect(isLosslessMarkdown('**Title:** Hello\n\n- one\n- two\n\n> quote\r\n')).toBe(true)
   })
 
+  it('opens Markdown the codec refuses in the plain text box, keeping every byte', () => {
+    const repeated = '1. one\n1. one again'
+    expect(isLosslessMarkdown(repeated)).toBe(false)
+    render(<DocumentEditor label="List" value={repeated} baseText={null} onChange={vi.fn()} />)
+    expect(screen.getByRole('textbox', { name: 'List' })).toHaveValue(repeated)
+  })
+
   it('edits as a plain text box when asked, keeping every character', () => {
     const awkward = 'Line one  \n\tTabbed\n\n'
     const onChange = vi.fn()
@@ -83,7 +90,7 @@ describe('DocumentEditor', () => {
     vi.resetModules()
     vi.doMock('@/lib/portal/piece-page/markdown-doc', async (importOriginal) => ({
       ...(await importOriginal<typeof import('@/lib/portal/piece-page/markdown-doc')>()),
-      serializeMarkdown: () => 'changed',
+      isLosslessMarkdown: () => false,
     }))
     try {
       const { default: Editor, isLosslessMarkdown: lossless } = await import('./DocumentEditor')

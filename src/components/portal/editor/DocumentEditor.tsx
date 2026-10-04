@@ -7,29 +7,15 @@ import { keymap } from 'prosemirror-keymap'
 import { EditorState } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
 import { enter, insertHardBreak, toggleEm, toggleStrong } from '@/lib/portal/piece-page/editor-commands'
-import { normalizedBlock, parseMarkdown, serializeMarkdown } from '@/lib/portal/piece-page/markdown-doc'
+import { isLosslessMarkdown, parseMarkdown, serializeMarkdown } from '@/lib/portal/piece-page/markdown-doc'
 import { trackChangesPlugin } from '@/lib/portal/piece-page/track-changes'
 import styles from './document-editor.module.css'
 
 // The textbox element of each mounted editor to its view. Used by tests and the phone check only.
 export const editorViews = new WeakMap<Element, EditorView>()
 
-// True when the document model can carry this Markdown without changing a character: the untouched
-// round trip is exact, and every block, if she edits it, keeps its words when re-written. Anything
-// else is edited as plain text so no text is ever lost.
-export function isLosslessMarkdown(value: string): boolean {
-  try {
-    const doc = parseMarkdown(value)
-    if (serializeMarkdown(doc) !== value) return false
-    let keepsWords = true
-    doc.forEach((node) => {
-      if (keepsWords && parseMarkdown(normalizedBlock(node)).textContent !== node.textContent) keepsWords = false
-    })
-    return keepsWords
-  } catch {
-    return false
-  }
-}
+// The single authoritative check lives in the codec; Markdown it refuses is edited as plain text.
+export { isLosslessMarkdown } from '@/lib/portal/piece-page/markdown-doc'
 
 // Document-like editing (spec 2026-10-03 section 5). value is Markdown; onChange receives Markdown.
 // baseText (the released text) turns on track changes; null turns it off. forcePlain (or Markdown
