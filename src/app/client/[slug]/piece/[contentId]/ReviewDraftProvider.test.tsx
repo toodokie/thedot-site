@@ -578,3 +578,18 @@ describe('field scratch', () => {
     expect(api.readFieldScratch(caption, 'chapters')).toBe('typed here')
   })
 })
+
+describe('field scratch cost', () => {
+  it('adds no browser storage scan to her keystrokes', () => {
+    mount()
+    act(() => api.saveDraft(caption, 'a', null))
+    act(() => api.saveFieldScratch(caption, 'chapters', 'typed here'))
+    act(() => api.saveFieldScratch({ ...caption, key: 'other' }, 'chapters', 'more'))
+    const stored = window.localStorage.length
+    const scan = vi.spyOn(window.localStorage, 'key')
+    act(() => { for (const text of ['b', 'bc', 'bcd']) api.saveDraft(caption, text, null) })
+    // The browser copy of the draft itself walks storage once per save (plan 3); scratch adds nothing.
+    expect(scan.mock.calls.length).toBe(3 * stored)
+    expect(api.readFieldScratch(caption, 'chapters')).toBe('typed here')
+  })
+})

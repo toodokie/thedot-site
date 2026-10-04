@@ -322,13 +322,32 @@ export default function ReviewDraftProvider({
     }
   }, [])
 
+  // Every scratch key this page knows, read from browser storage once and kept up to date here,
+  // so her keystrokes never scan storage.
+  const scratchIndexRef = useRef<Set<string> | null>(null)
+  const scratchIndex = useCallback((): Set<string> => {
+    if (scratchIndexRef.current) return scratchIndexRef.current
+    const keys = new Set(Object.keys(scratchRef.current))
+    try {
+      for (let index = 0; index < window.localStorage.length; index += 1) {
+        const key = window.localStorage.key(index)
+        if (key?.startsWith(scratchBase)) keys.add(key)
+      }
+    } catch { /* storage blocked: memory only */ }
+    scratchIndexRef.current = keys
+    return keys
+  }, [scratchBase])
+
   const writeScratch = useCallback((key: string, scratch: Scratch | null) => {
     scratchRef.current = { ...scratchRef.current, [key]: scratch }
+    const index = scratchIndex()
+    if (scratch === null) index.delete(key)
+    else index.add(key)
     withStorage((storage) => {
       if (scratch === null) storage.removeItem(key)
       else storage.setItem(key, JSON.stringify(scratch))
     })
-  }, [withStorage])
+  }, [scratchIndex, withStorage])
 
   const readFieldScratch = useCallback((target: ReviewTarget, field: string): string | null => {
     const scratch = readScratch(scratchKey(target, field))
@@ -346,17 +365,10 @@ export default function ReviewDraftProvider({
     writeScratch(scratchKey(target, field), value === null ? null : { value, savedAt })
   }, [scratchKey, writeScratch])
 
-  // Every scratch key under a prefix, in memory and in this browser.
-  const scratchKeys = useCallback((prefix: string, exceptPrefix: string | null = null): string[] => {
-    const keys = new Set(Object.keys(scratchRef.current).filter((key) => key.startsWith(prefix)))
-    try {
-      for (let index = 0; index < window.localStorage.length; index += 1) {
-        const key = window.localStorage.key(index)
-        if (key?.startsWith(prefix)) keys.add(key)
-      }
-    } catch { /* storage blocked: memory only */ }
-    return [...keys].filter((key) => exceptPrefix === null || !key.startsWith(exceptPrefix))
-  }, [])
+  // Every scratch key under a prefix, from the index.
+  const scratchKeys = useCallback((prefix: string, exceptPrefix: string | null = null): string[] =>
+    [...scratchIndex()].filter((key) => key.startsWith(prefix) && (exceptPrefix === null || !key.startsWith(exceptPrefix))),
+  [scratchIndex])
 
   const dropScratch = useCallback((prefix: string) => {
     for (const key of scratchKeys(prefix)) writeScratch(key, null)
