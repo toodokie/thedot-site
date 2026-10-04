@@ -122,6 +122,13 @@ export default function EditorHost({ mode, children }: { mode: 'client' | 'previ
   </EditorHostContext.Provider>
 }
 
+const noop = () => {}
+
+// Closes whatever editor is open; a no-op outside the host.
+export function useCloseEditor(): () => void {
+  return useContext(EditorHostContext)?.close ?? noop
+}
+
 export function useEditorHost(): EditorHostValue {
   const value = useContext(EditorHostContext)
   if (!value) throw new Error('Editors must be opened inside EditorHost')
@@ -176,8 +183,15 @@ function CopyEditor({ request, onDone }: { request: CopyEditRequest; onDone: () 
   // device's draft arrived), find her part in it again; when it cannot be found, keep both texts:
   // the newer draft stays whole and her part follows it.
   function settle(): void {
-    const current = readDraft(request.target)?.proposedText ?? request.target.currentText ?? ''
+    const draft = readDraft(request.target)
+    const current = draft?.proposedText ?? request.target.currentText ?? ''
     if (writtenRef.current.some((body) => body === current || body.trim() === current.trim())) return
+    if (draft === null && request.target.currentText !== undefined) {
+      // Her draft is gone (sent, or discarded on another device): start again from the released
+      // text, never "both versions kept", which would duplicate the block.
+      restart(request.target.currentText)
+      return
+    }
     const found = locate(current, anchor)
     if (found) {
       anchor.before = found.before
@@ -189,6 +203,27 @@ function CopyEditor({ request, onDone }: { request: CopyEditRequest; onDone: () 
     anchor.after = ''
     conflictRef.current = { body: current, before: anchor.before }
     setConflict(true)
+  }
+
+  function restart(released: string) {
+    const fresh = anchorFor(request, released, false)
+    conflictRef.current = null
+    setConflict(false)
+    writtenRef.current = [released]
+    if (anchor.mode !== 'segment') {
+      // A whole-block or whole-draft edit: her text is the whole block.
+      anchor.before = ''
+      anchor.after = ''
+      return
+    }
+    if (fresh.mode === 'segment') {
+      Object.assign(anchor, { before: fresh.before, after: fresh.after, original: fresh.original,
+        trailing: fresh.trailing, crlf: fresh.crlf, restore: fresh.restore })
+      return
+    }
+    // The released text has no such part: keep it whole and put her part after it.
+    anchor.before = released.trim() === '' ? '' : `${released.replace(/\s+$/, '')}\n\n`
+    anchor.after = ''
   }
 
   function write(body: string) {
@@ -205,7 +240,7 @@ function CopyEditor({ request, onDone }: { request: CopyEditRequest; onDone: () 
 
   function discard(): boolean {
     const released = request.target.currentText
-    if (anchor.mode !== 'segment' || released === undefined || anchor.restore === null) {
+    if (anchor.mode !== 'segment' || anchor.restore === null) {
       removeDraft(request.target)
       return true
     }
@@ -219,7 +254,7 @@ function CopyEditor({ request, onDone }: { request: CopyEditRequest; onDone: () 
     }
     // Put back the released text of the part she opened; every other edit stays.
     const restored = anchor.before + anchor.restore + anchor.after
-    if (restored.trim() === released.trim()) removeDraft(request.target)
+    if (released !== undefined && restored.trim() === released.trim()) removeDraft(request.target)
     else write(restored)
     return true
   }

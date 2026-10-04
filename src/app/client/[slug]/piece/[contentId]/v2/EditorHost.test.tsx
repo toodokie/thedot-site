@@ -9,6 +9,7 @@ import { editorViews } from '@/components/portal/editor/DocumentEditor'
 import { useReviewDrafts, type ReviewTarget } from '../ReviewDraftProvider'
 import { EditSlot, useEditorHost, type EditorRequest } from './EditorHost'
 import { saveReviewDraft } from '@/app/client/[slug]/draft-actions'
+import { sendReviewBundle } from '@/app/client/[slug]/request-actions'
 import { editorMarkdown, renderInPage, replaceEditorText, stubDialogs } from './test-utils'
 
 const SCRIPT = '**1.** Frame one\n\n**2.** Frame two\n\n**3.** Frame three'
@@ -410,6 +411,44 @@ describe('EditorHost', () => {
     expect(saveReviewDraft).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'note' }))
     await waitFor(() => expect(saveReviewDraft).toHaveBeenCalled(), { timeout: 500 })
+  })
+
+  it('starts again from the released text when her draft is sent while the editor stays open', async () => {
+    vi.mocked(sendReviewBundle).mockResolvedValue({ success: 'Sent.' } as never)
+    function Sender() {
+      const { send } = useReviewDrafts()
+      return <button type="button" onClick={() => { void send('') }}>send</button>
+    }
+    function Seed() {
+      const { saveDraft } = useReviewDrafts()
+      return <button type="button" onClick={() => saveDraft(copyTarget, SCRIPT.replace('Frame three', 'Frame three, edited'), null)}>seed</button>
+    }
+    renderInPage(<><Seed /><Opener request={frame} /><EditSlot slotId="reel-script:frame:1"><p>read</p></EditSlot><Sender /><DraftProbe target={copyTarget} /></>)
+    fireEvent.click(screen.getByRole('button', { name: 'seed' }))
+    fireEvent.click(screen.getByRole('button', { name: 'open' }))
+    typeAtEnd('Frame 2 of 3 · On-screen text', 'A')
+    fireEvent.click(screen.getByRole('button', { name: 'send' }))
+    await waitFor(() => expect(screen.getByTestId('draft').textContent).toBe(''))
+    typeAtEnd('Frame 2 of 3 · On-screen text', 'B')
+    expect(screen.getByTestId('draft').textContent).toBe('**1.** Frame one\n\n**2.** Frame twoAB\n\n**3.** Frame three')
+    expect(screen.queryByText(/Both versions are kept/)).not.toBeInTheDocument()
+  })
+
+  it('discarding one frame never removes the other frames when the released text is unknown', () => {
+    const unknown: ReviewTarget = { kind: 'copy_block', key: 'reel-script', label: 'Reel, on screen' }
+    const req = (index: number, title: string): EditorRequest => ({ kind: 'copy', slotId: `s${index}`, target: unknown, title,
+      initialText: RELEASED_SEGMENTS[index], baseText: RELEASED_SEGMENTS[index], compose: () => FOUR, segment: { mode: 'frames', index } })
+    function Seed() {
+      const { saveDraft } = useReviewDrafts()
+      return <button type="button" onClick={() => saveDraft(unknown, FOUR.replace('Frame four', 'Frame four, edited'), null)}>seed</button>
+    }
+    renderInPage(<><Seed /><Opener name="frame 2" request={req(1, 'Frame 2 of 4')} /><DraftProbe target={unknown} /></>)
+    fireEvent.click(screen.getByRole('button', { name: 'seed' }))
+    fireEvent.click(screen.getByRole('button', { name: 'frame 2' }))
+    typeAtEnd('Frame 2 of 4', ', edited')
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, discard' }))
+    expect(screen.getByTestId('draft').textContent).toBe(FOUR.replace('Frame four', 'Frame four, edited'))
   })
 })
 

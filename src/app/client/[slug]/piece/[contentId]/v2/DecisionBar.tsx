@@ -5,6 +5,7 @@ import { Button, ReviewDots, Textarea } from '@thedot/design-system'
 import type { PieceAction } from '@/lib/portal/piece-page/piece-action'
 import { decide } from '../../../actions'
 import { useReviewDrafts } from '../ReviewDraftProvider'
+import { useCloseEditor } from './EditorHost'
 import { useKeyboardInset, usePhone } from './hooks'
 import { draftStatusLine } from './status-text'
 import styles from './piece-page.module.css'
@@ -41,6 +42,7 @@ export default function DecisionBar({
   onShowCarried: () => void
 }) {
   const { send, sendError, syncState } = useReviewDrafts()
+  const closeEditor = useCloseEditor()
   const isPhone = usePhone()
   const inset = useKeyboardInset()
   const [note, setNote] = useState('')
@@ -65,6 +67,9 @@ export default function DecisionBar({
         setMessage({ kind: 'error', text: outcome.message })
         return
       }
+      // Her edits are with me now: close any open editor so the next edit starts from the
+      // released text, not from what was just sent.
+      closeEditor()
       setNote('')
       setNoteOpen(false)
       setMessage({ kind: 'success', text: outcome.message })

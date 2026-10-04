@@ -13,6 +13,9 @@ vi.mock('@/app/client/[slug]/tick-actions', () => ({ tickReviewTabs: vi.fn(async
 import type { PieceAction } from '@/lib/portal/piece-page/piece-action'
 import { useReviewDrafts } from '../ReviewDraftProvider'
 import DecisionBar from './DecisionBar'
+import { EditSlot, useEditorHost, type EditorRequest } from './EditorHost'
+import { editorViews } from '@/components/portal/editor/DocumentEditor'
+import { act } from '@testing-library/react'
 import { PageProviders, renderInPage, stubDialogs } from './test-utils'
 
 function AddDraft() {
@@ -133,4 +136,33 @@ describe('DecisionBar', () => {
     renderInPage(bar({ kind: 'none' }))
     expect(screen.queryByRole('region', { name: 'Your review' })).not.toBeInTheDocument()
   })
+
+  it('closes the open editor after a send, so the next edit starts from the released text', async () => {
+    const BODY = '**1.** Frame one\n\n**2.** Frame two'
+    const target = { kind: 'copy_block' as const, key: 'reel-script', label: 'Reel, on screen', currentText: BODY }
+    const request: EditorRequest = { kind: 'copy', slotId: 'reel-script:frame:1', target, title: 'Frame 2 of 2', initialText: '**2.** Frame two',
+      baseText: '**2.** Frame two', compose: (t) => t, segment: { mode: 'frames', index: 1 } }
+    function Opener() {
+      const { open } = useEditorHost()
+      return <button type="button" onClick={() => open(request)}>open</button>
+    }
+    function Probe() {
+      const { readDraft } = useReviewDrafts()
+      return <output data-testid="draft">{readDraft(target)?.proposedText ?? ''}</output>
+    }
+    const type = (text: string) => {
+      const view = editorViews.get(screen.getByRole('textbox', { name: 'Frame 2 of 2' }))!
+      act(() => view.dispatch(view.state.tr.insertText(text, view.state.doc.content.size - 1)))
+    }
+    renderInPage(<><Opener /><EditSlot slotId="reel-script:frame:1"><p>read</p></EditSlot><Probe />
+      {bar({ kind: 'send', count: 1, additional: false, retry: false, blocked: null })}</>)
+    fireEvent.click(screen.getByRole('button', { name: 'open' }))
+    type(', sent')
+    fireEvent.click(screen.getByRole('button', { name: 'Send my edits (1)' }))
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Frame 2 of 2' })).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'open' }))
+    type(', new')
+    expect(screen.getByTestId('draft').textContent).toBe('**1.** Frame one\n\n**2.** Frame two, new')
+  })
 })
+
