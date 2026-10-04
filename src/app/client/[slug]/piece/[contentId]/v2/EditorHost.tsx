@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Button } from '@thedot/design-system'
-import DocumentEditor from '@/components/portal/editor/DocumentEditor'
+import DocumentEditor, { loadDocumentEditor } from '@/components/portal/editor/LazyDocumentEditor'
 import LengthCounter from '@/components/portal/editor/LengthCounter'
 import { segmentBlock, segmentText, type SegmentMode } from '@/lib/portal/piece-page/segments'
 import { useReviewDrafts, type ReviewTarget } from '../ReviewDraftProvider'
@@ -75,6 +75,8 @@ function requestKey(request: EditorRequest): string {
 export default function EditorHost({ mode, children }: { mode: 'client' | 'preview'; children: ReactNode }) {
   const isPhone = usePhone()
   const { readDraft } = useReviewDrafts()
+  // Fetch the document editor once the new piece page is up, so it is ready before she edits.
+  useEffect(() => { void loadDocumentEditor().catch(() => { /* the plain box stands in */ }) }, [])
   const [request, setRequest] = useState<EditorRequest | null>(null)
   const [layout, setLayout] = useState<EditingLayout | null>(null)
   const [slots, setSlots] = useState<ReadonlyMap<string, number>>(() => new Map())

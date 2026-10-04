@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useRef, useState } from 'react'
-import DocumentEditor from '@/components/portal/editor/DocumentEditor'
+import DocumentEditor from '@/components/portal/editor/LazyDocumentEditor'
 import { characterCount } from '@/lib/portal/piece-page/limits'
 import {
   formatTagsLike, parseTags, parseYouTubePackage, serializeYouTubePackage, setYouTubeField, youTubeFieldValue,

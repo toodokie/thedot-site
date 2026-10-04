@@ -1,7 +1,8 @@
 import { act, render, screen } from '@testing-library/react'
 import { vi } from 'vitest'
 import type { ServerDraftRow } from '@/lib/portal/review-drafts-core'
-import { editorViews } from '@/components/portal/editor/DocumentEditor'
+import DocumentEditor, { editorViews } from '@/components/portal/editor/DocumentEditor'
+import { provideDocumentEditor } from '@/components/portal/editor/LazyDocumentEditor'
 import { stubEditorLayout } from '@/components/portal/editor/test-layout'
 import { parseMarkdown, serializeMarkdown } from '@/lib/portal/piece-page/markdown-doc'
 import ReviewDraftProvider from '../ReviewDraftProvider'
@@ -16,6 +17,7 @@ import EditorHost from './EditorHost'
 
 export function stubDialogs(): void {
   stubEditorLayout()
+  provideDocumentEditor(DocumentEditor)
   HTMLDialogElement.prototype.showModal = vi.fn(function showModal(this: HTMLDialogElement) {
     this.setAttribute('open', '')
   })
