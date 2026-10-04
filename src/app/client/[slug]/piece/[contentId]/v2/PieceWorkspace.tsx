@@ -181,7 +181,8 @@ function WorkspaceBody({ data, mode }: { data: WorkspaceData; mode: WorkspaceMod
       fallbackMedia={data.fallbackMedia} episodeDriveUrl={data.episodeDriveUrl} mediaPending={data.mediaPending}
       framesCollapsed={activeTab?.kind === 'onscreen'} page={page} onPageChange={setPage}
       onSuggestWhole={canSuggest ? () => suggest(null) : null}
-      onSuggestAt={canSuggest && visual?.anchors ? (at) => suggest(at) : null} />
+      onSuggestAt={canSuggest && visual?.anchors ? (at) => suggest(at) : null}
+      playbackReport={mode === 'client' ? { slug: data.slug, contentId: data.contentId } : null} />
     : null
 
   return <div className={styles.root} data-piece-page-v2="" data-layout={data.layout}>

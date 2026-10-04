@@ -97,7 +97,9 @@ const CLIENT_FEED_EXCLUDED_EVENTS = ['design_link_updated', 'working_version_dis
   // 'release_media_override' (0092, amended 2026-10-03): Anastasia's approval to release a version
   // with no media. An agency decision recorded for Ops, not news for Maria.
   'release_media_override',
-  'review_drafts_carried_over', 'review_send_failed', 'review_send_retry_succeeded']
+  'review_drafts_carried_over', 'review_send_failed', 'review_send_retry_succeeded',
+  // 'review_playback_failed' (0094, amended 2026-10-03): her own failed play, reported to the agency.
+  'review_playback_failed']
 
 export async function getActivity(clientId: string): Promise<ActivityRow[]> {
   const supabase = await createSupabaseServer()

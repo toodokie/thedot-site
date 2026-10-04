@@ -6,6 +6,8 @@ vi.mock('@/app/client/[slug]/draft-actions', () => ({ saveReviewDraft: vi.fn(), 
 vi.mock('@/app/client/[slug]/request-actions', () => ({ sendReviewBundle: vi.fn(), acknowledgePiecePageIntro: vi.fn(async () => undefined), requestContentRemoval: vi.fn(async () => ({})) }))
 const { tickReviewTabs } = vi.hoisted(() => ({ tickReviewTabs: vi.fn(async () => ({ ok: true })) }))
 vi.mock('@/app/client/[slug]/tick-actions', () => ({ tickReviewTabs }))
+const { reportReviewPlaybackFailure } = vi.hoisted(() => ({ reportReviewPlaybackFailure: vi.fn(async () => ({ ok: true })) }))
+vi.mock('@/app/client/[slug]/playback-actions', () => ({ reportReviewPlaybackFailure }))
 vi.mock('@/app/client/[slug]/actions', () => ({ decide: vi.fn(async () => ({})) }))
 vi.mock('@/app/client/[slug]/schedule-actions', () => ({ requestScheduleChange: vi.fn(async () => ({})) }))
 vi.mock('@/app/client/[slug]/comment-actions', () => ({ addComment: vi.fn(async () => ({})) }))
@@ -95,5 +97,30 @@ describe('PieceWorkspace', () => {
     render(<PieceWorkspace data={data()} mode="preview" draftScope="read-only-preview:Maria" serverDrafts={null} ticks={[]} />)
     await new Promise((resolve) => setTimeout(resolve, 500))
     expect(tickReviewTabs).not.toHaveBeenCalled()
+  })
+})
+
+describe('PieceWorkspace playback reports (amended 2026-10-03)', () => {
+  function failTheVideo() {
+    const video = screen.getByLabelText('What does hiring cost?: video')
+    Object.defineProperty(video, 'error', { configurable: true, value: { code: 2 } })
+    fireEvent.error(video)
+  }
+
+  it('reports a failed play from the client page', async () => {
+    reportReviewPlaybackFailure.mockClear()
+    render(<PieceWorkspace data={data()} mode="client" draftScope="maria" serverDrafts={[]} ticks={[]} />)
+    failTheVideo()
+    await waitFor(() => expect(reportReviewPlaybackFailure).toHaveBeenCalledWith(expect.objectContaining({
+      slug: 'kanset', contentId: 'kanset-2026-10-reel', contentVersion: 2, previewKey: 'reel',
+    })))
+  })
+
+  it('never reports from the admin preview', async () => {
+    reportReviewPlaybackFailure.mockClear()
+    render(<PieceWorkspace data={data()} mode="preview" draftScope="read-only-preview:Maria" serverDrafts={null} ticks={[]} />)
+    failTheVideo()
+    expect(await screen.findByText("This video didn't load.")).toBeInTheDocument()
+    expect(reportReviewPlaybackFailure).not.toHaveBeenCalled()
   })
 })
