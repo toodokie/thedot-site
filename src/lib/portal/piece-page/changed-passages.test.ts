@@ -51,3 +51,28 @@ describe('applied changes on this version', () => {
     expect(updatedAreasLine(tabs, new Set(['onscreen', 'youtube']), false)).toBe('on-screen text, YouTube')
   })
 })
+
+describe('appliedChanges and updatedTabKeys coverage', () => {
+  const edit = (overrides: Partial<ContentRequestRow>) => request({
+    payload: { target_kind: 'copy_block', target_key: 'social-caption' }, base_copy_text: 'Old.', ...overrides,
+  })
+
+  it('ignores requests that are not applied or superseded', () => {
+    expect(appliedChanges(2, [edit({ status: 'pending' })]).before.size).toBe(0)
+    expect(appliedChanges(2, [edit({ status: 'superseded' })]).before.size).toBe(1)
+  })
+
+  it('ignores requests applied to another version', () => {
+    expect(appliedChanges(2, [edit({ canonical_version: 1 })]).before.size).toBe(0)
+    expect(appliedChanges(2, [edit({ canonical_version: 3 })]).before.size).toBe(0)
+  })
+
+  it('never puts the dot on a Chapters tab', () => {
+    const withChapters: CopyTab[] = [
+      ...tabs,
+      { key: 'chapters', kind: 'chapters', label: 'Chapters', blocks: [{ key: 'youtube-package', label: 'YT', body: '' }] },
+    ]
+    const changes = appliedChanges(2, [edit({ payload: { target_kind: 'copy_block', target_key: 'youtube-package' } })])
+    expect([...updatedTabKeys(withChapters, changes)]).toEqual(['youtube'])
+  })
+})

@@ -86,3 +86,34 @@ describe('buildCopyTabs', () => {
     expect(blockTabKind(block('youtube-short'))).toBe('youtube')
   })
 })
+
+describe('buildCopyTabs coverage', () => {
+  it('places a block whose tab the layout does not list', () => {
+    const body = block('article-body', 'Body')
+    const tabs = buildCopyTabs('vertical', [body, block('article-seo', 'SEO')], [])
+    expect(tabs.map((tab) => tab.label)).toEqual(['Article', 'Search & sharing'])
+    expect(tabs.flatMap((tab) => tab.blocks)).toContain(body)
+  })
+
+  it('adds Chapters only for a horizontal layout', () => {
+    const description = block('youtube-description', 'YouTube description', 'Intro\n\n00:00 Hello\n01:00 Next')
+    expect(buildCopyTabs('vertical', [description], []).map((tab) => tab.label)).toEqual(['YouTube'])
+    expect(buildCopyTabs('horizontal', [description], []).map((tab) => tab.label)).toEqual(['YouTube', 'Chapters'])
+  })
+
+  it('adds Cover image only for an article with a cover asset', () => {
+    const cover = asset('website-cover', 'website', 'cover')
+    expect(buildCopyTabs('article', [block('article-body')], []).map((tab) => tab.label)).toEqual(['Article'])
+    expect(buildCopyTabs('horizontal', [block('youtube-title')], [cover]).map((tab) => tab.label)).toEqual(['YouTube'])
+    expect(buildCopyTabs('article', [block('article-body')], [cover]).map((tab) => tab.label)).toEqual(['Article', 'Cover image'])
+  })
+})
+
+describe('primaryPreview fallback', () => {
+  it('uses the only video even when it is the other orientation', () => {
+    const tall = preview({ id: 'tall' })
+    const wide = preview({ id: 'wide', width: 1920, height: 1080 })
+    expect(primaryPreview('horizontal', [tall])?.id).toBe('tall')
+    expect(primaryPreview('vertical', [wide])?.id).toBe('wide')
+  })
+})
