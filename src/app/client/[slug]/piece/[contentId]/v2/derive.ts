@@ -19,6 +19,16 @@ import type { ClientState } from '@/lib/portal/state'
 import type { CoverInfo } from './panels/CoverImagePanel'
 
 export type WorkspaceMode = 'client' | 'preview'
+// Plan 4b amendment 2026-10-04 (Task 10b): a reel, Short, cut or episode cover as its own first
+// tile in the media area. The image is the preview's poster (the approved cover, per the upload
+// rule); a note on it targets the cover review asset, so there is no suggestion without one.
+export type CoverTile = {
+  label: 'Cover' | 'YouTube thumbnail'
+  imageUrl: string | null
+  driveUrl: string | null
+  wide: boolean
+  target: { key: string; url: string } | null
+}
 export type VisualTarget = { kind: 'asset' | 'design_link'; key: string; label: string; url: string | null; anchors: boolean }
 
 export type WorkspaceData = {
@@ -40,6 +50,7 @@ export type WorkspaceData = {
   mediaPending: boolean
   visualTarget: VisualTarget | null
   cover: CoverInfo | null
+  coverTile: CoverTile | null
   status: HeaderStatus
   approvedLabel: string
   postedLabel: string
@@ -140,6 +151,25 @@ function pickVisualTarget(
   return link ? { kind: 'design_link', key: link.key, label: `${link.label} design`, url: link.url, anchors: false } : null
 }
 
+function pickCoverTile(layout: PieceLayout, preview: SignedReviewPreview | null, assets: ReviewAsset[]): CoverTile | null {
+  if (layout !== 'vertical' && layout !== 'horizontal') return null
+  const wide = layout === 'horizontal'
+  const covers = assets.filter((a) => a.asset_kind === 'cover' && a.channel !== 'website' && a.asset_key !== 'website-cover')
+  const fits = (a: ReviewAsset) => (wide ? a.width_px > a.height_px : a.height_px >= a.width_px)
+  const asset = wide
+    ? covers.find((a) => a.asset_key === 'youtube-cover') ?? covers.find(fits)
+    : covers.find((a) => a.asset_key !== 'youtube-cover' && fits(a))
+  const imageUrl = preview?.posterUrl ?? null
+  if (!imageUrl && !asset) return null
+  return {
+    label: wide ? 'YouTube thumbnail' : 'Cover',
+    imageUrl,
+    driveUrl: asset && isHttps(asset.url) ? asset.url : null,
+    wide,
+    target: asset ? { key: asset.asset_key, url: asset.url } : null,
+  }
+}
+
 export function deriveWorkspaceData(input: DeriveInput): WorkspaceData {
   const { item, capabilities } = input
   const blocks = item.copy_blocks && item.copy_blocks.length > 0
@@ -181,12 +211,13 @@ export function deriveWorkspaceData(input: DeriveInput): WorkspaceData {
     : null
 
   const visualTarget = pickVisualTarget(layout, preview, input.reviewAssets, designLinks)
+  const coverTile = pickCoverTile(layout, preview, input.reviewAssets)
   // A whole-visual note has a place on the page only where the media area or the cover tab is.
   const visualSpot = expectsMedia || tabs.some((tab) => tab.kind === 'cover')
   const sentEdits = buildSentEditIndex({
     requests: input.requests, version: item.version, tabs,
     visualKey: visualSpot ? visualTarget?.key ?? null : null,
-    coverKey: null,
+    coverKey: coverTile?.target?.key ?? null,
     frameCount: visualTarget?.anchors ? preview?.frames.length ?? 0 : 0,
     visualWord: layout === 'pages' ? 'page' : 'frame',
   })
@@ -216,6 +247,7 @@ export function deriveWorkspaceData(input: DeriveInput): WorkspaceData {
     mediaPending: expectsMedia && !preview && fallbackMedia.length === 0,
     visualTarget,
     cover,
+    coverTile,
     status,
     approvedLabel: status.kind === 'scheduled' || status.kind === 'unconfirmed'
       ? `Approved · ${status.keyFact.charAt(0).toLowerCase()}${status.keyFact.slice(1)}`

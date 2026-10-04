@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Button } from '@thedot/design-system'
 import type { PieceLayout } from '@/lib/portal/piece-page/copy-tabs'
+import type { CoverTile } from './derive'
 import type { SignedReviewPreview } from '@/lib/portal/review-preview-core'
 import { useSignedPreview } from '@/components/portal/useSignedPreview'
 import { reportReviewPlaybackFailure } from '../../../playback-actions'
@@ -27,6 +28,9 @@ export default function MediaArea(props: {
   onPageChange: (page: number) => void
   onSuggestWhole: (() => void) | null
   onSuggestAt: ((index: number) => void) | null
+  // Task 10b: the cover's own tile, ahead of the frames, and its own suggestion.
+  cover?: CoverTile | null
+  onSuggestCover?: (() => void) | null
   // Client mode only (amended 2026-10-03): report a failed play to the agency. Null in the admin preview.
   playbackReport?: { slug: string; contentId: string } | null
 }) {
@@ -85,7 +89,7 @@ export default function MediaArea(props: {
       <SentVisualMarker spot="whole" />
       {imagesNotice}
       <FrameGrid key={imageAttempt} title={props.title} frames={preview.frames} collapsed={props.framesCollapsed}
-        onSuggest={props.onSuggestAt} onImageError={onImageError} />
+        onSuggest={props.onSuggestAt} onImageError={onImageError} cover={props.cover ?? null} onSuggestCover={props.onSuggestCover ?? null} />
     </div>
   }
 
@@ -96,6 +100,8 @@ export default function MediaArea(props: {
         variant="ghost" size="sm">Open {media.label}</Button>)}
       {props.onSuggestWhole && <button type="button" className={styles.link} onClick={props.onSuggestWhole}>Suggest a change</button>}
       <SentVisualMarker spot="whole" />
+      <FrameGrid title={props.title} frames={[]} collapsed={false} onSuggest={null}
+        cover={props.cover ?? null} onSuggestCover={props.onSuggestCover ?? null} />
     </div>
   }
 

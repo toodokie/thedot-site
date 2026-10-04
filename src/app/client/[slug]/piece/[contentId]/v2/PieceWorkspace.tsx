@@ -122,6 +122,19 @@ function WorkspaceBody({ data, mode }: { data: WorkspaceData; mode: WorkspaceMod
     })
   }
 
+  // Task 10b: a note on the cover targets the cover review asset, labelled as the cover.
+  const coverTile = data.coverTile
+  const coverTarget = coverTile?.target ?? null
+  function suggestCover() {
+    if (!coverTile || !coverTarget) return
+    open({
+      kind: 'note',
+      target: { kind: 'asset', key: coverTarget.key, label: coverTile.label, urlSnapshot: coverTarget.url, anchor: '', anchorLabel: 'Cover' },
+      title: `${coverTile.label} · Suggest a change`,
+      thumbUrl: coverTile.imageUrl,
+    })
+  }
+
   function showCarried() {
     const first = carriedDrafts[0]
     if (!first) return
@@ -186,6 +199,7 @@ function WorkspaceBody({ data, mode }: { data: WorkspaceData; mode: WorkspaceMod
       framesCollapsed={activeTab?.kind === 'onscreen'} page={page} onPageChange={setPage}
       onSuggestWhole={canSuggest ? () => suggest(null) : null}
       onSuggestAt={canSuggest && visual?.anchors ? (at) => suggest(at) : null}
+      cover={coverTile} onSuggestCover={data.canEdit && coverTarget ? suggestCover : null}
       playbackReport={mode === 'client' ? { slug: data.slug, contentId: data.contentId } : null} />
     : null
 
