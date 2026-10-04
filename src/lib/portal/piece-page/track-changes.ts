@@ -78,13 +78,14 @@ export function trackChangeDecorations(doc: PMNode, baseText: string): Decoratio
       Decoration.widget(range.from, () => srLabel('added: '), { side: -1, ignoreSelection: true, key: `ins:${range.from}` }),
       Decoration.inline(range.from, range.to, { nodeName: 'ins', class: 'md-ins' }),
     ]),
+    // side -2 puts removed words before any added words at the same spot ("removed ..., added ...").
     ...deletes.map((removed) => Decoration.widget(removed.at, () => {
       const element = document.createElement('del')
       element.className = 'md-del'
       element.contentEditable = 'false'
       element.append(srLabel('removed: '), removed.text)
       return element
-    }, { side: -1, ignoreSelection: true, key: `del:${removed.at}:${removed.text}` })),
+    }, { side: -2, ignoreSelection: true, key: `del:${removed.at}:${removed.text}` })),
   ])
 }
 
