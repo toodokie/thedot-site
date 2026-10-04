@@ -3,6 +3,10 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import SuggestEditForm from './SuggestEditForm'
 import ReviewDraftProvider from './ReviewDraftProvider'
 import { editDraftKey } from '@/lib/portal/edit-drafts'
+vi.mock('../../draft-actions', () => ({
+  saveReviewDraft: vi.fn(), discardReviewDraft: vi.fn(), sendReviewDrafts: vi.fn(), reportReviewSendFailure: vi.fn(),
+}))
+vi.mock('../../request-actions', () => ({ sendReviewBundle: vi.fn() }))
 
 function subject() {
   return <ReviewDraftProvider draftScope="maria-user" slug="kanset" contentId="episode-two" version={3}>

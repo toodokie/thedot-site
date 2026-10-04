@@ -1,7 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import ReviewAssets from './ReviewAssets'
 import ReviewDraftProvider from './ReviewDraftProvider'
+vi.mock('../../draft-actions', () => ({
+  saveReviewDraft: vi.fn(), discardReviewDraft: vi.fn(), sendReviewDrafts: vi.fn(), reportReviewSendFailure: vi.fn(),
+}))
+vi.mock('../../request-actions', () => ({ sendReviewBundle: vi.fn() }))
 
 const asset = {
   id: 'asset-1', content_version: 2, asset_key: 'social-cover',

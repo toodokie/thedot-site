@@ -12,6 +12,9 @@ const { sendReviewBundle, decide } = vi.hoisted(() => ({
 const writeText = vi.fn(async () => undefined)
 vi.mock('../../request-actions', () => ({ sendReviewBundle }))
 vi.mock('../../actions', () => ({ decide }))
+vi.mock('../../draft-actions', () => ({
+  saveReviewDraft: vi.fn(), discardReviewDraft: vi.fn(), sendReviewDrafts: vi.fn(), reportReviewSendFailure: vi.fn(),
+}))
 
 function AddDraft() {
   const { saveDraft } = useReviewDrafts()
