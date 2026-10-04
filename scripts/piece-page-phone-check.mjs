@@ -119,6 +119,32 @@ try {
       await page.emulateMedia({ reducedMotion: 'reduce' })
       const transition = await page.evaluate(() => getComputedStyle(document.querySelector('[data-collapsed]')).transitionDuration)
       if (!/^0s(, 0s)*$/.test(transition)) failures.push(`${label}: condensed bar animates with reduced motion (${transition})`)
+      // Plan 4b: a phone edits in a full-screen sheet with Done on screen; a computer edits in place.
+      // The admin preview keeps drafts in this throwaway browser only; nothing is typed here anyway.
+      await page.emulateMedia({ reducedMotion: 'no-preference' })
+      const edit = page.locator('[data-piece-page-v2] button', { hasText: /^Edit( text| section)?$/ }).first()
+      if (await edit.count()) {
+        await edit.scrollIntoViewIfNeeded()
+        await edit.click()
+        if (vp.name === 'phone') {
+          const sheet = page.locator('dialog[open]')
+          await sheet.waitFor({ timeout: 5000 })
+          const box = await sheet.boundingBox()
+          if (!box || box.width < vp.width - 1 || box.height < vp.height - 1) failures.push(`${label}: editor sheet is not full screen ${JSON.stringify(box)}`)
+          const done = sheet.getByRole('button', { name: 'Done' })
+          const doneBox = await done.boundingBox()
+          if (!doneBox || doneBox.y + doneBox.height > vp.height || doneBox.height < 44) failures.push(`${label}: Done is off screen or under 44px`)
+          await page.screenshot({ path: `${OUT}/${vp.name}-${id}-editing.png` })
+          await done.click()
+        } else {
+          if ((await page.locator('[data-editing-slot]').count()) === 0) failures.push(`${label}: desktop edit did not open in place`)
+          if ((await page.locator('dialog[open]').count()) > 0) failures.push(`${label}: desktop edit opened a sheet`)
+          await page.screenshot({ path: `${OUT}/${vp.name}-${id}-editing.png` })
+          await page.getByRole('button', { name: 'Done' }).first().click()
+        }
+      } else {
+        console.log(`${label}: nothing editable (published or revision in progress); editing check skipped`)
+      }
       await page.evaluate(() => window.scrollTo(0, 0))
       await page.screenshot({ path: `${OUT}/${vp.name}-${id}-full.png`, fullPage: true })
       console.log(`${label}: checked`)
