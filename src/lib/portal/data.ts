@@ -88,12 +88,16 @@ export async function getContentItem(clientId: string, contentId: string): Promi
 // 'review_preview_uploaded' and 'review_preview_deleted' (0092) join them: a preview is a
 // temporary portal copy of a render she reviews on the piece page itself. "Preview removed" in
 // her feed would read as her media being taken away. The agency activity log keeps both.
+// 'review_drafts_carried_over', 'review_send_failed' and 'review_send_retry_succeeded' (0093) are
+// agency signals about her drafts. She sees the carried edit and the failed send on the piece page
+// itself; a feed line would only repeat it.
 const CLIENT_FEED_EXCLUDED_EVENTS = ['design_link_updated', 'working_version_discarded',
   'agency_supersession_recorded', 'agency_draft_archived',
   'review_preview_uploaded', 'review_preview_deleted',
   // 'release_media_override' (0092, amended 2026-10-03): Anastasia's approval to release a version
   // with no media. An agency decision recorded for Ops, not news for Maria.
-  'release_media_override']
+  'release_media_override',
+  'review_drafts_carried_over', 'review_send_failed', 'review_send_retry_succeeded']
 
 export async function getActivity(clientId: string): Promise<ActivityRow[]> {
   const supabase = await createSupabaseServer()
