@@ -1076,9 +1076,108 @@ grant execute on function public.assert_agency_internal_activity_security() to s
 
 select public.assert_agency_internal_activity_security();
 
+-- ---------------------------------------------------------------------------------------------
+-- Copy revisions carry the review media forward (amended 2026-10-04, Anastasia). When a new
+-- version is created because only the words changed, its review media is the previous version's:
+-- applying Maria's copy edits, an agency copy re-share, a quiet supersession, an applied release,
+-- or the agency sync that bumps the working version. Before this, only
+-- begin_visual_request_revision (0081) copied content_review_assets forward, so with the release
+-- media guard above a piece whose media was version-level only was refused when her edits were
+-- applied.
+--
+-- Every one of those paths creates the new snapshot in exactly one place: the version_inserted
+-- branch of portal_core_evaluate_content_item_version (0025 body, renamed in 0029), reached via
+-- sync_content_item_versions / portal_sync_content_item_version -> portal_evaluate_content_item_version.
+-- begin_content_revision (0042), begin_content_request_revision (0047), record_agency_applied_release
+-- (0085), record_agency_supersession (0087) and supersede_content_request_with_released_version
+-- (0042) only move pointers and flags; none inserts a version. The idea-hydration branch (0029)
+-- creates v1, which has no predecessor. begin_visual_request_revision is left exactly as it is.
+--
+-- That branch now copies, from the version it supersedes (the old working version), (a) its
+-- content_review_assets rows with 0081's insert-select and (b) its live content_review_previews
+-- rows with the same object prefix and paths under the new version number. Both inserts are
+-- on conflict do nothing, so a retry adds nothing. Retention stays correct: when the superseded
+-- preview is retired its paths are queued, and agency_pending_review_preview_removals filters out
+-- every path that a current preview's object_prefix still covers, so the carried row keeps them.
+do $rewrite$
+declare
+  v_def text;
+  v_old text := $old$  update public.content_items set working_version = v_version, updated_at = pg_catalog.now()
+  where id = v_item_id;$old$;
+  v_new text := $new$  update public.content_items set working_version = v_version, updated_at = pg_catalog.now()
+  where id = v_item_id;
+  -- 0092 copy-revision media carry: the new version shows the media of the version it replaces.
+  insert into public.content_review_assets(client_id,content_item_id,content_version,asset_key,
+    label,channel,asset_kind,url,width_px,height_px,caption_status,review_note)
+  select a.client_id,a.content_item_id,v_version,a.asset_key,a.label,a.channel,a.asset_kind,a.url,
+    a.width_px,a.height_px,a.caption_status,a.review_note from public.content_review_assets a
+  where a.client_id=v_client_id and a.content_item_id=v_item_id
+    and a.content_version=v_ci.working_version
+  on conflict(client_id,content_item_id,content_version,asset_key) do nothing;
+  insert into public.content_review_previews(client_id,content_item_id,content_version,preview_key,
+    review_asset_key,media_kind,object_prefix,video_path,poster_path,frames,width_px,height_px,
+    duration_seconds,byte_total,source_sha256)
+  select p.client_id,p.content_item_id,v_version,p.preview_key,p.review_asset_key,p.media_kind,
+    p.object_prefix,p.video_path,p.poster_path,p.frames,p.width_px,p.height_px,
+    p.duration_seconds,p.byte_total,p.source_sha256 from public.content_review_previews p
+  where p.client_id=v_client_id and p.content_item_id=v_item_id
+    and p.content_version=v_ci.working_version
+  on conflict(client_id,content_item_id,content_version,preview_key) do nothing;$new$;
+begin
+  select pg_catalog.pg_get_functiondef(
+    'public.portal_core_evaluate_content_item_version(jsonb,boolean)'::pg_catalog.regprocedure
+  ) into v_def;
+  if v_def is null or pg_catalog.strpos(v_def, v_old) = 0
+     or pg_catalog.strpos(pg_catalog.substr(v_def, pg_catalog.strpos(v_def, v_old) + 1), v_old) <> 0 then
+    raise exception 'portal_core_evaluate_content_item_version drifted; 0092 will not rewrite it blindly';
+  end if;
+  execute pg_catalog.replace(v_def, v_old, v_new);
+end;
+$rewrite$;
+-- Grants unchanged from 0029: owner only, reachable through portal_evaluate_content_item_version.
+revoke all on function public.portal_core_evaluate_content_item_version(jsonb,boolean)
+  from public, anon, authenticated, service_role;
+
+create or replace function public.assert_copy_revision_media_carry_security()
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_def text;
+begin
+  select pg_catalog.pg_get_functiondef(
+    'public.portal_core_evaluate_content_item_version(jsonb,boolean)'::pg_catalog.regprocedure) into v_def;
+  if v_def is null
+     or v_def not like '%insert into public.content_review_assets%a.content_version=v_ci.working_version%do nothing%'
+     or v_def not like '%insert into public.content_review_previews%p.content_version=v_ci.working_version%do nothing%' then
+    raise exception 'copy revisions no longer carry the review media forward';
+  end if;
+  if pg_catalog.has_function_privilege('anon', 'public.portal_core_evaluate_content_item_version(jsonb,boolean)', 'EXECUTE')
+     or pg_catalog.has_function_privilege('authenticated', 'public.portal_core_evaluate_content_item_version(jsonb,boolean)', 'EXECUTE')
+     or pg_catalog.has_function_privilege('service_role', 'public.portal_core_evaluate_content_item_version(jsonb,boolean)', 'EXECUTE') then
+    raise exception 'the sync evaluator core became directly callable';
+  end if;
+  select pg_catalog.pg_get_functiondef(
+    'public.begin_visual_request_revision(uuid[],text,uuid)'::pg_catalog.regprocedure) into v_def;
+  if v_def is null or v_def not ilike '%insert into public.content_review_assets%' then
+    raise exception 'begin_visual_request_revision lost its review asset carry';
+  end if;
+  if pg_catalog.has_function_privilege('anon', 'public.assert_copy_revision_media_carry_security()', 'EXECUTE')
+     or pg_catalog.has_function_privilege('authenticated', 'public.assert_copy_revision_media_carry_security()', 'EXECUTE') then
+    raise exception 'copy revision media carry assertion is exposed';
+  end if;
+end;
+$$;
+revoke all on function public.assert_copy_revision_media_carry_security() from public, anon, authenticated;
+grant execute on function public.assert_copy_revision_media_carry_security() to service_role;
+
+select public.assert_copy_revision_media_carry_security();
+
 -- Cumulative fold. 0090 made assert_portal_security() = slice89 + archive guard; that pair becomes
 -- slice91 (0091 changed only an assertion already inside the fold), and the review preview,
--- release media and agency_internal activity assertions join it.
+-- release media, agency_internal activity and copy revision media carry assertions join it.
 create or replace function public.assert_portal_slice91_security()
 returns void language plpgsql security definer set search_path = '' as $$
 begin
@@ -1096,6 +1195,7 @@ begin
   perform public.assert_review_preview_security();
   perform public.assert_release_media_guard_security();
   perform public.assert_agency_internal_activity_security();
+  perform public.assert_copy_revision_media_carry_security();
 end;
 $$;
 revoke all on function public.assert_portal_security() from public, anon, authenticated;

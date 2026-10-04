@@ -4693,6 +4693,79 @@ async function main(): Promise<void> {
           !housekeeping.error && housekeepingIds.length >= 4
             && !housekeepingOutbox.error && (housekeepingOutbox.data ?? []).length === 0,
           JSON.stringify({ activity: housekeepingIds.length, error: housekeepingOutbox.error?.message, outbox: housekeepingOutbox.data }))
+
+        // Amended 2026-10-04 (Anastasia): a copy-only revision carries the review media forward.
+        // v1 has a version-level review asset and a portal preview and nothing else (no design
+        // link). After an agency copy revision to v2, v2 carries both, the release media guard
+        // passes with no override, the client seat reads the v2 preview, and retiring the v1
+        // preview leaves the shared objects in storage because the v2 row still uses them.
+        const carryId = `rls-carry-${RUN_ID}`
+        const [carrySync] = await sync([snapshot(bClientId!, carryId, 1, 'Carry v1', 'Carry body before edits', 'caption')])
+        const carryItemId = carrySync.item_id
+        const carryAsset = await rawAdmin.rpc('set_content_review_asset', {
+          p_client_id: bClientId, p_content_id: carryId, p_content_version: 1,
+          p_asset_key: 'carry-cover', p_label: 'Carry cover', p_channel: 'social', p_asset_kind: 'cover',
+          p_url: 'https://www.canva.com/design/CARRYCOVER/view', p_width_px: 1080, p_height_px: 1920,
+          p_caption_status: 'not_applicable', p_review_note: null, p_actor_key: 'thedot-admin',
+          p_idempotency_key: `rls-carry-asset-${RUN_ID}`,
+        })
+        if (carryAsset.error) throw new Error(`carry asset: ${carryAsset.error.message}`)
+        const carryPreview = await uploadReviewPreview(admin, tools, {
+          clientId: bClientId!, contentItemId: carryItemId,
+          request: { ...request(carryId, [frameA]), reviewAssetKey: 'carry-cover' },
+        })
+        const carryV1Ready = await rawAdmin.rpc('mark_content_ready', { p_content_id: carryItemId, p_content_version: 1 })
+        if (carryV1Ready.error) throw new Error(`carry v1 release: ${carryV1Ready.error.message}`)
+        const carryRevision = await rawAdmin.rpc('begin_content_revision', { p_content_id: carryItemId, p_content_version: 1 })
+        if (carryRevision.error) throw new Error(`carry revision: ${carryRevision.error.message}`)
+        const carryV2Snapshot = snapshot(bClientId!, carryId, 2, 'Carry v2', 'Carry body with her edits applied', 'caption')
+        await sync([carryV2Snapshot])
+        await sync([carryV2Snapshot])
+        const v2Assets = await rawAdmin.from('content_review_assets').select('asset_key, url, asset_kind')
+          .eq('content_item_id', carryItemId).eq('content_version', 2)
+        const v2Previews = await rawAdmin.from('content_review_previews')
+          .select('id, preview_key, review_asset_key, object_prefix, video_path, poster_path, frames, source_sha256')
+          .eq('content_item_id', carryItemId).eq('content_version', 2)
+        check('RC1: a copy revision carries the v1 review asset and preview to v2, once, on the same objects',
+          !v2Assets.error && v2Assets.data?.length === 1 && v2Assets.data[0].asset_key === 'carry-cover'
+            && v2Assets.data[0].url === 'https://www.canva.com/design/CARRYCOVER/view'
+            && !v2Previews.error && v2Previews.data?.length === 1 && v2Previews.data[0].preview_key === 'reel'
+            && v2Previews.data[0].review_asset_key === 'carry-cover'
+            && v2Previews.data[0].object_prefix === carryPreview.objectPrefix
+            && v2Previews.data[0].id !== carryPreview.previewId,
+          JSON.stringify({ assets: v2Assets.data ?? v2Assets.error?.message, previews: v2Previews.data ?? v2Previews.error?.message }))
+
+        const carryV2Ready = await rawAdmin.rpc('mark_content_ready', { p_content_id: carryItemId, p_content_version: 2 })
+        const carryOverrides = await rawAdmin.from('content_release_media_overrides').select('id')
+          .eq('content_item_id', carryItemId)
+        const carryVisible = await rawAdmin.from('content_items').select('client_visible_version').eq('id', carryItemId).single()
+        check('RC2: the edited version releases through the media guard with no override',
+          !carryV2Ready.error && carryVisible.data?.client_visible_version === 2
+            && !carryOverrides.error && carryOverrides.data?.length === 0,
+          carryV2Ready.error?.message ?? JSON.stringify({ visible: carryVisible.data, overrides: carryOverrides.data ?? carryOverrides.error?.message }))
+
+        const seatV2 = await bClient.from('content_review_previews').select('id, content_version, video_path')
+          .eq('content_item_id', carryItemId)
+        check('RC3: the client seat reads the carried v2 preview and no longer the v1 row',
+          !seatV2.error && seatV2.data?.length === 1 && seatV2.data[0].content_version === 2
+            && seatV2.data[0].video_path === v2Previews.data?.[0]?.video_path,
+          JSON.stringify(seatV2.data ?? seatV2.error?.message))
+
+        const carryRetention = await runPreviewRetention(admin, { contentItemId: carryItemId })
+        const carryV1Row = await rawAdmin.from('content_review_previews').select('id').eq('id', carryPreview.previewId)
+        const carryV2Row = await rawAdmin.from('content_review_previews').select('id').eq('content_item_id', carryItemId)
+          .eq('content_version', 2)
+        const carriedPaths = [
+          v2Previews.data?.[0]?.video_path, v2Previews.data?.[0]?.poster_path,
+          ...((v2Previews.data?.[0]?.frames ?? []) as Array<{ path: string }>).map((frame) => frame.path),
+        ].filter((path): path is string => typeof path === 'string')
+        const stillStored = await Promise.all(carriedPaths.map((path) =>
+          admin.storage.from(REVIEW_PREVIEW_BUCKET).download(path)))
+        check('RC4: retiring the superseded v1 preview leaves the objects the carried v2 row still uses',
+          carryRetention.retired === 1 && carryV1Row.data?.length === 0 && carryV2Row.data?.length === 1
+            && carriedPaths.length >= 3 && stillStored.every((result) => !result.error),
+          JSON.stringify({ carryRetention, v1: carryV1Row.data, v2: carryV2Row.data, paths: carriedPaths,
+            stored: stillStored.map((result) => result.error?.message ?? 'ok') }))
       } finally {
         await rm(previewDir, { recursive: true, force: true })
       }
