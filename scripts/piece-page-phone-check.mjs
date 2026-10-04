@@ -17,6 +17,7 @@ const PLAYWRIGHT = process.env.PLAYWRIGHT_MODULE
   || '/Users/anastasiavolkova/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright/index.mjs'
 const { chromium } = await import(PLAYWRIGHT)
 const BASE = process.env.BASE || 'http://localhost:3000'
+const LOCAL_HTTP = /^http:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(BASE)
 const OUT = process.env.OUT || '/tmp/kanset-piece-page-check'
 const PIECES = (process.env.PIECES || '').split(',').map((id) => id.trim()).filter(Boolean)
 if (PIECES.length === 0) throw new Error('Set PIECES to a comma list of content ids: one reel, one podcast, one LinkedIn PDF, one article')
@@ -42,11 +43,14 @@ const VIEWPORTS = [
   { name: 'desktop', width: 1440, height: 900, isMobile: false, hasTouch: false },
 ]
 const failures = []
-const browser = await chromium.launch()
+// PLAYWRIGHT_CHANNEL=chrome uses the installed Google Chrome when no Playwright browser is downloaded.
+const browser = await chromium.launch(process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {})
 try {
   for (const vp of VIEWPORTS) {
     const context = await browser.newContext({
       viewport: { width: vp.width, height: vp.height }, isMobile: vp.isMobile, hasTouch: vp.hasTouch, deviceScaleFactor: 2,
+      // A local `next start` runs in production mode, whose middleware redirects plain http to https.
+      ...(LOCAL_HTTP ? { extraHTTPHeaders: { 'x-forwarded-proto': 'https' } } : {}),
     })
     await context.addCookies([{ name: 'session', value: token, domain: new URL(BASE).hostname, path: '/',
       httpOnly: true, secure: BASE.startsWith('https'), sameSite: 'Lax' }])
@@ -75,12 +79,22 @@ try {
           h1: document.querySelectorAll('h1').length,
           bodyFont: panel ? parseFloat(getComputedStyle(panel).fontSize) : 16,
           barInView: bar ? bar.getBoundingClientRect().bottom <= window.innerHeight + 1 : true,
+          // Nothing (a sidebar, a bottom nav) may sit on top of the decision bar's corners or centre.
+          barCovered: bar ? (() => {
+            const r = bar.getBoundingClientRect()
+            const y = Math.min(r.top + r.height / 2, window.innerHeight - 2)
+            return [r.left + 2, r.left + r.width / 2, r.right - 2].some((x) => {
+              const hit = document.elementFromPoint(x, y)
+              return !hit || !bar.contains(hit)
+            })
+          })() : false,
           tall: document.scrollingElement.scrollHeight > window.innerHeight + 200,
         }
       })
       if (facts.h1 !== 1) failures.push(`${label}: ${facts.h1} h1 elements`)
       if (facts.bodyFont < 16) failures.push(`${label}: body copy ${facts.bodyFont}px`)
       if (!facts.barInView) failures.push(`${label}: decision bar outside the viewport`)
+      if (facts.barCovered) failures.push(`${label}: decision bar covered by another element`)
       if (vp.name === 'phone') {
         if (facts.overflow > 0) failures.push(`${label}: horizontal scroll of ${facts.overflow}px`)
         for (const item of facts.small) failures.push(`${label}: touch target under 44px: ${item}`)
