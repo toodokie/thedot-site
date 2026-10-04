@@ -5620,6 +5620,229 @@ async function main(): Promise<void> {
           outbox: fbOutbox.data ?? fbOutbox.error?.message }))
     }
 
+    // 0095: feedback answers (one per seat, own-row read, RPC-only writes, agency-only notice) and
+    // agency signal handling (open signals, Done, unsent-draft alert events). Builds on FBP1/FBP2
+    // (answer private to the seat, switches honoured), DR16 (the send-failure cursor rule) and SG12
+    // (Done refuses a send failure); none of those are repeated here.
+    {
+      const PROMPT = `rls_feedback_${RUN_ID}`.toLowerCase()
+      const answer = (client: SupabaseClient, overrides: Record<string, unknown> = {}) => client.rpc('submit_portal_feedback', {
+        p_client_id: bClientId, p_prompt_key: PROMPT, p_rating: 4, p_comment: 'Much easier on my phone.',
+        p_content_item_id: null, ...overrides,
+      })
+      const outcome = (result: { data: unknown }) => (result.data as { outcome?: string } | null)?.outcome
+      // activity_log is read through a client seat (client-visible rows); the inbox through agency RPCs.
+      const feedbackActivity = async () => {
+        const rows = await bClient.from('activity_log').select('id,actor_type,title,summary')
+          .eq('event_type', 'portal_feedback_submitted')
+        if (rows.error) throw new Error(`feedback activity: ${rows.error.message}`)
+        return rows.data ?? []
+      }
+      const activityBefore = new Set((await feedbackActivity()).map((row) => row.id as string))
+
+      const first = await answer(bClient)
+      const second = await answer(bClient, { p_rating: 1, p_comment: 'Changed my mind.' })
+      const own = await bClient.from('portal_feedback_responses')
+        .select('client_id,prompt_key,rating,comment,created_at').eq('prompt_key', PROMPT)
+      check('FB1: a seat answers once; a second answer changes nothing',
+        !first.error && outcome(first) === 'submitted' && !second.error && outcome(second) === 'already_submitted'
+          && own.data?.length === 1 && own.data[0].rating === 4 && own.data[0].comment === 'Much easier on my phone.',
+        first.error?.message ?? second.error?.message ?? own.error?.message ?? JSON.stringify(own.data))
+
+      const viewerSees = await bViewerClient.from('portal_feedback_responses').select('rating').eq('prompt_key', PROMPT)
+      const kansetSees = await kansetClient.from('portal_feedback_responses').select('rating').eq('prompt_key', PROMPT)
+      check('FB2: another seat of the same client and another tenant read none of it',
+        !viewerSees.error && viewerSees.data?.length === 0 && !kansetSees.error && kansetSees.data?.length === 0,
+        viewerSees.error?.message ?? kansetSees.error?.message ?? '')
+
+      const hiddenColumns = await bClient.from('portal_feedback_responses').select('auth_user_id,seat_name').eq('prompt_key', PROMPT)
+      check('FB3: the seat cannot read the hidden columns', Boolean(hiddenColumns.error),
+        hiddenColumns.error?.message ?? JSON.stringify(hiddenColumns.data))
+
+      const directInsert = await bClient.from('portal_feedback_responses').insert({
+        client_id: bClientId, auth_user_id: bUserId, prompt_key: 'forged_answer', rating: 5, seat_name: 'Forged',
+      })
+      const directUpdate = await bClient.from('portal_feedback_responses').update({ rating: 1 }).eq('prompt_key', PROMPT).select('rating')
+      check('FB4: no direct insert or update', Boolean(directInsert.error) && (Boolean(directUpdate.error) || directUpdate.data?.length === 0),
+        `${directInsert.error?.message ?? 'INSERTED'} | ${directUpdate.error?.message ?? JSON.stringify(directUpdate.data)}`)
+
+      const refused = await Promise.all([
+        answer(bClient, { p_prompt_key: `${PROMPT}_a`, p_rating: 0 }),
+        answer(bClient, { p_prompt_key: `${PROMPT}_b`, p_rating: 6 }),
+        answer(bClient, { p_prompt_key: `${PROMPT}_c`, p_comment: 'x'.repeat(2001) }),
+        answer(bClient, { p_prompt_key: `${PROMPT}_d`, p_comment: 'bell \u0007 here' }),
+        answer(bClient, { p_prompt_key: `${PROMPT}_e`, p_client_id: kansetClientId }),
+        answer(bClient, { p_prompt_key: `${PROMPT}_f`, p_content_item_id: kansetItemId }),
+        answer(anonClient, { p_prompt_key: `${PROMPT}_g` }),
+      ])
+      check('FB5: bad rating, long or control-character comment, foreign tenant, foreign piece and anon are refused',
+        refused.every((result) => Boolean(result.error)), refused.map((result) => result.error?.message ?? 'accepted').join(' | '))
+
+      const viewerAnswer = await answer(bViewerClient, { p_rating: 5, p_comment: 'Line one\nLine two' })
+      check('FB6: a second seat answers on its own row, newlines allowed', !viewerAnswer.error && outcome(viewerAnswer) === 'submitted',
+        viewerAnswer.error?.message ?? '')
+
+      const activity = (await feedbackActivity()).filter((row) => !activityBefore.has(row.id as string))
+      const activityIds = activity.map((row) => row.id as string)
+      const outbox = activityIds.length ? await admin.from('notification_outbox').select('source_activity_id,recipient_kind,channel')
+        .in('source_activity_id', activityIds) : { data: [], error: null }
+      const outboxRows = (outbox.data ?? []) as Array<{ source_activity_id: string; recipient_kind: string; channel: string }>
+      check('FB7: each answer notifies the agency (email and in-app) and never the client',
+        activity.length === 2 && activity.every((row) => row.actor_type === 'client')
+          && !outbox.error && outboxRows.every((row) => row.recipient_kind === 'agency')
+          && activityIds.every((id) => outboxRows.some((row) => row.source_activity_id === id && row.channel === 'email')
+            && outboxRows.some((row) => row.source_activity_id === id && row.channel === 'in_app')),
+        JSON.stringify({ activity, outbox: outbox.data ?? outbox.error?.message }))
+
+      type SignalRow = { event_id: string; client_id: string; event_type: string; content_item_id: string | null
+        payload: { prompt_key?: string; rating?: number; comment?: string | null } }
+      const openSignals = async () => {
+        const result = await admin.rpc('agency_open_client_signals', { p_limit: 500 })
+        if (result.error) throw new Error(`open signals: ${result.error.message}`)
+        return (result.data ?? []) as SignalRow[]
+      }
+      const bFeedbackSignals = (await openSignals()).filter((row) => row.client_id === bClientId
+        && row.event_type === 'portal_feedback_submitted' && row.payload?.prompt_key === PROMPT)
+      const feedbackEvents = await Promise.all(bFeedbackSignals.map((row) =>
+        admin.rpc('show_portal_inbox_event', { p_client_id: bClientId, p_event_id: row.event_id })))
+      const feedbackEventRows = feedbackEvents.map((result) => result.data as {
+        requires_reconciliation?: boolean; object_type?: string } | null)
+      check('FB8: one non-blocking inbox event per answer',
+        bFeedbackSignals.length === 2 && feedbackEvents.every((result) => !result.error)
+          && feedbackEventRows.every((row) => row?.requires_reconciliation === false
+            && row.object_type === 'portal_feedback_response'),
+        JSON.stringify(feedbackEventRows))
+
+      const clientInbox = await bClient.from('portal_inbox_events').select('id').eq('client_id', bClientId)
+      const ratings = bFeedbackSignals.map((row) => `${row.payload?.rating}:${row.payload?.comment ?? ''}`).sort()
+      const activityText = JSON.stringify(activity)
+      check('FB9: the answer reaches the agency in the inbox payload only; seats cannot read the inbox and the activity row carries no answer',
+        ratings.join('|') === ['4:Much easier on my phone.', '5:Line one\nLine two'].join('|')
+          && (Boolean(clientInbox.error) || clientInbox.data?.length === 0)
+          && !activityText.includes('Much easier') && !activityText.includes('Line one'),
+        JSON.stringify({ ratings, clientInbox: clientInbox.error?.message ?? clientInbox.data, activity }))
+
+      check('SG1: open signals list each feedback answer', bFeedbackSignals.length === 2, JSON.stringify(bFeedbackSignals))
+
+      const clientCalls = await Promise.all([
+        bClient.rpc('agency_open_client_signals', { p_limit: 5 }),
+        bClient.rpc('agency_resolve_inbox_event', { p_event_id: bFeedbackSignals[0]?.event_id, p_note: null,
+          p_actor_key: 'thedot-admin', p_idempotency_key: `rls-sg-forged-${RUN_ID}` }),
+        bClient.rpc('agency_raise_unsent_draft_alert_events', { p_now: null }),
+        bClient.from('agency_inbox_resolutions').select('event_id'),
+      ])
+      check('SG2: client roles reach no agency signal function or table',
+        clientCalls.slice(0, 3).every((result) => Boolean(result.error))
+          && (Boolean(clientCalls[3].error) || (clientCalls[3].data ?? []).length === 0),
+        clientCalls.map((result) => result.error?.message ?? 'ok').join(' | '))
+
+      const target = bFeedbackSignals[0]?.event_id
+      const resolveOnce = await admin.rpc('agency_resolve_inbox_event', { p_event_id: target, p_note: 'Read it.',
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-sg-${RUN_ID}-1` })
+      const resolveTwice = await admin.rpc('agency_resolve_inbox_event', { p_event_id: target, p_note: null,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-sg-${RUN_ID}-2` })
+      const stillOpen = (await openSignals()).some((row) => row.event_id === target)
+      const otherStillOpen = (await openSignals()).some((row) => row.event_id === bFeedbackSignals[1]?.event_id)
+      check('SG3: Done closes one signal once; a second Done reports already_resolved; the other answer stays open',
+        outcome(resolveOnce) === 'resolved' && outcome(resolveTwice) === 'already_resolved' && !stillOpen && otherStillOpen,
+        resolveOnce.error?.message ?? resolveTwice.error?.message ?? JSON.stringify({ stillOpen, otherStillOpen }))
+
+      const bInbox = await admin.rpc('read_portal_inbox', { p_consumer_key: `rls-sg-other-${RUN_ID}`, p_client_id: bClientId, p_limit: 50 })
+      const SIGNAL_TYPES = ['portal_feedback_submitted', 'review_send_failed', 'review_drafts_carried_over',
+        'review_unsent_drafts_due', 'review_playback_failed']
+      const otherEvent = ((bInbox.data ?? []) as Array<{ id: string; event_type: string }>)
+        .find((row) => !SIGNAL_TYPES.includes(row.event_type))
+      const wrongType = otherEvent ? await admin.rpc('agency_resolve_inbox_event', { p_event_id: otherEvent.id,
+        p_note: null, p_actor_key: 'thedot-admin', p_idempotency_key: `rls-sg-${RUN_ID}-3` }) : { error: { message: 'no other event' } }
+      check('SG4: only client signals can be marked Done', Boolean(wrongType.error) && /not a client signal/.test(wrongType.error?.message ?? ''),
+        wrongType.error?.message ?? 'accepted')
+
+      // A send failure is listed until her retry resolves its rows (DR16 proves the cursor rule and
+      // SG12 that Done refuses it). A fresh tenant, so nothing else in its inbox can interfere.
+      const createdC = await admin.rpc('create_portal_client', { p_name: 'RLS Ops Signals', p_slug: `rls-ops-${RUN_ID}` })
+      if (createdC.error || !createdC.data) throw new Error(`ops tenant: ${createdC.error?.message ?? 'missing'}`)
+      const cClientId = createdC.data as string
+      const attemptId = randomUUID()
+      const inserted = await admin.from('client_request_failures').insert({
+        attempt_id: attemptId, client_id: cClientId, reason_code: 'write_failed',
+        proposed_text: 'Her exact words.', proposed_length: 16, requester_name: 'RLS Seat',
+      })
+      if (inserted.error) throw new Error(`failure row: ${inserted.error.message}`)
+      const recorded = await admin.rpc('agency_record_review_send_failure', { p_attempt_id: attemptId, p_draft_ids: [] })
+      if (recorded.error) throw new Error(`record failure: ${recorded.error.message}`)
+      const failureSignal = (await openSignals()).find((row) => row.client_id === cClientId && row.event_type === 'review_send_failed')
+      check('SG5: an open send failure is listed under From Maria', Boolean(failureSignal), JSON.stringify(failureSignal ?? null))
+
+      const resolvedRows = await admin.from('client_request_failures').update({
+        resolved_at: new Date().toISOString(), resolved_by: 'system:retry', resolution_note: 'RLS retry',
+      }).eq('attempt_id', attemptId)
+      const listedAfter = (await openSignals()).some((row) => row.event_id === failureSignal?.event_id)
+      const failureResolutions = await admin.from('agency_inbox_resolutions').select('event_id')
+        .eq('event_id', failureSignal?.event_id ?? randomUUID())
+      check('SG6: a send failure leaves the list on its own once a retry resolves its rows, with no Done row',
+        !resolvedRows.error && !listedAfter && !failureResolutions.error && (failureResolutions.data ?? []).length === 0,
+        resolvedRows.error?.message ?? JSON.stringify({ listedAfter, resolutions: failureResolutions.data }))
+
+      const fold = await admin.rpc('assert_portal_security')
+      const opsAssertion = await admin.rpc('assert_agency_ops_feedback_security')
+      const clientAssertions = await Promise.all([
+        bClient.rpc('assert_agency_ops_feedback_security'),
+        bClient.rpc('assert_agency_media_signal_security'),
+        anonClient.rpc('assert_agency_ops_feedback_security'),
+      ])
+      check('SG7: the cumulative security assertion runs the 0095 guards and is agency-only',
+        !fold.error && !opsAssertion.error && clientAssertions.every((result) => Boolean(result.error)),
+        fold.error?.message ?? opsAssertion.error?.message ?? clientAssertions.map((r) => r.error?.message ?? 'RAN').join(' | '))
+
+      // Unsent-draft alert events: a dedicated seat so no other block's edit budget is used.
+      const O_EMAIL = `rls-ops-${RUN_ID}@example.com`
+      const createdSeat = await admin.auth.admin.createUser({ email: O_EMAIL, email_confirm: true })
+      if (createdSeat.error || !createdSeat.data.user) throw new Error(`ops seat: ${createdSeat.error?.message ?? 'missing'}`)
+      const seatMembership = await admin.rpc('upsert_portal_membership', {
+        p_client_id: bClientId, p_auth_user_id: createdSeat.data.user.id, p_email: O_EMAIL, p_name: 'RLS Ops Seat',
+        // One primary decider per client (0013); saving drafts needs only request rights.
+        p_can_decide: false, p_can_comment: true, p_can_submit_requests: true, p_can_manage_schedule: false,
+        p_can_use_assistant: false, p_actor_key: 'thedot-admin', p_idempotency_key: `rls-ops-seat-${RUN_ID}`,
+      })
+      if (seatMembership.error) throw new Error(`ops seat membership: ${seatMembership.error.message}`)
+      const oClient = clientForToken(await tokenFor(O_EMAIL))
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+      const dueDate = new Date(`${today}T12:00:00Z`); dueDate.setUTCDate(dueDate.getUTCDate() + 2)
+      const alertId = `rls-ops-alert-${RUN_ID}`
+      const [alertRow] = await sync([snapshot(bClientId!, alertId, 1, 'Ops alert fixture', 'Alert caption base', 'caption',
+        { planned_date: dueDate.toISOString().slice(0, 10) })])
+      const released = await admin.rpc('mark_content_ready', { p_content_id: alertRow.item_id, p_content_version: 1 })
+      if (released.error) throw new Error(`alert fixture release: ${released.error.message}`)
+      const saved = await oClient.rpc('save_review_draft', {
+        p_content_id: alertRow.item_id, p_base_version: 1, p_target_kind: 'copy_block', p_target_key: 'caption',
+        p_anchor: '', p_anchor_label: null, p_target_label: 'Caption', p_url_snapshot: null,
+        p_quoted_text: null, p_body: 'An edit she forgot to send.', p_saved_at: new Date().toISOString(),
+      })
+      if (saved.error) throw new Error(`alert fixture draft: ${saved.error.message}`)
+      // The service role cannot select portal_inbox_events; show_portal_inbox_event returns the
+      // newest event whose object is this fixture, and the alert is the last event written for it.
+      const latestForFixture = async () => {
+        const shown = await admin.rpc('show_portal_inbox_event', { p_client_id: bClientId, p_event_id: alertRow.item_id })
+        return shown.data as { event_type?: string; event_key?: string; requires_reconciliation?: boolean
+          payload?: { unsent_count?: number } } | null
+      }
+      const later = new Date(Date.now() + 25 * 3600 * 1000).toISOString()
+      const raisedNow = await admin.rpc('agency_raise_unsent_draft_alert_events', { p_now: new Date().toISOString() })
+      const eventNow = await latestForFixture()
+      const raisedLater = await admin.rpc('agency_raise_unsent_draft_alert_events', { p_now: later })
+      const raisedAgain = await admin.rpc('agency_raise_unsent_draft_alert_events', { p_now: later })
+      const eventLater = await latestForFixture()
+      const listedAsSignal = (await openSignals()).some((row) => row.event_type === 'review_unsent_drafts_due')
+      check('SG8: a forgotten draft raises one non-blocking inbox event per day, only after 24 hours, never as a Done row',
+        !raisedNow.error && eventNow?.event_type !== 'review_unsent_drafts_due'
+          && (raisedLater.data as number) >= 1 && raisedAgain.data === 0
+          && eventLater?.event_type === 'review_unsent_drafts_due' && eventLater.requires_reconciliation === false
+          && eventLater.payload?.unsent_count === 1 && !listedAsSignal,
+        JSON.stringify({ now: eventNow?.event_type ?? raisedNow.error?.message, later: raisedLater.data ?? raisedLater.error?.message,
+          again: raisedAgain.data, event: eventLater }))
+      console.log(`cleanup: disposable tenant rls-ops-${RUN_ID} and user ${O_EMAIL} remain until database reset`)
+    }
+
     {
       const stop = await admin.rpc('set_portal_feature_switch', {
         p_client_id: bClientId, p_feature: 'client_mutations', p_enabled: false,
