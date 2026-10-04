@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@thedot/design-system'
+import { replaceSegment, segmentBlock, segmentText, type SegmentMode } from '@/lib/portal/piece-page/segments'
 import { useReviewDrafts, type ReviewTarget } from '../ReviewDraftProvider'
 import { usePhone } from './hooks'
 import { draftStatusLine } from './status-text'
@@ -23,8 +24,12 @@ export type CopyEditRequest = {
   initialText: string
   // The released text for this slot, for track changes (plan 4b).
   baseText: string
-  // Turns the edited part back into the whole block body the draft stores.
+  // Turns the edited part back into the whole block body the draft stores. Used for a whole-block
+  // edit only: with `segment` the host composes into the current draft body itself, so an edit
+  // to one frame never overwrites another frame's unsent edit.
   compose: (text: string) => string
+  // The one frame, page or section this edit covers, by its index in segmentBlock(body, mode).
+  segment?: { mode: SegmentMode; index: number }
 }
 export type NoteRequest = { kind: 'note'; target: ReviewTarget; title: string; thumbUrl?: string | null }
 export type EditorRequest = CopyEditRequest | NoteRequest
@@ -38,11 +43,23 @@ function requestKey(request: EditorRequest): string {
 
 export default function EditorHost({ mode, children }: { mode: 'client' | 'preview'; children: React.ReactNode }) {
   const [request, setRequest] = useState<EditorRequest | null>(null)
-  const open = useCallback((next: EditorRequest) => setRequest(next), [])
+  const openerRef = useRef<HTMLElement | null>(null)
+  const open = useCallback((next: EditorRequest) => {
+    const active = typeof document === 'undefined' ? null : document.activeElement
+    openerRef.current = active instanceof HTMLElement && active !== document.body ? active : null
+    setRequest(next)
+  }, [])
+  const close = useCallback(() => {
+    setRequest(null)
+    // Return focus to the opener explicitly; browsers differ on what a closed dialog restores.
+    const opener = openerRef.current
+    openerRef.current = null
+    if (opener?.isConnected) opener.focus()
+  }, [])
   const value = useMemo(() => ({ open, mode }), [mode, open])
   return <EditorHostContext.Provider value={value}>
     {children}
-    {request && <EditorSheet key={requestKey(request)} request={request} onClose={() => setRequest(null)} />}
+    {request && <EditorSheet key={requestKey(request)} request={request} onClose={close} />}
   </EditorHostContext.Provider>
 }
 
@@ -63,9 +80,13 @@ function EditorSheet({ request, onClose }: { request: EditorRequest; onClose: ()
   const closedRef = useRef(false)
   const { readDraft, saveDraft, removeDraft, flush, syncState } = useReviewDrafts()
   const isPhone = usePhone()
-  const [value, setValue] = useState(() => (request.kind === 'copy'
-    ? request.initialText
-    : readDraft(request.target)?.proposedText ?? ''))
+  // The whole block body as it stands now: the unsent draft when there is one, else the released
+  // text. A segment edit opens on, and writes into, this body.
+  const bodyRef = useRef<string | null>(null)
+  if (bodyRef.current === null && request.kind === 'copy') {
+    bodyRef.current = readDraft(request.target)?.proposedText ?? request.target.currentText ?? request.compose(request.initialText)
+  }
+  const [value, setValue] = useState(() => initialValue(request, readDraft(request.target)?.proposedText ?? null, bodyRef.current ?? ''))
   const [confirming, setConfirming] = useState(false)
   const hasDraft = readDraft(request.target) !== null
 
@@ -84,10 +105,28 @@ function EditorSheet({ request, onClose }: { request: EditorRequest; onClose: ()
 
   function change(next: string) {
     setValue(next)
-    saveDraft(request.target, request.kind === 'copy' ? request.compose(next) : next, null)
+    if (request.kind === 'note') {
+      saveDraft(request.target, next, null)
+      return
+    }
+    const body = composeInto(request, bodyRef.current ?? '', next)
+    bodyRef.current = body
+    saveDraft(request.target, body, null)
   }
 
   function discard() {
+    const released = request.kind === 'copy' ? request.target.currentText : undefined
+    const draftBody = readDraft(request.target)?.proposedText
+    if (request.kind === 'copy' && request.segment && released !== undefined && draftBody !== undefined) {
+      // Discard this frame's change only: put the released segment back, keep every other edit.
+      const restored = restoreSegment(draftBody, released, request.segment)
+      if (restored !== null && restored.trim() !== released.trim()) {
+        bodyRef.current = restored
+        saveDraft(request.target, restored, null)
+        finish()
+        return
+      }
+    }
     removeDraft(request.target)
     finish()
   }
@@ -126,4 +165,29 @@ function EditorSheet({ request, onClose }: { request: EditorRequest; onClose: ()
         </div>}
     </div>
   </dialog>
+}
+
+function segmentOf(body: string, segment: { mode: SegmentMode; index: number }): string | null {
+  const found = segmentBlock(body, segment.mode).segments[segment.index]
+  return found ? segmentText(found) : null
+}
+
+function initialValue(request: EditorRequest, draftText: string | null, body: string): string {
+  if (request.kind === 'note') return draftText ?? ''
+  if (draftText === null) return request.initialText
+  if (!request.segment) return draftText
+  // The draft no longer has this segment (its markers were edited): show the whole draft.
+  return segmentOf(body, request.segment) ?? draftText
+}
+
+function composeInto(request: CopyEditRequest, body: string, text: string): string {
+  if (!request.segment) return request.compose(text)
+  if (segmentOf(body, request.segment) === null) return text
+  return replaceSegment(body, request.segment.mode, request.segment.index, text)
+}
+
+function restoreSegment(draftBody: string, released: string, segment: { mode: SegmentMode; index: number }): string | null {
+  const releasedSegment = segmentOf(released, segment)
+  if (releasedSegment === null || segmentOf(draftBody, segment) === null) return null
+  return replaceSegment(draftBody, segment.mode, segment.index, releasedSegment)
 }
