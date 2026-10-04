@@ -330,7 +330,6 @@
 
 /* Plan 4b: editing in place, the shared editor frame, structured fields, chips, chapter rows. */
 .inlineEditor { margin: var(--dot-space-2) 0; padding: var(--dot-space-4); border: 1px solid var(--dot-black); background: var(--dot-off-white); }
-.inlineEditor:focus-within { outline: 3px solid var(--dot-black); outline-offset: 3px; }
 .editorFrame { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .editorBody { flex: 1; min-height: 0; overflow: auto; }
 .editorSheet .sheetB { padding: 0; display: flex; }

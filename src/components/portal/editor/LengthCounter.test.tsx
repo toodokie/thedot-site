@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest'
 import LengthCounter from './LengthCounter'
 
 describe('LengthCounter', () => {
-  it('stays hidden under 45,000 characters', () => {
+  it('keeps an empty polite live region mounted under 45,000 characters', () => {
     const { container } = render(<LengthCounter text={'a'.repeat(44_999)} />)
-    expect(container).toBeEmptyDOMElement()
+    const region = container.querySelector('[aria-live="polite"]')
+    expect(region).toBeInTheDocument()
+    expect(region).toBeEmptyDOMElement()
   })
 
   it('counts from 45,000', () => {

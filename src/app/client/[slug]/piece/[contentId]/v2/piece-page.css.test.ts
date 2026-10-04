@@ -55,4 +55,8 @@ describe('piece page stylesheet (spec 10, 10a; mockups v3)', () => {
     expect(css).toMatch(/@media \(min-width: 1100px\)\s*\{\s*\.split\s*\{[^}]*grid-template-columns:\s*var\(--media-col\)/)
     expect(css).toMatch(/@media \(max-width: 767px\)/)
   })
+
+  it('gives the in-place editor one focus ring, the editor surface own', () => {
+    expect(css).not.toMatch(/\.inlineEditor:focus-within/)
+  })
 })
