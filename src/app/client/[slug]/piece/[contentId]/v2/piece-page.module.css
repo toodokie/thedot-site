@@ -287,7 +287,7 @@
 .sheetB { flex: 1; overflow: auto; padding: var(--dot-space-4); }
 .sheetT { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--dot-space-3);
   padding: var(--dot-space-2) var(--dot-space-4) calc(var(--dot-space-2) + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--dot-hairline); background: var(--dot-white); }
-.sheetActions { display: flex; flex-wrap: wrap; gap: var(--dot-space-3); align-items: center; }
+.sheetActions { display: flex; flex-wrap: wrap; gap: var(--dot-space-3); align-items: center; margin-left: auto; }
 .plainEditor { width: 100%; min-height: 40vh; font-family: var(--dot-font-text); font-size: 1.0625rem; line-height: 1.6; color: var(--dot-black);
   background: var(--dot-white); border: 1px solid var(--dot-black); border-radius: var(--dot-radius); padding: var(--dot-space-3) var(--dot-space-4); resize: vertical; }
 

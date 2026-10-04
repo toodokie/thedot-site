@@ -65,4 +65,8 @@ describe('piece page stylesheet (spec 10, 10a; mockups v3)', () => {
   it('gives the in-place editor one focus ring, the editor surface own', () => {
     expect(css).not.toMatch(/\.inlineEditor:focus-within/)
   })
+
+  it('keeps Done at the right of every editor toolbar', () => {
+    expect(css).toMatch(/\.sheetActions\s*\{[^}]*margin-left:\s*auto/)
+  })
 })
