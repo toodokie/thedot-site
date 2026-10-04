@@ -3,6 +3,7 @@
 import type { CopyTab } from '@/lib/portal/piece-page/copy-tabs'
 import { SEARCH_FIELDS, labeledValue, parseLabeledList, type LabeledField } from '@/lib/portal/piece-page/labeled-list'
 import { EditSlot, useEditorHost } from '../EditorHost'
+import SearchForm from '../editors/SearchForm'
 import styles from '../piece-page.module.css'
 import { Field } from './YouTubePanel'
 import { useBlockDraft } from './use-block-draft'
@@ -24,8 +25,8 @@ export default function SearchSharingPanel({ tab, canEdit }: { tab: CopyTab; can
       {draft && <span className={styles.saved}>Saved · not sent yet</span>}
       {canEdit && block.key && <button type="button" className={styles.link} aria-label="Edit search and sharing"
         onClick={() => open({
-          kind: 'copy', slotId: `${block.key}:whole`, target, title: 'Search and sharing', initialText: source,
-          baseText: block.body, compose: (text) => text,
+          kind: 'form', slotId: `${block.key}:whole`, targets: [target], title: 'Search and sharing',
+          render: () => <SearchForm target={target} source={source} />,
         })}>Edit</button>}
     </div>
     <div className={styles.serp} role="group" aria-label="How it looks in Google">
