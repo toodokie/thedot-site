@@ -1,9 +1,12 @@
 'use client'
 
+import { useState } from 'react'
 import { Button } from '@thedot/design-system'
 import type { PieceLayout } from '@/lib/portal/piece-page/copy-tabs'
 import type { SignedReviewPreview } from '@/lib/portal/review-preview-core'
 import { useSignedPreview } from '@/components/portal/useSignedPreview'
+import { reportReviewPlaybackFailure } from '../../../playback-actions'
+import ReviewVideoPlayer, { type PlaybackReport } from './ReviewVideoPlayer'
 import FrameGrid from './FrameGrid'
 import PageViewer from './PageViewer'
 import styles from './piece-page.module.css'
@@ -23,8 +26,30 @@ export default function MediaArea(props: {
   onPageChange: (page: number) => void
   onSuggestWhole: (() => void) | null
   onSuggestAt: ((index: number) => void) | null
+  // Client mode only (amended 2026-10-03): report a failed play to the agency. Null in the admin preview.
+  playbackReport?: { slug: string; contentId: string } | null
 }) {
-  const { preview, refresh } = useSignedPreview(props.preview, props.refreshUrl)
+  const { preview, refresh, forceRefresh } = useSignedPreview(props.preview, props.refreshUrl)
+  const target = props.playbackReport ?? null
+  const report: PlaybackReport | null = target
+    ? (input) => reportReviewPlaybackFailure({ slug: target.slug, contentId: target.contentId, ...input })
+    : null
+  // Frames and pages get the one silent link refresh too. If an image still fails after it, show
+  // Retry instead of refreshing again: a file that never loads must not refresh forever.
+  const [imagesFailed, setImagesFailed] = useState(false)
+  const [imageAttempt, setImageAttempt] = useState(0)
+  const onImageError = () => {
+    void refresh().then((renewed) => { if (!renewed) setImagesFailed(true) })
+  }
+  const retryImages = async () => {
+    await forceRefresh()
+    setImagesFailed(false)
+    setImageAttempt((value) => value + 1)
+  }
+  const imagesNotice = imagesFailed && <div className={styles.notice} role="alert">
+    <p>Some images didn't load.</p>
+    <button type="button" className={styles.ghostButton} onClick={() => void retryImages()}>Retry</button>
+  </div>
 
   if (props.mediaPending) {
     return <div className={styles.phMedia}>
@@ -33,16 +58,19 @@ export default function MediaArea(props: {
   }
 
   if (preview && preview.mediaKind === 'pages') {
-    return <PageViewer title={props.title} pages={preview.frames} page={props.page} onPageChange={props.onPageChange}
-      onSuggest={props.onSuggestAt} onImageError={refresh} />
+    return <div>
+      {imagesNotice}
+      <PageViewer key={imageAttempt} title={props.title} pages={preview.frames} page={props.page} onPageChange={props.onPageChange}
+        onSuggest={props.onSuggestAt} onImageError={onImageError} />
+    </div>
   }
 
   if (preview && preview.videoUrl) {
     const horizontal = preview.width > preview.height
     return <div>
-      <video className={`${styles.player} ${horizontal ? styles.playerH : styles.playerV}`} src={preview.videoUrl}
-        poster={preview.posterUrl ?? undefined} controls playsInline preload="metadata"
-        aria-label={`${props.title}: ${horizontal ? 'trailer' : 'video'}`} onError={refresh} />
+      <ReviewVideoPlayer preview={preview} className={`${styles.player} ${horizontal ? styles.playerH : styles.playerV}`}
+        label={`${props.title}: ${horizontal ? 'trailer' : 'video'}`} refresh={refresh} forceRefresh={forceRefresh}
+        report={report} />
       {horizontal && <p className={styles.mediaNote}>This is the trailer. The full episode stays on Drive.</p>}
       <div className={styles.underMedia}>
         {props.onSuggestWhole && <button type="button" className={`${styles.link} ${styles.linkSmall}`} onClick={props.onSuggestWhole}>
@@ -51,8 +79,9 @@ export default function MediaArea(props: {
         {horizontal && props.episodeDriveUrl && <a className={`${styles.link} ${styles.linkSmall}`} href={props.episodeDriveUrl}
           target="_blank" rel="noreferrer">Open the full episode in Drive</a>}
       </div>
-      <FrameGrid title={props.title} frames={preview.frames} collapsed={props.framesCollapsed}
-        onSuggest={props.onSuggestAt} onImageError={refresh} />
+      {imagesNotice}
+      <FrameGrid key={imageAttempt} title={props.title} frames={preview.frames} collapsed={props.framesCollapsed}
+        onSuggest={props.onSuggestAt} onImageError={onImageError} />
     </div>
   }
 
