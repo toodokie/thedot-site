@@ -1,0 +1,46 @@
+/* Minimal data-layer rendering for review previews. The approved v3 layout (sticky media column,
+   page viewer, collapsing frame strip) is plan 4; this only uses tokens that already exist. */
+.media {
+  margin: 0;
+  display: grid;
+  gap: 16px;
+}
+.video {
+  display: block;
+  width: 100%;
+  max-height: 80vh;
+  background: var(--dot-black);
+  object-fit: contain;
+}
+.frames,
+.pages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+/* Spec 4.2: the frame strip under a video is a 4-across grid, never a horizontal scroll. */
+.frames { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.pages { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.frame {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.frameImage {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+  border: 1px solid var(--dot-grey-light);
+  background: var(--dot-black);
+}
+.frameLabel {
+  font-family: var(--dot-font-text);
+  font-size: 12px;
+  color: var(--dot-graphite);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
