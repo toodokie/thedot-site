@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { EditorState, TextSelection } from 'prosemirror-state'
+import { history, redo, undo } from 'prosemirror-history'
 import type { Node as PMNode } from 'prosemirror-model'
 import { enter } from './editor-commands'
-import { normalizedBlock, parseMarkdown, schema, serializeMarkdown } from './markdown-doc'
+import { isLosslessMarkdown, normalizedBlock, parseMarkdown, schema, serializeMarkdown } from './markdown-doc'
 
 const SHAPES: Record<string, string> = {
   caption: 'What does it cost?\n\n01 The fee: $1,000 per position.\n02 The wage line: $36.92/hour.\n\n#LMIA #KansetServices',
@@ -38,6 +39,11 @@ const ADVERSARIAL: Record<string, string> = {
   checks: '- [ ] a\n- [x] b\n- [X] c\n1. [ ] d',
   trailingSpace: 'Ends with a space. \n\nNext.  ',
   crlfEdges: '\r\n\r\nText \r\n  \r\n> q\r\n\r\n',
+  adjacentEm: 'Lead *a**b* tail',
+  adjacentStrong: 'Lead **c****d** tail',
+  adjacentLinks: 'Lead [l](https://x)[m](https://x) tail',
+  nestedMarkers: '***both*** and **bold _it_ bold** and `code **x**`',
+  escapes: '\\*x\\* and \\_y\\_ and \\\\ and \\[z\\]',
 }
 
 // True when `edited` is `original` with exactly one extra "X" somewhere.
@@ -107,6 +113,62 @@ describe('parseMarkdown and serializeMarkdown', () => {
     expect(doc.content.content.map((n) => n.type.name)).toEqual(['heading', 'blockquote', 'bullet_list', 'horizontal_rule', 'paragraph'])
     expect(doc.textContent).not.toContain('#')
     expect(doc.textContent).not.toContain('>')
+  })
+
+  it('shows an escaped marker as a literal character, not formatting', () => {
+    const doc = parseMarkdown('\\*x\\* and \\_y\\_')
+    expect(doc.textContent).toBe('*x* and _y_')
+    let marked = false
+    doc.descendants((node) => { if (node.isText && node.marks.some((m) => m.type.name === 'em' || m.type.name === 'strong')) marked = true })
+    expect(marked).toBe(false)
+  })
+
+  it('escapes a marker she types only when it would otherwise become formatting', () => {
+    const type = (body: string, text: string, at: (doc: PMNode) => number) => {
+      const doc = parseMarkdown(body)
+      const state = EditorState.create({ doc })
+      return serializeMarkdown(state.apply(state.tr.insertText(text, at(doc))).doc)
+    }
+    // Nothing to pair with: written as typed.
+    expect(type('plain words', ' 5*3', (d) => d.content.size - 1)).toBe('plain words 5*3')
+    // Her * would pair with the existing literal one: hers is escaped, the existing text is untouched.
+    const out = type('a * b', '*', (d) => d.content.size - 1)
+    expect(out).toBe('a * b\\*')
+    expect(parseMarkdown(out).textContent).toBe('a * b*')
+    // Two she types that would make italics are both kept literal.
+    const pair = type('plain words', ' _x_', (d) => d.content.size - 1)
+    expect(parseMarkdown(pair).textContent).toBe('plain words _x_')
+    expect(pair.startsWith('plain words ')).toBe(true)
+    // A heading marker typed at the start of a paragraph stays text.
+    const head = type('Para', '# ', () => 1)
+    expect(parseMarkdown(head).firstChild!.type.name).toBe('paragraph')
+    expect(parseMarkdown(head).textContent).toBe('# Para')
+  })
+
+  it('says which Markdown the document editor can carry without changing a byte', () => {
+    for (const [name, body] of Object.entries({ ...SHAPES, ...ADVERSARIAL })) {
+      if (name === 'numbers') continue
+      expect(isLosslessMarkdown(body), name).toBe(true)
+    }
+    // An edit would renumber the repeated 1: refused, so the plain editor keeps every byte.
+    expect(isLosslessMarkdown(SHAPES.numbers)).toBe(false)
+  })
+
+  it('gives back the exact bytes on undo and the edit on redo', () => {
+    for (const [name, body] of Object.entries({ ...SHAPES, ...ADVERSARIAL })) {
+      const doc = parseMarkdown(body)
+      let state = EditorState.create({ doc, plugins: [history()] })
+      let at = -1
+      doc.descendants((node, pos) => { if (at < 0 && node.isText) at = pos + 1; return at < 0 })
+      if (at < 0) continue
+      state = state.apply(state.tr.insertText('word ', at))
+      const edited = serializeMarkdown(state.doc)
+      expect(edited, name).not.toBe(body)
+      undo(state, (tr) => { state = state.apply(tr) })
+      expect(serializeMarkdown(state.doc), `${name} undo`).toBe(body)
+      redo(state, (tr) => { state = state.apply(tr) })
+      expect(serializeMarkdown(state.doc), `${name} redo`).toBe(edited)
+    }
   })
 
   it('continues a zero-padded numbered list in the same style', () => {

@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { EditorState } from 'prosemirror-state'
 import { parseContentFile } from '@/lib/portal/frontmatter'
 import { parseLabeledList, serializeLabeledList } from './labeled-list'
-import { normalizedBlock, parseMarkdown, schema, serializeMarkdown } from './markdown-doc'
+import { isLosslessMarkdown, normalizedBlock, parseMarkdown, schema, serializeMarkdown } from './markdown-doc'
 import { joinSegments, segmentBlock } from './segments'
 import { parseYouTubePackage, serializeYouTubePackage } from './youtube-fields'
 
@@ -30,6 +30,10 @@ describe.skipIf(FILES.length === 0)('every real canonical block', () => {
 
   it('round-trips through the editor model character for character', () => {
     expect(all.filter((b) => serializeMarkdown(parseMarkdown(b.body)) !== b.body).map((b) => b.where)).toEqual([])
+  })
+
+  it('opens every real block in the document editor, never the plain fallback', () => {
+    expect(all.filter((b) => !isLosslessMarkdown(b.body)).map((b) => b.where)).toEqual([])
   })
 
   it('keeps every word when any block is re-written from scratch', () => {

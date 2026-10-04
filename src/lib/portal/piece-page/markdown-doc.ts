@@ -9,6 +9,7 @@
 // in Kanset's Markdown subset. Words never change on either path (plan 4b, Task 3 proves it over
 // every real canonical block).
 import { Schema, type Mark, type Node as PMNode, type NodeType } from 'prosemirror-model'
+import { EditorState } from 'prosemirror-state'
 
 const BLOCK_ATTRS = { raw: { default: null }, sig: { default: null }, sep: { default: '\n\n' } }
 
@@ -53,14 +54,18 @@ export const schema = new Schema({
       toDOM: () => ['br'],
     },
   },
+  // span: which source span a mark came from, so two spans written side by side (`*a**b*`) stay two
+  // spans and are written back as they were. A mark she adds has span null.
   marks: {
-    strong: { attrs: { markup: { default: '**' } }, parseDOM: [{ tag: 'strong' }, { tag: 'b' }], toDOM: () => ['strong', 0] },
-    em: { attrs: { markup: { default: '*' } }, parseDOM: [{ tag: 'em' }, { tag: 'i' }], toDOM: () => ['em', 0] },
-    code: { excludes: '_', parseDOM: [{ tag: 'code' }], toDOM: () => ['code', 0] },
+    strong: { attrs: { markup: { default: '**' }, span: { default: null } }, parseDOM: [{ tag: 'strong' }, { tag: 'b' }], toDOM: () => ['strong', 0] },
+    em: { attrs: { markup: { default: '*' }, span: { default: null } }, parseDOM: [{ tag: 'em' }, { tag: 'i' }], toDOM: () => ['em', 0] },
+    code: { excludes: '_', attrs: { span: { default: null } }, parseDOM: [{ tag: 'code' }], toDOM: () => ['code', 0] },
     link: {
-      attrs: { href: {} }, inclusive: false,
+      attrs: { href: {}, span: { default: null } }, inclusive: false,
       toDOM: (mark) => ['a', { href: String(mark.attrs.href), rel: 'noreferrer', target: '_blank' }, 0],
     },
+    // A backslash-escaped character (`\*`): shown as the character, written back with its backslash.
+    escape: { inclusive: false, toDOM: () => ['span', 0] },
   },
 })
 
@@ -69,7 +74,10 @@ const HEADING = /^(#{1,6})([ \t]+)(\S[^\n]*)$/
 const HR = /^[ \t]{0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*\r?$/
 const LIST = /^([ \t]{0,3})(?:[-+*]|(\d{1,9})[.)])[ \t]+(?:\[[ xX]\][ \t]+)?/
 const QUOTE = /^([ \t]{0,3}>[ \t]?)([^\n]*)$/
-const INLINE = /(\*\*[^*\n]+\*\*|__[^_\n]+__|`[^`\n]+`|\[[^\]\n]+\]\(https:\/\/[^)\s]+\)|\*[^*\n]+\*|_[^_\n]+_)/g
+// Escapes come first: at the same position a backslash escape wins over any other marker.
+// Inside a span a backslash pair is one unit, so an escaped marker never closes the span.
+const INLINE = /(\\[!-/:-@[-`{-~]|\*\*(?:[^*\n\\]|\\[^\n])+\*\*|__(?:[^_\n\\]|\\[^\n])+__|`[^`\n]+`|\[[^\]\n]+\]\(https:\/\/[^)\s]+\)|\*(?:[^*\n\\]|\\[^\n])+\*|_(?:[^_\n\\]|\\[^\n])+_)/g
+const ESCAPED = /(\\[!-/:-@[-`{-~])/
 const BULLET_MARKER = /^[ \t]{0,3}[-+*][ \t]+(?:\[[ xX]\][ \t]+)?$/
 const ORDERED_MARKER = /^([ \t]{0,3})(\d{1,9})([.)])([ \t]+)(\[[ xX]\][ \t]+)?$/
 
@@ -104,6 +112,9 @@ function splitLead(line: string): Line {
   return { lead, text: line.slice(lead.length) }
 }
 
+// Numbers each formatted span of one parse, so neighbouring spans never merge (see the span attr).
+let spanCounter = 0
+
 function inlineNodes(text: string): PMNode[] {
   const nodes: PMNode[] = []
   for (const part of text.split(INLINE)) {
@@ -111,13 +122,21 @@ function inlineNodes(text: string): PMNode[] {
     let mark: Mark | null = null
     let inner = part
     const link = /^\[([^\]]+)\]\((https:\/\/[^)\s]+)\)$/.exec(part)
+    if (/^\\[!-/:-@[-`{-~]$/.test(part)) { nodes.push(schema.text(part.slice(1), [schema.marks.escape.create()])); continue }
     if (part.length > 4 && part.startsWith('**') && part.endsWith('**')) { mark = schema.marks.strong.create({ markup: '**' }); inner = part.slice(2, -2) }
     else if (part.length > 4 && part.startsWith('__') && part.endsWith('__')) { mark = schema.marks.strong.create({ markup: '__' }); inner = part.slice(2, -2) }
     else if (part.length > 2 && part.startsWith('`') && part.endsWith('`')) { mark = schema.marks.code.create(); inner = part.slice(1, -1) }
     else if (link) { mark = schema.marks.link.create({ href: link[2] }); inner = link[1] }
     else if (part.length > 2 && part.startsWith('*') && part.endsWith('*') && !part.startsWith('**')) { mark = schema.marks.em.create({ markup: '*' }); inner = part.slice(1, -1) }
     else if (part.length > 2 && part.startsWith('_') && part.endsWith('_') && !part.startsWith('__')) { mark = schema.marks.em.create({ markup: '_' }); inner = part.slice(1, -1) }
-    if (inner) nodes.push(schema.text(inner, mark ? [mark] : []))
+    if (mark && mark.type !== schema.marks.escape) mark = mark.type.create({ ...mark.attrs, span: ++spanCounter })
+    if (!inner) continue
+    if (!mark || mark.type === schema.marks.code) { nodes.push(schema.text(inner, mark ? [mark] : [])); continue }
+    for (const piece of inner.split(ESCAPED)) {
+      if (!piece) continue
+      const escaped = ESCAPED.test(piece) && piece.length === 2
+      nodes.push(schema.text(escaped ? piece.slice(1) : piece, escaped ? [mark, schema.marks.escape.create()] : [mark]))
+    }
   }
   return nodes
 }
@@ -215,6 +234,7 @@ function buildGroup(group: Group, sep: string): PMNode[] {
 }
 
 export function parseMarkdown(body: string): PMNode {
+  spanCounter = 0
   const lead = /^\n*/.exec(body)?.[0] ?? ''
   const rest = body.slice(lead.length)
   // The trail starts at the first line break of the closing whitespace run, so spaces at the end of
@@ -236,7 +256,15 @@ export function parseMarkdown(body: string): PMNode {
   return schema.nodes.doc.create({ lead, trail }, nodes)
 }
 
-const MARK_ORDER = ['link', 'strong', 'em', 'code']
+const MARK_ORDER = ['link', 'strong', 'em', 'code', 'escape']
+const PUNCTUATION = /[!-/:-@[-`{-~]/g
+// Characters she types that may need a backslash to stay literal: inline markers first, then the
+// line-start markers (heading, quote, list, numbered list) if inline escapes were not enough.
+const ESCAPE_INLINE = new Set(['\\', '*', '_', '`', '[', ']'])
+const ESCAPE_LINE = new Set([...ESCAPE_INLINE, '#', '>', '+', '-', '.'])
+
+// Where she typed, in the block's text coordinates, and which characters to escape there.
+type Escaping = { from: number; to: number; chars: Set<string>; offset: number }
 
 function openToken(mark: Mark): string {
   if (mark.type.name === 'strong' || mark.type.name === 'em') return String(mark.attrs.markup)
@@ -250,7 +278,22 @@ function closeToken(mark: Mark): string {
   return mark.type.name === 'link' ? `](${String(mark.attrs.href)})` : ''
 }
 
-export function inlineMarkdown(node: PMNode, defaultLead: string): string {
+function writeText(child: PMNode, escaping: Escaping | null): string {
+  const text = child.text ?? ''
+  const start = escaping ? escaping.offset : 0
+  if (escaping) escaping.offset += text.length
+  if (child.marks.some((m) => m.type === schema.marks.code)) return text
+  if (child.marks.some((m) => m.type === schema.marks.escape)) return text.replace(PUNCTUATION, '\\$&')
+  if (!escaping) return text
+  let out = ''
+  for (let i = 0; i < text.length; i++) {
+    const at = start + i
+    out += (at >= escaping.from && at < escaping.to && escaping.chars.has(text[i]) ? '\\' : '') + text[i]
+  }
+  return out
+}
+
+export function inlineMarkdown(node: PMNode, defaultLead: string, escaping: Escaping | null = null): string {
   let out = ''
   const active: Mark[] = []
   const closeTo = (keep: number) => { while (active.length > keep) out += closeToken(active.pop() as Mark) }
@@ -268,13 +311,13 @@ export function inlineMarkdown(node: PMNode, defaultLead: string): string {
       out += openToken(marks[i])
       active.push(marks[i])
     }
-    out += child.text ?? ''
+    out += writeText(child, escaping)
   })
   closeTo(0)
   return out
 }
 
-function listMarkdown(list: PMNode): string {
+function listMarkdown(list: PMNode, escaping: Escaping | null): string {
   const ordered = list.type.name === 'ordered_list'
   const lines: string[] = []
   let previous: number | null = null
@@ -298,24 +341,94 @@ function listMarkdown(list: PMNode): string {
       marker = bullet
     }
     const paragraph = item.firstChild as PMNode
-    lines.push(marker + inlineMarkdown(paragraph, String(paragraph.attrs.lineLead || ' '.repeat(marker.length))))
+    lines.push(marker + inlineMarkdown(paragraph, String(paragraph.attrs.lineLead || ' '.repeat(marker.length)), escaping))
   })
   return lines.join('\n')
 }
 
-// A block written from the document alone, ignoring its remembered source.
-export function normalizedBlock(node: PMNode): string {
+function writeBlock(node: PMNode, escaping: Escaping | null): string {
   switch (node.type.name) {
-    case 'paragraph': return String(node.attrs.lead ?? '') + inlineMarkdown(node, String(node.attrs.lineLead ?? ''))
-    case 'heading': return `${node.attrs.markup}${node.attrs.gap}${inlineMarkdown(node, '')}`
+    case 'paragraph': return String(node.attrs.lead ?? '') + inlineMarkdown(node, String(node.attrs.lineLead ?? ''), escaping)
+    case 'heading': return `${node.attrs.markup}${node.attrs.gap}${inlineMarkdown(node, '', escaping)}`
     case 'horizontal_rule': return typeof node.attrs.raw === 'string' ? node.attrs.raw : '---'
     case 'blockquote': {
       const paragraph = node.firstChild as PMNode
-      return `${paragraph.attrs.lead || '> '}${inlineMarkdown(paragraph, String(paragraph.attrs.lineLead || '> '))}`
+      return `${paragraph.attrs.lead || '> '}${inlineMarkdown(paragraph, String(paragraph.attrs.lineLead || '> '), escaping)}`
     }
     case 'bullet_list':
-    case 'ordered_list': return listMarkdown(node)
+    case 'ordered_list': return listMarkdown(node, escaping)
     default: return node.textContent
+  }
+}
+
+// What a reader sees: block types, characters, and each character's formatting (an escape is not
+// formatting, it is how a literal character is written).
+function visible(nodes: readonly PMNode[]): string {
+  const parts: string[] = []
+  for (const node of nodes) {
+    parts.push(`<${node.type.name}>`)
+    node.descendants((child) => {
+      if (!child.isText) { parts.push(`<${child.type.name}>`); return }
+      const marks = child.marks.filter((m) => m.type !== schema.marks.escape)
+        .map((m) => (m.type === schema.marks.link ? `link:${String(m.attrs.href)}` : m.type.name)).sort().join(',')
+      for (const char of child.text ?? '') parts.push(`${char}|${marks}`)
+    })
+  }
+  return parts.join('')
+}
+
+// A block written from the document alone, ignoring its remembered source. Words and formatting
+// already in the source are written as they were. A marker character she typed is escaped only
+// when, written plainly, it would turn into formatting or a different kind of block.
+export function normalizedBlock(node: PMNode): string {
+  const plain = writeBlock(node, null)
+  const target = visible([node])
+  const reads = (text: string) => { const doc = parseMarkdown(text); return visible(doc.content.content) === target }
+  if (reads(plain)) return plain
+  const before = typeof node.attrs.raw === 'string' ? parseMarkdown(node.attrs.raw).textContent : ''
+  const now = node.textContent
+  let from = 0
+  while (from < before.length && from < now.length && before[from] === now[from]) from++
+  let tail = 0
+  while (tail < before.length - from && tail < now.length - from && before[before.length - 1 - tail] === now[now.length - 1 - tail]) tail++
+  const to = now.length - tail
+  let written = plain
+  for (const chars of [ESCAPE_INLINE, ESCAPE_LINE]) {
+    written = writeBlock(node, { from, to, chars, offset: 0 })
+    if (reads(written)) return written
+  }
+  return written
+}
+
+// True when the document editor can carry this Markdown without changing a byte she did not type:
+// the untouched round trip is exact, every block re-written from the document alone is its source
+// exactly (so an edit anywhere in a block changes only her characters), and a probe edit in every
+// block adds exactly the probe and comes back exactly when removed. Anything else is edited as plain
+// text (plan 4a's sheet editor), so no byte is ever lost.
+export function isLosslessMarkdown(value: string): boolean {
+  try {
+    const doc = parseMarkdown(value)
+    if (serializeMarkdown(doc) !== value) return false
+    let lossless = true
+    doc.forEach((node, offset) => {
+      if (!lossless) return
+      if (normalizedBlock(node) !== node.attrs.raw) { lossless = false; return }
+      let at = -1
+      node.descendants((child, pos) => {
+        if (at < 0 && child.isText) at = offset + 1 + pos + Math.floor((child.text ?? '').length / 2)
+        return at < 0
+      })
+      if (at < 0) return
+      const state = EditorState.create({ doc })
+      const probed = state.apply(state.tr.insertText('\u2063', at))
+      const written = serializeMarkdown(probed.doc)
+      const cut = written.indexOf('\u2063')
+      if (cut < 0 || written.slice(0, cut) + written.slice(cut + 1) !== value) { lossless = false; return }
+      if (serializeMarkdown(probed.apply(probed.tr.delete(at, at + 1)).doc) !== value) lossless = false
+    })
+    return lossless
+  } catch {
+    return false
   }
 }
 
