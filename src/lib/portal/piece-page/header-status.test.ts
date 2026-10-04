@@ -62,3 +62,44 @@ describe('headerStatus', () => {
     expect(headerStatus({ ...base, plannedDate: null, schedule: [] })).toEqual({ kind: 'undated', keyFact: 'No date yet' })
   })
 })
+
+describe('headerStatus review fixes', () => {
+  const base = { isPublished: false, publication: [], plannedDate: '2026-10-02', layout: 'vertical' as const }
+
+  it('keeps targets on different days apart and shows each date', () => {
+    const status = headerStatus({ ...base, schedule: [
+      target('instagram', '2026-10-02T22:00:00Z'), target('youtube', '2026-10-03T22:00:00Z'),
+    ] })
+    expect(status).toMatchObject({
+      kind: 'scheduled', keyFact: 'Posts Fri Oct 2',
+      groups: [{ time: 'Fri Oct 2, 6 p.m.', destinations: 'Instagram' }, { time: 'Sat Oct 3, 6 p.m.', destinations: 'YouTube' }],
+    })
+  })
+
+  it('ignores cancelled targets', () => {
+    const status = headerStatus({ ...base, schedule: [
+      target('instagram', '2026-10-02T22:00:00Z'), target('facebook', null, 'cancelled'),
+    ] })
+    expect(status.kind).toBe('scheduled')
+  })
+
+  it('reports the earliest posted date', () => {
+    const status = headerStatus({ ...base, isPublished: true, schedule: [], publication: [
+      live('youtube', null, '2026-10-04T10:00:00Z'), live('instagram', null, '2026-10-02T22:00:00Z'),
+    ] })
+    expect(status).toMatchObject({ kind: 'live', postedLabel: 'Posted Fri Oct 2' })
+  })
+
+  it('links only https live urls', () => {
+    const status = headerStatus({ ...base, isPublished: true, schedule: [], publication: [
+      live('instagram', 'http://insecure.example/x', '2026-10-02T22:00:00Z'),
+      live('facebook', 'https://facebook.com/x', '2026-10-02T22:00:00Z'),
+    ] })
+    expect(status).toMatchObject({ links: [{ label: 'Facebook', url: 'https://facebook.com/x' }] })
+  })
+
+  it('falls back to a scheduled time when no date is planned', () => {
+    const status = headerStatus({ ...base, plannedDate: null, schedule: [target('instagram', '2026-10-02T22:00:00Z', 'pending')] })
+    expect(status).toEqual({ kind: 'unconfirmed', verb: 'Posts', dateLabel: 'Fri Oct 2', keyFact: 'Posts Fri Oct 2' })
+  })
+})

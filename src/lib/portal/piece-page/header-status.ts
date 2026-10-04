@@ -70,10 +70,14 @@ export function headerStatus(input: {
   const required = input.schedule.filter((t) => t.required && t.status !== 'cancelled')
   const times = required.map((t) => t.scheduled_at).filter((v): v is string => Boolean(v)).sort()
   if (required.length > 0 && required.every((t) => t.scheduled_at && CONFIRMED.has(t.status))) {
+    const sorted = [...required].sort((a, b) => (a.scheduled_at as string).localeCompare(b.scheduled_at as string))
+    const dates = new Set(sorted.map((t) => torontoDateLabel(t.scheduled_at as string)))
+    // One day: group by time. Several days: each group names its own date.
     const groups = new Map<string, string[]>()
-    for (const t of [...required].sort((a, b) => (a.scheduled_at as string).localeCompare(b.scheduled_at as string))) {
-      const time = torontoTimeLabel(t.scheduled_at as string)
-      groups.set(time, [...(groups.get(time) ?? []), destinationLabel(t.destination)])
+    for (const t of sorted) {
+      const at = t.scheduled_at as string
+      const label = dates.size > 1 ? `${torontoDateLabel(at)}, ${torontoTimeLabel(at)}` : torontoTimeLabel(at)
+      groups.set(label, [...(groups.get(label) ?? []), destinationLabel(t.destination)])
     }
     const dateLabel = torontoDateLabel(times[0])
     return {
