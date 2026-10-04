@@ -4969,6 +4969,45 @@ async function main(): Promise<void> {
           ordinary: seatOrdinary.data?.length ?? seatOrdinary.error?.message }))
     }
 
+    // 0093: a send retried with an idempotency key that already landed returns the existing bundle
+    // only for the same drafts. Reusing the key with a new unsent draft is refused, and that draft
+    // stays unsent instead of being marked sent to a bundle it was never part of.
+    {
+      const idemId = `rls-drafts-idem-${RUN_ID}`
+      const [synced] = await sync([snapshot(bClientId!, idemId, 1, 'Draft idempotency', 'Idempotency body', 'caption')])
+      const release = await admin.rpc('mark_content_ready', { p_content_id: synced.item_id, p_content_version: 1 })
+      const save = (body: string) => bClient.rpc('save_review_draft', {
+        p_content_id: synced.item_id, p_base_version: 1, p_target_kind: 'copy_block', p_target_key: 'caption',
+        p_anchor: '', p_anchor_label: null, p_target_label: 'Caption', p_url_snapshot: null,
+        p_quoted_text: null, p_body: body, p_saved_at: new Date().toISOString(),
+      })
+      const draftId = (result: { data: unknown }) => (result.data as { draft?: { id?: string } } | null)?.draft?.id
+      const key = randomUUID()
+      const send = (ids: (string | undefined)[]) => bClient.rpc('send_review_drafts', {
+        p_content_id: synced.item_id, p_content_version: 1, p_draft_ids: ids, p_note: null,
+        p_idempotency_key: key,
+      })
+      const first = await save('First edit')
+      const firstId = draftId(first)
+      const sent = await send([firstId])
+      const second = await save('Second edit, written after the first send')
+      const secondId = draftId(second)
+      const reused = await send([secondId])
+      const secondRow = await bClient.from('content_review_drafts').select('status').eq('id', secondId ?? '').maybeSingle()
+      const retry = await send([firstId])
+      const sentBundle = (sent.data as { bundle_id?: string } | null)?.bundle_id
+      const retryData = retry.data as { bundle_id?: string; outcome?: string } | null
+      check('DR-IDEM: reusing a send key with a new draft is refused and the draft stays unsent; a true retry returns the bundle',
+        !release.error && !first.error && !sent.error && !!sentBundle && !second.error && !!secondId
+          && secondId !== firstId
+          && /idempotency key reused with different request/.test(reused.error?.message ?? '')
+          && secondRow.data?.status === 'unsent'
+          && !retry.error && retryData?.bundle_id === sentBundle && retryData?.outcome === 'unchanged',
+        JSON.stringify({ release: release.error?.message, sent: sent.error?.message ?? sentBundle,
+          reused: reused.error?.message ?? 'NO ERROR', secondStatus: secondRow.data?.status ?? secondRow.error?.message,
+          retry: retry.error?.message ?? retryData }))
+    }
+
     {
       const stop = await admin.rpc('set_portal_feature_switch', {
         p_client_id: bClientId, p_feature: 'client_mutations', p_enabled: false,

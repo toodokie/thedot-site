@@ -32,6 +32,8 @@
 
 begin;
 
+set local lock_timeout = '5s';
+
 do $$
 begin
   if pg_catalog.to_regprocedure('public.request_content_edit_bundle(uuid,integer,jsonb,text,uuid)') is null
@@ -433,19 +435,17 @@ begin
   select b.* into v_existing from public.content_edit_review_bundles b
     where b.client_id = v_item.client_id and b.requested_by = v_uid
       and b.idempotency_key = p_idempotency_key;
+  -- A true retry names exactly drafts that this bundle already sent. Any other id (a new unsent
+  -- draft, a discarded one, one sent elsewhere, or someone else's) means the key was reused for a
+  -- different request: refuse it and leave every draft as it is.
   if found then
-    if exists (
-      select 1 from public.content_review_drafts d
-      where d.id = any(v_ids) and (
-        d.auth_user_id <> v_uid or d.content_item_id <> v_item.id or d.status = 'discarded'
-        or (d.status = 'sent' and d.sent_bundle_id <> v_existing.id))
-    ) then
+    select pg_catalog.count(*) into v_found from public.content_review_drafts d
+      where d.id = any(v_ids) and d.client_id = v_item.client_id and d.auth_user_id = v_uid
+        and d.content_item_id = v_item.id and d.status = 'sent'
+        and d.sent_bundle_id = v_existing.id;
+    if v_found <> pg_catalog.cardinality(v_ids) then
       raise exception 'idempotency key reused with different request';
     end if;
-    update public.content_review_drafts d set
-      status = 'sent', sent_at = pg_catalog.now(), sent_bundle_id = v_existing.id,
-      updated_at = pg_catalog.now()
-    where d.id = any(v_ids) and d.status = 'unsent';
     return pg_catalog.jsonb_build_object('bundle_id', v_existing.id,
       'request_ids', v_existing.request_ids, 'outcome', 'unchanged',
       'sent_draft_ids', pg_catalog.to_jsonb(v_ids));
