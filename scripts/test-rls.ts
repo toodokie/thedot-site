@@ -5471,6 +5471,116 @@ async function main(): Promise<void> {
         discarded.error?.message ?? otherSeatDraft.error?.message ?? approved.error?.message ?? '')
     }
 
+    // 0094 (amended 2026-10-03): playback failure reports. A seat reports only for its own client's
+    // released version of an existing preview, reads only its own reports, is rate-limited, and the
+    // first report per preview per Toronto day reaches the agency, never the client.
+    {
+      const P_EMAIL = `rls-playback-${RUN_ID}@example.com`
+      const createdSeat = await admin.auth.admin.createUser({ email: P_EMAIL, email_confirm: true })
+      if (createdSeat.error || !createdSeat.data.user) {
+        throw new Error(`playback seat: ${createdSeat.error?.message ?? 'missing'}`)
+      }
+      const seat = await admin.rpc('upsert_portal_membership', {
+        p_client_id: bClientId, p_auth_user_id: createdSeat.data.user.id, p_email: P_EMAIL, p_name: 'Paula Playback',
+        // One primary decider per client (0013); reporting needs only a seat.
+        p_can_decide: false, p_can_comment: true, p_can_submit_requests: true, p_can_manage_schedule: false,
+        p_can_use_assistant: false, p_actor_key: 'thedot-admin', p_idempotency_key: `rls-playback-seat-${RUN_ID}`,
+      })
+      if (seat.error) throw new Error(`playback seat membership: ${seat.error.message}`)
+      const pClient = clientForToken(await tokenFor(P_EMAIL))
+
+      const playId = `rls-playback-${RUN_ID}`
+      const playSync = await sync([snapshot(bClientId!, playId, 1, 'Playback fixture', 'Playback caption', 'caption')])
+      const playItemId = playSync.find((row) => row.content_id === playId)?.item_id
+      if (!playItemId) throw new Error('playback fixture did not sync')
+      const sha = 'b'.repeat(64)
+      const prefix = `${bClientId}/${playItemId}/v1/reel/${sha.slice(0, 16)}/`
+      const registered = await admin.rpc('agency_register_review_preview', {
+        p_client_id: bClientId, p_content_id: playId, p_content_version: 1, p_preview_key: 'reel',
+        p_review_asset_key: null, p_media_kind: 'video', p_object_prefix: prefix,
+        p_video_path: `${prefix}video.mp4`, p_poster_path: `${prefix}poster.jpg`, p_frames: [],
+        p_width_px: 1080, p_height_px: 1920, p_duration_seconds: 24, p_byte_total: 1000,
+        p_source_sha256: sha, p_actor_key: 'thedot-admin',
+      })
+      if (registered.error) throw new Error(`playback preview: ${registered.error.message}`)
+      const report = (client: SupabaseClient, overrides: Record<string, unknown> = {}) =>
+        client.rpc('report_review_playback_failure', {
+          p_content_id: playItemId, p_content_version: 1, p_preview_key: 'reel',
+          p_error_code: 'media_err_network', p_device: 'iPhone', p_browser: 'Safari', ...overrides,
+        })
+      const outcome = (result: { data: unknown }) => (result.data as { outcome?: string } | null)?.outcome
+
+      const early = await report(pClient)
+      const released = await admin.rpc('mark_content_ready', { p_content_id: playItemId, p_content_version: 1 })
+      if (released.error) throw new Error(`playback release: ${released.error.message}`)
+
+      const first = await report(pClient)
+      const own = await pClient.from('content_review_playback_failures').select('device, browser, error_code')
+        .eq('content_item_id', playItemId)
+      // review_playback_failed is not agency_internal, so the tenant's own seat reads the row.
+      const activity = await bClient.from('activity_log').select('id, title, actor_type')
+        .eq('content_id', playItemId).eq('event_type', 'review_playback_failed')
+      const failureId = (first.data as { failure_id?: string } | null)?.failure_id
+      const inboxEvent = failureId
+        ? await admin.rpc('show_portal_inbox_event', { p_client_id: bClientId, p_event_id: failureId })
+        : { data: null, error: new Error('no failure id') }
+      const inboxRow = inboxEvent.data as {
+        event_type?: string; payload?: { content_item_id?: string }; requires_reconciliation?: boolean
+      } | null
+      check('PB1: the first failure is recorded for the seat and reaches the agency once',
+        !first.error && outcome(first) === 'notified'
+          && own.data?.length === 1 && own.data[0].device === 'iPhone' && own.data[0].browser === 'Safari'
+          && activity.data?.length === 1 && activity.data[0].title === "Paula's video didn't play: iPhone, Safari"
+          && activity.data[0].actor_type === 'client'
+          && !inboxEvent.error && inboxRow?.event_type === 'review_playback_failed'
+          && inboxRow.payload?.content_item_id === playItemId && inboxRow.requires_reconciliation === false,
+        JSON.stringify({ first: first.data ?? first.error?.message, own: own.data, activity: activity.data, inbox: inboxRow }))
+
+      const again = await report(pClient, { p_error_code: 'stalled' })
+      const ownAfter = await pClient.from('content_review_playback_failures').select('id').eq('content_item_id', playItemId)
+      check('PB2: the same seat is rate-limited on the same preview for 10 minutes',
+        !again.error && outcome(again) === 'rate_limited' && ownAfter.data?.length === 1,
+        JSON.stringify({ again: again.data ?? again.error?.message, rows: ownAfter.data?.length }))
+
+      const second = await report(bClient, { p_device: 'Mac', p_browser: 'Chrome' })
+      const activityAfter = await bClient.from('activity_log').select('id')
+        .eq('content_id', playItemId).eq('event_type', 'review_playback_failed')
+      const bRows = await bClient.from('content_review_playback_failures').select('device').eq('content_item_id', playItemId)
+      const otherTenant = await kansetClient.from('content_review_playback_failures').select('id').eq('content_item_id', playItemId)
+      const anonRows = await anonClient.from('content_review_playback_failures').select('id').eq('content_item_id', playItemId)
+      check('PB3: another seat is recorded without a second notice, and each seat reads only its own reports',
+        !second.error && outcome(second) === 'recorded' && activityAfter.data?.length === 1
+          && bRows.data?.map((row) => row.device).join(',') === 'Mac'
+          && !otherTenant.error && otherTenant.data?.length === 0
+          && (!!anonRows.error || anonRows.data?.length === 0),
+        JSON.stringify({ second: second.data ?? second.error?.message, notices: activityAfter.data?.length,
+          b: bRows.data, other: otherTenant.data, anon: anonRows.data ?? anonRows.error?.message }))
+
+      const unknownPreview = await report(bClient, { p_preview_key: 'teaser' })
+      const badDevice = await report(bClient, { p_device: 'Nokia 3310' })
+      const crossTenant = await report(kansetClient)
+      const anonReport = await report(anonClient)
+      const directInsert = await pClient.from('content_review_playback_failures').insert({
+        content_item_id: playItemId, content_version: 1, preview_key: 'reel', error_code: 'unknown',
+        device: 'iPhone', browser: 'Safari',
+      })
+      check('PB4: unreleased versions, unknown previews, bad values, other tenants, anon and direct writes are refused',
+        !!early.error && /review_playback_version_not_released/.test(early.error.message)
+          && !!unknownPreview.error && /review_playback_preview_not_found/.test(unknownPreview.error.message)
+          && !!badDevice.error && /invalid playback report/.test(badDevice.error.message)
+          && !!crossTenant.error && !!anonReport.error && !!directInsert.error,
+        JSON.stringify([early, unknownPreview, badDevice, crossTenant, anonReport, directInsert]
+          .map((r) => r.error?.message ?? 'NO ERROR')))
+
+      const outbox = await admin.from('notification_outbox').select('recipient_kind, channel')
+        .in('source_activity_id', (activity.data ?? []).map((row) => row.id as string))
+      check('PB5: the notice goes to the agency (email and in-app), never to the client',
+        !outbox.error && (outbox.data ?? []).length >= 1
+          && (outbox.data ?? []).every((row) => row.recipient_kind === 'agency')
+          && (outbox.data ?? []).some((row) => row.channel === 'email'),
+        JSON.stringify(outbox.data ?? outbox.error?.message))
+    }
+
     {
       const stop = await admin.rpc('set_portal_feature_switch', {
         p_client_id: bClientId, p_feature: 'client_mutations', p_enabled: false,
