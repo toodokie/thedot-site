@@ -67,7 +67,7 @@
   --admin-ground: var(--dot-cream);
   --admin-accent: var(--dot-yellow-pale);
   --admin-accent-strong: var(--dot-yellow);
-  --admin-danger: #b4502f;
+  --admin-danger: var(--dot-danger);
 
   padding: 24px 20px 92px; /* bottom padding clears the fixed mobile bar */
   color: var(--admin-ink);

@@ -85,7 +85,7 @@ export default function CommentThread({
         <Textarea label="Ask a question or leave a note" id="comment-body" name="body" rows={3} maxLength={4000}
           placeholder="This will not change the piece" invalid={Boolean(state?.error)}
           aria-describedby={state?.error ? 'comment-error' : undefined} />
-        {state?.error && <p id="comment-error" role="alert" style={{ color: '#c0392b', margin: '8px 0 0' }}>{state.error}</p>}
+        {state?.error && <p id="comment-error" role="alert" style={{ color: 'var(--dot-danger)', margin: '8px 0 0' }}>{state.error}</p>}
         <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}><SubmitBtn /></div>
       </form> : (
         <div style={{ marginTop: 16, borderTop: '1px solid var(--dot-hairline)', paddingTop: 16 }}>

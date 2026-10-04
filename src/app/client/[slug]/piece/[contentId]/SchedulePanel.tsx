@@ -150,7 +150,7 @@ export default function SchedulePanel({
             </div>
           )}
           {state?.error && (
-            <p role="alert" style={{ color: '#c0392b', margin: '10px 0 0' }}>{state.error}</p>
+            <p role="alert" style={{ color: 'var(--dot-danger)', margin: '10px 0 0' }}>{state.error}</p>
           )}
         </form>
       )}

@@ -94,7 +94,7 @@
 }
 
 .verdictError {
-  color: #9f241b;
+  color: var(--dot-danger);
 }
 
 .verdictSuccess {

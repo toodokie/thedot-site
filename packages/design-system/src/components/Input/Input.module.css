@@ -4,4 +4,4 @@
 .input { font-family: var(--dot-font-text); font-size: 1rem; color: var(--dot-black); background: var(--dot-white);
   border: 1px solid var(--dot-hairline); border-radius: var(--dot-radius); padding: 12px 14px; outline: none; }
 .input:focus { border-color: var(--dot-black); }
-.invalid { border-color: #c0392b; }
+.invalid { border-color: var(--dot-danger); }

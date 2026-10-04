@@ -19,7 +19,7 @@ export default function DecideForm({ slug, contentId }: { slug: string; contentI
     <input type="hidden" name="contentId" value={contentId} />
     <Textarea label="Optional note with your approval" id="decision-note" name="note" rows={3} maxLength={2000}
       invalid={Boolean(state?.error)} aria-describedby={state?.error ? 'decision-error' : undefined} />
-    {state?.error && <p id="decision-error" role="alert" style={{ color: '#9f241b' }}>{state.error}</p>}
+    {state?.error && <p id="decision-error" role="alert" style={{ color: 'var(--dot-danger)' }}>{state.error}</p>}
     <div style={{ marginTop: 16 }}><Submit /></div>
   </form>
 }

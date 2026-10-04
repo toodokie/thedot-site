@@ -29,6 +29,6 @@ export default function IdeaDecisionForm({
       <SubmitButton decision="approved" />
       <SubmitButton decision="change_requested" />
     </div>
-    {state?.error && <p id="idea-decision-error" role="alert" style={{ color: '#c0392b', margin: '10px 0 0' }}>{state.error}</p>}
+    {state?.error && <p id="idea-decision-error" role="alert" style={{ color: 'var(--dot-danger)', margin: '10px 0 0' }}>{state.error}</p>}
   </form>
 }
