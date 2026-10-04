@@ -7,24 +7,40 @@ type MarkdownBlock =
   | { kind: 'quote'; lines: string[] }
   | { kind: 'rule' }
 
-const inlineToken = /(\*\*[^*\n]+\*\*|__[^_\n]+__|`[^`\n]+`|\[[^\]\n]+\]\(https:\/\/[^)\s]+\)|\*[^*\n]+\*|_[^_\n]+_)/g
+// Emphasis follows CommonMark's flanking rules closely enough for copy: a single * or _ must hug
+// its text, and _ never opens or closes inside a word. Anything else is a literal character.
+// No lookbehind: older iOS Safari cannot parse it, and a parse error would break the whole page.
+const inlineToken = /(\*\*[^*\n]+\*\*|__[^_\n]+__|`[^`\n]+`|\[[^\]\n]+\]\(https:\/\/[^)\s]+\)|\*(?![\s*])(?:[^*\n]*[^\s*])?\*|_(?![\s_])(?:[^_\n]*[^\s_])?_)/g
+const WORD_CHAR = /[A-Za-z0-9_\u00C0-\u024F]/
+
+function isEmphasis(part: string | undefined): boolean {
+  return part !== undefined && part.length > 2 && (/^(\*\*|__)[\s\S]+\1$/.test(part) || /^([*_])[\s\S]+\1$/.test(part))
+}
 
 function inlineMarkdown(text: string): ReactNode[] {
-  return text.split(inlineToken).filter(Boolean).map((part, index) => {
-    if ((part.startsWith('**') && part.endsWith('**')) || (part.startsWith('__') && part.endsWith('__'))) {
+  const parts = text.split(inlineToken)
+  return parts.map((part, index) => {
+    if (!part) return null
+    if ((part.startsWith('**') && part.endsWith('**') && part.length > 4) || (part.startsWith('__') && part.endsWith('__') && part.length > 4)) {
       return <strong key={index}>{part.slice(2, -2)}</strong>
     }
-    if (part.startsWith('`') && part.endsWith('`')) {
+    if (part.startsWith('`') && part.endsWith('`') && part.length > 2) {
       return <code key={index}>{part.slice(1, -1)}</code>
     }
     const link = part.match(/^\[([^\]]+)\]\((https:\/\/[^)\s]+)\)$/)
     if (link) {
       return <a key={index} href={link[2]} target="_blank" rel="noopener noreferrer">{link[1]}</a>
     }
-    if ((part.startsWith('*') && part.endsWith('*')) || (part.startsWith('_') && part.endsWith('_'))) {
+    // _ never opens or closes emphasis inside a word (file_name_here).
+    const inWord = part.startsWith('_')
+      && (WORD_CHAR.test(parts[index - 1]?.slice(-1) ?? '') || WORD_CHAR.test(parts[index + 1]?.charAt(0) ?? ''))
+    if (index % 2 === 1 && !inWord && ((part.startsWith('*') && part.endsWith('*')) || (part.startsWith('_') && part.endsWith('_')))) {
       return <em key={index}>{part.slice(1, -1)}</em>
     }
-    return <span key={index}>{part.replace(/\*/g, '')}</span>
+    // Asterisks wrapped around bold or italic text ("***both***") are markers; any other * or _
+    // is something Maria approved and renders as written.
+    if (/^\*+$/.test(part) && (isEmphasis(parts[index - 1]) || isEmphasis(parts[index + 1]))) return null
+    return <span key={index}>{part}</span>
   })
 }
 
