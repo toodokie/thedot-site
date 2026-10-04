@@ -3,7 +3,8 @@
 @media (max-width: 1099px) { .layout { grid-template-columns: minmax(0, 1fr); } }
 
 .panel { border: 1px solid var(--dot-black); background: var(--dot-white); font-family: var(--dot-font-text); }
-@media (min-width: 1100px) { .panel { position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--dot-space-6)); } }
+/* Clears the client page's condensed header (64px, fixed) that sits over both columns once scrolled. */
+@media (min-width: 1100px) { .panel { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 64px + var(--dot-space-4)); } }
 .panel section { padding: var(--dot-space-4) var(--dot-space-5); border-top: 1px solid var(--dot-hairline); }
 .panel section:first-child { border-top: 0; }
 .label { margin: 0 0 var(--dot-space-3); font-family: var(--dot-font-display); font-weight: var(--dot-weight-demi);
@@ -40,3 +41,12 @@
   letter-spacing: 0.16em; text-transform: uppercase; margin-right: var(--dot-space-3); }
 .barLine { color: var(--dot-graphite); font-size: 0.9375rem; }
 .below { margin-top: var(--dot-space-7); }
+.centre { min-width: 0; }
+
+.card { border: 1px solid var(--dot-hairline); background: var(--dot-white); padding: var(--dot-space-5); margin-bottom: var(--dot-space-5); }
+.blockLabel { font-family: var(--dot-font-display); font-weight: var(--dot-weight-demi); font-size: 0.75rem;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--dot-graphite); margin-bottom: var(--dot-space-2); }
+.block { margin-bottom: var(--dot-space-5); }
+.actions { display: flex; gap: var(--dot-space-3); margin-top: var(--dot-space-4); flex-wrap: wrap; }
+.back { font-family: var(--dot-font-text); font-size: 0.875rem; color: var(--dot-graphite); text-decoration: none;
+  display: inline-flex; align-items: center; min-height: 44px; }

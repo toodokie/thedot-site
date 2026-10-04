@@ -18,6 +18,9 @@ function baseCopy(blocks: unknown, blockKey: unknown): string | null {
   return typeof block?.body === 'string' ? block.body : null
 }
 
+// The live seat the admin views load (Maria's). The agency page reads her layout switch from it too.
+export const PREVIEW_SEAT_EMAIL = 'maria@kanset.com'
+
 export type ClientPiecePreviewData = {
   clientId: string
   slug: string
@@ -58,7 +61,7 @@ export async function loadClientPiecePreview(
   const item = mapContentRow(itemResult.data)
   const maria = (accessResult.data ?? []).find((row: {
     client_id?: string; email?: string
-  }) => row.client_id === clientId && row.email === 'maria@kanset.com') as {
+  }) => row.client_id === clientId && row.email === PREVIEW_SEAT_EMAIL) as {
     auth_user_id?: string; name?: string; can_decide?: boolean; can_comment?: boolean
     can_submit_requests?: boolean; can_manage_schedule?: boolean
   } | undefined

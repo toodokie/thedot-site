@@ -10,7 +10,8 @@ import { getAgencyReviewDrafts } from '@/lib/portal/review-drafts'
 import { getAgencyReviewPreviews } from '@/lib/portal/review-previews'
 import type { SignedReviewPreview } from '@/lib/portal/review-preview-core'
 import { deriveWorkspaceData } from '@/app/client/[slug]/piece/[contentId]/v2/derive'
-import { loadClientPiecePreview, type ClientPiecePreviewData } from './maria-preview/preview-data'
+import { usesPiecePageV2 } from '@/lib/portal/piece-page/piece-page-switch'
+import { PREVIEW_SEAT_EMAIL, loadClientPiecePreview, type ClientPiecePreviewData } from './maria-preview/preview-data'
 import { loadAdminComments, loadRequests, type AdminComment } from '../../data'
 import type { AdminContentRequest } from '../../RequestAdmin'
 import { stageDisplay } from '../../GatesAdmin'
@@ -44,6 +45,8 @@ export type AgencyPieceData = {
   feedback: FeedbackSummary | null
   mariaPreview: ClientPiecePreviewData | null
   mariaPreviewError: string | null
+  // The piece page layout her seat has today (PORTAL_PIECE_PAGE_V2), so the centre shows what she sees.
+  mariaLayout: 'v1' | 'v2'
   // Maria's own server ticks (0094) on the version she sees, shown read-only in the agency view.
   mariaTicks: string[]
   reviewTicks: TickCount | null
@@ -121,10 +124,12 @@ export async function loadAgencyPieceData(contentId: string): Promise<AgencyPiec
     }
   }
 
-  // Her ticks for the version she sees. A failed read shows no count rather than a wrong one.
+  // Her ticks for the version she sees. A failed read shows no count rather than a wrong one, and a
+  // seat still on the current page (no ticks there) shows none.
+  const mariaLayout: 'v1' | 'v2' = usesPiecePageV2(PREVIEW_SEAT_EMAIL) ? 'v2' : 'v1'
   let mariaTicks: string[] = []
   let tabKeys: string[] = []
-  if (mariaPreview?.seatUserId) {
+  if (mariaLayout === 'v2' && mariaPreview?.seatUserId) {
     const tickRows = await admin.from('content_review_tab_ticks').select('tab_key')
       .eq('client_id', clientId).eq('auth_user_id', mariaPreview.seatUserId)
       .eq('content_item_id', item.id).eq('content_version', mariaPreview.item.version)
@@ -193,6 +198,7 @@ export async function loadAgencyPieceData(contentId: string): Promise<AgencyPiec
     feedback: feedback[0] ?? null,
     mariaPreview,
     mariaPreviewError,
+    mariaLayout,
     mariaTicks,
     reviewTicks,
     mariaView,

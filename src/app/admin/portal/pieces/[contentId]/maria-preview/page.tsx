@@ -3,7 +3,8 @@ import { verifySession } from '@/lib/auth'
 import PieceReviewScreen from '@/app/client/[slug]/piece/[contentId]/PieceReviewScreen'
 import PiecePageV2 from '@/app/client/[slug]/piece/[contentId]/v2/PiecePageV2'
 import { getAgencyReviewPreviews } from '@/lib/portal/review-previews'
-import { loadClientPiecePreview } from './preview-data'
+import { usesPiecePageV2 } from '@/lib/portal/piece-page/piece-page-switch'
+import { PREVIEW_SEAT_EMAIL, loadClientPiecePreview } from './preview-data'
 import ReadOnlyPreview from './ReadOnlyPreview'
 
 export const dynamic = 'force-dynamic'
@@ -21,7 +22,8 @@ export default async function MariaPiecePreviewPage({ params, searchParams }: {
   const preview = await loadClientPiecePreview('kanset', decoded)
   if (!preview) notFound()
   const { layout } = await searchParams
-  if (layout === 'v2') {
+  // Defaults to the layout her seat has today; ?layout=v1 or v2 forces one.
+  if (layout === 'v2' || (layout !== 'v1' && usesPiecePageV2(PREVIEW_SEAT_EMAIL))) {
     const previews = await getAgencyReviewPreviews(preview.item.id, preview.item.version).catch(() => [])
     return (
       <ReadOnlyPreview>
