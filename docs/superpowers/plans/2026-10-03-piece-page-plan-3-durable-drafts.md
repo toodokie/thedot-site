@@ -21,6 +21,9 @@
 
 **Out of scope (later plans):** the redesigned editor, track changes, the decision bar, the side-by-side "written against the previous version" view (plan 4 renders it from the data this plan provides); the Agency Ops panels that list failures, carried drafts and unsent-draft alerts (plan 5 renders them from the readers this plan provides). Plan 3 ships only the minimum UI needed so nothing it introduces can strand a draft: a sync status line, flush on blur, Keep and Discard (with a confirm step) for carried drafts, and a Retry label.
 
+
+> **Deploy correction 2026-10-04 (overrides every deploy step below).** Pushing `feat/portal-audit-fixes-2026-09-15` builds a Vercel **Preview only**; production is NOT deployed by a push (found when plan 1 shipped: commit a942714 built as Preview, production unchanged). Production deploys with the Vercel CLI from the clean frozen checkout: `cp -R ~/thedot-site/.vercel <worktree>/.vercel && cd <worktree> && npx vercel --prod --yes`, after the push so git and production match. Agents cannot run the push or the deploy (Claude Code's auto-mode blocks production deploys): hand Anastasia both commands, then confirm the new `target: production` deployment is READY (Vercel `list_deployments`) and verify live with a browser user agent (plain curl gets 403).
+
 ---
 
 ## Decisions for Anastasia (answer before Task 1; each has a recommendation)
@@ -4354,7 +4357,7 @@ Record the printed hash: it is the frozen commit for review (playbook section 12
 - [ ] **Step 1: Code-review pass on the frozen hash** with the `code-review` skill (no Codex lane), migration first (manual section 15, tier 1). Hand over: the hash, the replay outputs from Task 1 steps 2 to 4, and the `test:rls` summary from Task 11 step 2. Fix findings in new commits, rerun Tasks 11 and 13, and freeze a new hash.
 - [ ] **Step 2: Anastasia's go-ahead.** Show her the frozen hash, the review outcome and the `test:rls` summary. Nothing below touches production until she says go.
 - [ ] **Step 3: Apply 0093 to production** through the same runbook used for 0090 to 0092 (manual section 15, tier 1: back up first, apply in order, capture the migration output and `select public.assert_portal_security()`). Plan 2's 0092 must already be live, or this file is 0092 per the renumber rule. The migration must be live before any code that queries `content_review_drafts` deploys (playbook section 12, step 4).
-- [ ] **Step 4: Deploy by pushing the production branch.** Production deploys from `feat/portal-audit-fixes-2026-09-15` (verified 2026-09-30 when ac03a60 deployed); there is no direct `vercel --prod` step.
+- [ ] **Step 4: Deploy by pushing the production branch.** The push updates git and a Preview build only; production then needs the CLI deploy in the correction note at the top; there is no direct `vercel --prod` step.
 
 ```bash
 git -C ~/thedot-site status --short | grep -v '^??' || echo "tracked tree clean"

@@ -16,6 +16,9 @@
 
 **Spec:** `~/Kanset/docs/superpowers/specs/2026-10-03-piece-page-redesign-design.md`, section 7 (media previews), section 4.2 (media area: frame strip, horizontal episodes play the trailer only), section 8 (activity log records preview upload and deletion), section 12 (RLS and retention tests).
 
+
+> **Deploy correction 2026-10-04 (overrides every deploy step below).** Pushing `feat/portal-audit-fixes-2026-09-15` builds a Vercel **Preview only**; production is NOT deployed by a push (found when plan 1 shipped: commit a942714 built as Preview, production unchanged). Production deploys with the Vercel CLI from the clean frozen checkout: `cp -R ~/thedot-site/.vercel <worktree>/.vercel && cd <worktree> && npx vercel --prod --yes`, after the push so git and production match. Agents cannot run the push or the deploy (Claude Code's auto-mode blocks production deploys): hand Anastasia both commands, then confirm the new `target: production` deployment is READY (Vercel `list_deployments`) and verify live with a browser user agent (plain curl gets 403).
+
 ---
 
 ## Ground rules for whoever executes this
@@ -4871,7 +4874,7 @@ Record the printed hash: that is the frozen commit for review (playbook section 
 - [ ] **Step 2: Code-review pass on the frozen hash (the `code-review` skill; no Codex lane)** from Task 14 step 5, migration first (manual section 15, tier 1). Hand over: the hash, the replay outputs from Task 1 steps 2 to 4, and the `test:rls` summaries from Task 12 step 3 and Task 12a step 2 (RM1 to RM6). Fix findings in new commits, rerun Tasks 12 and 14, and freeze a new hash.
 - [ ] **Step 3: Anastasia's go-ahead.** Show her the frozen hash, the review outcome, the `test:rls` summary and the Step 1 dashboard answers. Nothing below touches production until she says go.
 - [ ] **Step 4: Apply 0092 to production** through the same runbook used for 0090 and 0091 (manual section 15, tier 1: backup first, apply in order, capture the migration and `assert_portal_security()` output). The migration must be live before any code that queries `content_review_previews` deploys (playbook section 12, step 4). Then, read-only: `select id, public, file_size_limit from storage.buckets where id = 'portal-review-previews'` shows `public = false`; `select public.assert_portal_security()` succeeds. Then run Task 13a step 3's read-only query and give Anastasia the list of pieces currently with Maria whose released version has no media (amended 2026-10-03: the guard acts on the next release of each, nothing changes for them today).
-- [ ] **Step 5: Deploy by pushing the production branch.** Production deploys from `feat/portal-audit-fixes-2026-09-15` (verified 2026-09-30 when ac03a60 deployed); there is no separate feature-branch deploy and no direct `vercel --prod`.
+- [ ] **Step 5: Deploy by pushing the production branch.** The push updates git and a Preview build only; production then needs the CLI deploy in the correction note at the top; there is no separate feature-branch deploy and no direct `vercel --prod`.
 
 ```bash
 git -C ~/thedot-site status --short | grep -v '^??' || echo "tracked tree clean"

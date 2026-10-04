@@ -1,5 +1,8 @@
 # Piece Page Plan 5 of 5: Agency Ops, Feedback Card and Rollout Implementation Plan
 
+
+> **Deploy correction 2026-10-04 (overrides every deploy step below).** Pushing `feat/portal-audit-fixes-2026-09-15` builds a Vercel **Preview only**; production is NOT deployed by a push (found when plan 1 shipped: commit a942714 built as Preview, production unchanged). Production deploys with the Vercel CLI from the clean frozen checkout: `cp -R ~/thedot-site/.vercel <worktree>/.vercel && cd <worktree> && npx vercel --prod --yes`, after the push so git and production match. Agents cannot run the push or the deploy (Claude Code's auto-mode blocks production deploys): hand Anastasia both commands, then confirm the new `target: production` deployment is READY (Vercel `list_deployments`) and verify live with a browser user agent (plain curl gets 403).
+
 **Renumbered 2026-10-03:** this plan's migration is 0095 (plan 4a claims 0094 for review ticks and the approve guard). Build order: 1, 2 (0092), 3 (0093), 4a (0094), 4b, 5 (0095).
 
 **Approved spec; **plan approved by Anastasia 2026-10-03** with all decisions as recommended (switch per seat, preview seat first; server-side ticks gating Approve; DB approve guard on unsent drafts; Approve waits for media; phone nav hidden on the piece page, 767/1100 breakpoints; ProseMirror with our own Markdown codec; cut the line "I usually reply the same day"; Maria's switch flips with plan 5; media guard: design link counts per piece, new versions re-attach media, an approved no-media override silences the no-media alert, playback limits 1 per 10 min / 20 a day / 15 s stall, portal-ship gets --no-media).** Not built yet.
