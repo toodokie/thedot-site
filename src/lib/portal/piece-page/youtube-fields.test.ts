@@ -1,0 +1,244 @@
+import { describe, expect, it } from 'vitest'
+import {
+  findChapters, formatTags, parseTags, parseYouTubePackage, replaceChapters,
+  serializeYouTubePackage, setYouTubeField, youTubeFieldValue, type YouTubeFieldName,
+} from './youtube-fields'
+
+const INLINE = [
+  '**Title:** What does a permit cost?',
+  '',
+  '**Description:**',
+  'Three things to know.',
+  '',
+  'Book a consultation: https://kanset.com/contact',
+  '',
+  '#LMIA #KansetServices',
+  '',
+  '**Tags:** LMIA, LMIA cost, foreign worker',
+].join('\n')
+
+const OWN_LINES = [
+  '**Title**',
+  '',
+  'Ask Kanset: Does remote work count?',
+  '',
+  '**Description**',
+  '',
+  'For the Canadian Experience Class, it depends.',
+  '',
+  '**Tags**',
+  '',
+  'canadian experience, remote work canada, kanset',
+  '',
+  '**Related video:** episode 3, https://youtu.be/example',
+  '',
+  '**Note for Maria on the title:** kept to the series format.',
+].join('\n')
+
+const PLAIN = [
+  'Title: Ask Kanset: Can I lay off a foreign worker?',
+  '',
+  'Description: You can, with one extra step. kanset.com/contact',
+].join('\n')
+
+const BOLD_INSIDE = [
+  '**Title:** Two employer paths',
+  '',
+  '**Description:**',
+  '',
+  'Intro line.',
+  '',
+  '**Path 1: The worker has an open permit**',
+  '',
+  'Details.',
+].join('\n')
+
+describe('parseYouTubePackage', () => {
+  it('round-trips every shape exactly', () => {
+    for (const body of [INLINE, OWN_LINES, PLAIN, BOLD_INSIDE]) {
+      const parsed = parseYouTubePackage(body)
+      expect(parsed).not.toBeNull()
+      expect(serializeYouTubePackage(parsed!)).toBe(body)
+    }
+  })
+
+  it('reads inline, own-line and plain labels', () => {
+    expect(youTubeFieldValue(parseYouTubePackage(INLINE)!, 'title')).toBe('What does a permit cost?')
+    expect(youTubeFieldValue(parseYouTubePackage(INLINE)!, 'tags')).toBe('LMIA, LMIA cost, foreign worker')
+    expect(youTubeFieldValue(parseYouTubePackage(OWN_LINES)!, 'title')).toBe('Ask Kanset: Does remote work count?')
+    expect(youTubeFieldValue(parseYouTubePackage(PLAIN)!, 'description')).toBe('You can, with one extra step. kanset.com/contact')
+  })
+
+  it('keeps notes after the tags out of the tags', () => {
+    const parsed = parseYouTubePackage(OWN_LINES)!
+    expect(youTubeFieldValue(parsed, 'tags')).toBe('canadian experience, remote work canada, kanset')
+    expect(parsed.rest).toContain('**Note for Maria on the title:**')
+  })
+
+  it('keeps bold lines inside the description', () => {
+    expect(youTubeFieldValue(parseYouTubePackage(BOLD_INSIDE)!, 'description')).toContain('**Path 1:')
+  })
+
+  it('returns null without a title label', () => {
+    expect(parseYouTubePackage('Just a description, no labels.')).toBeNull()
+  })
+})
+
+describe('setYouTubeField', () => {
+  it('changes one field and nothing else', () => {
+    const next = serializeYouTubePackage(setYouTubeField(parseYouTubePackage(INLINE)!, 'title', 'A new title'))
+    expect(next).toBe(INLINE.replace('What does a permit cost?', 'A new title'))
+  })
+
+  it('leaves a missing field missing', () => {
+    const parsed = parseYouTubePackage(PLAIN)!
+    expect(serializeYouTubePackage(setYouTubeField(parsed, 'tags', 'x'))).toBe(PLAIN)
+  })
+})
+
+describe('tags', () => {
+  it('parses commas and new lines and formats with comma space', () => {
+    expect(parseTags('LMIA, LMIA cost,foreign worker\nkanset')).toEqual(['LMIA', 'LMIA cost', 'foreign worker', 'kanset'])
+    expect(formatTags(['a', 'b c'])).toBe('a, b c')
+  })
+})
+
+describe('chapters', () => {
+  const DESCRIPTION = 'Intro.\n\nChapters:\n00:00 Meet Maria and Mary\n01:31 Should a client bring questions?\n1:03:43 Last one\n\nOutro.'
+
+  it('finds the run of chapter lines', () => {
+    const chapters = findChapters(DESCRIPTION)!
+    expect(chapters.items).toEqual([
+      { time: '00:00', title: 'Meet Maria and Mary' },
+      { time: '01:31', title: 'Should a client bring questions?' },
+      { time: '1:03:43', title: 'Last one' },
+    ])
+    expect(DESCRIPTION.slice(chapters.start, chapters.end)).toBe('00:00 Meet Maria and Mary\n01:31 Should a client bring questions?\n1:03:43 Last one')
+  })
+
+  it('replaces only the chapter lines', () => {
+    const chapters = findChapters(DESCRIPTION)!
+    const next = replaceChapters(DESCRIPTION, chapters, [{ time: '00:00', title: 'Hello' }, { time: '02:00', title: 'Bye' }])
+    expect(next).toBe('Intro.\n\nChapters:\n00:00 Hello\n02:00 Bye\n\nOutro.')
+  })
+
+  it('needs at least two chapter lines', () => {
+    expect(findChapters('00:00 Only one')).toBeNull()
+  })
+})
+
+// Round-trip property over tricky and real-world inputs: whenever a package parses, serializing
+// it returns the exact input bytes, and writing any field's own value back changes nothing.
+
+// Shape of a real canonical YouTube Short block (portal-content, no client data).
+const REAL_SHORT = [
+  'Title: Ask Kanset: can I apply to Express Entry without a job offer?',
+  '',
+  'Description: Yes, you can, Express Entry does not require a job offer. Questions? https://kanset.com/contact',
+  '',
+  'Video production by @loftcreativespace',
+  '',
+  '#ExpressEntry #CanadaImmigration #KansetServices',
+  '',
+].join('\n')
+
+const crlf = (text: string) => text.replace(/\n/g, '\r\n')
+
+const TRICKY: string[] = [
+  INLINE, OWN_LINES, PLAIN, BOLD_INSIDE, REAL_SHORT,
+  crlf(INLINE), crlf(OWN_LINES), crlf(PLAIN), crlf(BOLD_INSIDE), crlf(REAL_SHORT),
+  INLINE + '\n', INLINE + '\n\n\n', '\n\n' + INLINE,
+  'Preamble line\n\n**Title:** T\n**Description:** D\n**Tags:** a, b',
+  '**Title:**',
+  '**Title:**\n',
+  '**Title**\n\n\n',
+  'Title:',
+  'title: lower case\ndescription: also lower',
+  '**Title:**   spaced   \t\n\n**Description:**\t\n\n\n  indented body  \n\n',
+  '**Tags:** first\n**Title:** after tags\n**Description:** d',
+  '**Title:** A\n**Title:** duplicate\n**Description:** B\n**Description:** again',
+  '**Title:** A\n**Tags**\n\n\n',
+  '**Title:** A\n**Tags:** x\n\nNote after.\n\nAnother note.',
+  '**Title:** A\r\n**Tags:** x\r\n\r\nNote after.\r\n',
+  '**Title:** A\n**Tags:** x\n \t\nNote after spaces line.',
+  '**Title:** mixed\r\n**Description:**\n\r\nbody\r\n',
+  '**Title**: colon outside\n**Description**: body',
+  'Unknown: line\nTitle: T\nUnknown: other\nDescription: D\n\nTrailing unknown',
+  '**Title:** emoji \u{1F600} and   nbsp\n**Description:**   separator',
+  '**Title:** A\n**Description:**\n00:00 Intro\n01:00 Middle\n\nOutro',
+]
+
+function mulberry32(seed: number) {
+  return () => {
+    seed |= 0
+    seed = (seed + 0x6d2b79f5) | 0
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+const TOKENS = [
+  '**Title:**', '**Title**', 'Title:', '**Description:**', '**Description**', 'Description:', '**Tags:**',
+  '**Tags**', 'Tags:', '\n', '\n', '\n', '\r\n', ' ', '\t', 'word', 'a, b', '#tag', '**Note:**', '00:00 x',
+]
+function fuzz(count: number, seed: number): string[] {
+  const random = mulberry32(seed)
+  return Array.from({ length: count }, () => {
+    const length = Math.floor(random() * 30)
+    return Array.from({ length }, () => TOKENS[Math.floor(random() * TOKENS.length)]).join('')
+  })
+}
+
+const NAMES: YouTubeFieldName[] = ['title', 'description', 'tags']
+
+describe('round-trip property', () => {
+  const inputs = [...TRICKY, ...fuzz(500, 20261004)]
+
+  it('serializes every parsed input back to the exact bytes', () => {
+    let parsedCount = 0
+    for (const body of inputs) {
+      const parsed = parseYouTubePackage(body)
+      if (!parsed) continue
+      parsedCount += 1
+      expect(serializeYouTubePackage(parsed)).toBe(body)
+    }
+    expect(parsedCount).toBeGreaterThan(100)
+  })
+
+  it('writing a field\'s own value back changes nothing', () => {
+    for (const body of inputs) {
+      const parsed = parseYouTubePackage(body)
+      if (!parsed) continue
+      for (const name of NAMES) {
+        const value = youTubeFieldValue(parsed, name)
+        if (value === null) continue
+        expect(serializeYouTubePackage(setYouTubeField(parsed, name, value))).toBe(body)
+      }
+    }
+  })
+
+  it('reads CRLF packages like LF ones', () => {
+    for (const body of [INLINE, OWN_LINES, PLAIN, BOLD_INSIDE, REAL_SHORT]) {
+      const lf = parseYouTubePackage(body)!
+      const cr = parseYouTubePackage(crlf(body))!
+      for (const name of NAMES) {
+        expect(youTubeFieldValue(cr, name)).toBe(youTubeFieldValue(lf, name) === null ? null : crlf(youTubeFieldValue(lf, name)!))
+      }
+    }
+  })
+
+  it('keeps CRLF line endings when a field in a CRLF package is edited', () => {
+    const body = crlf(INLINE)
+    const next = serializeYouTubePackage(setYouTubeField(parseYouTubePackage(body)!, 'description', 'One.\n\nTwo.'))
+    expect(next).toBe(crlf(INLINE.replace('Three things to know.\n\nBook a consultation: https://kanset.com/contact\n\n#LMIA #KansetServices', 'One.\n\nTwo.')))
+  })
+
+  it('finds chapters in a CRLF description and keeps its line endings on replace', () => {
+    const text = 'Intro.\r\n00:00 One\r\n01:00 Two\r\n\r\nOutro.'
+    const chapters = findChapters(text)!
+    expect(chapters.items).toEqual([{ time: '00:00', title: 'One' }, { time: '01:00', title: 'Two' }])
+    expect(replaceChapters(text, chapters, chapters.items)).toBe(text)
+    expect(replaceChapters(text, chapters, [{ time: '00:00', title: 'A' }, { time: '02:00', title: 'B' }]))
+      .toBe('Intro.\r\n00:00 A\r\n02:00 B\r\n\r\nOutro.')
+  })
+})
