@@ -2,6 +2,7 @@ export const colors = {
   black: '#35332f', cream: '#faf9f6', yellow: '#daff00',
   white: '#ffffff', grey: '#7a776f', graphite: '#47453f',
   yellowPale: '#eefb9d', hairline: '#ebebe7',
+  offWhite: '#fffefc', danger: '#9f241b',
 } as const;
 
 export const fonts = {

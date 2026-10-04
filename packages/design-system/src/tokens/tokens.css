@@ -7,6 +7,11 @@
      on the cream card ground, where --dot-hairline measures only 1.14:1. */
   --dot-grey-light:#c4c1b9;
   --dot-yellow-pale:#eefb9d; --dot-hairline:#ebebe7;
+  /* Panel ground slightly lifted off cream (BRAND-SPEC "Off-white"). Portal CSS referenced it
+     before it existed, so those panels rendered transparent until 2026-10-03. */
+  --dot-off-white:#fffefc;
+  /* The one danger colour. Replaces the hard-coded #9f241b / #c0392b / #b4502f reds. */
+  --dot-danger:#9f241b;
 
   /* Signature gradients (from site CSS) */
   --dot-grad-fill:radial-gradient(circle farthest-corner at 50% 50%, #daff00cc, #faf9f6);
@@ -16,6 +21,10 @@
   --dot-grad-96:linear-gradient(96deg, #faf9f6, #daff00);
   --dot-grad-135:linear-gradient(135deg, #daff00 0%, #faf9f6 100%);
   --dot-grad-silver:radial-gradient(circle at 35% 30%, #ffffff, #d8d6d1 52%, #9c9a94 100%);
+  /* Yellow as light, never a flat fill (piece page redesign, spec 10a) */
+  --dot-grad-highlight:linear-gradient(to top, rgba(218,255,0,.62) 0%, rgba(238,251,157,.55) 45%, rgba(250,249,246,0) 72%);
+  --dot-grad-highlight-soft:linear-gradient(to top, rgba(238,251,157,.75) 0%, rgba(250,249,246,0) 45%);
+  --dot-grad-glow:radial-gradient(circle farthest-corner at 50% 50%, #daff00 0%, #eefb9d 62%, #faf9f6 100%);
 
   /* Type */
   --dot-font-display:'futura-pt','Futura','Avenir Next','Helvetica Neue',Arial,sans-serif;

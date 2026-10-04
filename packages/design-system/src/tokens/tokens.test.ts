@@ -12,6 +12,9 @@ describe('brand tokens', () => {
       graphite: '#47453f',
     });
   });
+  it('exposes the off-white ground and the danger colour', () => {
+    expect(colors).toMatchObject({ offWhite: '#fffefc', danger: '#9f241b' });
+  });
   it('names the Adobe Typekit families', () => {
     expect(fonts.display).toContain('futura-pt');
     expect(fonts.text).toContain('ff-real-text-pro');
