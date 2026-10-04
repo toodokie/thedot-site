@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { AdminContentRequest } from '../../RequestAdmin'
 import type { SignedReviewPreview } from '@/lib/portal/review-preview-core'
 import {
-  buildRequestViews, reviewTickCount, stateBarLine, summarizeDrafts, unsentAlertSentence,
+  buildRequestViews, centreFallbackHeading, reviewTickCount, stateBarLine, summarizeDrafts, unsentAlertSentence,
 } from './agency-piece-data-view'
 
 const request = (overrides: Partial<AdminContentRequest> = {}): AdminContentRequest => ({
@@ -89,5 +89,16 @@ describe('review ticks in the bar (0094 stores ticks per seat and version)', () 
   it('shows the plain line when there is no count', () => {
     expect(stateBarLine('Approved', null)).toBe('Approved')
     expect(stateBarLine('Waiting for her review', { done: 0, total: 0 })).toBe('Waiting for her review')
+  })
+})
+
+describe('centreFallbackHeading (review fix 2026-10-04)', () => {
+  it('says the piece is not shared yet only when it is not', () => {
+    expect(centreFallbackHeading(false, 2)).toBe('Working copy, v2, not shared yet')
+  })
+
+  it('says Maria\'s view could not load on a shared piece', () => {
+    expect(centreFallbackHeading(true, 3)).toBe("Maria's view could not load. Working copy, v3")
+    expect(centreFallbackHeading(true, null)).toBe("Maria's view could not load. Working copy, v?")
   })
 })

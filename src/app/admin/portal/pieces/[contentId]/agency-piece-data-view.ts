@@ -102,3 +102,10 @@ export function reviewTickCount(tabKeys: string[], ticked: string[]): TickCount 
 export function stateBarLine(mariaView: string, ticks: TickCount | null): string {
   return ticks && ticks.total > 0 ? `${ticks.done} of ${ticks.total} reviewed · ${mariaView}` : mariaView
 }
+
+// The centre shows the working copy when Maria's view is not available. On a shared piece that means
+// her view failed to load, never that the piece is unshared.
+export function centreFallbackHeading(released: boolean, workingVersion: number | null | undefined): string {
+  const version = `v${workingVersion ?? '?'}`
+  return released ? `Maria's view could not load. Working copy, ${version}` : `Working copy, ${version}, not shared yet`
+}

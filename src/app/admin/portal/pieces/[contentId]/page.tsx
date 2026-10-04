@@ -9,6 +9,7 @@ import { CommentList } from '../../CommentInbox'
 import { RequestList } from '../../RequestAdmin'
 import adminStyles from '../../portal-admin.module.css'
 import { loadAgencyPieceData } from './agency-piece-data'
+import { centreFallbackHeading } from './agency-piece-data-view'
 import AgencyPieceCenter from './AgencyPieceCenter'
 import AgencyPanel from './AgencyPanel'
 import AgencyStateBar from './AgencyStateBar'
@@ -51,7 +52,7 @@ export default async function AdminPiecePage({ params }: { params: Promise<{ con
         layout={data.mariaLayout}
         previews={data.previews}
         ticks={data.mariaTicks}
-        fallback={<WorkingCopy heading={`Working copy, v${piece.workingVersion ?? '?'}, not shared yet`}
+        fallback={<WorkingCopy heading={centreFallbackHeading(released, piece.workingVersion)}
           blocks={data.working.blocks} clientBody={data.working.clientBody}
           canva={data.design.canva} drive={data.design.drive} />}
         sidePanel={<AgencyPanel model={{ ...data, released }} />}
