@@ -185,7 +185,12 @@ begin
   end if;
   select * into v_event from public.portal_inbox_events e where e.id = p_event_id;
   if not found then raise exception 'inbox event not found'; end if;
-  if v_event.event_type not in ('review_send_failed', 'review_drafts_carried_over',
+  -- A send failure closes itself when her retry succeeds (0093 resolves its failure rows); marking
+  -- one handled by hand would hide a failure she may still be retrying.
+  if v_event.event_type = 'review_send_failed' then
+    raise exception 'send failures close themselves when her retry succeeds';
+  end if;
+  if v_event.event_type not in ('review_drafts_carried_over',
       'portal_feedback_submitted', 'review_unsent_drafts_due', 'review_playback_failed') then
     raise exception 'not a client signal';
   end if;
@@ -395,6 +400,10 @@ begin
   end if;
   if not exists (select 1 from public.activity_event_types t where t.event_type = 'portal_feedback_submitted') then
     raise exception 'portal_feedback_submitted event type missing';
+  end if;
+  if pg_catalog.pg_get_functiondef('public.agency_resolve_inbox_event(uuid,text,text,text)'::pg_catalog.regprocedure)
+       not like '%send failures close themselves when her retry succeeds%' then
+    raise exception 'agency_resolve_inbox_event must refuse send failures';
   end if;
   if pg_catalog.has_function_privilege('anon', 'public.assert_agency_ops_feedback_security()', 'EXECUTE')
      or pg_catalog.has_function_privilege('authenticated', 'public.assert_agency_ops_feedback_security()', 'EXECUTE') then

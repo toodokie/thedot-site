@@ -5314,7 +5314,7 @@ async function main(): Promise<void> {
       const inboxRecorded = await admin.rpc('agency_record_review_send_failure', { p_attempt_id: inboxAttemptId, p_draft_ids: [] })
       if (inboxRecorded.error) throw new Error(`drafts inbox record: ${inboxRecorded.error.message}`)
       const inboxRead = await admin.rpc('read_portal_inbox', { p_consumer_key: inboxConsumer, p_client_id: inboxClientId, p_limit: 50 })
-      const failureEvent = ((inboxRead.data ?? []) as Array<{ seq: number; event_type: string; object_id: string }>)
+      const failureEvent = ((inboxRead.data ?? []) as Array<{ seq: number; id: string; event_type: string; object_id: string }>)
         .find((event) => event.event_type === 'review_send_failed' && event.object_id === inboxAttemptId)
       if (!failureEvent) throw new Error(`drafts inbox event missing: ${inboxRead.error?.message ?? 'not listed'}`)
       const ackFailure = () => admin.rpc('ack_portal_inbox', {
@@ -5329,6 +5329,18 @@ async function main(): Promise<void> {
         !!ackBlocked.error && /unresolved/.test(ackBlocked.error.message)
           && !inboxResolved.error && !ackPassed.error && Number(ackPassed.data) === Number(failureEvent.seq),
         `${ackBlocked.error?.message ?? 'NOT BLOCKED'} | ${inboxResolved.error?.message ?? ''} | ${ackPassed.error?.message ?? JSON.stringify(ackPassed.data)}`)
+
+      // 0095 (review fix 2026-10-04): a send failure closes itself when her retry succeeds, so even the
+      // service role cannot mark one handled, and no resolution row is written.
+      const resolveFailure = await admin.rpc('agency_resolve_inbox_event', {
+        p_event_id: failureEvent.id, p_note: null, p_actor_key: 'thedot-admin',
+        p_idempotency_key: `rls-resolve-send-failure-${RUN_ID}`,
+      })
+      const failureResolutions = await admin.from('agency_inbox_resolutions').select('event_id').eq('event_id', failureEvent.id)
+      check('SG12: agency_resolve_inbox_event refuses a send failure, even for the service role',
+        !!resolveFailure.error && /send failures close themselves/.test(resolveFailure.error.message)
+          && !failureResolutions.error && (failureResolutions.data ?? []).length === 0,
+        `${resolveFailure.error?.message ?? 'NOT REFUSED'} | ${JSON.stringify(failureResolutions.data ?? failureResolutions.error?.message)}`)
 
       // Amended 2026-10-03: carry-over and retry success are agency_internal, so they queue no
       // notification row at all; a refused send may notify the agency but never the client.
