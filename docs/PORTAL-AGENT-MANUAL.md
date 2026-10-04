@@ -514,8 +514,9 @@ declare `@thedot/design-system: workspace:*`; do not rely on a warm install to m
 workspace import resolve.
 
 - **Tokens** (`src/tokens/tokens.css` + `tokens.ts`) — the `--dot-*` custom properties. **Everything
-  themes through these; never raw hex in a component** (the one sanctioned exception is the admin
-  `--admin-danger: #b4502f` rust, a semantic danger color). Key tokens:
+  themes through these; never raw hex in a component.** Errors use `--dot-danger` (#9f241b); the
+  admin `--admin-danger` is an alias of it (the old #b4502f rust and the #c0392b form red were
+  retired 2026-10-03, guarded by `src/app/danger-token.test.ts`). Key tokens:
   - Color: `--dot-cream` (ground), `--dot-white`, `--dot-black`, `--dot-charcoal`/`--dot-graphite`
     (ink), `--dot-grey` (muted), `--dot-hairline` (borders), `--dot-yellow` (the one accent),
     `--dot-yellow-pale` (soft accent). Portal shells remap muted text to
@@ -523,8 +524,14 @@ workspace import resolve.
   - Type: `--dot-font-display`, `--dot-font-text`; weights `--dot-weight-light/book/regular/medium/demi`;
     sizes `--dot-text-hero/h1/h2/h3/h4/section/body/eyebrow`.
   - Space: `--dot-space-1..8`. Radius: `--dot-radius` (used sparingly — the portal is mostly sharp).
+  - Panels and light: `--dot-off-white` (#fffefc, lifted panel ground), `--dot-grad-fill` (the
+    core dot fill), `--dot-grad-glow` (the yellow primary button's hover and focus glow),
+    `--dot-grad-highlight` (added text) and `--dot-grad-highlight-soft` (updated passages). Yellow
+    is light, never a flat pale fill, except the one yellow primary Button.
 - **Components** (`src/components/`): `Heading`, `Text`, `Eyebrow`, `Button`, `Card`, `Tag`,
-  `ReadMore`, `Input`, `Textarea`, `Selector`, `Dot`, `DotGrid`, `Stripe`, `Arrow`, `Logo`. Use
+  `ReadMore`, `Input`, `Textarea`, `Selector`, `Dot`, `DotGrid`, `TickDot` (a hairline dot that
+  fills when checked: tab ticks, gates), `ReviewDots` (n dots, first k filled: review progress,
+  ratings), `Stripe`, `Arrow`, `Logo`. Use
   these for typography and form primitives. `Heading variant="display"` is the big greeting size —
   **don't shrink it**; sub-page titles use `Heading level={2}`.
 
