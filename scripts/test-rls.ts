@@ -9,6 +9,16 @@ import { randomUUID } from 'node:crypto'
 import { PRIMARY_SOURCE_HOSTS } from '../src/lib/portal/primary-source-policy'
 import { loadAgencyStagePiece } from '../src/lib/portal/gates-loader'
 import { deriveMyTasks, renderStatusGatesBlock } from '../src/lib/portal/gates'
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join as joinPath } from 'node:path'
+import {
+  REVIEW_PREVIEW_BUCKET, REVIEW_PREVIEW_COLUMNS, signReviewPreview, type ReviewPreviewRow,
+} from '../src/lib/portal/review-preview-core'
+import { purgePreviewsAfterPublication, runPreviewRetention } from '../src/lib/portal/review-preview-retention'
+import {
+  uploadReviewPreview, type PreviewTools, type ReviewPreviewRequest,
+} from '../src/lib/portal/review-preview-upload'
 
 loadEnvConfig(process.cwd())
 
@@ -4459,6 +4469,233 @@ async function main(): Promise<void> {
       })
       check('LF3: an empty edit is still refused', !!empty.error, empty.error?.message ?? 'NO ERROR')
       check('LF4: a caption-sized edit is unaffected', SHORT.length < 8000, `${SHORT.length} characters`)
+    }
+
+    // 0092: portal review previews. Private bucket with no client storage policy, row-level read
+    // for the owning seat on the released version only, signed links from the server, full
+    // episodes refused, retention on live-everywhere and on planned date + 7 days.
+    {
+      const previewDir = joinPath(tmpdir(), `kanset-rls-preview-${RUN_ID}`)
+      await mkdir(previewDir, { recursive: true })
+      const fixture = async (name: string, body: string) => {
+        const file = joinPath(previewDir, name)
+        await writeFile(file, body)
+        return file
+      }
+      const video = await fixture('reel.mp4', `fake mp4 ${RUN_ID}`)
+      const poster = await fixture('poster.jpg', `fake poster ${RUN_ID}`)
+      const frameA = await fixture('frame-a.jpg', `frame a ${RUN_ID}`)
+      const frameB = await fixture('frame-b.jpg', `frame b ${RUN_ID}`)
+      const tools: PreviewTools = {
+        probe: async () => ({ width: 1080, height: 1920, durationSeconds: 24 }),
+        faststart: async (input) => input,
+        extractPoster: async () => poster,
+        readFile: (file) => readFile(file),
+        statSize: async (file) => (await stat(file)).size,
+      }
+      const request = (contentId: string, frames: string[], previewKey = 'reel'): ReviewPreviewRequest => ({
+        clientSlug: B_SLUG, contentId, contentVersion: 1, previewKey, reviewAssetKey: null,
+        video, poster, frames: frames.map((file, index) => ({ path: file, label: `Frame ${index + 1}` })),
+        pages: [], actorKey: 'thedot-admin',
+      })
+      const releasedPiece = async (contentId: string, extra: Record<string, unknown> = {}) => {
+        const [synced] = await sync([snapshot(bClientId!, contentId, 1, `Preview ${contentId}`, 'Preview body', 'caption', extra)])
+        const design = await admin.rpc('set_content_design_links', {
+          p_client_id: bClientId, p_content_id: contentId,
+          p_canva_url: `https://www.canva.com/design/${contentId.replace(/[^a-z0-9]/gi, '').toUpperCase()}/view`,
+          p_drive_url: null, p_actor_key: 'thedot-admin', p_idempotency_key: `rls-preview-design-${contentId}`,
+        })
+        if (design.error) throw new Error(`preview design ${contentId}: ${design.error.message}`)
+        const ready = await admin.rpc('mark_content_ready', { p_content_id: synced.item_id, p_content_version: 1 })
+        if (ready.error) throw new Error(`preview ready ${contentId}: ${ready.error.message}`)
+        return synced.item_id
+      }
+      const registerArgs = (contentId: string, previewKey: string, overrides: Record<string, unknown> = {}) => ({
+        p_client_id: bClientId, p_content_id: contentId, p_content_version: 1, p_preview_key: previewKey,
+        p_review_asset_key: null, p_media_kind: 'video', p_object_prefix: '', p_video_path: null,
+        p_poster_path: null, p_frames: [], p_width_px: 1080, p_height_px: 1920, p_duration_seconds: 30,
+        p_byte_total: 1000, p_source_sha256: 'a'.repeat(64), p_actor_key: 'thedot-admin', ...overrides,
+      })
+
+      try {
+        const previewContentId = `rls-preview-${RUN_ID}`
+        const previewItemId = await releasedPiece(previewContentId)
+        const first = await uploadReviewPreview(admin, tools, {
+          clientId: bClientId!, contentItemId: previewItemId, request: request(previewContentId, [frameA]),
+        })
+        const again = await uploadReviewPreview(admin, tools, {
+          clientId: bClientId!, contentItemId: previewItemId, request: request(previewContentId, [frameA]),
+        })
+        const uploadLog = await bClient.from('activity_log').select('id')
+          .eq('content_id', previewItemId).eq('event_type', 'review_preview_uploaded')
+        check('RP1: an identical re-upload is idempotent and logs one upload',
+          first.outcome === 'registered' && again.outcome === 'unchanged' && again.previewId === first.previewId
+            && !uploadLog.error && uploadLog.data?.length === 1,
+          JSON.stringify({ first, again, log: uploadLog.data?.length, error: uploadLog.error?.message }))
+
+        const own = await bClient.from('content_review_previews').select('id, video_path').eq('id', first.previewId)
+        check('RP2: the owning client seat reads its released preview row',
+          !own.error && own.data?.length === 1, own.error?.message ?? JSON.stringify(own.data))
+        const cross = await kansetClient.from('content_review_previews').select('id').eq('id', first.previewId)
+        check('RP3: another tenant seat cannot read the preview row',
+          !cross.error && cross.data?.length === 0, cross.error?.message ?? JSON.stringify(cross.data))
+        const anonRows = await anonClient.from('content_review_previews').select('id').eq('id', first.previewId)
+        check('RP4: anon cannot read preview rows',
+          !!anonRows.error || anonRows.data?.length === 0, anonRows.error?.message ?? JSON.stringify(anonRows.data))
+
+        const hiddenContentId = `rls-preview-hidden-${RUN_ID}`
+        const [hiddenSync] = await sync([snapshot(bClientId!, hiddenContentId, 1, 'Hidden preview', 'Hidden body', 'caption')])
+        const hidden = await uploadReviewPreview(admin, tools, {
+          clientId: bClientId!, contentItemId: hiddenSync.item_id, request: request(hiddenContentId, [frameA]),
+        })
+        const hiddenRead = await bClient.from('content_review_previews').select('id').eq('id', hidden.previewId)
+        check('RP5: a preview of an unreleased version is invisible to the client seat',
+          !hiddenRead.error && hiddenRead.data?.length === 0, hiddenRead.error?.message ?? JSON.stringify(hiddenRead.data))
+
+        const videoPath = `${first.objectPrefix}video.mp4`
+        const directDownload = await bClient.storage.from(REVIEW_PREVIEW_BUCKET).download(videoPath)
+        const directSign = await bClient.storage.from(REVIEW_PREVIEW_BUCKET).createSignedUrl(videoPath, 60)
+        const anonDownload = await anonClient.storage.from(REVIEW_PREVIEW_BUCKET).download(videoPath)
+        const publicFetch = await fetch(`${SUPABASE_URL}/storage/v1/object/public/${REVIEW_PREVIEW_BUCKET}/${videoPath}`)
+        check('RP6: no seat and no anonymous caller can read preview objects directly',
+          !!directDownload.error && !!directSign.error && !!anonDownload.error && publicFetch.status >= 400,
+          JSON.stringify({ download: directDownload.error?.message, sign: directSign.error?.message,
+            anon: anonDownload.error?.message, publicStatus: publicFetch.status }))
+
+        const bucket = await admin.storage.getBucket(REVIEW_PREVIEW_BUCKET)
+        check('RP7: the preview bucket is private', !bucket.error && bucket.data?.public === false,
+          bucket.error?.message ?? JSON.stringify(bucket.data))
+
+        const agencyRow = await admin.from('content_review_previews').select(REVIEW_PREVIEW_COLUMNS)
+          .eq('id', first.previewId).single()
+        const signed = agencyRow.data
+          ? await signReviewPreview(admin.storage, agencyRow.data as unknown as ReviewPreviewRow) : null
+        const served = signed?.videoUrl ? await fetch(signed.videoUrl) : null
+        const servedBody = served?.ok ? await served.text() : null
+        check('RP8: the server signs a short-lived link that serves the exact bytes',
+          servedBody === `fake mp4 ${RUN_ID}`, agencyRow.error?.message ?? `status ${served?.status}`)
+
+        const clientRegister = await bClient.rpc('agency_register_review_preview', registerArgs(previewContentId, 'forged'))
+        const clientRetire = await bClient.rpc('agency_retire_review_previews', {
+          p_now: new Date().toISOString(), p_content_item_id: null,
+        })
+        const clientComplete = await bClient.rpc('agency_complete_review_preview_removal', {
+          p_removal_id: randomUUID(), p_error: null,
+        })
+        const clientRemovals = await bClient.from('content_review_preview_removals').select('id')
+        check('RP9: client seats cannot call preview writers or read the removal queue',
+          !!clientRegister.error && !!clientRetire.error && !!clientComplete.error
+            && (!!clientRemovals.error || clientRemovals.data?.length === 0),
+          JSON.stringify({ register: clientRegister.error?.message ?? 'WROTE', retire: clientRetire.error?.message ?? 'RAN',
+            complete: clientComplete.error?.message ?? 'RAN', removals: clientRemovals.data?.length }))
+
+        const podcastId = `rls-preview-podcast-${RUN_ID}`
+        await sync([snapshot(bClientId!, podcastId, 1, 'Podcast episode', 'Episode body', 'caption', { format: 'podcast' })])
+        const episode = await admin.rpc('agency_register_review_preview', registerArgs(podcastId, 'episode', { p_duration_seconds: 120 }))
+        const [podcastItem] = (await admin.from('content_items').select('id').eq('client_id', bClientId!).eq('content_id', podcastId)).data ?? []
+        const teaser = await uploadReviewPreview(admin, tools, {
+          clientId: bClientId!, contentItemId: podcastItem.id, request: request(podcastId, [frameA], 'teaser'),
+        })
+        check('RP10: a full podcast episode is refused while its teaser is accepted',
+          !!episode.error && /full podcast episodes/.test(episode.error.message) && teaser.outcome === 'registered',
+          episode.error?.message ?? 'EPISODE ACCEPTED')
+
+        const longCut = await admin.rpc('agency_register_review_preview',
+          registerArgs(previewContentId, 'long-cut', { p_duration_seconds: 2213 }))
+        check('RP11: a video longer than 240 seconds is refused',
+          !!longCut.error && /240 seconds/.test(longCut.error.message), longCut.error?.message ?? 'ACCEPTED')
+
+        const replaced = await uploadReviewPreview(admin, tools, {
+          clientId: bClientId!, contentItemId: previewItemId, request: request(previewContentId, [frameA, frameB]),
+        })
+        const oldVideo = await admin.storage.from(REVIEW_PREVIEW_BUCKET).download(videoPath)
+        const newVideo = await admin.storage.from(REVIEW_PREVIEW_BUCKET).download(`${replaced.objectPrefix}video.mp4`)
+        const replacedLog = await bClient.from('activity_log').select('summary')
+          .eq('content_id', previewItemId).eq('event_type', 'review_preview_deleted')
+        check('RP12: a changed upload replaces the preview, deletes the old objects and logs it',
+          replaced.outcome === 'replaced' && replaced.previewId !== first.previewId
+            && !!oldVideo.error && !newVideo.error
+            && (replacedLog.data ?? []).some((row) => /new preview replaced/i.test(row.summary ?? '')),
+          JSON.stringify({ replaced, old: oldVideo.error?.message ?? 'STILL THERE', log: replacedLog.data }))
+
+        const datedId = `rls-preview-dated-${RUN_ID}`
+        const datedItemId = await releasedPiece(datedId, { planned_date: '2027-07-21' })
+        const dated = await uploadReviewPreview(admin, tools, {
+          clientId: bClientId!, contentItemId: datedItemId, request: request(datedId, [frameA]),
+        })
+        const sevenDays = await runPreviewRetention(admin, { now: new Date('2027-07-28T16:00:00Z'), contentItemId: datedItemId })
+        const keptRow = await admin.from('content_review_previews').select('id').eq('id', dated.previewId)
+        check('RT1: a preview exactly 7 days past its planned date is kept',
+          sevenDays.retired === 0 && keptRow.data?.length === 1, JSON.stringify({ sevenDays, rows: keptRow.data }))
+        const eightDays = await runPreviewRetention(admin, { now: new Date('2027-07-29T16:00:00Z'), contentItemId: datedItemId })
+        const goneRow = await admin.from('content_review_previews').select('id').eq('id', dated.previewId)
+        const datedObject = await admin.storage.from(REVIEW_PREVIEW_BUCKET).download(`${dated.objectPrefix}video.mp4`)
+        const datedLog = await bClient.from('activity_log').select('summary, actor_type')
+          .eq('content_id', datedItemId).eq('event_type', 'review_preview_deleted')
+        check('RT2: past 7 days the sweep deletes the row and the objects and logs the deletion',
+          eightDays.retired === 1 && eightDays.removed >= 1 && goneRow.data?.length === 0 && !!datedObject.error
+            && datedLog.data?.length === 1 && /more than 7 days/.test(datedLog.data[0].summary ?? '')
+            && datedLog.data[0].actor_type === 'agent',
+          JSON.stringify({ eightDays, rows: goneRow.data, log: datedLog.data }))
+
+        const liveId = `rls-preview-live-${RUN_ID}`
+        const liveItemId = await releasedPiece(liveId, { platforms: ['instagram'] })
+        const live = await uploadReviewPreview(admin, tools, {
+          clientId: bClientId!, contentItemId: liveItemId, request: request(liveId, [frameA]),
+        })
+        const approved = await bClient.rpc('record_content_decision', {
+          p_content_id: liveItemId, p_content_version: 1, p_decision: 'approved', p_note: null,
+        })
+        if (approved.error) throw new Error(`preview live approval: ${approved.error.message}`)
+        const beforeLive = await purgePreviewsAfterPublication(admin, liveItemId)
+        check('RT3: a piece with a destination not yet live keeps its preview',
+          beforeLive?.retired === 0, JSON.stringify(beforeLive))
+        const target = await admin.from('content_publication_targets').select('id,current_observation_id')
+          .eq('content_id', liveItemId).eq('content_version', 1).eq('destination', 'instagram').single()
+        if (target.error || !target.data) throw new Error(`preview live target: ${target.error?.message ?? 'missing'}`)
+        const evidence = await admin.rpc('register_publication_evidence', {
+          p_client_id: bClientId, p_actor_key: 'thedot-admin', p_evidence_kind: 'reviewed_link',
+          p_object_key: null, p_evidence_url: `https://www.instagram.com/reel/rlspreview${RUN_ID}/`,
+          p_attestation_note: null, p_captured_at: new Date().toISOString(), p_sha256: null,
+          p_mime_type: null, p_byte_length: null, p_idempotency_key: `rls-preview-evidence-${RUN_ID}`,
+        })
+        if (evidence.error || !evidence.data) throw new Error(`preview live evidence: ${evidence.error?.message ?? 'missing'}`)
+        const observed = await admin.rpc('record_publication_observation', {
+          p_publication_target_id: target.data.id, p_provider_state: 'live',
+          p_live_url: `https://www.instagram.com/reel/rlspreview${RUN_ID}/`,
+          p_published_at: new Date(Date.now() - 60_000).toISOString(), p_visibility: 'public',
+          p_evidence_id: evidence.data, p_actor_key: 'thedot-admin', p_source_type: 'manual',
+          p_reconciliation_status: 'verified', p_provider_object_id: `rlspreview${RUN_ID}`,
+          p_observed_title: null, p_observed_text: null, p_observation_key: `rls-preview-live-${RUN_ID}`,
+          p_supersedes_observation_id: target.data.current_observation_id,
+          p_verification_note: 'Live reel reviewed for the preview retention test.',
+        })
+        const afterLive = await purgePreviewsAfterPublication(admin, liveItemId)
+        const liveRow = await admin.from('content_review_previews').select('id').eq('id', live.previewId)
+        const liveLog = await bClient.from('activity_log').select('summary')
+          .eq('content_id', liveItemId).eq('event_type', 'review_preview_deleted')
+        check('RT4: confirmed live on every destination deletes the preview and logs why',
+          !observed.error && afterLive?.retired === 1 && liveRow.data?.length === 0
+            && (liveLog.data ?? []).some((row) => /Live on every destination/.test(row.summary ?? '')),
+          observed.error?.message ?? JSON.stringify({ afterLive, rows: liveRow.data, log: liveLog.data }))
+
+        // Amended 2026-10-03: housekeeping activity is flagged agency_internal, so neither the
+        // uploads ('anastasia') nor the deletions ('agent') queue a row for Maria or the agency.
+        const housekeeping = await bClient.from('activity_log').select('id, event_type')
+          .eq('client_id', bClientId!).in('event_type', ['review_preview_uploaded', 'review_preview_deleted'])
+          .in('content_id', [previewItemId, datedItemId, liveItemId])
+        const housekeepingIds = (housekeeping.data ?? []).map((row) => row.id as string)
+        const housekeepingOutbox = housekeepingIds.length
+          ? await admin.from('notification_outbox').select('recipient_kind, channel, event_key')
+            .in('source_activity_id', housekeepingIds)
+          : { data: [] as Array<{ recipient_kind: string }>, error: null }
+        check('RT5: preview uploads and deletions queue no notification for the client or the agency',
+          !housekeeping.error && housekeepingIds.length >= 4
+            && !housekeepingOutbox.error && (housekeepingOutbox.data ?? []).length === 0,
+          JSON.stringify({ activity: housekeepingIds.length, error: housekeepingOutbox.error?.message, outbox: housekeepingOutbox.data }))
+      } finally {
+        await rm(previewDir, { recursive: true, force: true })
+      }
     }
 
     {
