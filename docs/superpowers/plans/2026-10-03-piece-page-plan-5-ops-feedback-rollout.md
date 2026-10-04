@@ -1,6 +1,8 @@
 # Piece Page Plan 5 of 5: Agency Ops, Feedback Card and Rollout Implementation Plan
 
 
+> **Activity-read correction 2026-10-04 (from plan 2's build).** The service role has no SELECT on `activity_log`, and since 0092 a client seat's `act_read` hides every `agency_internal` event type. Every test below that reads `admin.from('activity_log')` must instead read through the service-role RPC `agency_internal_activity(p_client_id, p_content_item_id)` for `agency_internal` rows, or through a client seat (`bClient`) for ordinary client-visible rows. Adjust each such read when executing the task; the code blocks below predate this.
+
 > **Deploy correction 2026-10-04 (overrides every deploy step below).** Pushing `feat/portal-audit-fixes-2026-09-15` builds a Vercel **Preview only**; production is NOT deployed by a push (found when plan 1 shipped: commit a942714 built as Preview, production unchanged). Production deploys with the Vercel CLI from the clean frozen checkout: `cp -R ~/thedot-site/.vercel <worktree>/.vercel && cd <worktree> && npx vercel --prod --yes`, after the push so git and production match. Agents cannot run the push or the deploy (Claude Code's auto-mode blocks production deploys): hand Anastasia both commands, then confirm the new `target: production` deployment is READY (Vercel `list_deployments`) and verify live with a browser user agent (plain curl gets 403).
 
 **Renumbered 2026-10-03:** this plan's migration is 0095 (plan 4a claims 0094 for review ticks and the approve guard). Build order: 1, 2 (0092), 3 (0093), 4a (0094), 4b, 5 (0095).
