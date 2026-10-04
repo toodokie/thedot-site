@@ -1,0 +1,28 @@
+/* Feedback card (spec 9.1, mockup 09a). Sits above the decision bar; plan 4 publishes its height
+   as --piece-bar-h, with a safe fallback until then. */
+.card {
+  position: fixed; z-index: 35; right: var(--dot-space-6); width: 360px;
+  bottom: calc(var(--piece-bar-h, 88px) + var(--dot-space-5) + env(safe-area-inset-bottom, 0px));
+  background: var(--dot-white); border: 1px solid var(--dot-black); padding: var(--dot-space-5);
+  font-family: var(--dot-font-text); color: var(--dot-black);
+}
+.title { margin: 0 0 4px; font-family: var(--dot-font-display); font-weight: var(--dot-weight-light); font-size: 1.25rem; line-height: 1.25; }
+.sub { margin: 0; font-size: 0.9375rem; color: var(--dot-grey-accessible); line-height: 1.45; }
+.rating { border: 0; margin: var(--dot-space-3) 0; padding: 0; display: flex; gap: 4px; }
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.option { width: 44px; height: 44px; display: grid; place-items: center; cursor: pointer; position: relative; }
+.option input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.dot { width: 28px; height: 28px; border-radius: var(--dot-radius-circle); border: 1px solid var(--dot-black); background: var(--dot-white); display: block; }
+.dot[data-filled="true"] { background: var(--dot-grad-fill); }
+.option input:focus-visible + .dot { outline: 2px solid var(--dot-black); outline-offset: 3px; }
+.comment { width: 100%; min-height: 72px; font-size: 1rem; }
+.row { display: flex; justify-content: space-between; align-items: center; margin-top: var(--dot-space-3); gap: var(--dot-space-3); }
+.close { background: none; border: 0; padding: 0 var(--dot-space-2); min-height: 44px; font: inherit; font-size: 0.9375rem;
+  color: var(--dot-grey-accessible); text-decoration: underline; cursor: pointer; }
+.close:focus-visible { outline: 2px solid var(--dot-black); outline-offset: 2px; }
+.error { margin: var(--dot-space-2) 0 0; font-size: 0.9375rem; color: var(--dot-danger); }
+.thanks { margin: var(--dot-space-3) 0 0; font-size: 1rem; }
+@media (max-width: 640px) {
+  .card { left: var(--dot-space-4); right: var(--dot-space-4); width: auto;
+    bottom: calc(var(--piece-bar-h, 76px) + var(--dot-space-3) + env(safe-area-inset-bottom, 0px)); }
+}
