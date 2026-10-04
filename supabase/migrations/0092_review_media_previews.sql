@@ -980,9 +980,105 @@ grant execute on function public.assert_release_media_guard_security() to servic
 
 select public.assert_release_media_guard_security();
 
+-- ---------------------------------------------------------------------------------------------
+-- agency_internal activity is agency-only at the database (amended 2026-10-04). The client feed
+-- in src/lib/portal/data.ts already hides these rows, but act_read (0001) let a client seat read
+-- every activity row of its tenant with its own JWT, including a no-media override's reason and
+-- preview housekeeping. act_read keeps its tenant condition and now also drops every row whose
+-- event type is flagged agency_internal. Client seats cannot read activity_event_types (0008), so
+-- the flag is read through a narrow definer helper that returns only the flagged type names. The
+-- service role still has no select on activity_log (0064); the agency reads these rows through
+-- agency_internal_activity, which returns flagged rows only and is service-role only.
+
+create or replace function public.portal_agency_internal_event_types()
+returns setof text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select t.event_type from public.activity_event_types t where t.agency_internal
+$$;
+revoke all on function public.portal_agency_internal_event_types() from public, anon, service_role;
+grant execute on function public.portal_agency_internal_event_types() to authenticated;
+
+drop policy if exists act_read on public.activity_log;
+create policy act_read on public.activity_log for select using (
+  client_id in (select public.my_client_ids())
+  and event_type not in (select public.portal_agency_internal_event_types())
+);
+
+create or replace function public.agency_internal_activity(p_client_id uuid, p_content_item_id uuid default null)
+returns table (
+  id uuid, content_id uuid, content_version int, event_type text, title text, summary text,
+  actor_type text, actor_name text, created_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select a.id, a.content_id, a.content_version, a.event_type, a.title, a.summary,
+         a.actor_type, a.actor_name, a.created_at
+  from public.activity_log a
+  join public.activity_event_types t on t.event_type = a.event_type and t.agency_internal
+  where a.client_id = p_client_id
+    and (p_content_item_id is null or a.content_id = p_content_item_id)
+  order by a.created_at, a.id
+$$;
+revoke all on function public.agency_internal_activity(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.agency_internal_activity(uuid, uuid) to service_role;
+
+create or replace function public.assert_agency_internal_activity_security()
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_qual text;
+begin
+  if not (select c.relrowsecurity from pg_catalog.pg_class c
+          where c.oid = 'public.activity_log'::pg_catalog.regclass) then
+    raise exception 'activity_log must keep RLS on';
+  end if;
+  if (select pg_catalog.count(*) from pg_catalog.pg_policies p
+      where p.schemaname = 'public' and p.tablename = 'activity_log') <> 1 then
+    raise exception 'activity_log must carry exactly one policy (act_read)';
+  end if;
+  select p.qual into v_qual from pg_catalog.pg_policies p
+  where p.schemaname = 'public' and p.tablename = 'activity_log' and p.policyname = 'act_read'
+    and p.cmd = 'SELECT';
+  if v_qual is null or v_qual not like '%my_client_ids()%'
+     or v_qual not like '%portal_agency_internal_event_types()%' then
+    raise exception 'act_read no longer hides agency_internal activity from client seats';
+  end if;
+  if pg_catalog.has_table_privilege('service_role', 'public.activity_log', 'SELECT')
+     or pg_catalog.has_function_privilege('anon', 'public.agency_internal_activity(uuid,uuid)', 'EXECUTE')
+     or pg_catalog.has_function_privilege('authenticated', 'public.agency_internal_activity(uuid,uuid)', 'EXECUTE')
+     or not pg_catalog.has_function_privilege('service_role', 'public.agency_internal_activity(uuid,uuid)', 'EXECUTE')
+     or pg_catalog.has_function_privilege('anon', 'public.portal_agency_internal_event_types()', 'EXECUTE') then
+    raise exception 'agency_internal activity grants are unsafe';
+  end if;
+  if (select pg_catalog.count(*) from public.activity_event_types t
+      where t.event_type in ('review_preview_uploaded','review_preview_deleted','release_media_override')
+        and t.agency_internal) <> 3 then
+    raise exception 'agency_internal activity flags drifted';
+  end if;
+  if pg_catalog.has_function_privilege('anon', 'public.assert_agency_internal_activity_security()', 'EXECUTE')
+     or pg_catalog.has_function_privilege('authenticated', 'public.assert_agency_internal_activity_security()', 'EXECUTE') then
+    raise exception 'agency_internal activity assertion is exposed';
+  end if;
+end;
+$$;
+revoke all on function public.assert_agency_internal_activity_security() from public, anon, authenticated;
+grant execute on function public.assert_agency_internal_activity_security() to service_role;
+
+select public.assert_agency_internal_activity_security();
+
 -- Cumulative fold. 0090 made assert_portal_security() = slice89 + archive guard; that pair becomes
--- slice91 (0091 changed only an assertion already inside the fold), and the review preview
--- assertion joins it.
+-- slice91 (0091 changed only an assertion already inside the fold), and the review preview,
+-- release media and agency_internal activity assertions join it.
 create or replace function public.assert_portal_slice91_security()
 returns void language plpgsql security definer set search_path = '' as $$
 begin
@@ -999,6 +1095,7 @@ begin
   perform public.assert_portal_slice91_security();
   perform public.assert_review_preview_security();
   perform public.assert_release_media_guard_security();
+  perform public.assert_agency_internal_activity_security();
 end;
 $$;
 revoke all on function public.assert_portal_security() from public, anon, authenticated;

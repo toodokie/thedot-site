@@ -4526,7 +4526,7 @@ async function main(): Promise<void> {
         const again = await uploadReviewPreview(admin, tools, {
           clientId: bClientId!, contentItemId: previewItemId, request: request(previewContentId, [frameA]),
         })
-        const uploadLog = await bClient.from('activity_log').select('id')
+        const uploadLog = await rawAdmin.rpc('agency_internal_activity', { p_client_id: bClientId })
           .eq('content_id', previewItemId).eq('event_type', 'review_preview_uploaded')
         check('RP1: an identical re-upload is idempotent and logs one upload',
           first.outcome === 'registered' && again.outcome === 'unchanged' && again.previewId === first.previewId
@@ -4610,12 +4610,12 @@ async function main(): Promise<void> {
         })
         const oldVideo = await admin.storage.from(REVIEW_PREVIEW_BUCKET).download(videoPath)
         const newVideo = await admin.storage.from(REVIEW_PREVIEW_BUCKET).download(`${replaced.objectPrefix}video.mp4`)
-        const replacedLog = await bClient.from('activity_log').select('summary')
+        const replacedLog = await rawAdmin.rpc('agency_internal_activity', { p_client_id: bClientId })
           .eq('content_id', previewItemId).eq('event_type', 'review_preview_deleted')
         check('RP12: a changed upload replaces the preview, deletes the old objects and logs it',
           replaced.outcome === 'replaced' && replaced.previewId !== first.previewId
             && !!oldVideo.error && !newVideo.error
-            && (replacedLog.data ?? []).some((row) => /new preview replaced/i.test(row.summary ?? '')),
+            && (replacedLog.data ?? []).some((row: { id: string; summary: string | null }) => /new preview replaced/i.test(row.summary ?? '')),
           JSON.stringify({ replaced, old: oldVideo.error?.message ?? 'STILL THERE', log: replacedLog.data }))
 
         const datedId = `rls-preview-dated-${RUN_ID}`
@@ -4630,7 +4630,7 @@ async function main(): Promise<void> {
         const eightDays = await runPreviewRetention(admin, { now: new Date('2027-07-29T16:00:00Z'), contentItemId: datedItemId })
         const goneRow = await admin.from('content_review_previews').select('id').eq('id', dated.previewId)
         const datedObject = await admin.storage.from(REVIEW_PREVIEW_BUCKET).download(`${dated.objectPrefix}video.mp4`)
-        const datedLog = await bClient.from('activity_log').select('summary, actor_type')
+        const datedLog = await rawAdmin.rpc('agency_internal_activity', { p_client_id: bClientId })
           .eq('content_id', datedItemId).eq('event_type', 'review_preview_deleted')
         check('RT2: past 7 days the sweep deletes the row and the objects and logs the deletion',
           eightDays.retired === 1 && eightDays.removed >= 1 && goneRow.data?.length === 0 && !!datedObject.error
@@ -4672,19 +4672,19 @@ async function main(): Promise<void> {
         })
         const afterLive = await purgePreviewsAfterPublication(admin, liveItemId)
         const liveRow = await admin.from('content_review_previews').select('id').eq('id', live.previewId)
-        const liveLog = await bClient.from('activity_log').select('summary')
+        const liveLog = await rawAdmin.rpc('agency_internal_activity', { p_client_id: bClientId })
           .eq('content_id', liveItemId).eq('event_type', 'review_preview_deleted')
         check('RT4: confirmed live on every destination deletes the preview and logs why',
           !observed.error && afterLive?.retired === 1 && liveRow.data?.length === 0
-            && (liveLog.data ?? []).some((row) => /Live on every destination/.test(row.summary ?? '')),
+            && (liveLog.data ?? []).some((row: { id: string; summary: string | null }) => /Live on every destination/.test(row.summary ?? '')),
           observed.error?.message ?? JSON.stringify({ afterLive, rows: liveRow.data, log: liveLog.data }))
 
         // Amended 2026-10-03: housekeeping activity is flagged agency_internal, so neither the
         // uploads ('anastasia') nor the deletions ('agent') queue a row for Maria or the agency.
-        const housekeeping = await bClient.from('activity_log').select('id, event_type')
-          .eq('client_id', bClientId!).in('event_type', ['review_preview_uploaded', 'review_preview_deleted'])
+        const housekeeping = await rawAdmin.rpc('agency_internal_activity', { p_client_id: bClientId })
+          .in('event_type', ['review_preview_uploaded', 'review_preview_deleted'])
           .in('content_id', [previewItemId, datedItemId, liveItemId])
-        const housekeepingIds = (housekeeping.data ?? []).map((row) => row.id as string)
+        const housekeepingIds = (housekeeping.data ?? []).map((row: { id: string; summary: string | null }) => row.id as string)
         const housekeepingOutbox = housekeepingIds.length
           ? await admin.from('notification_outbox').select('recipient_kind, channel, event_key')
             .in('source_activity_id', housekeepingIds)
@@ -4768,7 +4768,7 @@ async function main(): Promise<void> {
       const repeated = await override('bare', REASON)
       const changed = await override('bare', 'Approved by Anastasia: a different reason for the same version.')
       const overridden = await ready(bareId)
-      const bareLog = await bClient.from('activity_log').select('id, summary, actor_type')
+      const bareLog = await rawAdmin.rpc('agency_internal_activity', { p_client_id: bClientId })
         .eq('content_id', bareId).eq('event_type', 'release_media_override')
       check('RM4: a valid override is recorded once, logged, and lets that exact version release',
         !recorded.error && outcome(recorded) === 'recorded' && outcome(repeated) === 'unchanged' && !!changed.error
@@ -4796,9 +4796,9 @@ async function main(): Promise<void> {
           && !designOverride.error && !courtesyOk.error,
         JSON.stringify([cleared, courtesyRefused, designOverride, courtesyOk].map((r) => r.error?.message ?? 'ok')))
 
-      const overrideRows = await bClient.from('activity_log').select('id')
+      const overrideRows = await rawAdmin.rpc('agency_internal_activity', { p_client_id: bClientId })
         .in('content_id', [bareId, designId]).eq('event_type', 'release_media_override')
-      const overrideIds = (overrideRows.data ?? []).map((row) => row.id as string)
+      const overrideIds = (overrideRows.data ?? []).map((row: { id: string; summary: string | null }) => row.id as string)
       const outbox = overrideIds.length
         ? await rawAdmin.from('notification_outbox').select('recipient_kind, channel').in('source_activity_id', overrideIds)
         : { data: [] as Array<{ recipient_kind: string }>, error: null }
@@ -4813,6 +4813,28 @@ async function main(): Promise<void> {
           && (!!clientRead.error || clientRead.data?.length === 0) && !!clientStatus.error && !!clientOverride.error,
         JSON.stringify({ ids: overrideIds.length, outbox: outbox.data, read: clientRead.data ?? clientRead.error?.message,
           status: clientStatus.error?.message ?? 'NO ERROR', write: clientOverride.error?.message ?? 'NO ERROR' }))
+    }
+
+    // 0092 (amended 2026-10-04): agency_internal activity is invisible to client seats at the
+    // database, not only in the app feed. A seat reading activity_log with its own JWT gets none of
+    // the housekeeping or override rows, and still reads its ordinary rows; the service-only
+    // reader agency_internal_activity still returns them to the agency and refuses the seat.
+    {
+      const INTERNAL = ['review_preview_uploaded', 'review_preview_deleted', 'release_media_override']
+      const seatInternal = await bClient.from('activity_log').select('id, event_type')
+        .eq('client_id', bClientId!).in('event_type', INTERNAL)
+      const seatOrdinary = await bClient.from('activity_log').select('id')
+        .eq('client_id', bClientId!).eq('event_type', 'request_reopened')
+      const agencyInternal = await rawAdmin.rpc('agency_internal_activity', { p_client_id: bClientId })
+      const seatInternalViaReader = await bClient.rpc('agency_internal_activity', { p_client_id: bClientId })
+      check('AI1: a client seat reads no agency_internal activity rows but keeps its ordinary rows',
+        !agencyInternal.error && (agencyInternal.data?.length ?? 0) >= 1 && !!seatInternalViaReader.error
+          && !seatInternal.error && seatInternal.data?.length === 0
+          && !seatOrdinary.error && (seatOrdinary.data?.length ?? 0) >= 1,
+        JSON.stringify({ agency: agencyInternal.data?.length ?? agencyInternal.error?.message,
+          seatReader: seatInternalViaReader.error?.message ?? 'NO ERROR',
+          internal: seatInternal.data?.map((row) => row.event_type) ?? seatInternal.error?.message,
+          ordinary: seatOrdinary.data?.length ?? seatOrdinary.error?.message }))
     }
 
     {

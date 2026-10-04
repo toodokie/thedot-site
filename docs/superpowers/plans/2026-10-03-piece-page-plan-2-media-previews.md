@@ -6,6 +6,8 @@
 
 > **Amended 2026-10-03 (media guard).** Anastasia approved a release guard so no agent can put a version in front of Maria with nothing to look at. New tasks carry letter suffixes so no existing task moves; run them where they sit. **Task 1a** adds to 0092 a database check in `mark_content_ready` (the one promotion behind `portal-admin ready`, `update-portal --re-share` and `--quiet`, `portal-write applied-release` and `supersede`) and in `record_content_courtesy_release` (`portal-write courtesy-release`): a version with no review asset, no portal preview and no design link is refused unless an override for that exact version is on file. The override is recorded only by `agency_record_release_media_override`, its reason must start `Approved by Anastasia:`, and it writes a `release_media_override` activity row flagged `agency_internal` (no notification for anyone), shown in Ops by plan 5. There is no silent exemption: formats with nothing to preview use the override too. **Task 1b** keeps the existing fixtures releasing (a fixture-only wrapper in `scripts/test-rls.ts`, design links in `seed-rls-local.ts` and `update-portal-harness.ts`). **Task 9a** adds the friendly pre-check, which names what is missing, and the explicit `--no-media "<reason>"` flag (payload `noMediaReason`) to `portal-admin ready`, `update-portal --re-share`, `portal-write courtesy-release` / `applied-release` / `supersede` and `portal-ship`; `update-portal` exits 6. **Task 11a** keeps the override out of Maria's feed. **Task 12a** adds RM1 to RM6 (real JWT: refusal without media, success with each kind of media, success with a valid override, refusal without the prefix, no notification rows, no client access). **Task 13a** documents it and adds a read-only rollout query that Task 15 step 4 now runs.
 
+> **Amended 2026-10-04 (agency_internal rows hidden at the database).** `act_read` (0001) let a client seat read every activity row of its tenant with its own JWT, including a no-media override's reason. 0092 now re-creates `act_read` with the tenant condition plus `event_type not in (select public.portal_agency_internal_event_types())` (a definer helper, since seats cannot read `activity_event_types`), adds the service-only reader `agency_internal_activity(p_client_id, p_content_item_id)` for the agency, and folds `assert_agency_internal_activity_security()` into `assert_portal_security()`. Plan 3's 0093 flags its own housekeeping types `agency_internal`, so its tests must read those rows through the same reader, not through a client seat.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Host private, short-lived, client-scoped previews of each piece's final render (MP4 plus frame or page images) in Supabase Storage, so the redesigned piece page (plan 4) can play and page through media inline instead of sending Maria to Drive.
@@ -4195,6 +4197,8 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 These run against the disposable local stack only (the script refuses the production host and any non-loopback host).
 
+> **Corrected 2026-10-04:** the service role has no select on `activity_log` (0001, 0064), and client seats no longer read `agency_internal` rows (0092 `act_read`), so the activity assertions read through the service-only `agency_internal_activity(p_client_id, p_content_item_id)` reader instead of `admin.from('activity_log')`.
+
 - [ ] **Step 1: Imports**
 
 In `scripts/test-rls.ts` replace:
@@ -4287,7 +4291,7 @@ Block to insert:
         const again = await uploadReviewPreview(admin, tools, {
           clientId: bClientId!, contentItemId: previewItemId, request: request(previewContentId, [frameA]),
         })
-        const uploadLog = await admin.from('activity_log').select('id')
+        const uploadLog = await rawAdmin.rpc('agency_internal_activity', { p_client_id: bClientId })
           .eq('content_id', previewItemId).eq('event_type', 'review_preview_uploaded')
         check('RP1: an identical re-upload is idempotent and logs one upload',
           first.outcome === 'registered' && again.outcome === 'unchanged' && again.previewId === first.previewId
@@ -4371,12 +4375,12 @@ Block to insert:
         })
         const oldVideo = await admin.storage.from(REVIEW_PREVIEW_BUCKET).download(videoPath)
         const newVideo = await admin.storage.from(REVIEW_PREVIEW_BUCKET).download(`${replaced.objectPrefix}video.mp4`)
-        const replacedLog = await admin.from('activity_log').select('summary')
+        const replacedLog = await rawAdmin.rpc('agency_internal_activity', { p_client_id: bClientId })
           .eq('content_id', previewItemId).eq('event_type', 'review_preview_deleted')
         check('RP12: a changed upload replaces the preview, deletes the old objects and logs it',
           replaced.outcome === 'replaced' && replaced.previewId !== first.previewId
             && !!oldVideo.error && !newVideo.error
-            && (replacedLog.data ?? []).some((row) => /new preview replaced/i.test(row.summary ?? '')),
+            && (replacedLog.data ?? []).some((row: { summary: string | null }) => /new preview replaced/i.test(row.summary ?? '')),
           JSON.stringify({ replaced, old: oldVideo.error?.message ?? 'STILL THERE', log: replacedLog.data }))
 
         const datedId = `rls-preview-dated-${RUN_ID}`
@@ -4391,7 +4395,7 @@ Block to insert:
         const eightDays = await runPreviewRetention(admin, { now: new Date('2027-07-29T16:00:00Z'), contentItemId: datedItemId })
         const goneRow = await admin.from('content_review_previews').select('id').eq('id', dated.previewId)
         const datedObject = await admin.storage.from(REVIEW_PREVIEW_BUCKET).download(`${dated.objectPrefix}video.mp4`)
-        const datedLog = await admin.from('activity_log').select('summary, actor_type')
+        const datedLog = await rawAdmin.rpc('agency_internal_activity', { p_client_id: bClientId })
           .eq('content_id', datedItemId).eq('event_type', 'review_preview_deleted')
         check('RT2: past 7 days the sweep deletes the row and the objects and logs the deletion',
           eightDays.retired === 1 && eightDays.removed >= 1 && goneRow.data?.length === 0 && !!datedObject.error
@@ -4433,19 +4437,19 @@ Block to insert:
         })
         const afterLive = await purgePreviewsAfterPublication(admin, liveItemId)
         const liveRow = await admin.from('content_review_previews').select('id').eq('id', live.previewId)
-        const liveLog = await admin.from('activity_log').select('summary')
+        const liveLog = await rawAdmin.rpc('agency_internal_activity', { p_client_id: bClientId })
           .eq('content_id', liveItemId).eq('event_type', 'review_preview_deleted')
         check('RT4: confirmed live on every destination deletes the preview and logs why',
           !observed.error && afterLive?.retired === 1 && liveRow.data?.length === 0
-            && (liveLog.data ?? []).some((row) => /Live on every destination/.test(row.summary ?? '')),
+            && (liveLog.data ?? []).some((row: { summary: string | null }) => /Live on every destination/.test(row.summary ?? '')),
           observed.error?.message ?? JSON.stringify({ afterLive, rows: liveRow.data, log: liveLog.data }))
 
         // Amended 2026-10-03: housekeeping activity is flagged agency_internal, so neither the
         // uploads ('anastasia') nor the deletions ('agent') queue a row for Maria or the agency.
-        const housekeeping = await admin.from('activity_log').select('id, event_type')
-          .eq('client_id', bClientId!).in('event_type', ['review_preview_uploaded', 'review_preview_deleted'])
+        const housekeeping = await rawAdmin.rpc('agency_internal_activity', { p_client_id: bClientId })
+          .in('event_type', ['review_preview_uploaded', 'review_preview_deleted'])
           .in('content_id', [previewItemId, datedItemId, liveItemId])
-        const housekeepingIds = (housekeeping.data ?? []).map((row) => row.id as string)
+        const housekeepingIds = (housekeeping.data ?? []).map((row: { id: string }) => row.id as string)
         const housekeepingOutbox = housekeepingIds.length
           ? await admin.from('notification_outbox').select('recipient_kind, channel, event_key')
             .in('source_activity_id', housekeepingIds)
@@ -4484,7 +4488,7 @@ git -C ~/worktrees/kanset-media-previews commit -m "Prove review preview isolati
 **Files:**
 - Modify: `scripts/test-rls.ts`
 
-These use `rawAdmin` (Task 1b), never the fixture wrapper, so the guard is exercised exactly as production calls it.
+These use `rawAdmin` (Task 1b), never the fixture wrapper, so the guard is exercised exactly as production calls it. Override activity rows are read through `agency_internal_activity` (see the Task 12 correction), and `AI1` (added 2026-10-04, after RM6) proves a client seat reading `activity_log` with its own JWT gets no `agency_internal` row while keeping its ordinary rows.
 
 - [ ] **Step 1: Insert the RM block**
 
@@ -4562,7 +4566,7 @@ In `scripts/test-rls.ts`, insert the block below immediately after the closing `
       const repeated = await override('bare', REASON)
       const changed = await override('bare', 'Approved by Anastasia: a different reason for the same version.')
       const overridden = await ready(bareId)
-      const bareLog = await rawAdmin.from('activity_log').select('id, summary, actor_type')
+      const bareLog = await rawAdmin.rpc('agency_internal_activity', { p_client_id: bClientId })
         .eq('content_id', bareId).eq('event_type', 'release_media_override')
       check('RM4: a valid override is recorded once, logged, and lets that exact version release',
         !recorded.error && outcome(recorded) === 'recorded' && outcome(repeated) === 'unchanged' && !!changed.error
@@ -4590,9 +4594,9 @@ In `scripts/test-rls.ts`, insert the block below immediately after the closing `
           && !designOverride.error && !courtesyOk.error,
         JSON.stringify([cleared, courtesyRefused, designOverride, courtesyOk].map((r) => r.error?.message ?? 'ok')))
 
-      const overrideRows = await rawAdmin.from('activity_log').select('id')
+      const overrideRows = await rawAdmin.rpc('agency_internal_activity', { p_client_id: bClientId })
         .in('content_id', [bareId, designId]).eq('event_type', 'release_media_override')
-      const overrideIds = (overrideRows.data ?? []).map((row) => row.id as string)
+      const overrideIds = (overrideRows.data ?? []).map((row: { id: string }) => row.id as string)
       const outbox = overrideIds.length
         ? await rawAdmin.from('notification_outbox').select('recipient_kind, channel').in('source_activity_id', overrideIds)
         : { data: [] as Array<{ recipient_kind: string }>, error: null }
