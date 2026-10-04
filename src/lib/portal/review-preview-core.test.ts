@@ -20,7 +20,7 @@ function row(overrides: Partial<ReviewPreviewRow> = {}): ReviewPreviewRow {
   }
 }
 
-function storage(sign = vi.fn(async (paths: string[]) => ({
+function storage(sign = vi.fn(async (paths: string[], _ttl?: number) => ({
   data: paths.map((path) => ({ path, signedUrl: `https://signed.example/${path}?t=1`, error: null })),
   error: null,
 }))): { storage: SignedUrlStorage; sign: typeof sign; bucket: string[] } {
@@ -93,7 +93,7 @@ describe('signReviewPreview', () => {
   })
 
   it('fails loudly when any object cannot be signed', async () => {
-    const { storage: s } = storage(vi.fn(async (paths: string[]) => ({
+    const { storage: s } = storage(vi.fn(async (paths: string[], _ttl?: number) => ({
       data: paths.map((path, i) => ({ path, signedUrl: i === 1 ? '' : `https://signed.example/${path}`, error: i === 1 ? 'Object not found' : null })),
       error: null,
     })))
