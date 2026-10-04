@@ -3,7 +3,7 @@ import type { CSSProperties, ReactNode } from 'react'
 type MarkdownBlock =
   | { kind: 'heading'; text: string }
   | { kind: 'paragraph'; lines: string[] }
-  | { kind: 'list'; ordered: boolean; items: string[] }
+  | { kind: 'list'; ordered: boolean; start: number; items: string[] }
   | { kind: 'quote'; lines: string[] }
   | { kind: 'rule' }
 
@@ -19,7 +19,7 @@ function inlineMarkdown(text: string): ReactNode[] {
     }
     const link = part.match(/^\[([^\]]+)\]\((https:\/\/[^)\s]+)\)$/)
     if (link) {
-      return <a key={index} href={link[2]} target="_blank" rel="noreferrer">{link[1]}</a>
+      return <a key={index} href={link[2]} target="_blank" rel="noopener noreferrer">{link[1]}</a>
     }
     if ((part.startsWith('*') && part.endsWith('*')) || (part.startsWith('_') && part.endsWith('_'))) {
       return <em key={index}>{part.slice(1, -1)}</em>
@@ -32,7 +32,7 @@ function parseBlocks(body: string): MarkdownBlock[] {
   const blocks: MarkdownBlock[] = []
   const lines = body.replace(/\r\n?/g, '\n').split('\n')
   let paragraph: string[] = []
-  let list: { ordered: boolean; items: string[] } | null = null
+  let list: { ordered: boolean; start: number; items: string[] } | null = null
   let quote: string[] = []
 
   const flushParagraph = () => {
@@ -71,15 +71,15 @@ function parseBlocks(body: string): MarkdownBlock[] {
       continue
     }
     const unordered = line.match(/^\s*[-+*]\s+(?:\[([ xX])\]\s+)?(.+)$/)
-    const ordered = line.match(/^\s*\d+[.)]\s+(.+)$/)
+    const ordered = line.match(/^\s*(\d+)[.)]\s+(.+)$/)
     if (unordered || ordered) {
       flushParagraph()
       flushQuote()
       const isOrdered = Boolean(ordered)
       if (list && list.ordered !== isOrdered) flushList()
-      list ??= { ordered: isOrdered, items: [] }
+      list ??= { ordered: isOrdered, start: ordered ? Number(ordered[1]) : 1, items: [] }
       const checkbox = unordered?.[1]
-      const text = ordered?.[1] ?? unordered?.[2] ?? ''
+      const text = ordered?.[2] ?? unordered?.[2] ?? ''
       list.items.push(checkbox == null ? text : `${checkbox.trim() ? '☑' : '☐'} ${text}`)
       continue
     }
@@ -131,7 +131,7 @@ export default function MarkdownCopy({ body, style }: { body: string; style?: CS
         if (block.kind === 'rule') return <hr key={index} style={{ border: 0, borderTop: '1px solid var(--dot-hairline)', margin: '18px 0' }} />
         if (block.kind === 'list') {
           const List = block.ordered ? 'ol' : 'ul'
-          return <List key={index} style={{ margin: '10px 0 16px', paddingLeft: 24 }}>
+          return <List key={index} start={block.ordered && block.start !== 1 ? block.start : undefined} style={{ margin: '10px 0 16px', paddingLeft: 24 }}>
             {block.items.map((item, itemIndex) => <li key={itemIndex} style={{ marginBottom: 5 }}>{inlineMarkdown(item)}</li>)}
           </List>
         }
