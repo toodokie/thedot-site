@@ -717,6 +717,8 @@ stable `assetKey`, channel, kind, Canva or Drive URL, pixel dimensions, and capt
 `burned_in_verified` only after the teaser captions were proofed. A generic item-level design link
 does not satisfy the podcast readiness contract.
 
+**What Maria sees on the new piece page (approved 2026-10-04):** reels play inline with a still per on-screen frame; Ask Kanset reels and Kanset Talks cuts show a "Cover" tile at the front of the strip with its own "Suggest a change" (Kanset Talks episodes: the same tile labelled "YouTube thumbnail"); website articles keep their "Cover image" tab; LinkedIn PDFs show in a page viewer with per-page suggestions. She edits in place (full screen on a phone); edits autosave and stay unsent until she sends; after sending, each spot shows "Sent · being applied" with what she wrote until the next version. Upload the approved cover as the preview poster and attach the cover file as a review asset (`reel-cover` or `youtube-cover`) so the Cover tile gets its "Suggest a change"; cover notes are saved against that asset key.
+
 **Attach a review preview (portal-hosted copy of a render):** run `portal-write review-preview` with
 `clientSlug`, `contentId`, the exact `contentVersion`, a `previewKey` (`reel`, `teaser`, `carousel`),
 and absolute local paths: `video` (MP4, at most 50 MiB and 240 s) with optional `poster` and
