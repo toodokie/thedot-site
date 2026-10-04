@@ -28,6 +28,14 @@ beforeEach(() => {
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
 })
 
+
+// What a tracked read view shows as her text now: removed words and screen-reader labels left out.
+function shownText(element: HTMLElement): string {
+  const copy = element.cloneNode(true) as HTMLElement
+  copy.querySelectorAll('del').forEach((node) => node.remove())
+  return (copy.textContent ?? '').replaceAll('added: ', '').replace(/\s+/g, ' ')
+}
+
 describe('OnScreenTextPanel', () => {
   it('lists every frame beside its thumbnail with Edit text and Suggest a change', () => {
     const onSuggestFrame = vi.fn()
@@ -66,8 +74,8 @@ describe('OnScreenTextPanel', () => {
     expect(editorMarkdown('Frame 2 of 3 · On-screen text')).toBe('**2.** EDITED TWO')
     fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     const rows = screen.getAllByRole('listitem')
-    expect(within(rows[1]).getByText('EDITED TWO', { exact: false })).toBeInTheDocument()
-    expect(within(rows[2]).getByText('EDITED THREE', { exact: false })).toBeInTheDocument()
+    expect(shownText(rows[1])).toContain('EDITED TWO')
+    expect(shownText(rows[2])).toContain('EDITED THREE')
   })
 
   it('keeps editing in place when she deletes the frame marker', () => {

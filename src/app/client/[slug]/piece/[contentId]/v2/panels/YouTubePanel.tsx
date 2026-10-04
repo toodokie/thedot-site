@@ -5,6 +5,7 @@ import MarkdownCopy from '@/components/portal/MarkdownCopy'
 import type { CopyTab } from '@/lib/portal/piece-page/copy-tabs'
 import { parseTags, parseYouTubePackage, youTubeFieldValue } from '@/lib/portal/piece-page/youtube-fields'
 import type { ReviewCopyBlock } from '@/lib/portal/review-package'
+import TrackedText from '@/components/portal/editor/TrackedText'
 import ChangedMarkdown from '../ChangedMarkdown'
 import CarriedDraftNotice from '../CarriedDraftNotice'
 import { EditSlot, useEditorHost } from '../EditorHost'
@@ -50,6 +51,8 @@ function YouTubeBlock({ block, before, canEdit, version }: Props & { block: Revi
   const previous = draft ? null : before[block.key ?? ''] ?? null
   const previousPackage = previous === null ? null : parseYouTubePackage(previous)
   const previousDescription = previousPackage ? youTubeFieldValue(previousPackage, 'description') : null
+  const basePackage = parseYouTubePackage(block.body)
+  const baseDescription = basePackage ? youTubeFieldValue(basePackage, 'description') : null
 
   let content: ReactNode
   if (block.key === 'youtube-title') {
@@ -57,7 +60,11 @@ function YouTubeBlock({ block, before, canEdit, version }: Props & { block: Revi
   } else if (block.key === 'youtube-tags') {
     content = <Field label="Tags"><Chips tags={parseTags(source)} /></Field>
   } else if (block.key === 'youtube-description') {
-    content = <Field label="Description"><ChangedMarkdown body={source} before={previous} className={styles.fieldValue} /></Field>
+    content = <Field label="Description">
+      {draft
+        ? <div className={styles.fieldValue}><TrackedText base={block.body} current={source} /></div>
+        : <ChangedMarkdown body={source} before={previous} className={styles.fieldValue} />}
+    </Field>
   } else {
     const pkg = parseYouTubePackage(source)
     content = pkg === null
@@ -68,7 +75,11 @@ function YouTubeBlock({ block, before, canEdit, version }: Props & { block: Revi
           ? <Field key="title" label="Title"><p className={`${styles.fieldValue} ${styles.fieldTitle}`}>{field.value}</p></Field>
           : field.name === 'tags'
             ? <Field key="tags" label="Tags"><Chips tags={parseTags(field.value)} /></Field>
-            : <Field key="description" label="Description"><ChangedMarkdown body={field.value} before={previousDescription} className={styles.fieldValue} /></Field>)}
+            : <Field key="description" label="Description">
+              {draft && baseDescription !== null
+                ? <div className={styles.fieldValue}><TrackedText base={baseDescription} current={field.value} /></div>
+                : <ChangedMarkdown body={field.value} before={previousDescription} className={styles.fieldValue} />}
+            </Field>)}
         {pkg.rest.trim() && <div className={styles.preamble}><MarkdownCopy body={pkg.rest} /></div>}
       </>
   }

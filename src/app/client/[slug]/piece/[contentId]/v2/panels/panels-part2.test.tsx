@@ -29,6 +29,14 @@ const seo: CopyTab = { key: 'seo', kind: 'seo', label: 'Search & sharing', block
 
 beforeEach(() => { stubDialogs(); window.localStorage.clear() })
 
+
+// What a tracked read view shows as her text now: removed words and screen-reader labels left out.
+function shownText(element: HTMLElement): string {
+  const copy = element.cloneNode(true) as HTMLElement
+  copy.querySelectorAll('del').forEach((node) => node.remove())
+  return (copy.textContent ?? '').replaceAll('added: ', '').replace(/\s+/g, ' ')
+}
+
 describe('YouTubePanel', () => {
   it('shows Title, Description and Tags as fields, never the label markup', () => {
     renderInPage(<YouTubePanel tab={youtube} before={{}} canEdit version={2} />)
@@ -80,8 +88,8 @@ describe('ArticlePanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit section, Start with the one thing you can check' }))
     replaceEditorText('Start with the one thing you can check · Article', '### Start with the one thing you can check\n\nA new body.')
     fireEvent.click(screen.getByRole('button', { name: 'Done' }))
-    expect(screen.getByText('A new opening.')).toBeInTheDocument()
-    expect(screen.getByText('A new body.')).toBeInTheDocument()
+    expect(shownText(document.body)).toContain('A new opening.')
+    expect(shownText(document.body)).toContain('A new body.')
     fireEvent.click(screen.getByRole('button', { name: 'Edit section, Opening' }))
     expect(editorMarkdown('Opening · Article')).toBe('# How to Choose a Representative\n\nA new opening.')
   })

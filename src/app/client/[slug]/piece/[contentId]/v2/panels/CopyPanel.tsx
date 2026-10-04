@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { plainTextFromMarkdown } from '@/components/portal/MarkdownCopy'
 import type { CopyTab } from '@/lib/portal/piece-page/copy-tabs'
 import type { ReviewCopyBlock } from '@/lib/portal/review-package'
+import TrackedText from '@/components/portal/editor/TrackedText'
 import ChangedMarkdown from '../ChangedMarkdown'
 import CarriedDraftNotice from '../CarriedDraftNotice'
 import { EditSlot, useEditorHost } from '../EditorHost'
@@ -43,7 +44,9 @@ function CopyBlockView({ block, tab, before, canEdit, version }: Props & { block
     </div>
     {carried && <CarriedDraftNotice draft={carried} currentText={block.body} version={version} onAdjust={openEditor} />}
     <EditSlot slotId={slotId}>
-      <ChangedMarkdown body={source} before={draft ? null : before[block.key ?? ''] ?? null} />
+      {draft
+        ? <TrackedText base={block.body} current={source} />
+        : <ChangedMarkdown body={source} before={before[block.key ?? ''] ?? null} />}
     </EditSlot>
     <div className={styles.blockActions}>
       {canEdit && block.key && <button type="button" className={styles.link} aria-label={`Edit ${label}`} onClick={openEditor}>Edit</button>}

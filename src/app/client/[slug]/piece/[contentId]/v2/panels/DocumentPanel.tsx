@@ -4,6 +4,7 @@ import MarkdownCopy from '@/components/portal/MarkdownCopy'
 import type { CopyTab } from '@/lib/portal/piece-page/copy-tabs'
 import { replaceSegment, segmentBlock, segmentText } from '@/lib/portal/piece-page/segments'
 import type { ReviewCopyBlock } from '@/lib/portal/review-package'
+import TrackedText from '@/components/portal/editor/TrackedText'
 import ChangedMarkdown from '../ChangedMarkdown'
 import CarriedDraftNotice from '../CarriedDraftNotice'
 import { EditSlot, useEditorHost } from '../EditorHost'
@@ -51,7 +52,9 @@ function DocumentBlock({ block, tab, page, onPageChange, pageThumbs, before, can
     {segmented.segments.length === 0
       ? <div>
         <EditSlot slotId={wholeSlot}>
-          <ChangedMarkdown body={source} before={previous} />
+          {draft
+            ? <TrackedText base={block.body} current={source} />
+            : <ChangedMarkdown body={source} before={previous} />}
         </EditSlot>
         {editable && <div className={styles.blockActions}><button type="button" className={styles.link} onClick={openWhole}>Edit text</button></div>}
       </div>
@@ -74,7 +77,11 @@ function DocumentBlock({ block, tab, page, onPageChange, pageThumbs, before, can
                   {edited[index] && <span className={styles.editedTag}>Edited, not sent</span>}
                 </div>
                 <EditSlot slotId={`${block.key}:page:${index}`}>
-                  <ChangedMarkdown body={segmentText(segment)} before={previous} className={styles.frameText} />
+                  {edited[index] && baseSegments[index]
+                    ? <div className={styles.frameText}>
+                      <TrackedText base={segmentText(baseSegments[index])} current={segmentText(segment)} />
+                    </div>
+                    : <ChangedMarkdown body={segmentText(segment)} before={previous} className={styles.frameText} />}
                 </EditSlot>
               </div>
               <div className={styles.ractions}>

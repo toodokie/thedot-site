@@ -1,7 +1,9 @@
 'use client'
 
+import TrackedText from '@/components/portal/editor/TrackedText'
 import type { CopyTab } from '@/lib/portal/piece-page/copy-tabs'
 import { replaceSegment, segmentBlock, segmentText } from '@/lib/portal/piece-page/segments'
+import JumpToEdits from '../editors/JumpToEdits'
 import ChangedMarkdown from '../ChangedMarkdown'
 import CarriedDraftNotice from '../CarriedDraftNotice'
 import { EditSlot, useEditorHost } from '../EditorHost'
@@ -36,6 +38,8 @@ export default function ArticlePanel({ tab, coverUrl, before, canEdit, version }
       ? <img className={styles.cover} src={coverUrl} alt="Cover image" />
       : <div className={styles.coverPlaceholder}>Cover image</div>}
     {draft && <p className={styles.saved}>Saved · not sent yet</p>}
+    {draft && <JumpToEdits sections={segmented.segments.filter((_, i) => edited[i])
+      .map((segment) => ({ index: segment.index, name: segment.level === 1 ? 'Opening' : segment.label }))} />}
     {carried && <CarriedDraftNotice draft={carried} currentText={block.body} version={version} onAdjust={openWhole} />}
     <article className={styles.article}>
       {segmented.preamble.trim() && <ChangedMarkdown body={segmented.preamble} before={previous} className={styles.copy} />}
@@ -58,7 +62,11 @@ export default function ArticlePanel({ tab, coverUrl, before, canEdit, version }
             {editButton}
           </div>
           <EditSlot slotId={`${block.key}:section:${index}`}>
-            <ChangedMarkdown body={body} before={previous} className={styles.copy} />
+            {edited[index] && baseSegments[index]
+              ? <div className={styles.copy}>
+                <TrackedText base={baseSegments[index].raw.replace(/^[^\n]*\n?/, '')} current={body} />
+              </div>
+              : <ChangedMarkdown body={body} before={previous} className={styles.copy} />}
           </EditSlot>
         </section>
       })}
