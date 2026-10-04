@@ -90,7 +90,10 @@ export async function getContentItem(clientId: string, contentId: string): Promi
 // her feed would read as her media being taken away. The agency activity log keeps both.
 const CLIENT_FEED_EXCLUDED_EVENTS = ['design_link_updated', 'working_version_discarded',
   'agency_supersession_recorded', 'agency_draft_archived',
-  'review_preview_uploaded', 'review_preview_deleted']
+  'review_preview_uploaded', 'review_preview_deleted',
+  // 'release_media_override' (0092, amended 2026-10-03): Anastasia's approval to release a version
+  // with no media. An agency decision recorded for Ops, not news for Maria.
+  'release_media_override']
 
 export async function getActivity(clientId: string): Promise<ActivityRow[]> {
   const supabase = await createSupabaseServer()
