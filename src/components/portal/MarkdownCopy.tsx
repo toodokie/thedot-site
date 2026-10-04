@@ -17,31 +17,53 @@ function isEmphasis(part: string | undefined): boolean {
   return part !== undefined && part.length > 2 && (/^(\*\*|__)[\s\S]+\1$/.test(part) || /^([*_])[\s\S]+\1$/.test(part))
 }
 
-function inlineMarkdown(text: string): ReactNode[] {
+type InlinePiece =
+  | { kind: 'strong' | 'code' | 'em' | 'text'; text: string }
+  | { kind: 'link'; text: string; href: string }
+
+// One tokenizer for both what the page shows and what "Copy text" copies, so they never differ.
+function inlinePieces(text: string): Array<InlinePiece | null> {
   const parts = text.split(inlineToken)
-  return parts.map((part, index) => {
+  return parts.map((part, index): InlinePiece | null => {
     if (!part) return null
     if ((part.startsWith('**') && part.endsWith('**') && part.length > 4) || (part.startsWith('__') && part.endsWith('__') && part.length > 4)) {
-      return <strong key={index}>{part.slice(2, -2)}</strong>
+      return { kind: 'strong', text: part.slice(2, -2) }
     }
     if (part.startsWith('`') && part.endsWith('`') && part.length > 2) {
-      return <code key={index}>{part.slice(1, -1)}</code>
+      return { kind: 'code', text: part.slice(1, -1) }
     }
     const link = part.match(/^\[([^\]]+)\]\((https:\/\/[^)\s]+)\)$/)
-    if (link) {
-      return <a key={index} href={link[2]} target="_blank" rel="noopener noreferrer">{link[1]}</a>
-    }
+    if (link) return { kind: 'link', text: link[1], href: link[2] }
     // _ never opens or closes emphasis inside a word (file_name_here).
     const inWord = part.startsWith('_')
       && (WORD_CHAR.test(parts[index - 1]?.slice(-1) ?? '') || WORD_CHAR.test(parts[index + 1]?.charAt(0) ?? ''))
     if (index % 2 === 1 && !inWord && ((part.startsWith('*') && part.endsWith('*')) || (part.startsWith('_') && part.endsWith('_')))) {
-      return <em key={index}>{part.slice(1, -1)}</em>
+      return { kind: 'em', text: part.slice(1, -1) }
     }
     // Asterisks wrapped around bold or italic text ("***both***") are markers; any other * or _
     // is something Maria approved and renders as written.
     if (/^\*+$/.test(part) && (isEmphasis(parts[index - 1]) || isEmphasis(parts[index + 1]))) return null
-    return <span key={index}>{part}</span>
+    return { kind: 'text', text: part }
   })
+}
+
+function inlineMarkdown(text: string): ReactNode[] {
+  return inlinePieces(text).map((piece, index) => {
+    if (!piece) return null
+    switch (piece.kind) {
+      case 'strong': return <strong key={index}>{piece.text}</strong>
+      case 'code': return <code key={index}>{piece.text}</code>
+      case 'link': return <a key={index} href={piece.href} target="_blank" rel="noopener noreferrer">{piece.text}</a>
+      case 'em': return <em key={index}>{piece.text}</em>
+      default: return <span key={index}>{piece.text}</span>
+    }
+  })
+}
+
+function plainInline(text: string): string {
+  return inlinePieces(text)
+    .map((piece) => (!piece ? '' : piece.kind === 'link' ? `${piece.text} (${piece.href})` : piece.text))
+    .join('')
 }
 
 function parseBlocks(body: string): MarkdownBlock[] {
@@ -116,15 +138,12 @@ function parseBlocks(body: string): MarkdownBlock[] {
 
 export function plainTextFromMarkdown(body: string): string {
   return body
-    .replace(/\[([^\]\n]+)\]\((https:\/\/[^)\s]+)\)/g, '$1 ($2)')
     .replace(/^#{1,6}\s+/gm, '')
     .replace(/^\s*[-+*]\s+\[ \]\s+/gm, '☐ ')
     .replace(/^\s*[-+*]\s+\[[xX]\]\s+/gm, '☑ ')
-    .replace(/\*\*|__/g, '')
-    .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1$2')
-    .replace(/(^|[^_])_([^_\n]+)_/g, '$1$2')
-    .replace(/`([^`\n]+)`/g, '$1')
-    .replace(/\*/g, '')
+    .split('\n')
+    .map(plainInline)
+    .join('\n')
 }
 
 const baseStyle: CSSProperties = {

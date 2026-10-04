@@ -71,6 +71,26 @@ describe('MarkdownCopy', () => {
     }
   })
 
+  it('copies the same characters the page shows, stripping only real emphasis', () => {
+    const cases: Array<[string, string]> = [
+      ["Small line: *All figures rounded from IRCC's published example.", "Small line: *All figures rounded from IRCC's published example."],
+      ['5 * 3 * 2 = 30', '5 * 3 * 2 = 30'],
+      ['Footnote*', 'Footnote*'],
+      ['Saved under drive_fs and agency_attested', 'Saved under drive_fs and agency_attested'],
+      ['file_name_here and snake_case', 'file_name_here and snake_case'],
+      ['a _ b _ c', 'a _ b _ c'],
+      ['**Bold** and *italic* and _also_', 'Bold and italic and also'],
+      ['***both***', 'both'],
+      ['Run `drive_fs` and [Book](https://kanset.com/contact)', 'Run drive_fs and Book (https://kanset.com/contact)'],
+    ]
+    for (const [body, text] of cases) {
+      expect(plainTextFromMarkdown(body), body).toBe(text)
+      const { container, unmount } = render(<MarkdownCopy body={body.replace(/\[Book\]\(https:\/\/kanset\.com\/contact\)/, 'Book (https://kanset.com/contact)')} />)
+      expect(container.textContent, body).toBe(text)
+      unmount()
+    }
+  })
+
   it('creates clean clipboard text while preserving hashtags', () => {
     expect(plainTextFromMarkdown('### Slide 7\n\n**Records**\n\n- [ ] Permit\n\n#LMIA'))
       .toBe('Slide 7\n\nRecords\n☐ Permit\n\n#LMIA')
