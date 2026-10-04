@@ -29,6 +29,10 @@ export type RefusalReason =
   | 'stale_or_locked'
   | 'rate_limited'
   | 'write_failed'
+  // Migration 0093: drafts changed on another device between load and send, and a send that
+  // never reached the server (reported by the browser when the connection returns).
+  | 'drafts_changed'
+  | 'network_unreachable'
 
 export type RefusedDraft = {
   targetKind?: string | null
@@ -47,6 +51,8 @@ export type RefusalRecord = {
   requestedBy?: string | null
   requesterName?: string | null
   drafts?: RefusedDraft[]
+  // Server draft ids (migration 0093) to mark as failed, so every device shows "Couldn't send".
+  draftIds?: string[]
 }
 
 // Well under the 200,000 the table accepts, and four times the 50,000 the edit path allows, so a
@@ -77,8 +83,19 @@ export async function recordRefusal(record: RefusalRecord): Promise<void> {
         requester_name: record.requesterName ?? null,
       }
     })
-    const { error } = await createSupabaseAdmin().from('client_request_failures').insert(rows)
-    if (error) console.error('refusal log write failed:', error.message)
+    const admin = createSupabaseAdmin()
+    const { error } = await admin.from('client_request_failures').insert(rows)
+    if (error) {
+      console.error('refusal log write failed:', error.message)
+      return
+    }
+    // Spec 6.3 and 8: raise it in Agency Ops straight away (activity, inbox event, agency email)
+    // and mark her drafts as failed. Migration 0093.
+    const { error: eventError } = await admin.rpc('agency_record_review_send_failure', {
+      p_attempt_id: attemptId,
+      p_draft_ids: record.draftIds ?? [],
+    })
+    if (eventError) console.error('refusal event write failed:', eventError.message)
   } catch (error) {
     console.error('refusal log threw:', error instanceof Error ? error.message : String(error))
   }

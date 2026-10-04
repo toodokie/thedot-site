@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const insert = vi.fn()
+const rpc = vi.fn()
 vi.mock('@/lib/supabase/admin', () => ({
-  createSupabaseAdmin: () => ({ from: () => ({ insert }) }),
+  createSupabaseAdmin: () => ({ from: () => ({ insert }), rpc }),
 }))
 
 import { recordRefusal } from './refusal-log'
@@ -10,7 +11,10 @@ import { recordRefusal } from './refusal-log'
 const base = { clientId: 'c1', reason: 'write_failed' as const, clientMessage: 'Could not send.' }
 
 describe('recording a refused edit', () => {
-  beforeEach(() => { insert.mockReset(); insert.mockResolvedValue({ error: null }) })
+  beforeEach(() => {
+    insert.mockReset(); insert.mockResolvedValue({ error: null })
+    rpc.mockReset(); rpc.mockResolvedValue({ data: null, error: null })
+  })
 
   it('keeps one row per block, grouped as a single attempt', async () => {
     await recordRefusal({
@@ -48,5 +52,22 @@ describe('recording a refused edit', () => {
     await expect(recordRefusal({ ...base })).resolves.toBeUndefined()
     insert.mockRejectedValue(new Error('connection lost'))
     await expect(recordRefusal({ ...base })).resolves.toBeUndefined()
+  })
+
+  it('raises the attempt in Agency Ops with her draft ids (migration 0093)', async () => {
+    await recordRefusal({ ...base, draftIds: ['d1', 'd2'], drafts: [{ targetKey: 'caption', proposedText: 'x' }] })
+    const attemptId = insert.mock.calls[0][0][0].attempt_id
+    expect(rpc).toHaveBeenCalledWith('agency_record_review_send_failure', { p_attempt_id: attemptId, p_draft_ids: ['d1', 'd2'] })
+  })
+
+  it('does not raise an event when the failure row itself could not be written', async () => {
+    insert.mockResolvedValue({ error: { message: 'boom' } })
+    await recordRefusal({ ...base })
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it('never throws when raising the event fails', async () => {
+    rpc.mockRejectedValue(new Error('down'))
+    await expect(recordRefusal({ ...base, reason: 'network_unreachable' })).resolves.toBeUndefined()
   })
 })
