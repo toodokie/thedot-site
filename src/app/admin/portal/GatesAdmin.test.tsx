@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: () => {} }) }))
 import { MyTasksAdmin } from './GatesAdmin'
 import type { CompletedOpsTask, OpsTaskRow, ProductionGateRow, StagePiece } from '@/lib/portal/gates'
 
@@ -77,5 +78,17 @@ describe('MyTasksAdmin', () => {
     expect(screen.getByText('Old scheduled post')).toBeInTheDocument()
     expect(screen.getByText('Check publication: instagram')).toBeInTheDocument()
     expect(screen.getByText('Evidence').nextElementSibling).toHaveTextContent('1')
+  })
+
+  it('puts signals from Maria under "Need you"', () => {
+    render(<MyTasksAdmin pieces={[]} opsTasks={[]} completedOps={[]} openComments={[]} openProposals={[]}
+      todayIso="2026-10-03" nowIso="2026-10-03T16:00:00.000Z" signalsError={null}
+      unsentDraftAlerts={[]} clientSignals={[{
+        id: '1b4e28ba-2fa1-41d2-883f-0016d3cca427', kind: 'portal_feedback_submitted', pieceKey: null,
+        pieceTitle: null, headline: 'Feedback: 4 of 5', detail: null, createdAt: '2026-10-03T14:00:00.000Z',
+        resolvable: true,
+      }]} />)
+    expect(screen.getByRole('heading', { level: 2, name: 'From Maria' })).toBeInTheDocument()
+    expect(screen.getByText('Need you').nextElementSibling).toHaveTextContent('1')
   })
 })

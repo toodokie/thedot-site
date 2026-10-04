@@ -6,6 +6,10 @@ import type { CalendarConflictAdmin, CalendarIntegrationAdmin, UnmappedCalendarE
   CalendarContentOption } from './CalendarAdmin'
 import type { AdminInvoice } from './BillingAdmin'
 import type { AdminContentRequest } from './RequestAdmin'
+import { getOpenClientSignals } from '@/lib/portal/agency-ops'
+import type { ClientSignal } from '@/lib/portal/agency-ops-core'
+import { getUnsentDraftAlerts } from '@/lib/portal/review-drafts'
+import type { UnsentDraftAlert } from '@/lib/portal/review-drafts-core'
 
 export type AdminComment = {
   id: string
@@ -136,6 +140,7 @@ function opsClientNamer(clientMap: Map<string, { name: string }>) {
 export async function loadMyTasksData(): Promise<{
   pieces: StagePiece[]; opsTasks: OpsTaskRow[]; completedOps: CompletedOpsTask[];
   openComments: AdminComment[]; openProposals: Array<{ id: string; clientName: string; title: string; submittedAt: string | null; latestClientReply: { authorName: string; body: string } | null }>; todayIso: string
+  clientSignals: ClientSignal[]; unsentDraftAlerts: UnsentDraftAlert[]; signalsError: string | null; nowIso: string
 }> {
   const admin = createSupabaseAdmin()
   const [clients, opsTasks, completedOpsRows, proposals, unresolvedRequests] = await Promise.all([
@@ -186,7 +191,18 @@ export async function loadMyTasksData(): Promise<{
   const openProposals = (proposals.data ?? []).map((proposal) => ({ id: proposal.id,
     clientName: opsClientName(proposal.client_id), title: proposal.title, submittedAt: proposal.submitted_at,
     latestClientReply: latestClientReply.get(proposal.id) ?? null }))
-  return { pieces, opsTasks: adminOpsTasks, completedOps, openComments, openProposals, todayIso: torontoToday() }
+  // A failed signal read must not hide My Tasks; it shows as an alert in the panel instead.
+  let clientSignals: ClientSignal[] = []
+  let unsentDraftAlerts: UnsentDraftAlert[] = []
+  let signalsError: string | null = null
+  const now = new Date()
+  try {
+    ;[clientSignals, unsentDraftAlerts] = await Promise.all([getOpenClientSignals(), getUnsentDraftAlerts(now)])
+  } catch (error) {
+    signalsError = error instanceof Error ? error.message : String(error)
+  }
+  return { pieces, opsTasks: adminOpsTasks, completedOps, openComments, openProposals, todayIso: torontoToday(),
+    clientSignals, unsentDraftAlerts, signalsError, nowIso: now.toISOString() }
 }
 
 // ---- Pieces: the per-piece gate strip. loadAgencyStagePieces runs its own service-role

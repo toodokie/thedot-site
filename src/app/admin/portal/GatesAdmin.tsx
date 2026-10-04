@@ -7,6 +7,9 @@ import AdminPageHeader from './AdminPageHeader'
 import type { AdminComment } from './data'
 import WeekCalendar, { type WeekCalendarChip } from '@/components/portal/WeekCalendar'
 import styles from './portal-admin.module.css'
+import ClientSignalsPanel from './ClientSignalsPanel'
+import type { ClientSignal } from '@/lib/portal/agency-ops-core'
+import type { UnsentDraftAlert } from '@/lib/portal/review-drafts-core'
 
 // Agency-only surface (gate-system spec sections 4 + 6.8): My Tasks + the per-piece gate
 // strip render HERE, never in the client shell. Read-only: emissions go through
@@ -193,13 +196,18 @@ function weekCalendarDays(pieces: StagePiece[]): Record<string, WeekCalendarChip
 
 // My tasks: the landing surface (spec IA #1). Its own routed page (/admin/portal) so it is
 // never buried under the rest of the ops board.
-export function MyTasksAdmin({ pieces, opsTasks, completedOps, openComments, openProposals, todayIso }: {
+export function MyTasksAdmin({ pieces, opsTasks, completedOps, openComments, openProposals, todayIso,
+  clientSignals = [], unsentDraftAlerts = [], signalsError = null, nowIso }: {
   pieces: StagePiece[]
   opsTasks: OpsTaskRow[]
   completedOps: CompletedOpsTask[]
   openComments: AdminComment[]
   openProposals: Array<{ id: string; clientName: string; title: string; submittedAt: string | null; latestClientReply: { authorName: string; body: string } | null }>
   todayIso: string
+  clientSignals?: ClientSignal[]
+  unsentDraftAlerts?: UnsentDraftAlert[]
+  signalsError?: string | null
+  nowIso?: string
 }) {
   const tasks = deriveMyTasks(pieces, opsTasks, todayIso)
   const actions = tasks.filter((task) => task.kind === 'action')
@@ -251,6 +259,7 @@ export function MyTasksAdmin({ pieces, opsTasks, completedOps, openComments, ope
   }
 
   const needsYouCount = currentActions.length + opsAttention.length + openComments.length
+    + clientSignals.length + unsentDraftAlerts.length
   const comingUpCount = upcomingActions.length + opsLater.length
   const waitingCount = waiting.length + openProposals.length
 
@@ -266,6 +275,8 @@ export function MyTasksAdmin({ pieces, opsTasks, completedOps, openComments, ope
       </dl>
       <div className={styles.grid}>
         <div>
+          <ClientSignalsPanel signals={clientSignals} alerts={unsentDraftAlerts} error={signalsError}
+            todayIso={todayIso} nowIso={nowIso ?? new Date().toISOString()} />
           <Panel label="Needs your attention" note="Client changes and due work come first."
             rows={currentActions} emphasis />
           <Panel label="Ops follow-up" note="Repeated monitor alerts are grouped into one incident."
@@ -295,7 +306,7 @@ export function MyTasksAdmin({ pieces, opsTasks, completedOps, openComments, ope
           )}
           <Panel label="Coming up" note="Future content work, ordered by planned date."
             rows={upcomingActions} limit={5} />
-          {needsYouCount === 0 && upcomingActions.length === 0 && <section className={styles.card}>
+          {needsYouCount === 0 && upcomingActions.length === 0 && !signalsError && <section className={styles.card}>
             <Heading as="h2" level={4}>Clear for now</Heading>
             <p className={styles.empty}>No current content, comment, or ops action needs you.</p>
           </section>}

@@ -9,7 +9,9 @@ export const dynamic = 'force-dynamic'
 export default async function PortalAdminMyTasksPage() {
   const session = await verifySession()
   if (!session || session.role !== 'admin') redirect('/admin/login')
-  const { pieces, opsTasks, completedOps, openComments, openProposals, todayIso } = await loadMyTasksData()
-  return <MyTasksAdmin pieces={pieces} opsTasks={opsTasks} completedOps={completedOps}
-    openComments={openComments} openProposals={openProposals} todayIso={todayIso} />
+  const data = await loadMyTasksData()
+  return <MyTasksAdmin pieces={data.pieces} opsTasks={data.opsTasks} completedOps={data.completedOps}
+    openComments={data.openComments} openProposals={data.openProposals} todayIso={data.todayIso}
+    clientSignals={data.clientSignals} unsentDraftAlerts={data.unsentDraftAlerts}
+    signalsError={data.signalsError} nowIso={data.nowIso} />
 }
