@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdminSession, assertSameOriginRequest } from '@/lib/admin-security'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
+import { purgePreviewsAfterPublication } from '@/lib/portal/review-preview-retention'
 
 type Operation =
   | 'confirm_schedule' | 'schedule_failed' | 'confirm_live'
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ result: data })
     }
     const { data: target, error: targetError } = await admin.from('content_publication_targets')
-      .select('current_observation_id').eq('id', body.targetId).single()
+      .select('current_observation_id,content_id').eq('id', body.targetId).single()
     if (targetError || !target) throw new Error('Publication target not found')
     const providerState = body.operation === 'confirm_live' ? 'live'
       : body.operation === 'publication_removed' ? 'removed'
@@ -74,6 +75,7 @@ export async function POST(request: Request) {
       p_verification_note: body.note ?? null,
     })
     if (error) throw new Error(error.message)
+    if (providerState === 'live') await purgePreviewsAfterPublication(admin, target.content_id)
     return NextResponse.json({ result: data })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Operation failed'
