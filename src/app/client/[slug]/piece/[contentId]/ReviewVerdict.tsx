@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { Button, Heading, Text, Textarea } from '@thedot/design-system'
 import { draftIdentity } from '@/lib/portal/review-drafts-core'
 import { decide } from '../../actions'
@@ -40,6 +40,17 @@ export default function ReviewVerdict({
   const [message, setMessage] = useState<{ kind: 'error' | 'success'; text: string } | null>(null)
   const [confirmingDiscard, setConfirmingDiscard] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+  const returnFocusRef = useRef<string | null>(null)
+  useEffect(() => {
+    // Focus the confirm button when the prompt opens, and that edit's Discard again after Cancel (a11y).
+    if (confirmingDiscard !== null) {
+      document.getElementById(`review-carried-discard-${confirmingDiscard}-confirm`)?.focus()
+      return
+    }
+    if (returnFocusRef.current === null) return
+    document.getElementById(`review-carried-discard-${returnFocusRef.current}`)?.focus()
+    returnFocusRef.current = null
+  }, [confirmingDiscard])
   const hasSent = sentEdits.length > 0
   // contentVersion is still passed by PieceReviewScreen; the provider owns the version since 0093.
   void contentVersion
@@ -115,14 +126,16 @@ export default function ReviewVerdict({
             {draft.anchorLabel ? `${draft.label} · ${draft.anchorLabel}` : draft.label} (version {draft.carriedFromVersion}){' '}
             {confirmingDiscard === id
               ? <>
-                <span>Discard this edit? It cannot be recovered.</span>{' '}
-                <Button as="button" type="button" variant="black" size="sm"
+                <span role="alert">Discard this edit? It cannot be recovered.</span>{' '}
+                <Button as="button" type="button" variant="black" size="sm" id={`review-carried-discard-${id}-confirm`}
                   onClick={() => { removeDraft(draft); setConfirmingDiscard(null) }}>Yes, discard</Button>{' '}
-                <Button as="button" type="button" variant="ghost" size="sm" onClick={() => setConfirmingDiscard(null)}>Cancel</Button>
+                <Button as="button" type="button" variant="ghost" size="sm"
+                  onClick={() => { returnFocusRef.current = id; setConfirmingDiscard(null) }}>Cancel</Button>
               </>
               : <>
                 <Button as="button" type="button" variant="ghost" size="sm" onClick={() => keepCarriedDraft(draft)}>Keep</Button>{' '}
-                <Button as="button" type="button" variant="ghost" size="sm" onClick={() => setConfirmingDiscard(id)}>Discard</Button>
+                <Button as="button" type="button" variant="ghost" size="sm" id={`review-carried-discard-${id}`}
+                  onClick={() => setConfirmingDiscard(id)}>Discard</Button>
               </>}
           </li>
         })}</ul>

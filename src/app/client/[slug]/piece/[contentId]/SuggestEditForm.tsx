@@ -39,6 +39,8 @@ export default function SuggestEditForm({
   const [value, setValue] = useState(currentText ?? '')
   const [quote, setQuote] = useState<string | null>(null)
   const restoredRef = useRef(false)
+  const returnFocusRef = useRef(false)
+  const discardTriggerId = `review-discard-${targetKind}-${targetKey}`
   const draft = loaded ? readDraft(target) : null
 
   useEffect(() => {
@@ -53,6 +55,17 @@ export default function SuggestEditForm({
     restoredRef.current = true
     setLoaded(true)
   }, [readDraft, ready, target])
+
+  useEffect(() => {
+    // Focus the confirm button when the prompt opens, and the trigger again after "Keep editing" (a11y).
+    if (confirmingDiscard) {
+      document.getElementById(`${discardTriggerId}-confirm`)?.focus()
+      return
+    }
+    if (!returnFocusRef.current) return
+    returnFocusRef.current = false
+    document.getElementById(discardTriggerId)?.focus()
+  }, [confirmingDiscard, discardTriggerId])
 
   useEffect(() => {
     if (!openSignal) return
@@ -116,14 +129,16 @@ export default function SuggestEditForm({
     </Text>
     {confirmingDiscard
       ? <div className={styles.editComposerActions}>
-        <Text as="span" size="sm" tone="graphite">Discard this edit? It cannot be recovered.</Text>
-        <Button as="button" type="button" variant="black" size="sm" onClick={discard}>Yes, discard</Button>
-        <Button as="button" type="button" variant="ghost" size="sm" onClick={() => setConfirmingDiscard(false)}>
+        <Text as="span" size="sm" tone="graphite"><span role="alert">Discard this edit? It cannot be recovered.</span></Text>
+        <Button as="button" type="button" variant="black" size="sm" id={`${discardTriggerId}-confirm`}
+          onClick={discard}>Yes, discard</Button>
+        <Button as="button" type="button" variant="ghost" size="sm"
+          onClick={() => { returnFocusRef.current = true; setConfirmingDiscard(false) }}>
           Keep editing
         </Button>
       </div>
       : <div className={styles.editComposerActions}>
-        {draft && <Button as="button" type="button" variant="ghost" size="sm"
+        {draft && <Button as="button" type="button" variant="ghost" size="sm" id={discardTriggerId}
           onClick={() => setConfirmingDiscard(true)}>Discard edit</Button>}
         <Button as="button" type="button" variant="ghost" size="sm" onClick={() => { setOpen(false); void flush() }}>
           {draft ? 'Save and close' : 'Close editor'}

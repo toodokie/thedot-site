@@ -107,4 +107,16 @@ describe('SuggestEditForm draft recovery', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Keep this edit' }))
     expect(screen.queryByText(/Written against version 2/)).not.toBeInTheDocument()
   })
+
+  it('moves focus into the discard prompt and back to the trigger on keep editing', () => {
+    render(subject())
+    fireEvent.click(screen.getByRole('button', { name: 'Suggest edit' }))
+    fireEvent.change(screen.getByLabelText('Edit Article body'), { target: { value: 'A rewrite to keep.' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Discard edit' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('Discard this edit? It cannot be recovered.')
+    expect(screen.getByRole('button', { name: 'Yes, discard' })).toHaveFocus()
+    fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }))
+    expect(screen.getByRole('button', { name: 'Discard edit' })).toHaveFocus()
+    expect(screen.getByDisplayValue('A rewrite to keep.')).toBeVisible()
+  })
 })

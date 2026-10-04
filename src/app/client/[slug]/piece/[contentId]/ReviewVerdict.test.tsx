@@ -161,4 +161,13 @@ describe('ReviewVerdict resolver', () => {
     expect(screen.getByRole('button', { name: 'Retry sending (1)' })).toBeVisible()
     expect(screen.getByText("Couldn't send. Retry")).toBeVisible()
   })
+
+  it('moves focus into the carried discard prompt and back to Discard on cancel', () => {
+    render(serverSubject([serverRow({ base_version: 3, carried_over_at: '2026-10-03T11:00:00.000Z', carried_over_to_version: 4 })]))
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('Discard this edit? It cannot be recovered.')
+    expect(screen.getByRole('button', { name: 'Yes, discard' })).toHaveFocus()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByRole('button', { name: 'Discard' })).toHaveFocus()
+  })
 })
