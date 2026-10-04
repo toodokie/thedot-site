@@ -13,5 +13,5 @@ export default async function PortalAdminMyTasksPage() {
   return <MyTasksAdmin pieces={data.pieces} opsTasks={data.opsTasks} completedOps={data.completedOps}
     openComments={data.openComments} openProposals={data.openProposals} todayIso={data.todayIso}
     clientSignals={data.clientSignals} unsentDraftAlerts={data.unsentDraftAlerts}
-    signalsError={data.signalsError} nowIso={data.nowIso} />
+    releaseMediaAlerts={data.releaseMediaAlerts} signalsError={data.signalsError} nowIso={data.nowIso} />
 }

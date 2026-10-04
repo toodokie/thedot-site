@@ -8,7 +8,7 @@ import type { AdminComment } from './data'
 import WeekCalendar, { type WeekCalendarChip } from '@/components/portal/WeekCalendar'
 import styles from './portal-admin.module.css'
 import ClientSignalsPanel from './ClientSignalsPanel'
-import type { ClientSignal } from '@/lib/portal/agency-ops-core'
+import type { ClientSignal, ReleaseMediaAlert } from '@/lib/portal/agency-ops-core'
 import type { UnsentDraftAlert } from '@/lib/portal/review-drafts-core'
 
 // Agency-only surface (gate-system spec sections 4 + 6.8): My Tasks + the per-piece gate
@@ -197,7 +197,7 @@ function weekCalendarDays(pieces: StagePiece[]): Record<string, WeekCalendarChip
 // My tasks: the landing surface (spec IA #1). Its own routed page (/admin/portal) so it is
 // never buried under the rest of the ops board.
 export function MyTasksAdmin({ pieces, opsTasks, completedOps, openComments, openProposals, todayIso,
-  clientSignals = [], unsentDraftAlerts = [], signalsError = null, nowIso }: {
+  clientSignals = [], unsentDraftAlerts = [], releaseMediaAlerts = [], signalsError = null, nowIso }: {
   pieces: StagePiece[]
   opsTasks: OpsTaskRow[]
   completedOps: CompletedOpsTask[]
@@ -206,6 +206,7 @@ export function MyTasksAdmin({ pieces, opsTasks, completedOps, openComments, ope
   todayIso: string
   clientSignals?: ClientSignal[]
   unsentDraftAlerts?: UnsentDraftAlert[]
+  releaseMediaAlerts?: ReleaseMediaAlert[]
   signalsError?: string | null
   nowIso?: string
 }) {
@@ -259,7 +260,7 @@ export function MyTasksAdmin({ pieces, opsTasks, completedOps, openComments, ope
   }
 
   const needsYouCount = currentActions.length + opsAttention.length + openComments.length
-    + clientSignals.length + unsentDraftAlerts.length
+    + clientSignals.length + unsentDraftAlerts.length + releaseMediaAlerts.length
   const comingUpCount = upcomingActions.length + opsLater.length
   const waitingCount = waiting.length + openProposals.length
 
@@ -275,7 +276,7 @@ export function MyTasksAdmin({ pieces, opsTasks, completedOps, openComments, ope
       </dl>
       <div className={styles.grid}>
         <div>
-          <ClientSignalsPanel signals={clientSignals} alerts={unsentDraftAlerts} error={signalsError}
+          <ClientSignalsPanel signals={clientSignals} alerts={unsentDraftAlerts} mediaAlerts={releaseMediaAlerts} error={signalsError}
             todayIso={todayIso} nowIso={nowIso ?? new Date().toISOString()} />
           <Panel label="Needs your attention" note="Client changes and due work come first."
             rows={currentActions} emphasis />

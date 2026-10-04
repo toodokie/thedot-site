@@ -1,5 +1,7 @@
 import { Heading } from '@thedot/design-system'
-import { unsentAlertDetail, type ClientSignal } from '@/lib/portal/agency-ops-core'
+import {
+  releaseMediaAlertDetail, releaseMediaAlertLine, unsentAlertDetail, type ClientSignal, type ReleaseMediaAlert,
+} from '@/lib/portal/agency-ops-core'
 import { unsentDraftAlertLine, type UnsentDraftAlert } from '@/lib/portal/review-drafts-core'
 import ResolveSignalButton from './ResolveSignalButton'
 import styles from './portal-admin.module.css'
@@ -17,22 +19,24 @@ function hasDone(signal: ClientSignal): boolean {
   return signal.resolvable && signal.kind !== 'review_send_failed'
 }
 
-export default function ClientSignalsPanel({ signals, alerts, error, todayIso, nowIso }: {
+export default function ClientSignalsPanel({ signals, alerts, mediaAlerts = [], error, todayIso, nowIso }: {
   signals: ClientSignal[]
   alerts: UnsentDraftAlert[]
+  // Amended 2026-10-03: pieces in front of Maria with nothing to look at. Live, so no Done.
+  mediaAlerts?: ReleaseMediaAlert[]
   error: string | null
   todayIso: string
   nowIso: string
 }) {
-  if (!error && signals.length === 0 && alerts.length === 0) return null
+  if (!error && signals.length === 0 && alerts.length === 0 && mediaAlerts.length === 0) return null
   const now = new Date(nowIso)
   return (
     <section className={`${styles.card} ${styles.hero}`}>
       <div className={styles.panelHead}>
         <Heading as="h2" level={4}>From Maria</Heading>
-        <span className={styles.panelCount}>{signals.length + alerts.length}</span>
+        <span className={styles.panelCount}>{signals.length + alerts.length + mediaAlerts.length}</span>
       </div>
-      <p className={styles.panelNote}>Unsent edits, failed sends and her feedback. Nothing here was sent to her.</p>
+      <p className={styles.panelNote}>Unsent edits, failed sends, videos that did not play, pieces with nothing to look at, and her feedback. Nothing here was sent to her.</p>
       {error && <p className={styles.panelNote} role="alert">Could not load signals from Maria: {error}</p>}
       <ul className={styles.taskList}>
         {alerts.map((alert) => {
@@ -43,6 +47,17 @@ export default function ClientSignalsPanel({ signals, alerts, error, todayIso, n
               {href ? <a className={`${styles.taskTitle} ${styles.pieceLink} ${styles.taskLink}`} href={href}>{line}</a>
                 : <span className={styles.taskTitle}>{line}</span>}
               <span className={styles.meta}>{unsentAlertDetail(alert, todayIso, now)}</span>
+            </span>
+          </li>
+        })}
+        {mediaAlerts.map((alert) => {
+          const href = pieceHref(alert.content_key)
+          const line = releaseMediaAlertLine(alert)
+          return <li key={`media:${alert.content_item_id}`} className={styles.taskRow}>
+            <span className={styles.taskMain}>
+              {href ? <a className={`${styles.taskTitle} ${styles.pieceLink} ${styles.taskLink}`} href={href}>{line}</a>
+                : <span className={styles.taskTitle}>{line}</span>}
+              <span className={styles.meta}>{releaseMediaAlertDetail(alert, todayIso)}</span>
             </span>
           </li>
         })}

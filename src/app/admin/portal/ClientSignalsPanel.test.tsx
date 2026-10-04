@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import type { ClientSignal } from '@/lib/portal/agency-ops-core'
+import type { ClientSignal, ReleaseMediaAlert } from '@/lib/portal/agency-ops-core'
 import type { UnsentDraftAlert } from '@/lib/portal/review-drafts-core'
 
 const refresh = vi.fn()
@@ -80,5 +80,35 @@ describe('ClientSignalsPanel', () => {
     render(<ClientSignalsPanel signals={[]} alerts={[]} error="client signals unavailable: boom"
       todayIso="2026-10-03" nowIso="2026-10-03T16:00:00.000Z" />)
     expect(screen.getByRole('alert')).toHaveTextContent('Could not load signals from Maria: client signals unavailable: boom')
+  })
+})
+
+describe('ClientSignalsPanel media lines (amended 2026-10-03)', () => {
+  const noMedia: ReleaseMediaAlert = {
+    client_id: 'c', content_item_id: 'i2', content_key: 'kanset-article', title: 'Work permit article',
+    content_version: 3, planned_date: '2026-10-06', waiting_on: 'review', override_reason: null,
+  }
+  const played: ClientSignal = {
+    id: '3b4e28ba-2fa1-41d2-883f-0016d3cca427', kind: 'review_playback_failed', pieceKey: 'kanset-reel',
+    pieceTitle: 'Hiring cost reel', headline: "Maria's video didn't play: iPhone, Safari",
+    detail: 'Hiring cost reel v2 · network error', createdAt: '2026-10-03T14:00:00.000Z', resolvable: true,
+  }
+
+  it('lists a piece with nothing to look at, linked, without a Done button', () => {
+    render(<ClientSignalsPanel signals={[]} alerts={[]} mediaAlerts={[noMedia]} error={null}
+      todayIso="2026-10-03" nowIso="2026-10-03T16:00:00.000Z" />)
+    expect(screen.getByRole('heading', { level: 2, name: 'From Maria' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'No media on Work permit article v3: Maria is reviewing it' }))
+      .toHaveAttribute('href', '/admin/portal/pieces/kanset-article')
+    expect(screen.getByText('Attach a review asset, preview or design link · posts in 3 days')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Done/ })).not.toBeInTheDocument()
+  })
+
+  it('lists a failed play with Done', () => {
+    render(<ClientSignalsPanel signals={[played]} alerts={[]} mediaAlerts={[]} error={null}
+      todayIso="2026-10-03" nowIso="2026-10-03T16:00:00.000Z" />)
+    expect(screen.getByRole('link', { name: "Maria's video didn't play: iPhone, Safari" }))
+      .toHaveAttribute('href', '/admin/portal/pieces/kanset-reel')
+    expect(screen.getByRole('button', { name: "Done: Maria's video didn't play: iPhone, Safari" })).toBeInTheDocument()
   })
 })
