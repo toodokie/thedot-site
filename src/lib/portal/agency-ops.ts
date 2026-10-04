@@ -1,7 +1,7 @@
 import 'server-only'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import {
-  clientSignalFromRow, type ClientSignal, type OpenClientSignalRow, type SentDraftAnchorRow,
+  clientSignalFromRow, type ClientSignal, type OpenClientSignalRow, type ReleaseMediaAlert, type SentDraftAnchorRow,
 } from './agency-ops-core'
 
 // Agency Ops readers (migration 0095). Service role only; never imported by a client route.
@@ -72,4 +72,12 @@ export async function getPieceRequestContext(clientId: string, contentItemId: st
     sentDrafts: (drafts.data ?? []) as SentDraftAnchorRow[],
     versions: (versions.data ?? []) as PieceRequestContext['versions'],
   }
+}
+
+// Pieces in front of Maria with nothing to look at (0095, amended 2026-10-03). Live: a row
+// disappears once media is attached to the released version or the piece is live everywhere.
+export async function getReleaseMediaAlerts(): Promise<ReleaseMediaAlert[]> {
+  const { data, error } = await createSupabaseAdmin().rpc('agency_release_media_alerts')
+  if (error) throw new Error(`release media alerts unavailable: ${error.message}`)
+  return (data ?? []) as ReleaseMediaAlert[]
 }

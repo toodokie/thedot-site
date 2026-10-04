@@ -13,7 +13,9 @@ vi.mock('@/lib/supabase/admin', () => ({
   createSupabaseAdmin: () => ({ rpc: mocks.rpc, from: (table: string) => chain(table) }),
 }))
 
-import { getLatestFeedback, getOpenClientSignals, getPieceRequestContext, resolveClientSignal } from './agency-ops'
+import {
+  getLatestFeedback, getOpenClientSignals, getPieceRequestContext, getReleaseMediaAlerts, resolveClientSignal,
+} from './agency-ops'
 
 beforeEach(() => { mocks.rpc.mockReset(); mocks.results.clear() })
 
@@ -61,5 +63,20 @@ describe('agency ops readers', () => {
     expect(context.bundles).toHaveLength(1)
     expect(context.sentDrafts[0].anchor).toBe('frame:2')
     expect(context.versions[0].version).toBe(1)
+  })
+})
+
+describe('release media alerts (amended 2026-10-03)', () => {
+  it('reads the live list through the agency RPC', async () => {
+    const row = { client_id: 'c', content_item_id: 'i', content_key: 'k', title: 'T', content_version: 2,
+      planned_date: null, waiting_on: 'review', override_reason: null }
+    mocks.rpc.mockResolvedValue({ data: [row], error: null })
+    expect(await getReleaseMediaAlerts()).toEqual([row])
+    expect(mocks.rpc).toHaveBeenCalledWith('agency_release_media_alerts')
+  })
+
+  it('surfaces a read failure', async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { message: 'boom' } })
+    await expect(getReleaseMediaAlerts()).rejects.toThrow(/boom/)
   })
 })
