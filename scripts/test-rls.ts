@@ -4766,6 +4766,65 @@ async function main(): Promise<void> {
             && carriedPaths.length >= 3 && stillStored.every((result) => !result.error),
           JSON.stringify({ carryRetention, v1: carryV1Row.data, v2: carryV2Row.data, paths: carriedPaths,
             stored: stillStored.map((result) => result.error?.message ?? 'ok') }))
+
+        // Amended 2026-10-04 (Anastasia): carry forward for copy-only changes. When an on-screen
+        // block (reel-script, on-screen-copy, carousel-copy and the rest of the on-screen key set)
+        // is added, removed or changed, the render must have changed too, so the new version gets
+        // no carried media and its release is refused until fresh media is attached. A caption
+        // change with the on-screen text untouched still carries.
+        const twoBlocks = (contentId: string, version: number, caption: string, script: string) => ({
+          ...snapshot(bClientId!, contentId, version, `${contentId} v${version}`, caption, 'caption'),
+          copy_blocks: [
+            { key: 'caption', label: 'Caption', body: caption },
+            { key: 'reel-script', label: 'Reel script', body: script },
+          ],
+        })
+        const carryCase = async (name: string, v2: { caption: string; script: string }) => {
+          const contentId = `rls-carry-${name}-${RUN_ID}`
+          const [first] = await sync([twoBlocks(contentId, 1, 'Caption before edits', 'Frame 1: Are you hiring?')])
+          const itemId = first.item_id
+          const asset = await rawAdmin.rpc('set_content_review_asset', {
+            p_client_id: bClientId, p_content_id: contentId, p_content_version: 1,
+            p_asset_key: 'reel-cover', p_label: 'Reel cover', p_channel: 'social', p_asset_kind: 'cover',
+            p_url: `https://www.canva.com/design/CARRY${name.toUpperCase()}/view`, p_width_px: 1080, p_height_px: 1920,
+            p_caption_status: 'not_applicable', p_review_note: null, p_actor_key: 'thedot-admin',
+            p_idempotency_key: `rls-carry-${name}-asset-${RUN_ID}`,
+          })
+          if (asset.error) throw new Error(`carry ${name} asset: ${asset.error.message}`)
+          await uploadReviewPreview(admin, tools, {
+            clientId: bClientId!, contentItemId: itemId,
+            request: { ...request(contentId, [frameA]), reviewAssetKey: 'reel-cover' },
+          })
+          const v1Ready = await rawAdmin.rpc('mark_content_ready', { p_content_id: itemId, p_content_version: 1 })
+          if (v1Ready.error) throw new Error(`carry ${name} v1 release: ${v1Ready.error.message}`)
+          const revision = await rawAdmin.rpc('begin_content_revision', { p_content_id: itemId, p_content_version: 1 })
+          if (revision.error) throw new Error(`carry ${name} revision: ${revision.error.message}`)
+          await sync([twoBlocks(contentId, 2, v2.caption, v2.script)])
+          const assets = await rawAdmin.from('content_review_assets').select('asset_key')
+            .eq('content_item_id', itemId).eq('content_version', 2)
+          const previews = await rawAdmin.from('content_review_previews').select('id')
+            .eq('content_item_id', itemId).eq('content_version', 2)
+          const ready = await rawAdmin.rpc('mark_content_ready', { p_content_id: itemId, p_content_version: 2 })
+          const visibleRow = await rawAdmin.from('content_items').select('client_visible_version').eq('id', itemId).single()
+          return { assets, previews, ready, visible: visibleRow.data?.client_visible_version ?? null }
+        }
+
+        const scriptChanged = await carryCase('script', { caption: 'Caption before edits', script: 'Frame 1: Hiring this year?' })
+        check('RC5: a version whose reel-script changed carries no asset or preview and its release is refused',
+          !scriptChanged.assets.error && scriptChanged.assets.data?.length === 0
+            && !scriptChanged.previews.error && scriptChanged.previews.data?.length === 0
+            && !!scriptChanged.ready.error && /release_media_missing/.test(scriptChanged.ready.error.message)
+            && scriptChanged.visible === 1,
+          JSON.stringify({ assets: scriptChanged.assets.data, previews: scriptChanged.previews.data,
+            ready: scriptChanged.ready.error?.message ?? 'released', visible: scriptChanged.visible }))
+
+        const captionChanged = await carryCase('caption', { caption: 'Caption with her edits applied', script: 'Frame 1: Are you hiring?' })
+        check('RC6: a caption-only change still carries the asset and preview and releases',
+          !captionChanged.assets.error && captionChanged.assets.data?.length === 1
+            && !captionChanged.previews.error && captionChanged.previews.data?.length === 1
+            && !captionChanged.ready.error && captionChanged.visible === 2,
+          JSON.stringify({ assets: captionChanged.assets.data, previews: captionChanged.previews.data,
+            ready: captionChanged.ready.error?.message ?? 'released', visible: captionChanged.visible }))
       } finally {
         await rm(previewDir, { recursive: true, force: true })
       }

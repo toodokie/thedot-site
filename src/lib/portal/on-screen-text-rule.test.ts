@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   checkOnScreenTextBlock,
@@ -82,5 +84,15 @@ describe('checkOnScreenTextBlock', () => {
       expect(checkOnScreenTextBlock({ ...base, format, blockKeys: ['caption'] }))
         .toEqual({ status: 'not-applicable' })
     }
+  })
+})
+
+describe('on-screen key set in the database', () => {
+  it('matches the key set 0092 uses to decide whether a copy revision carries media', () => {
+    const sql = readFileSync(join(process.cwd(), 'supabase/migrations/0092_review_media_previews.sql'), 'utf8')
+    const fn = sql.slice(sql.indexOf('function public.portal_on_screen_copy_unchanged'))
+    const list = /array\[([^\]]+)\]::text\[\]/.exec(fn)?.[1] ?? ''
+    const keys = [...list.matchAll(/'([^']+)'/g)].map((match) => match[1])
+    expect([...keys].sort()).toEqual([...ON_SCREEN_TEXT_BLOCK_KEYS].sort())
   })
 })

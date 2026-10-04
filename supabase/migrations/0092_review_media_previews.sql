@@ -31,6 +31,7 @@
 -- agency_internal so portal_activity_notify queues no in-app row or email for anyone.
 
 begin;
+set local lock_timeout = '5s';
 
 do $$
 begin
@@ -1099,6 +1100,44 @@ select public.assert_agency_internal_activity_security();
 -- on conflict do nothing, so a retry adds nothing. Retention stays correct: when the superseded
 -- preview is retired its paths are queued, and agency_pending_review_preview_removals filters out
 -- every path that a current preview's object_prefix still covers, so the carried row keeps them.
+--
+-- Copy-only changes only (amended again 2026-10-04, Anastasia). Both inserts run only when
+-- portal_on_screen_copy_unchanged(previous copy_blocks, new copy_blocks) is true: every block
+-- whose key is in the on-screen key set (the same nine keys as ON_SCREEN_TEXT_BLOCK_KEYS in
+-- src/lib/portal/on-screen-text-rule.ts: reel-script, on-screen-copy, carousel-copy and the rest)
+-- has the same body on both versions, and none was added or removed. If the on-screen words
+-- changed, the render must have changed too, so the new version starts with no media and the
+-- release media guard refuses it until fresh media is attached. Without this, Maria could approve
+-- new on-screen words while looking at the old video (the 2026-10-02 failure). Caption, YouTube
+-- and other block changes still carry.
+create or replace function public.portal_on_screen_copy_unchanged(p_old jsonb, p_new jsonb)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  -- Keep this key set equal to ON_SCREEN_TEXT_BLOCK_KEYS in src/lib/portal/on-screen-text-rule.ts.
+  with keys(k) as (
+    select pg_catalog.unnest(array['reel-script','on-screen-copy','onscreen-script','video-script',
+      'carousel-copy','carousel-slides','carousel','document-copy','linkedin-document-copy']::text[])
+  ), o as (
+    select b.value->>'key' as k, b.value->'body' as body
+    from pg_catalog.jsonb_array_elements(p_old) b(value)
+    where b.value->>'key' in (select k from keys)
+  ), n as (
+    select b.value->>'key' as k, b.value->'body' as body
+    from pg_catalog.jsonb_array_elements(p_new) b(value)
+    where b.value->>'key' in (select k from keys)
+  )
+  select coalesce(pg_catalog.jsonb_typeof(p_old) = 'array' and pg_catalog.jsonb_typeof(p_new) = 'array'
+    and not exists (
+      select 1 from o full join n on n.k = o.k
+      where o.k is null or n.k is null or o.body is distinct from n.body
+    ), false)
+$$;
+revoke all on function public.portal_on_screen_copy_unchanged(jsonb,jsonb)
+  from public, anon, authenticated, service_role;
+
 do $rewrite$
 declare
   v_def text;
@@ -1113,6 +1152,9 @@ declare
     a.width_px,a.height_px,a.caption_status,a.review_note from public.content_review_assets a
   where a.client_id=v_client_id and a.content_item_id=v_item_id
     and a.content_version=v_ci.working_version
+    and public.portal_on_screen_copy_unchanged((select pv.copy_blocks
+      from public.content_item_versions pv
+      where pv.content_item_id=v_item_id and pv.version=v_ci.working_version), v_copy_blocks)
   on conflict(client_id,content_item_id,content_version,asset_key) do nothing;
   insert into public.content_review_previews(client_id,content_item_id,content_version,preview_key,
     review_asset_key,media_kind,object_prefix,video_path,poster_path,frames,width_px,height_px,
@@ -1122,6 +1164,9 @@ declare
     p.duration_seconds,p.byte_total,p.source_sha256 from public.content_review_previews p
   where p.client_id=v_client_id and p.content_item_id=v_item_id
     and p.content_version=v_ci.working_version
+    and public.portal_on_screen_copy_unchanged((select pv.copy_blocks
+      from public.content_item_versions pv
+      where pv.content_item_id=v_item_id and pv.version=v_ci.working_version), v_copy_blocks)
   on conflict(client_id,content_item_id,content_version,preview_key) do nothing;$new$;
 begin
   select pg_catalog.pg_get_functiondef(
@@ -1153,6 +1198,26 @@ begin
      or v_def not like '%insert into public.content_review_assets%a.content_version=v_ci.working_version%do nothing%'
      or v_def not like '%insert into public.content_review_previews%p.content_version=v_ci.working_version%do nothing%' then
     raise exception 'copy revisions no longer carry the review media forward';
+  end if;
+  if v_def not like '%insert into public.content_review_assets%a.content_version=v_ci.working_version%portal_on_screen_copy_unchanged(%v_copy_blocks)%do nothing%insert into public.content_review_previews%'
+     or v_def not like '%insert into public.content_review_previews%p.content_version=v_ci.working_version%portal_on_screen_copy_unchanged(%v_copy_blocks)%do nothing%' then
+    raise exception 'copy revisions carry review media even when the on-screen text changed';
+  end if;
+  if pg_catalog.to_regprocedure('public.portal_on_screen_copy_unchanged(jsonb,jsonb)') is null
+     or public.portal_on_screen_copy_unchanged(
+          '[{"key":"reel-script","label":"s","body":"a"}]'::jsonb,
+          '[{"key":"reel-script","label":"s","body":"b"}]'::jsonb)
+     or public.portal_on_screen_copy_unchanged(
+          '[{"key":"caption","label":"c","body":"a"}]'::jsonb,
+          '[{"key":"caption","label":"c","body":"a"},{"key":"carousel-copy","label":"s","body":"a"}]'::jsonb)
+     or not public.portal_on_screen_copy_unchanged(
+          '[{"key":"caption","label":"c","body":"a"},{"key":"on-screen-copy","label":"s","body":"x"}]'::jsonb,
+          '[{"key":"caption","label":"c","body":"b"},{"key":"on-screen-copy","label":"t","body":"x"}]'::jsonb) then
+    raise exception 'portal_on_screen_copy_unchanged no longer tells on-screen changes from copy-only changes';
+  end if;
+  if pg_catalog.has_function_privilege('anon', 'public.portal_on_screen_copy_unchanged(jsonb,jsonb)', 'EXECUTE')
+     or pg_catalog.has_function_privilege('authenticated', 'public.portal_on_screen_copy_unchanged(jsonb,jsonb)', 'EXECUTE') then
+    raise exception 'the on-screen copy comparison became callable by clients';
   end if;
   if pg_catalog.has_function_privilege('anon', 'public.portal_core_evaluate_content_item_version(jsonb,boolean)', 'EXECUTE')
      or pg_catalog.has_function_privilege('authenticated', 'public.portal_core_evaluate_content_item_version(jsonb,boolean)', 'EXECUTE')
