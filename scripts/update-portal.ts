@@ -524,6 +524,9 @@ async function runReshare(ctx: {
   report: (extra?: Record<string, unknown>) => void
 }) {
   if (!ctx.apply || !ctx.confirm) {
+    // Preview refuses too, so a missing on-screen text block shows before anyone adds --apply.
+    const previewRaw = buildRefreshedCanonical(readFileSync(ctx.canonicalPath, 'utf8'), ctx.extractedBody, ctx.newVersion, ctx.canonicalName)
+    if (refuseMissingOnScreenText(parseContentFile(previewRaw, ctx.canonicalName), previewRaw, ctx.canonicalName, ctx.report)) return
     ctx.report({ outcome: 'reshare-preview' })
     console.log(`RE-SHARE PREVIEW ${ctx.contentId}: this re-arms Maria’s approval and re-opens the pack copy-approved gate.`)
     console.log(`   Change note: "${ctx.changeNote}"`)

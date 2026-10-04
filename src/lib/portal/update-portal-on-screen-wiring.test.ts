@@ -35,6 +35,13 @@ describe('update-portal enforces the on-screen text rule before writing', () => 
     expect(check).toBeLessThan(fn.indexOf('writeFileSync('))
   })
 
+  it('runReshare refuses in preview too, before the preview return', () => {
+    const fn = body('runReshare')
+    const check = fn.indexOf('refuseMissingOnScreenText(')
+    expect(check).toBeGreaterThan(-1)
+    expect(check).toBeLessThan(fn.indexOf("outcome: 'reshare-preview'"))
+  })
+
   it('uses its own exit code', () => {
     expect(src).toMatch(/process\.exitCode = 5/)
   })
