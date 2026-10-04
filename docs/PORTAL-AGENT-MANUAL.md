@@ -211,6 +211,7 @@ Each file's top comment states its purpose. Summary:
 | `0080_reviewed_bundle_reconciliation` | n/a | Makes an approved complete safe-merge candidate the exact audited copy boundary for bundled edit reconciliation while preserving Maria's original proposal and the legacy exact-block path. |
 | `0081_unified_piece_review_bundles` | n/a | Unifies copy and visual edits into one atomic client review bundle, aligns unresolved-state guards, adds visual revision lifecycle controls, and records the one-time per-seat review-flow acknowledgment. |
 | `0092_review_media_previews` | n/a | Private `portal-review-previews` bucket (no client storage policy), `content_review_previews` readable only by the owning seat for the released version, signed links served by the app, a removal queue drained through the Storage API, retention on live-everywhere, superseded, archived and planned date + 7 days, and `review_preview_uploaded` / `review_preview_deleted` activity (flagged `activity_event_types.agency_internal`, so `portal_activity_notify` queues no notification for them and the client seat cannot read them). Copy-only revisions carry the previous version's review assets and previews forward (2026-10-04); a revision that adds, removes or changes an on-screen block (`reel-script`, `on-screen-copy`, `carousel-copy` and the rest of the on-screen key set) carries nothing and needs fresh media before release. Full podcast episodes and videos over 240 s are refused. |
+| `0093_durable_review_drafts` | n/a | Client review drafts autosave to `content_review_drafts` (one unsent draft per seat, piece, target and frame or page; seat-only RLS; RPC-only writes; agency read-only). `send_review_drafts` composes them into the 0081 bundle in one transaction and marks them sent; it refuses a reused idempotency key with different drafts (`idempotency key reused with different request`, shown to Maria as reason `drafts_changed`). A release carries unsent drafts forward (`review_drafts_carried_over` activity + inbox event); a refused send writes `client_request_failures` (new reasons `drafts_changed`, `network_unreachable`), a `review_send_failed` activity (agency email) and inbox event, and marks the drafts failed; a later send resolves it (`review_send_retry_succeeded`). `ack_portal_inbox` lets the cursor past a `review_send_failed` event once its failure rows are resolved. Carry-over and retry success are `activity_event_types.agency_internal` (shared with 0092), so they queue no notification, and client seats cannot read them; the service role reads those rows through `agency_internal_activity(...)`. The migration sets `lock_timeout` to 5s. `agency_unsent_review_draft_alerts` lists unsent drafts older than 24 hours on unposted pieces due within 3 days. |
 
 **Full v1 architecture + phasing spec:** `~/Kanset/portal-integration-task.md`.
 **Gate-system spec:** `docs/superpowers/specs/2026-07-21-portal-gate-system-design.md`.
@@ -724,6 +725,29 @@ delete its objects. It emails nobody. Previews are deleted automatically when ev
 confirmed live (`publication-confirm`, `portal-ship`, the admin Publication surface) and nightly by
 `/api/cron/portal-preview-retention` once the planned date is more than 7 days past. Never upload a
 full podcast episode; the database refuses it.
+
+**Maria's unsent drafts (durable since 0093):** her edits autosave to the portal per seat, piece and
+version; nothing about them reaches you until she sends, except three signals: a refused send
+(`review_send_failed`, inbox + email to the agency, her text is in `client_request_failures`), drafts
+carried over by a new release (`review_drafts_carried_over`, inbox only), and the unsent-draft alert
+(`agency_unsent_review_draft_alerts`, read with `getUnsentDraftAlerts` in
+`src/lib/portal/review-drafts.ts`). Read a piece's drafts read-only with `getAgencyReviewDrafts`.
+Never write `content_review_drafts` directly; there is no agency write path by design. Applying her
+text from a refused send follows the normal request route; resolving the failure row by hand is only
+for a refusal no send will ever retry. Until its failure rows are resolved, a `review_send_failed`
+event holds the inbox cursor (it requires reconciliation), so resolve them once her text is handled.
+The housekeeping rows (`review_drafts_carried_over`, `review_send_retry_succeeded`) are
+`agency_internal`: read them with the service-role RPC `agency_internal_activity(p_client_id,
+p_content_item_id)`, not from a client seat and not from `activity_log` directly.
+
+How the browser behaves (for diagnosing "she says it vanished"): the provider is keyed by version.
+Autosave is debounced 2 seconds and flushed on blur, hide and reconnect; a failed save retries after
+15 seconds, doubling each time, up to 5 tries. A refusal is reported to the portal through
+`recordRefusal`, which returns `{recorded}`; if it was not recorded, the provider retries the failure
+report every 15 seconds. A reused idempotency key with different drafts is refused by
+`send_review_drafts` and reaches Maria as reason `drafts_changed`. A permanently refused save shows
+"Couldn't save this edit to the portal. It is still on this device." ("this phone" on mobile): the
+text is still in the browser buffer, so ask her to keep the page on that device and retry the send.
 
 **Release media guard (since 0092):** every release refuses a version with no review asset, no
 portal preview and no design link: `portal-admin ready`, `update-portal --re-share` (with or
