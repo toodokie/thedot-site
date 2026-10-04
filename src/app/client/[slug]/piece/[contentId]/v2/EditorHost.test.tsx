@@ -8,7 +8,8 @@ vi.mock('@/app/client/[slug]/tick-actions', () => ({ tickReviewTabs: vi.fn(async
 import { editorViews } from '@/components/portal/editor/DocumentEditor'
 import { useReviewDrafts, type ReviewTarget } from '../ReviewDraftProvider'
 import { EditSlot, useEditorHost, type EditorRequest } from './EditorHost'
-import { editorMarkdown, renderInPage, stubDialogs } from './test-utils'
+import { saveReviewDraft } from '@/app/client/[slug]/draft-actions'
+import { editorMarkdown, renderInPage, replaceEditorText, stubDialogs } from './test-utils'
 
 const SCRIPT = '**1.** Frame one\n\n**2.** Frame two\n\n**3.** Frame three'
 const copyTarget: ReviewTarget = { kind: 'copy_block', key: 'reel-script', label: 'Reel, on screen', currentText: SCRIPT }
@@ -252,4 +253,99 @@ describe('EditorHost', () => {
     expect(screen.getByText('form body')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument()
   })
+
+  describe('when she deletes a frame marker', () => {
+    const TWO = '**1.** Frame one\n\n**2.** Frame two'
+    const twoTarget: ReviewTarget = { kind: 'copy_block', key: 'reel-script', label: 'Reel, on screen', currentText: TWO }
+    const two: EditorRequest = { ...frame, target: twoTarget, title: 'Frame 2 of 2', compose: (text) => TWO.replace('**2.** Frame two', text) }
+
+    it('keeps every other frame of a three-frame block byte for byte', () => {
+      page(frame, copyTarget)
+      fireEvent.click(screen.getByRole('button', { name: 'open' }))
+      replaceEditorText('Frame 2 of 3 · On-screen text', 'Frame two')
+      expect(screen.getByTestId('draft').textContent).toBe('**1.** Frame one\n\nFrame two\n\n**3.** Frame three')
+      typeAtEnd('Frame 2 of 3 · On-screen text', ' more')
+      expect(screen.getByTestId('draft').textContent).toBe('**1.** Frame one\n\nFrame two more\n\n**3.** Frame three')
+    })
+
+    it('never collapses a two-frame block to her text', () => {
+      page(two, twoTarget)
+      fireEvent.click(screen.getByRole('button', { name: 'open' }))
+      replaceEditorText('Frame 2 of 2', 'Frame two')
+      typeAtEnd('Frame 2 of 2', ' more')
+      expect(screen.getByTestId('draft').textContent).toBe('**1.** Frame one\n\nFrame two more')
+    })
+
+    it('discard puts back the frame she opened and keeps her other frame edits', () => {
+      renderInPage(<>
+        <Opener name="frame 2" request={frameRequest(1)} />
+        <Opener name="frame 4" request={frameRequest(3)} />
+        <DraftProbe target={fourTarget} />
+      </>)
+      editFrame('frame 4', 'Frame 4 of 4', ', edited')
+      fireEvent.click(screen.getByRole('button', { name: 'frame 2' }))
+      replaceEditorText('Frame 2 of 4', 'Frame two')
+      typeAtEnd('Frame 2 of 4', ' more')
+      fireEvent.click(screen.getByRole('button', { name: 'Discard' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Yes, discard' }))
+      expect(screen.getByTestId('draft').textContent).toBe('**1.** Frame one\n\n**2.** Frame two\n\n**3.** Frame three\n\n**4.** Frame four, edited')
+    })
+  })
+
+  describe('when a newer draft arrives while she types', () => {
+    function OtherDevice({ body }: { body: string }) {
+      const { saveDraft } = useReviewDrafts()
+      return <button type="button" onClick={() => saveDraft(copyTarget, body, null)}>other device</button>
+    }
+
+    it('composes onto the newer draft and keeps the other device edit to another frame', () => {
+      renderInPage(<>
+        <Opener request={frame} />
+        <OtherDevice body={'**1.** Frame one, from the phone\n\n**2.** Frame twoA\n\n**3.** Frame three'} />
+        <DraftProbe target={copyTarget} />
+      </>)
+      fireEvent.click(screen.getByRole('button', { name: 'open' }))
+      typeAtEnd('Frame 2 of 3 · On-screen text', 'A')
+      fireEvent.click(screen.getByRole('button', { name: 'other device' }))
+      typeAtEnd('Frame 2 of 3 · On-screen text', 'B')
+      expect(screen.getByTestId('draft').textContent).toBe('**1.** Frame one, from the phone\n\n**2.** Frame twoAB\n\n**3.** Frame three')
+    })
+
+    it('keeps both texts when the other device changed the same frame', () => {
+      renderInPage(<>
+        <Opener request={frame} />
+        <OtherDevice body={'**1.** Frame one\n\n**2.** Frame 2 from the phone\n\n**3.** Frame three'} />
+        <DraftProbe target={copyTarget} />
+      </>)
+      fireEvent.click(screen.getByRole('button', { name: 'open' }))
+      typeAtEnd('Frame 2 of 3 · On-screen text', 'A')
+      fireEvent.click(screen.getByRole('button', { name: 'other device' }))
+      typeAtEnd('Frame 2 of 3 · On-screen text', 'B')
+      const draft = screen.getByTestId('draft').textContent ?? ''
+      expect(draft).toContain('**2.** Frame 2 from the phone')
+      expect(draft).toContain('**2.** Frame twoAB')
+      expect(draft).toContain('**3.** Frame three')
+      expect(screen.getByText('This text also changed on another device. Both versions are kept in your draft. Remove the one you do not want.')).toBeInTheDocument()
+    })
+  })
+
+  it('saves a form at once when it closes without Done', async () => {
+    function Form() {
+      const { saveDraft } = useReviewDrafts()
+      return <button type="button" onClick={() => saveDraft(copyTarget, 'Form edit', null)}>type</button>
+    }
+    vi.mocked(saveReviewDraft).mockClear()
+    vi.mocked(saveReviewDraft).mockResolvedValue({ error: 'offline', retryable: false } as never)
+    renderInPage(<>
+      <Opener name="form" request={{ kind: 'form', slotId: 'reel-script:frame:1', targets: [copyTarget], title: 'Structured', render: () => <Form /> }} />
+      <Opener name="note" request={{ kind: 'note', target: noteTarget, title: 'Note' }} />
+      <EditSlot slotId="reel-script:frame:1"><p>read</p></EditSlot>
+    </>, { serverDrafts: [] })
+    fireEvent.click(screen.getByRole('button', { name: 'form' }))
+    fireEvent.click(screen.getByRole('button', { name: 'type' }))
+    expect(saveReviewDraft).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'note' }))
+    await waitFor(() => expect(saveReviewDraft).toHaveBeenCalled(), { timeout: 500 })
+  })
 })
+

@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { Button } from '@thedot/design-system'
 import DocumentEditor from '@/components/portal/editor/DocumentEditor'
 import LengthCounter from '@/components/portal/editor/LengthCounter'
-import { replaceSegment, segmentBlock, segmentText, type SegmentMode } from '@/lib/portal/piece-page/segments'
+import { segmentBlock, segmentText, type SegmentMode } from '@/lib/portal/piece-page/segments'
 import { useReviewDrafts, type ReviewTarget } from '../ReviewDraftProvider'
 import { useKeyboardInset, usePhone } from './hooks'
 import { draftStatusLine } from './status-text'
@@ -54,6 +54,14 @@ type EditorHostValue = {
   mode: 'client' | 'preview'
 }
 const EditorHostContext = createContext<EditorHostValue | null>(null)
+// While a copy editor is open, the block body as it stood when it opened. Panels lay the block out
+// from this, so deleting a frame marker mid-edit never moves or unmounts the slot being edited.
+type EditingLayout = { key: string; body: string }
+const EditingLayoutContext = createContext<EditingLayout | null>(null)
+
+export function useEditingLayout(): EditingLayout | null {
+  return useContext(EditingLayoutContext)
+}
 // The EditSlots mounted on the page, so an edit with no place to open in falls back to a sheet.
 const SlotRegistryContext = createContext<((slotId: string) => () => void) | null>(null)
 
@@ -66,16 +74,22 @@ function requestKey(request: EditorRequest): string {
 
 export default function EditorHost({ mode, children }: { mode: 'client' | 'preview'; children: ReactNode }) {
   const isPhone = usePhone()
+  const { readDraft } = useReviewDrafts()
   const [request, setRequest] = useState<EditorRequest | null>(null)
+  const [layout, setLayout] = useState<EditingLayout | null>(null)
   const [slots, setSlots] = useState<ReadonlyMap<string, number>>(() => new Map())
   const openerRef = useRef<HTMLElement | null>(null)
   const open = useCallback((next: EditorRequest) => {
     const active = typeof document === 'undefined' ? null : document.activeElement
     openerRef.current = active instanceof HTMLElement && active !== document.body ? active : null
+    setLayout(next.kind === 'copy'
+      ? { key: next.target.key, body: openingBody(next, readDraft(next.target)?.proposedText ?? null) }
+      : null)
     setRequest(next)
-  }, [])
+  }, [readDraft])
   const close = useCallback(() => {
     setRequest(null)
+    setLayout(null)
     // Return focus to the opener explicitly; browsers differ on what a closed dialog restores,
     // and an in-place editor leaves focus nowhere when it unmounts.
     const opener = openerRef.current
@@ -98,8 +112,10 @@ export default function EditorHost({ mode, children }: { mode: 'client' | 'previ
   const inSheet = request !== null && !inline
   return <EditorHostContext.Provider value={value}>
     <SlotRegistryContext.Provider value={register}>
-      {children}
-      {inSheet && request && <EditorSheet key={requestKey(request)} request={request} onClose={close} />}
+      <EditingLayoutContext.Provider value={layout}>
+        {children}
+        {inSheet && request && <EditorSheet key={requestKey(request)} request={request} onClose={close} />}
+      </EditingLayoutContext.Provider>
     </SlotRegistryContext.Provider>
   </EditorHostContext.Provider>
 }
@@ -134,45 +150,71 @@ function EditorBody({ request, onDone }: { request: CopyEditRequest | FormReques
 
 function CopyEditor({ request, onDone }: { request: CopyEditRequest; onDone: () => void }) {
   const { readDraft, saveDraft, removeDraft, flush } = useReviewDrafts()
-  // The whole block body as it stands now: the unsent draft when there is one, else the released
-  // text. A segment edit opens on, and writes into, this body. Opening never writes anything, so
-  // released text is never stored over a draft; only her keystrokes save.
-  const bodyRef = useRef<string | null>(null)
-  if (bodyRef.current === null) {
-    bodyRef.current = readDraft(request.target)?.proposedText ?? request.target.currentText ?? request.compose(request.initialText)
+  const layout = useEditingLayout()
+  // Captured once, when the editor opens: the exact text before and after the part she edits, in
+  // the current draft (or the released text when there is none). Every change is before + her
+  // text + after; nothing is looked up by segment index again while the editor is open, so
+  // deleting a frame marker can never move her text onto another frame. Opening writes nothing,
+  // so released text is never stored over a draft; only her keystrokes save.
+  const anchorRef = useRef<SegmentAnchor | null>(null)
+  if (anchorRef.current === null) {
+    const body = layout?.key === request.target.key ? layout.body : openingBody(request, readDraft(request.target)?.proposedText ?? null)
+    anchorRef.current = anchorFor(request, body, readDraft(request.target) !== null)
   }
-  const [initial] = useState(() => initialValue(request, readDraft(request.target)?.proposedText ?? null, bodyRef.current ?? ''))
-  const [composed, setComposed] = useState(bodyRef.current)
+  const anchor = anchorRef.current
+  const [initial] = useState(() => anchor.initial)
+  const [composed, setComposed] = useState(anchor.before + anchor.piece + anchor.after)
+  const [conflict, setConflict] = useState(false)
+  // The bodies this editor wrote last; a draft equal to one of them is still ours.
+  const writtenRef = useRef<string[]>([anchor.before + anchor.piece + anchor.after])
 
-  // Leaving the page or the editor unmounting (navigation) flushes what she typed.
-  const flushRef = useRef(flush)
-  flushRef.current = flush
-  useEffect(() => () => { void flushRef.current() }, [])
+  // The body as it stands in the provider now. When it is not one this editor wrote (another
+  // device's draft arrived), find her part in it again; when it cannot be found, keep both texts:
+  // the newer draft stays whole and her part follows it.
+  function settle(): void {
+    const current = readDraft(request.target)?.proposedText ?? request.target.currentText ?? ''
+    if (writtenRef.current.some((body) => body === current || body.trim() === current.trim())) return
+    const found = locate(current, anchor)
+    if (found) {
+      anchor.before = found.before
+      anchor.after = found.after
+      return
+    }
+    anchor.before = current.trim() === '' ? '' : `${current.replace(/\s+$/, '')}\n\n`
+    anchor.after = ''
+    setConflict(true)
+  }
 
-  function change(text: string) {
-    const body = composeInto(request, bodyRef.current ?? '', text)
-    bodyRef.current = body
+  function write(body: string) {
+    writtenRef.current = [...writtenRef.current.slice(-4), body]
     setComposed(body)
     saveDraft(request.target, body, null)
   }
 
+  function change(text: string) {
+    settle()
+    anchor.piece = pieceFor(anchor, text)
+    write(anchor.before + anchor.piece + anchor.after)
+  }
+
   function discard(): boolean {
     const released = request.target.currentText
-    const draftBody = readDraft(request.target)?.proposedText
-    if (request.segment && released !== undefined && draftBody !== undefined) {
-      // Discard this frame's change only: put the released segment back, keep every other edit.
-      const restored = restoreSegment(draftBody, released, request.segment)
-      if (restored !== null && restored.trim() !== released.trim()) {
-        bodyRef.current = restored
-        saveDraft(request.target, restored, null)
-        return true
-      }
+    if (anchor.mode !== 'segment' || released === undefined || anchor.restore === null) {
+      removeDraft(request.target)
+      return true
     }
-    removeDraft(request.target)
+    settle()
+    // Put back the released text of the part she opened; every other edit stays.
+    const restored = anchor.before + anchor.restore + anchor.after
+    if (restored.trim() === released.trim()) removeDraft(request.target)
+    else write(restored)
     return true
   }
 
   return <EditorFrame targets={[request.target]} onDone={onDone} onDiscard={discard} extra={<LengthCounter text={composed} />}>
+    {conflict && <p className={styles.hint} role="status">
+      This text also changed on another device. Both versions are kept in your draft. Remove the one you do not want.
+    </p>}
     <DocumentEditor label={request.title} value={initial} baseText={request.baseText} autoFocus
       onChange={change} onBlur={() => { void flush() }} />
   </EditorFrame>
@@ -203,6 +245,10 @@ function EditorFrame({ targets, onDone, onDiscard, extra, children }: {
   const { readDraft, removeDraft, flush, syncState } = useReviewDrafts()
   const isPhone = usePhone()
   const [confirming, setConfirming] = useState(false)
+  // Closing without Done (another editor opening, navigating away) still saves at once.
+  const flushRef = useRef(flush)
+  flushRef.current = flush
+  useEffect(() => () => { void flushRef.current() }, [])
   const hasDraft = targets.some((target) => readDraft(target) !== null)
   const status = hasDraft
     ? draftStatusLine(syncState === 'idle' ? 'saved' : syncState, isPhone)
@@ -271,26 +317,72 @@ function EditorSheet({ request, onClose }: { request: EditorRequest; onClose: ()
   </dialog>
 }
 
-function segmentOf(body: string, segment: { mode: SegmentMode; index: number }): string | null {
-  const found = segmentBlock(body, segment.mode).segments[segment.index]
-  return found ? segmentText(found) : null
+// The whole block body when an editor opens: her unsent draft, else the released text.
+function openingBody(request: CopyEditRequest, draftText: string | null): string {
+  return draftText ?? request.target.currentText ?? request.compose(request.initialText)
 }
 
-function initialValue(request: CopyEditRequest, draftText: string | null, body: string): string {
-  if (draftText === null) return request.initialText
-  if (!request.segment) return draftText
-  // The draft no longer has this segment (its markers were edited): show the whole draft.
-  return segmentOf(body, request.segment) ?? draftText
+type SegmentAnchor = {
+  // 'segment': one frame, page or section, composed as before + her text + after. 'free': the
+  // draft lost that segment's marker before the editor opened, so she edits the whole draft.
+  // 'whole': a whole-block edit, composed through the caller.
+  mode: 'segment' | 'free' | 'whole'
+  // Text before and after her part. Mutable while open: re-found when a newer draft arrives.
+  before: string
+  after: string
+  // Her part as it stands in the body now, trailing blank lines included.
+  piece: string
+  // Her part as it was when the editor opened; writing it back is a no-op.
+  original: string
+  trailing: string
+  crlf: boolean
+  // What the editor shows first.
+  initial: string
+  // The released text of the part, for Discard; null when Discard removes the whole draft.
+  restore: string | null
+  compose: (text: string) => string
 }
 
-function composeInto(request: CopyEditRequest, body: string, text: string): string {
-  if (!request.segment) return request.compose(text)
-  if (segmentOf(body, request.segment) === null) return text
-  return replaceSegment(body, request.segment.mode, request.segment.index, text)
+function anchorFor(request: CopyEditRequest, body: string, hasDraft: boolean): SegmentAnchor {
+  const plain = { before: '', after: '', piece: body, original: body, trailing: '', crlf: false, restore: null, compose: request.compose }
+  if (!request.segment) return { ...plain, mode: 'whole', initial: hasDraft ? body : request.initialText }
+  const segmented = segmentBlock(body, request.segment.mode)
+  const found = segmented.segments[request.segment.index]
+  if (!found) return { ...plain, mode: 'free', initial: body }
+  const start = segmented.preamble.length + segmented.segments.slice(0, found.index).reduce((sum, part) => sum + part.raw.length, 0)
+  const released = request.target.currentText
+  const releasedParts = released === undefined ? [] : segmentBlock(released, request.segment.mode).segments
+  const releasedPart = releasedParts.length === segmented.segments.length ? releasedParts[found.index]?.raw ?? null : null
+  return {
+    mode: 'segment', before: body.slice(0, start), after: body.slice(start + found.raw.length), piece: found.raw,
+    original: found.raw, trailing: /\s*$/.exec(found.raw)?.[0] ?? '', crlf: found.raw.includes('\r\n'),
+    initial: segmentText(found), restore: releasedPart ?? found.raw, compose: request.compose,
+  }
 }
 
-function restoreSegment(draftBody: string, released: string, segment: { mode: SegmentMode; index: number }): string | null {
-  const releasedSegment = segmentOf(released, segment)
-  if (releasedSegment === null || segmentOf(draftBody, segment) === null) return null
-  return replaceSegment(draftBody, segment.mode, segment.index, releasedSegment)
+function pieceFor(anchor: SegmentAnchor, text: string): string {
+  if (anchor.mode === 'whole') return anchor.compose(text)
+  if (anchor.mode === 'free') return text
+  const trimmed = text.replace(/\s+$/, '')
+  // Writing the part's own text back is a no-op, whatever its line endings.
+  if (trimmed === anchor.original.replace(/\s+$/, '')) return anchor.original
+  let replacement = trimmed.replace(/\r\n?/g, '\n')
+  // Editors hand back LF; a part written with CRLF keeps CRLF.
+  if (anchor.crlf) replacement = replacement.replace(/\n/g, '\r\n')
+  return replacement + anchor.trailing
+}
+
+// Finds her part in a body that changed underneath: the only place it appears, or the place that
+// keeps the text before or after it as captured. Null when it cannot be told apart.
+function locate(body: string, anchor: SegmentAnchor): { before: string; after: string } | null {
+  if (anchor.mode !== 'segment') return null
+  const at: number[] = []
+  for (let index = body.indexOf(anchor.piece); index >= 0 && at.length < 50; index = body.indexOf(anchor.piece, index + 1)) {
+    at.push(index)
+    if (anchor.piece === '') break
+  }
+  const split = (index: number) => ({ before: body.slice(0, index), after: body.slice(index + anchor.piece.length) })
+  if (at.length === 1 && anchor.piece !== '') return split(at[0])
+  const matching = at.filter((index) => body.slice(0, index) === anchor.before || body.slice(index + anchor.piece.length) === anchor.after)
+  return matching.length === 1 ? split(matching[0]) : null
 }

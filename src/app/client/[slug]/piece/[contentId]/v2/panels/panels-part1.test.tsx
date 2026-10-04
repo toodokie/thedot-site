@@ -70,6 +70,16 @@ describe('OnScreenTextPanel', () => {
     expect(within(rows[2]).getByText('EDITED THREE', { exact: false })).toBeInTheDocument()
   })
 
+  it('keeps editing in place when she deletes the frame marker', () => {
+    const two: CopyTab = { ...onscreen, blocks: [{ key: 'reel-script', label: 'Reel, on screen', body: '**1.** FOR EMPLOYERS\n\n**2.** $1,000 PER POSITION' }] }
+    renderInPage(<OnScreenTextPanel tab={two} frames={frames} before={{}} canEdit onSuggestFrame={null} version={2} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Edit text, Frame 2' }))
+    const box = screen.getByRole('textbox', { name: 'Frame 2 of 2 · On-screen text' })
+    replaceEditorText('Frame 2 of 2 · On-screen text', '$1,000 PER POSITION')
+    expect(screen.getByRole('textbox', { name: 'Frame 2 of 2 · On-screen text' })).toBe(box)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
   it('marks a frame that changed since the previous version', () => {
     renderInPage(<OnScreenTextPanel tab={onscreen} frames={frames} before={{ 'reel-script': SCRIPT.replace('$1,000', '$900') }} canEdit onSuggestFrame={null} version={2} />)
     const changed = document.querySelectorAll('[data-changed="true"]')

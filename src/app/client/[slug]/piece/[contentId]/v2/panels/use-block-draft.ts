@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import type { ReviewCopyBlock } from '@/lib/portal/review-package'
 import { segmentBlock, type SegmentMode } from '@/lib/portal/piece-page/segments'
 import { useReviewDrafts, type ReviewDraft, type ReviewTarget } from '../../ReviewDraftProvider'
+import { useEditingLayout } from '../EditorHost'
 
 // The released block, her current-version draft of it (if any), and a draft carried from an
 // earlier version (if any). source is what the panel shows: her draft when she has one.
@@ -20,7 +21,11 @@ export function useBlockDraft(block: ReviewCopyBlock): {
   const found = block.key ? readDraft(target) : null
   const draft = found && found.carriedFromVersion == null ? found : null
   const carried = carriedDrafts.find((d) => d.kind === 'copy_block' && d.key === block.key && !d.anchor) ?? null
-  return { target, draft, carried, source: draft?.proposedText ?? block.body }
+  // While an editor is open on this block, lay it out as it stood when the editor opened, so the
+  // slot being edited stays put even if she deletes a frame marker.
+  const layout = useEditingLayout()
+  const frozen = layout && block.key && layout.key === block.key ? layout.body : null
+  return { target, draft, carried, source: frozen ?? draft?.proposedText ?? block.body }
 }
 
 // Which segments of her draft differ from the released text. When the draft changed the
