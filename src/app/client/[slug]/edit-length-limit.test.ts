@@ -44,4 +44,11 @@ describe('client edit length limit stays in step across layers', () => {
     expect(15483).toBeLessThan(LIMIT)
     expect(15483).toBeGreaterThan(8000)
   })
+
+  it('the new piece page editor keeps the same limit and never truncates', () => {
+    expect(read('../../../lib/portal/piece-page/limits.ts')).toContain('MAX_EDIT_CHARS = 50_000')
+    for (const file of ['../../../components/portal/editor/DocumentEditor.tsx', './piece/[contentId]/v2/EditorHost.tsx']) {
+      expect(read(file)).not.toMatch(/maxLength/)
+    }
+  })
 })

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { CopyTab } from '@/lib/portal/piece-page/copy-tabs'
-import { MAX_EDIT_CHARS } from '@/lib/portal/piece-page/limits'
+import { MAX_EDIT_CHARS, characterCount } from '@/lib/portal/piece-page/limits'
 import { resolvePieceAction } from '@/lib/portal/piece-page/piece-action'
 import { draftIdentity, type ServerDraftRow } from '@/lib/portal/review-drafts-core'
 import ReviewDraftProvider, { useReviewDrafts, type ReviewDraft } from '../ReviewDraftProvider'
@@ -97,7 +97,7 @@ function WorkspaceBody({ data, mode }: { data: WorkspaceData; mode: WorkspaceMod
     untickedLabels: unticked.map((tab) => tab.label),
     mediaPending: data.mediaPending,
     sendFailed: syncState === 'send_failed',
-    overLimit: currentDrafts.some((draft) => draft.proposedText.length > MAX_EDIT_CHARS),
+    overLimit: currentDrafts.some((draft) => characterCount(draft.proposedText) > MAX_EDIT_CHARS),
   })
 
   const visual = data.visualTarget
