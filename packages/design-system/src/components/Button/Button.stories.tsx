@@ -23,3 +23,12 @@ export const AsLink: Story = {
     </Button>
   ),
 };
+
+export const YellowStates: Story = {
+  render: () => (
+    <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+      <Button variant="yellow">Approve (hover or Tab to see the glow)</Button>
+      <Button variant="yellow" disabled>Approve</Button>
+    </div>
+  ),
+};

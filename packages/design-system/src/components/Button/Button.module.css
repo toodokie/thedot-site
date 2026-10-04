@@ -24,7 +24,22 @@
   border-color: var(--dot-black);
   text-decoration: none;
 }
-.yellow:hover { background: var(--dot-yellow-pale); color: var(--dot-black); text-decoration: none; }
+/* Yellow is light: the one flat yellow is the primary action, and it glows on hover and keyboard
+   focus (piece page redesign, spec 10a). Placed after the state list above so it wins at equal
+   specificity over .yellow:focus. */
+.yellow:hover:not(:disabled):not([aria-disabled='true']),
+.yellow:focus-visible:not(:disabled):not([aria-disabled='true']) {
+  background: var(--dot-grad-glow);
+  color: var(--dot-black);
+  text-decoration: none;
+}
+.yellow:disabled,
+.yellow[aria-disabled='true'] {
+  background: var(--dot-hairline);
+  color: var(--dot-grey-accessible);
+  border-color: var(--dot-grey-light);
+  cursor: not-allowed;
+}
 .ghost,
 .ghost:link,
 .ghost:visited,

@@ -17,3 +17,21 @@ describe('anchor button states', () => {
     expect(css).toContain('.ghost:visited')
   })
 })
+
+describe('yellow primary action glows (spec 10a)', () => {
+  it('glows on hover and on keyboard focus, never when disabled', () => {
+    expect(css).toMatch(
+      /\.yellow:hover:not\(:disabled\):not\(\[aria-disabled='true'\]\),\s*\.yellow:focus-visible:not\(:disabled\):not\(\[aria-disabled='true'\]\)\s*\{[^}]*background:\s*var\(--dot-grad-glow\)/,
+    )
+  })
+
+  it('no longer flattens the hover to pale yellow', () => {
+    expect(css).not.toMatch(/\.yellow:hover\s*\{[^}]*--dot-yellow-pale/)
+  })
+
+  it('shows a quiet disabled state for the yellow button only', () => {
+    expect(css).toMatch(
+      /\.yellow:disabled,\s*\.yellow\[aria-disabled='true'\]\s*\{[^}]*background:\s*var\(--dot-hairline\)[^}]*color:\s*var\(--dot-grey-accessible\)[^}]*border-color:\s*var\(--dot-grey-light\)[^}]*cursor:\s*not-allowed/,
+    )
+  })
+})
