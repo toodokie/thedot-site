@@ -76,3 +76,16 @@ describe('appliedChanges and updatedTabKeys coverage', () => {
     expect([...updatedTabKeys(withChapters, changes)]).toEqual(['youtube'])
   })
 })
+
+describe('CRLF bodies', () => {
+  it('splits CRLF paragraphs like LF ones and keeps LF output identical', () => {
+    const lf = 'First.\n\nSecond line one\nline two.\n \n\nThird.'
+    expect(splitParagraphs(lf)).toEqual(['First.', 'Second line one\nline two.', 'Third.'])
+    expect(splitParagraphs(lf.replace(/\n/g, '\r\n'))).toEqual(['First.', 'Second line one\r\nline two.', 'Third.'])
+  })
+
+  it('highlights only the changed CRLF paragraph', () => {
+    expect(changedParagraphs('One.\r\n\r\nTwo.\r\n\r\nThree.', 'One.\r\n\r\nTwo, edited.\r\n\r\nThree.')).toEqual([false, true, false])
+    expect(changedParagraphs('One.\n\nTwo.', 'One.\r\n\r\nTwo.')).toEqual([false, false])
+  })
+})

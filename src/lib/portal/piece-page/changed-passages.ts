@@ -4,7 +4,8 @@ import type { ContentRequestRow } from '@/lib/portal/requests'
 import type { CopyTab } from './copy-tabs'
 
 export function splitParagraphs(body: string): string[] {
-  return body.split(/\n[ \t]*\n+/).map((part) => part.replace(/^\n+/, '').replace(/\s+$/, '')).filter(Boolean)
+  // CRLF splits exactly like LF; for an LF body this is the same split as /\n[ \t]*\n+/.
+  return body.split(/\r?\n[ \t]*\r?\n(?:\r?\n)*/).map((part) => part.replace(/^(?:\r?\n)+/, '').replace(/\s+$/, '')).filter(Boolean)
 }
 
 function normal(text: string): string {
