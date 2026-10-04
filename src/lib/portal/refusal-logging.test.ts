@@ -59,3 +59,29 @@ describe('the reason codes match the database', () => {
     for (const code of used) expect(dbCodes, `reason "${code}" is not in the check constraint`).toContain(code)
   })
 })
+
+describe('the durable send path logs every refusal too (migration 0093)', () => {
+  const DRAFT_SOURCE = readFileSync(resolve(process.cwd(), 'src/app/client/[slug]/draft-actions.ts'), 'utf8')
+
+  it('sendReviewDrafts never returns a bare error', () => {
+    const start = DRAFT_SOURCE.indexOf('export async function sendReviewDrafts(')
+    expect(start).toBeGreaterThan(-1)
+    const next = DRAFT_SOURCE.indexOf('\nexport async function ', start + 1)
+    const body = DRAFT_SOURCE.slice(start, next === -1 ? DRAFT_SOURCE.length : next)
+    expect([...body.matchAll(/return \{ error:[^}]*\}/g)].map((m) => m[0])).toEqual([])
+    expect(body).toMatch(/too long \(\$\{MAX_PROPOSED_TEXT/)
+    expect(body).toContain('We have your text')
+  })
+
+  it('uses only reason codes the database accepts after 0093', () => {
+    const migration = readFileSync(
+      resolve(process.cwd(), 'supabase/migrations/0093_durable_review_drafts.sql'), 'utf8')
+    const marker = migration.indexOf('add constraint client_request_failures_reason_code_check')
+    const constraint = migration.slice(migration.indexOf('reason_code in (', marker))
+    const dbCodes = new Set([...constraint.slice(0, constraint.indexOf('))')).matchAll(/'([a-z_]+)'/g)]
+      .map((m) => m[1]))
+    const used = new Set([...DRAFT_SOURCE.matchAll(/'([a-z_]+)',\s+(?:await withText|context)/g)].map((m) => m[1]))
+    expect(used.size).toBeGreaterThan(5)
+    for (const code of used) expect(dbCodes, `reason "${code}" is not in the 0093 constraint`).toContain(code)
+  })
+})
