@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getClientSession } from '@/lib/portal/auth'
-import { getContentItem } from '@/lib/portal/data'
+import type { Metadata } from 'next'
+import { getPieceItem, resolvePieceMetadata } from './piece-metadata'
 import { getComments } from '@/lib/portal/comments'
 import { getScheduleDetails } from '@/lib/portal/schedule'
 import { getPublicationDetails } from '@/lib/portal/publication'
@@ -10,13 +11,20 @@ import PieceReviewScreen from './PieceReviewScreen'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { REVIEW_FLOW_ANNOUNCEMENT_KEY } from '@/lib/portal/review-flow-announcement'
 
+export async function generateMetadata({ params }: {
+  params: Promise<{ slug: string; contentId: string }>
+}): Promise<Metadata> {
+  const { slug, contentId } = await params
+  return resolvePieceMetadata(slug, contentId)
+}
+
 export default async function Piece({ params }: {
   params: Promise<{ slug: string; contentId: string }>
 }) {
   const { slug, contentId } = await params
   const session = await getClientSession(slug)
   if (!session) redirect('/client/login')
-  const item = await getContentItem(session.clientId, contentId)
+  const item = await getPieceItem(session.clientId, contentId)
   if (!item) redirect(`/client/${slug}`)
   const supabase = await createSupabaseServer()
   const [comments, schedule, publication, requests, reviewAssets, acknowledgment] = await Promise.all([
