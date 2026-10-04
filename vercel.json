@@ -3,6 +3,7 @@
     { "path": "/api/cron/portal-calendar", "schedule": "17 * * * *" },
     { "path": "/api/cron/portal-assistant", "schedule": "41 * * * *" },
     { "path": "/api/cron/portal-notifications", "schedule": "* * * * *" },
-    { "path": "/api/cron/portal-preview-retention", "schedule": "23 7 * * *" }
+    { "path": "/api/cron/portal-preview-retention", "schedule": "23 7 * * *" },
+    { "path": "/api/cron/portal-unsent-draft-alerts", "schedule": "23 * * * *" }
   ]
 }
