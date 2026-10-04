@@ -18,7 +18,9 @@ import type { ScheduleRequestRow, ScheduleTargetRow } from '@/lib/portal/schedul
 import type { ClientState } from '@/lib/portal/state'
 import type { CoverInfo } from './panels/CoverImagePanel'
 
-export type WorkspaceMode = 'client' | 'preview'
+// 'agency' (plan 5): the admin piece page shows Maria's page read-only beside the agency panel. It
+// never writes as her: no editors, drafts, ticks, playback reports, intro acknowledgment or decision.
+export type WorkspaceMode = 'client' | 'preview' | 'agency'
 // Plan 4b amendment 2026-10-04 (Task 10b): a reel, Short, cut or episode cover as its own first
 // tile in the media area. The image is the preview's poster (the approved cover, per the upload
 // rule); a note on it targets the cover review asset, so there is no suggestion without one.

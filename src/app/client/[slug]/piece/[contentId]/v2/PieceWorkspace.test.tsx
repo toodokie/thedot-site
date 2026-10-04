@@ -124,3 +124,43 @@ describe('PieceWorkspace playback reports (amended 2026-10-03)', () => {
     expect(reportReviewPlaybackFailure).not.toHaveBeenCalled()
   })
 })
+
+describe('PieceWorkspace agency mode (plan 5)', () => {
+  function renderAgency(ticks: string[] = ['caption']) {
+    return render(<PieceWorkspace data={data()} mode="agency" draftScope="agency-view:Maria Guerts" serverDrafts={null}
+      ticks={ticks} bottomBar={<div role="region" aria-label="Maria's view">2 of 3 reviewed</div>} />)
+  }
+
+  it('shows the agency bar in place of her decision bar', () => {
+    renderAgency()
+    expect(screen.getByRole('region', { name: "Maria's view" })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Your review' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
+  })
+
+  it('offers no editor, suggestion or removal', () => {
+    renderAgency()
+    expect(screen.queryByRole('button', { name: /Edit text/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Suggest a change/ })).not.toBeInTheDocument()
+    expect(screen.queryByText('Request removal')).not.toBeInTheDocument()
+  })
+
+  it('shows her own ticks and never writes one, to the server or the browser', async () => {
+    renderAgency(['caption'])
+    expect(screen.getByRole('tab', { name: /Caption/ })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: /YouTube/ }))
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    expect(tickReviewTabs).not.toHaveBeenCalled()
+    expect(window.localStorage.length).toBe(0)
+  })
+
+  it('never reports a failed play', async () => {
+    reportReviewPlaybackFailure.mockClear()
+    renderAgency()
+    const video = screen.getByLabelText('What does hiring cost?: video')
+    Object.defineProperty(video, 'error', { configurable: true, value: { code: 2 } })
+    fireEvent.error(video)
+    expect(await screen.findByText("This video didn't load.")).toBeInTheDocument()
+    expect(reportReviewPlaybackFailure).not.toHaveBeenCalled()
+  })
+})

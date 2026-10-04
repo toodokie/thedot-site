@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { CopyTab } from '@/lib/portal/piece-page/copy-tabs'
 import { MAX_EDIT_CHARS, characterCount } from '@/lib/portal/piece-page/limits'
 import { resolvePieceAction } from '@/lib/portal/piece-page/piece-action'
@@ -10,6 +10,7 @@ import CarriedDraftNotice from './CarriedDraftNotice'
 import CopySwitcher, { tabDomId } from './CopySwitcher'
 import DecisionBar from './DecisionBar'
 import type { WorkspaceData, WorkspaceMode } from './derive'
+import { readOnlyWorkspace } from './read-only'
 import EditorHost, { useEditorHost } from './EditorHost'
 import FirstVisitIntro from './FirstVisitIntro'
 import { usePhone, useSwipe } from './hooks'
@@ -30,14 +31,17 @@ import YouTubePanel from './panels/YouTubePanel'
 import styles from './piece-page.module.css'
 
 // The redesigned client piece page (spec 2026-10-03). One component tree for the client seat and
-// the read-only "View as Maria" preview (mode), so plan 5 can add the agency view without a fork.
-export default function PieceWorkspace({ data, mode, draftScope, serverDrafts, ticks }: {
+// the read-only "View as Maria" preview (mode), and plan 5's agency view ('agency': read-only, her
+// ticks shown but never written, bottomBar in place of her decision bar).
+export default function PieceWorkspace({ data: input, mode, draftScope, serverDrafts, ticks, bottomBar }: {
   data: WorkspaceData
   mode: WorkspaceMode
   draftScope: string
   serverDrafts: ServerDraftRow[] | null
   ticks: string[]
+  bottomBar?: ReactNode
 }) {
+  const data = mode === 'agency' ? readOnlyWorkspace(input) : input
   // Keyed by version, as the current page is, so a new release re-reconciles drafts and ticks.
   return <ReviewDraftProvider key={data.version} draftScope={draftScope} slug={data.slug} contentId={data.contentId} version={data.version}
     serverSync={mode === 'client' && Array.isArray(serverDrafts)} initialServerDrafts={serverDrafts}>
@@ -45,7 +49,7 @@ export default function PieceWorkspace({ data, mode, draftScope, serverDrafts, t
       initial={ticks} persist={mode === 'client'}>
       <EditorHost mode={mode}>
         <SentEditsProvider index={data.sentEdits}>
-          <WorkspaceBody data={data} mode={mode} />
+          <WorkspaceBody data={data} mode={mode} bottomBar={bottomBar} />
         </SentEditsProvider>
       </EditorHost>
     </ReviewTicksProvider>
@@ -63,7 +67,7 @@ function countDraftsByTab(tabs: CopyTab[], drafts: ReviewDraft[]): Record<string
   return counts
 }
 
-function WorkspaceBody({ data, mode }: { data: WorkspaceData; mode: WorkspaceMode }) {
+function WorkspaceBody({ data, mode, bottomBar }: { data: WorkspaceData; mode: WorkspaceMode; bottomBar?: ReactNode }) {
   const { currentDrafts, carriedDrafts, syncState } = useReviewDrafts()
   const { ticked, tick } = useReviewTicks()
   const { open } = useEditorHost()
@@ -72,7 +76,8 @@ function WorkspaceBody({ data, mode }: { data: WorkspaceData; mode: WorkspaceMod
   const [page, setPage] = useState(0)
   const [drawer, setDrawer] = useState<{ open: boolean; tab: DrawerTab }>({ open: false, tab: 'conversation' })
 
-  useEffect(() => { if (active) tick(active) }, [active, tick])
+  // The agency view shows her ticks as they are: opening a tab there is not her review.
+  useEffect(() => { if (active && mode !== 'agency') tick(active) }, [active, mode, tick])
 
   const index = Math.max(0, data.tabs.findIndex((tab) => tab.key === active))
   const activeTab = data.tabs[index] ?? null
@@ -216,10 +221,10 @@ function WorkspaceBody({ data, mode }: { data: WorkspaceData; mode: WorkspaceMod
           ? <div className={styles.stack}>{media}<div className={styles.readw}>{copy}</div></div>
           : <div className={styles.readw}>{copy}</div>}
     </div>
-    <DecisionBar action={action} ticks={{ total: data.tabs.length, done: data.tabs.length - unticked.length }}
+    {mode === 'agency' ? bottomBar ?? null : <DecisionBar action={action} ticks={{ total: data.tabs.length, done: data.tabs.length - unticked.length }}
       version={data.version} reReview={data.reReview} approvedLabel={data.approvedLabel} postedLabel={data.postedLabel}
       sentSummary={data.sentSummary} slug={data.slug} contentId={data.contentId} mode={mode} canEdit={data.canEdit}
-      onOpenPastEdits={() => setDrawer({ open: true, tab: 'past' })} onShowCarried={showCarried} />
+      onOpenPastEdits={() => setDrawer({ open: true, tab: 'past' })} onShowCarried={showCarried} />}
     <QuestionsDrawer open={drawer.open} tab={drawer.tab} onTabChange={(tab) => setDrawer((d) => ({ ...d, tab }))}
       onClose={() => setDrawer((d) => ({ ...d, open: false }))} slug={data.slug} contentId={data.contentId}
       comments={data.comments} canComment={data.canComment} ledger={data.ledger} factCheckScope={data.factCheckScope}

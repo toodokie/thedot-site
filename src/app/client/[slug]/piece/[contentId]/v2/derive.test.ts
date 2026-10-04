@@ -7,6 +7,7 @@ import type { ContentRequestRow } from '@/lib/portal/requests'
 import type { ReviewAsset } from '@/lib/portal/review-assets'
 import type { SignedReviewPreview } from '@/lib/portal/review-preview-core'
 import { deriveWorkspaceData, pieceFormatLabel, type DeriveInput } from './derive'
+import { readOnlyWorkspace } from './read-only'
 
 function item(overrides: Partial<ContentRow> = {}): ContentRow {
   return {
@@ -127,5 +128,19 @@ describe('deriveWorkspaceData', () => {
     expect(pieceFormatLabel('podcast_article', ['squarespace'])).toBe('Website article · kanset.com')
     expect(pieceFormatLabel('linkedin-post', ['linkedin'])).toBe('LinkedIn post · LinkedIn')
     expect(pieceFormatLabel(null, [])).toBe('Piece')
+  })
+})
+
+describe('readOnlyWorkspace (plan 5 agency view)', () => {
+  it('turns off every way to act while keeping what Maria sees', () => {
+    const full = deriveWorkspaceData(input({ showIntro: true }))
+    const view = readOnlyWorkspace(full)
+    expect(view).toMatchObject({
+      canEdit: false, canDecide: false, canComment: false, canSubmitRequests: false,
+      canRequestSchedule: false, removal: null, showIntro: false,
+    })
+    expect(view.tabs).toEqual(full.tabs)
+    expect(view.preview).toEqual(full.preview)
+    expect(view.status).toEqual(full.status)
   })
 })

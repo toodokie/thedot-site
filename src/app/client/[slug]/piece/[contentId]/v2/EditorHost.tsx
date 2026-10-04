@@ -6,6 +6,7 @@ import DocumentEditor, { loadDocumentEditor } from '@/components/portal/editor/L
 import LengthCounter from '@/components/portal/editor/LengthCounter'
 import { segmentBlock, segmentText, type SegmentMode } from '@/lib/portal/piece-page/segments'
 import { useReviewDrafts, type ReviewTarget } from '../ReviewDraftProvider'
+import type { WorkspaceMode } from './derive'
 import { useKeyboardInset, usePhone } from './hooks'
 import { draftStatusLine } from './status-text'
 import styles from './piece-page.module.css'
@@ -51,7 +52,7 @@ type EditorHostValue = {
   close: () => void
   active: EditorRequest | null
   inline: boolean
-  mode: 'client' | 'preview'
+  mode: WorkspaceMode
 }
 const EditorHostContext = createContext<EditorHostValue | null>(null)
 // While a copy editor is open, the block body as it stood when it opened. Panels lay the block out
@@ -72,7 +73,7 @@ function requestKey(request: EditorRequest): string {
   return `${request.kind}:${place}:${request.title}`
 }
 
-export default function EditorHost({ mode, children }: { mode: 'client' | 'preview'; children: ReactNode }) {
+export default function EditorHost({ mode, children }: { mode: WorkspaceMode; children: ReactNode }) {
   const isPhone = usePhone()
   const { readDraft } = useReviewDrafts()
   // Fetch the document editor once the new piece page is up, so it is ready before she edits.
