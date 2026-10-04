@@ -8,6 +8,7 @@ import TrackedText from '@/components/portal/editor/TrackedText'
 import ChangedMarkdown from '../ChangedMarkdown'
 import CarriedDraftNotice from '../CarriedDraftNotice'
 import { EditSlot, useEditorHost } from '../EditorHost'
+import { SentCopyMarker } from '../SentEdits'
 import styles from '../piece-page.module.css'
 import { useBlockDraft } from './use-block-draft'
 
@@ -48,6 +49,7 @@ function CopyBlockView({ block, tab, before, canEdit, version }: Props & { block
         ? <TrackedText base={block.body} current={source} />
         : <ChangedMarkdown body={source} before={before[block.key ?? ''] ?? null} />}
     </EditSlot>
+    <SentCopyMarker spot={slotId} />
     <div className={styles.blockActions}>
       {canEdit && block.key && <button type="button" className={styles.link} aria-label={`Edit ${label}`} onClick={openEditor}>Edit</button>}
       <button type="button" className={`${styles.link} ${styles.linkGrey}`} onClick={copy}>Copy text</button>

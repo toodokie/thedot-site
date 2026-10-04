@@ -4,6 +4,7 @@ import type { CopyTab } from '@/lib/portal/piece-page/copy-tabs'
 import { SEARCH_FIELDS, labeledValue, parseLabeledList, type LabeledField } from '@/lib/portal/piece-page/labeled-list'
 import { EditSlot, useEditorHost } from '../EditorHost'
 import SearchForm from '../editors/SearchForm'
+import { SentCopyMarker } from '../SentEdits'
 import styles from '../piece-page.module.css'
 import { Field } from './YouTubePanel'
 import { useBlockDraft } from './use-block-draft'
@@ -44,6 +45,7 @@ export default function SearchSharingPanel({ tab, canEdit }: { tab: CopyTab; can
         </Field>
       })}
     </EditSlot>
+    <SentCopyMarker spot={`${block.key}:whole`} />
     {others.length > 0 && <dl className={styles.details}>
       {others.map((item) => <div key={item.label} style={{ display: 'contents' }}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}
     </dl>}

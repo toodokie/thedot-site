@@ -168,6 +168,16 @@
 .blockActions { display: flex; flex-wrap: wrap; gap: var(--dot-space-4); margin-top: var(--dot-space-3); }
 .preamble { color: var(--dot-graphite); font-size: 0.9375rem; margin-bottom: var(--dot-space-4); }
 
+/* Sent edits stay where she made them (plan 4b Task 10a): read-only, collapsed by default */
+.sent { margin-top: var(--dot-space-2); border-left: 2px solid var(--dot-hairline); padding-left: var(--dot-space-3); }
+.sentTop { margin: 0 0 var(--dot-space-4); }
+.sentSummary { display: flex; align-items: center; gap: 6px; min-height: 44px; cursor: pointer; font-size: 0.875rem;
+  color: var(--dot-graphite); font-weight: var(--dot-weight-medium); }
+.sentBody { display: grid; gap: var(--dot-space-3); padding-bottom: var(--dot-space-3); }
+.sentEntry p { margin: 0 0 4px; }
+.sentLabel { color: var(--dot-black); font-weight: var(--dot-weight-medium); }
+.sentNote { white-space: pre-wrap; font-size: 1rem; line-height: 1.6; color: var(--dot-black); }
+
 /* On-screen text, frame by frame; PDF text, page by page */
 .frows, .ptext { list-style: none; margin: 0; padding: 0; }
 .frow, .ptext > li { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: var(--dot-space-5);

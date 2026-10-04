@@ -7,6 +7,7 @@ import JumpToEdits from '../editors/JumpToEdits'
 import ChangedMarkdown from '../ChangedMarkdown'
 import CarriedDraftNotice from '../CarriedDraftNotice'
 import { EditSlot, useEditorHost } from '../EditorHost'
+import { SentCopyMarker } from '../SentEdits'
 import styles from '../piece-page.module.css'
 import { editedSegments, useBlockDraft } from './use-block-draft'
 
@@ -43,6 +44,7 @@ export default function ArticlePanel({ tab, coverUrl, before, canEdit, version }
     {carried && <CarriedDraftNotice draft={carried} currentText={block.body} version={version} onAdjust={openWhole} />}
     <article className={styles.article}>
       {segmented.preamble.trim() && <ChangedMarkdown body={segmented.preamble} before={previous} className={styles.copy} />}
+      <SentCopyMarker spot={`${block.key}:whole`} />
       {segmented.segments.map((segment, index) => {
         const body = segment.raw.replace(/^[^\n]*\n?/, '')
         const name = segment.level === 1 ? 'Opening' : segment.label
@@ -68,6 +70,7 @@ export default function ArticlePanel({ tab, coverUrl, before, canEdit, version }
               </div>
               : <ChangedMarkdown body={body} before={previous} className={styles.copy} />}
           </EditSlot>
+          <SentCopyMarker spot={`${block.key}:section:${index}`} />
         </section>
       })}
     </article>

@@ -4,6 +4,7 @@ import type { CopyTab } from '@/lib/portal/piece-page/copy-tabs'
 import { findChapters, parseYouTubePackage, youTubeFieldValue } from '@/lib/portal/piece-page/youtube-fields'
 import { EditSlot, useEditorHost } from '../EditorHost'
 import ChaptersForm from '../editors/ChaptersForm'
+import { SentCopyMarker } from '../SentEdits'
 import styles from '../piece-page.module.css'
 import { useBlockDraft } from './use-block-draft'
 
@@ -34,5 +35,6 @@ export default function ChaptersPanel({ tab, canEdit }: { tab: CopyTab; canEdit:
         </ol>
         : <p className={styles.meta}>No chapters in this version.</p>}
     </EditSlot>
+    <SentCopyMarker spot={`${block.key}:whole`} />
   </div>
 }

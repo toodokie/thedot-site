@@ -7,6 +7,7 @@ import type { ContentRow } from '@/lib/portal/data'
 import { appliedChanges, updatedAreasLine, updatedTabKeys } from '@/lib/portal/piece-page/changed-passages'
 import { buildCopyTabs, pieceLayout, primaryPreview, type CopyTab, type PieceLayout } from '@/lib/portal/piece-page/copy-tabs'
 import { destinationLabel, headerStatus, type HeaderStatus } from '@/lib/portal/piece-page/header-status'
+import { buildSentEditIndex, type SentEditIndex } from '@/lib/portal/piece-page/sent-edits'
 import { contentReviewPackageReadiness } from '@/lib/portal/podcast-review'
 import type { PublicationTargetRow } from '@/lib/portal/publication'
 import { reReviewContext } from '@/lib/portal/re-review'
@@ -62,6 +63,8 @@ export type WorkspaceData = {
   factCheckExemption: string | null
   requests: ContentRequestRow[]
   requestMessages: ContentRequestMessage[]
+  // Her sent, not-yet-applied edits for this version, by the spot they came from (Task 10a).
+  sentEdits: SentEditIndex
   item: ContentRow
   showIntro: boolean
   backHref: string
@@ -177,6 +180,17 @@ export function deriveWorkspaceData(input: DeriveInput): WorkspaceData {
       width: coverAsset.width_px, height: coverAsset.height_px }
     : null
 
+  const visualTarget = pickVisualTarget(layout, preview, input.reviewAssets, designLinks)
+  // A whole-visual note has a place on the page only where the media area or the cover tab is.
+  const visualSpot = expectsMedia || tabs.some((tab) => tab.kind === 'cover')
+  const sentEdits = buildSentEditIndex({
+    requests: input.requests, version: item.version, tabs,
+    visualKey: visualSpot ? visualTarget?.key ?? null : null,
+    coverKey: null,
+    frameCount: visualTarget?.anchors ? preview?.frames.length ?? 0 : 0,
+    visualWord: layout === 'pages' ? 'page' : 'frame',
+  })
+
   const status = headerStatus({
     isPublished, publication: input.publication, schedule: input.schedule.targets, plannedDate: item.planned_date, layout,
   })
@@ -200,7 +214,7 @@ export function deriveWorkspaceData(input: DeriveInput): WorkspaceData {
     fallbackMedia,
     episodeDriveUrl: layout === 'horizontal' && isHttps(item.drive_url) ? item.drive_url : null,
     mediaPending: expectsMedia && !preview && fallbackMedia.length === 0,
-    visualTarget: pickVisualTarget(layout, preview, input.reviewAssets, designLinks),
+    visualTarget,
     cover,
     status,
     approvedLabel: status.kind === 'scheduled' || status.kind === 'unconfirmed'
@@ -231,6 +245,7 @@ export function deriveWorkspaceData(input: DeriveInput): WorkspaceData {
     factCheckExemption: item.fact_check_exemption,
     requests: input.requests,
     requestMessages: input.requestMessages,
+    sentEdits,
     item,
     showIntro: input.showIntro,
     backHref: input.backHref,

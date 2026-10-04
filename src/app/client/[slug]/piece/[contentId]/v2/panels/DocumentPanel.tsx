@@ -8,6 +8,7 @@ import TrackedText from '@/components/portal/editor/TrackedText'
 import ChangedMarkdown from '../ChangedMarkdown'
 import CarriedDraftNotice from '../CarriedDraftNotice'
 import { EditSlot, useEditorHost } from '../EditorHost'
+import { SentCopyMarker } from '../SentEdits'
 import styles from '../piece-page.module.css'
 import { editedSegments, useBlockDraft } from './use-block-draft'
 
@@ -56,6 +57,7 @@ function DocumentBlock({ block, tab, page, onPageChange, pageThumbs, before, can
             ? <TrackedText base={block.body} current={source} />
             : <ChangedMarkdown body={source} before={previous} />}
         </EditSlot>
+        <SentCopyMarker spot={wholeSlot} />
         {editable && <div className={styles.blockActions}><button type="button" className={styles.link} onClick={openWhole}>Edit text</button></div>}
       </div>
       : <>
@@ -83,6 +85,7 @@ function DocumentBlock({ block, tab, page, onPageChange, pageThumbs, before, can
                     </div>
                     : <ChangedMarkdown body={segmentText(segment)} before={previous} className={styles.frameText} />}
                 </EditSlot>
+                <SentCopyMarker spot={`${block.key}:page:${index}`} />
               </div>
               <div className={styles.ractions}>
                 {editable && <button type="button" className={styles.link} aria-label={`Edit text, ${segment.label}`}

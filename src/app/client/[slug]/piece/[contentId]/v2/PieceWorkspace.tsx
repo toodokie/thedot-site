@@ -18,6 +18,7 @@ import PieceHeader from './PieceHeader'
 import QuestionsDrawer, { type DrawerTab } from './QuestionsDrawer'
 import ReviewTicksProvider, { useReviewTicks } from './ReviewTicksProvider'
 import ScheduleRequest from './ScheduleRequest'
+import { SentEditsElsewhere, SentEditsProvider } from './SentEdits'
 import ArticlePanel from './panels/ArticlePanel'
 import ChaptersPanel from './panels/ChaptersPanel'
 import CopyPanel from './panels/CopyPanel'
@@ -43,7 +44,9 @@ export default function PieceWorkspace({ data, mode, draftScope, serverDrafts, t
     <ReviewTicksProvider key={data.version} slug={data.slug} contentId={data.contentId} version={data.version} scope={draftScope}
       initial={ticks} persist={mode === 'client'}>
       <EditorHost mode={mode}>
-        <WorkspaceBody data={data} mode={mode} />
+        <SentEditsProvider index={data.sentEdits}>
+          <WorkspaceBody data={data} mode={mode} />
+        </SentEditsProvider>
       </EditorHost>
     </ReviewTicksProvider>
   </ReviewDraftProvider>
@@ -167,6 +170,7 @@ function WorkspaceBody({ data, mode }: { data: WorkspaceData; mode: WorkspaceMod
 
   const visualCarried = carriedDrafts.filter((draft) => draft.kind !== 'copy_block')
   const copy = <section aria-label="Copy">
+    <SentEditsElsewhere />
     {visualCarried.map((draft) => <CarriedDraftNotice key={draftIdentity(draft)} draft={draft} currentText="" version={data.version} />)}
     {data.tabs.length > 0 && <CopySwitcher idPrefix="piece" tabs={data.tabs} active={activeTab?.key ?? ''} onSelect={setActive}
       ticked={ticked} draftCounts={draftCounts} updated={new Set(data.updatedTabKeys)} />}

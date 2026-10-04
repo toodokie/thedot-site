@@ -1,5 +1,6 @@
 'use client'
 
+import { SentVisualMarker } from './SentEdits'
 import styles from './piece-page.module.css'
 
 // Spec 4.2: the frame strip under a video is a 4-across grid (no horizontal scroll, one-line
@@ -32,6 +33,7 @@ export default function FrameGrid({ title, frames, collapsed, onSuggest, onImage
         <div className={styles.fgN}>{index + 1} · {frame.label}</div>
         {onSuggest && <button type="button" className={styles.link} aria-label={`Suggest a change to frame ${index + 1}`}
           onClick={() => onSuggest(index)}>Suggest a change</button>}
+        <SentVisualMarker spot={`frame:${index + 1}`} />
       </li>)}
     </ol>
   </section>

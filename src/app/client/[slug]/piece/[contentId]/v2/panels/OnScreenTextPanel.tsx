@@ -8,6 +8,7 @@ import TrackedText from '@/components/portal/editor/TrackedText'
 import ChangedMarkdown from '../ChangedMarkdown'
 import CarriedDraftNotice from '../CarriedDraftNotice'
 import { EditSlot, useEditorHost } from '../EditorHost'
+import { SentCopyMarker, SentVisualMarker } from '../SentEdits'
 import styles from '../piece-page.module.css'
 import { editedSegments, useBlockDraft } from './use-block-draft'
 
@@ -60,6 +61,7 @@ function OnScreenBlock({ block, frames, before, canEdit, onSuggestFrame, version
             ? <TrackedText base={block.body} current={source} />
             : <ChangedMarkdown body={source} before={previous} />}
         </EditSlot>
+        <SentCopyMarker spot={wholeSlot} />
         {editable && <div className={styles.blockActions}>
           <button type="button" className={styles.link} onClick={openWhole}>Edit text</button>
         </div>}
@@ -86,6 +88,8 @@ function OnScreenBlock({ block, frames, before, canEdit, onSuggestFrame, version
                     </div>
                     : <ChangedMarkdown body={segmentText(segment)} before={previous} className={styles.frameText} />}
                 </EditSlot>
+                <SentCopyMarker spot={`${block.key}:frame:${index}`} />
+                <SentVisualMarker spot={`frame:${segment.number}`} />
               </div>
               <div className={styles.ractions}>
                 {editable && <button type="button" className={styles.link} aria-label={`Edit text, ${segment.label}`}

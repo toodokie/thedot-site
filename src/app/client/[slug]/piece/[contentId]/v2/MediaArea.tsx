@@ -9,6 +9,7 @@ import { reportReviewPlaybackFailure } from '../../../playback-actions'
 import ReviewVideoPlayer, { type PlaybackReport } from './ReviewVideoPlayer'
 import FrameGrid from './FrameGrid'
 import PageViewer from './PageViewer'
+import { SentVisualMarker } from './SentEdits'
 import styles from './piece-page.module.css'
 
 // The format-adaptive media area (spec 4.2). Previews are portal-hosted signed links (plan 2);
@@ -54,6 +55,7 @@ export default function MediaArea(props: {
   if (props.mediaPending) {
     return <div className={styles.phMedia}>
       <p>{props.layout === 'pages' ? 'Pages coming. You can review the text now.' : 'Video coming. You can review the text now.'}</p>
+      <SentVisualMarker spot="whole" />
     </div>
   }
 
@@ -62,6 +64,7 @@ export default function MediaArea(props: {
       {imagesNotice}
       <PageViewer key={imageAttempt} title={props.title} pages={preview.frames} page={props.page} onPageChange={props.onPageChange}
         onSuggest={props.onSuggestAt} onImageError={onImageError} />
+      <SentVisualMarker spot="whole" />
     </div>
   }
 
@@ -79,6 +82,7 @@ export default function MediaArea(props: {
         {horizontal && props.episodeDriveUrl && <a className={`${styles.link} ${styles.linkSmall}`} href={props.episodeDriveUrl}
           target="_blank" rel="noreferrer">Open the full episode in Drive</a>}
       </div>
+      <SentVisualMarker spot="whole" />
       {imagesNotice}
       <FrameGrid key={imageAttempt} title={props.title} frames={preview.frames} collapsed={props.framesCollapsed}
         onSuggest={props.onSuggestAt} onImageError={onImageError} />
@@ -91,6 +95,7 @@ export default function MediaArea(props: {
       {props.fallbackMedia.map((media) => <Button key={media.url} as="a" href={media.url} target="_blank" rel="noreferrer"
         variant="ghost" size="sm">Open {media.label}</Button>)}
       {props.onSuggestWhole && <button type="button" className={styles.link} onClick={props.onSuggestWhole}>Suggest a change</button>}
+      <SentVisualMarker spot="whole" />
     </div>
   }
 

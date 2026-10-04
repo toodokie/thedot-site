@@ -56,6 +56,12 @@ describe('piece page stylesheet (spec 10, 10a; mockups v3)', () => {
     expect(css).toMatch(/@media \(max-width: 767px\)/)
   })
 
+  it('keeps a sent edit disclosure a 44px target, collapsed and read-only (Task 10a)', () => {
+    expect(css).toMatch(/\.sentSummary\s*\{[^}]*min-height:\s*44px/)
+    expect(css).toMatch(/\.sentSummary\s*\{[^}]*cursor:\s*pointer/)
+    expect(css).toMatch(/\.sentNote\s*\{[^}]*white-space:\s*pre-wrap/)
+  })
+
   it('gives the in-place editor one focus ring, the editor surface own', () => {
     expect(css).not.toMatch(/\.inlineEditor:focus-within/)
   })

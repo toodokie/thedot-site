@@ -1,5 +1,6 @@
 'use client'
 
+import { SentVisualMarker } from '../SentEdits'
 import styles from '../piece-page.module.css'
 
 export type CoverInfo = { label: string; url: string; previewUrl: string | null; width: number; height: number }
@@ -16,5 +17,6 @@ export default function CoverImagePanel({ cover, onSuggest }: { cover: CoverInfo
       <a className={styles.link} href={cover.url} target="_blank" rel="noopener noreferrer">Open the cover in Drive</a>
       {onSuggest && <button type="button" className={styles.link} onClick={onSuggest}>Suggest a change</button>}
     </div>
+    <SentVisualMarker spot="whole" />
   </div>
 }

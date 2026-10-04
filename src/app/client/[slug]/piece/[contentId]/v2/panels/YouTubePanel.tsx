@@ -10,6 +10,7 @@ import ChangedMarkdown from '../ChangedMarkdown'
 import CarriedDraftNotice from '../CarriedDraftNotice'
 import { EditSlot, useEditorHost } from '../EditorHost'
 import { TagsBlockForm, TitleBlockForm, YouTubePackageForm } from '../editors/YouTubeForms'
+import { SentCopyMarker } from '../SentEdits'
 import styles from '../piece-page.module.css'
 import { useBlockDraft } from './use-block-draft'
 
@@ -92,5 +93,6 @@ function YouTubeBlock({ block, before, canEdit, version }: Props & { block: Revi
     </div>
     {carried && <CarriedDraftNotice draft={carried} currentText={block.body} version={version} onAdjust={openEditor} />}
     <EditSlot slotId={slotId}>{content}</EditSlot>
+    <SentCopyMarker spot={slotId} />
   </div>
 }

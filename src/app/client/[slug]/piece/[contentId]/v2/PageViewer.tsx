@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useSwipe } from './hooks'
+import { SentVisualMarker } from './SentEdits'
 import styles from './piece-page.module.css'
 
 // Spec 4.2: carousels, singles and LinkedIn PDFs page through in the media column. Arrows, swipe,
@@ -67,6 +68,7 @@ export default function PageViewer({ title, pages, page, onPageChange, onSuggest
       </button>}
       <span className={styles.meta}>Tap the page to enlarge</span>
     </div>
+    <SentVisualMarker spot={`page:${page + 1}`} />
     <ol className={styles.pthumbs} aria-label="All pages">
       {pages.map((item, index) => <li key={`${index}-${item.url}`}>
         <button type="button" className={styles.pthumb} aria-label={`Page ${index + 1}`}
