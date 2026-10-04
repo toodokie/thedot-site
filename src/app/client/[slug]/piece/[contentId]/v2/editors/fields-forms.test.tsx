@@ -6,7 +6,7 @@ vi.mock('@/app/client/[slug]/request-actions', () => ({ sendReviewBundle: vi.fn(
 vi.mock('@/app/client/[slug]/tick-actions', () => ({ tickReviewTabs: vi.fn(async () => ({ ok: true })) }))
 
 import { useReviewDrafts, type ReviewTarget } from '../../ReviewDraftProvider'
-import { renderInPage, stubDialogs } from '../test-utils'
+import { PageProviders, renderInPage, stubDialogs } from '../test-utils'
 import ChaptersForm from './ChaptersForm'
 import SearchForm from './SearchForm'
 
@@ -44,6 +44,17 @@ describe('ChaptersForm', () => {
     renderInPage(<ChaptersForm target={descriptionTarget} block={block} source={DESCRIPTION} />)
     fireEvent.change(screen.getByLabelText('Time, chapter 1'), { target: { value: '0 0' } })
     expect(screen.getByLabelText('Time, chapter 1')).toHaveAttribute('aria-invalid', 'true')
+  })
+
+  it('keeps a chapter row she has not finished when the editor closes and opens again', () => {
+    const view = renderInPage(<ChaptersForm target={descriptionTarget} block={block} source={DESCRIPTION} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Add a chapter' }))
+    fireEvent.change(screen.getByLabelText('Title, chapter 3'), { target: { value: 'No time yet' } })
+    view.rerender(<PageProviders><p>closed</p></PageProviders>)
+    expect(screen.queryByLabelText('Title, chapter 3')).not.toBeInTheDocument()
+    view.rerender(<PageProviders><ChaptersForm target={descriptionTarget} block={block} source={DESCRIPTION} /></PageProviders>)
+    expect(screen.getByLabelText('Title, chapter 3')).toHaveValue('No time yet')
+    expect(screen.getByText('Chapter 3 saves once it has a time like 12:30 and a title.')).toBeInTheDocument()
   })
 
   it('says plainly when YouTube would not show the chapters, and still saves them', async () => {

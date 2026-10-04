@@ -47,6 +47,10 @@ type ReviewDraftContextValue = {
   keepCarriedDraft: (draft: ReviewDraft) => void
   clearDrafts: () => void
   flush: () => Promise<boolean>
+  // Field text the codec cannot write into the block yet (an unfinished chapter row). Kept in
+  // memory and this browser for the version, so closing an editor never loses it. Never sent.
+  readFieldScratch: (target: ReviewTarget, field: string) => string | null
+  saveFieldScratch: (target: ReviewTarget, field: string, value: string | null) => void
   send: (note: string) => Promise<SendOutcome>
   syncState: DraftSyncState
   statusText: string | null
@@ -325,10 +329,41 @@ export default function ReviewDraftProvider({
     markPending(id, { op: 'save' })
   }, [discardInternal, markPending, putDraft, version])
 
+  const scratchRef = useRef<Record<string, string | null>>({})
+  const scratchPrefix = useMemo(() => `portal-edit-scratch:${piecePrefix.slice('portal-edit-draft:'.length)}v${version}:`, [piecePrefix, version])
+  const scratchKey = useCallback((target: ReviewTarget, field: string) =>
+    `${scratchPrefix}${encodeURIComponent(draftIdentity({ kind: target.kind, key: target.key, anchor: target.anchor ?? '' }))}:${encodeURIComponent(field)}`,
+  [scratchPrefix])
+
+  const readFieldScratch = useCallback((target: ReviewTarget, field: string): string | null => {
+    const key = scratchKey(target, field)
+    if (key in scratchRef.current) return scratchRef.current[key]
+    try { return window.localStorage.getItem(key) } catch { return null }
+  }, [scratchKey])
+
+  const saveFieldScratch = useCallback((target: ReviewTarget, field: string, value: string | null) => {
+    const key = scratchKey(target, field)
+    scratchRef.current = { ...scratchRef.current, [key]: value }
+    withStorage((storage) => { if (value === null) storage.removeItem(key); else storage.setItem(key, value) })
+  }, [scratchKey, withStorage])
+
+  const dropScratch = useCallback((prefix: string) => {
+    for (const key of Object.keys(scratchRef.current)) if (key.startsWith(prefix)) scratchRef.current[key] = null
+    withStorage((storage) => {
+      const doomed: string[] = []
+      for (let index = 0; index < storage.length; index += 1) {
+        const key = storage.key(index)
+        if (key?.startsWith(prefix)) doomed.push(key)
+      }
+      for (const key of doomed) storage.removeItem(key)
+    })
+  }, [withStorage])
+
   const removeDraft = useCallback((target: ReviewTarget) => {
     // The caller has already asked Maria to confirm (spec 6.1).
     discardInternal({ kind: target.kind, key: target.key, anchor: target.anchor ?? '' }, 'client_discarded')
-  }, [discardInternal])
+    dropScratch(scratchKey(target, ''))
+  }, [discardInternal, dropScratch, scratchKey])
 
   const keepCarriedDraft = useCallback((draft: ReviewDraft) => {
     const target = targetsRef.current[draftIdentity(draft)]
@@ -340,7 +375,8 @@ export default function ReviewDraftProvider({
 
   const clearDrafts = useCallback(() => {
     for (const draft of Object.values(storeRef.current)) dropDraft(draft)
-  }, [dropDraft])
+    dropScratch(scratchPrefix)
+  }, [dropDraft, dropScratch, scratchPrefix])
 
   const readDraft = useCallback((target: ReviewTarget): ReviewDraft | null => {
     const id = draftIdentity({ kind: target.kind, key: target.key, anchor: target.anchor ?? '' })
@@ -537,9 +573,9 @@ export default function ReviewDraftProvider({
 
   const value = useMemo<ReviewDraftContextValue>(() => ({
     drafts, currentDrafts, carriedDrafts, readDraft, saveDraft, removeDraft, keepCarriedDraft, clearDrafts,
-    flush, send, syncState, statusText, sendError, serverSync, storageAvailable, ready,
-  }), [carriedDrafts, clearDrafts, currentDrafts, drafts, flush, keepCarriedDraft, readDraft, ready, removeDraft,
-    saveDraft, send, sendError, serverSync, statusText, storageAvailable, syncState])
+    flush, readFieldScratch, saveFieldScratch, send, syncState, statusText, sendError, serverSync, storageAvailable, ready,
+  }), [carriedDrafts, clearDrafts, currentDrafts, drafts, flush, keepCarriedDraft, readDraft, readFieldScratch, ready,
+    removeDraft, saveDraft, saveFieldScratch, send, sendError, serverSync, statusText, storageAvailable, syncState])
 
   return <ReviewDraftContext.Provider value={value}>{children}</ReviewDraftContext.Provider>
 }

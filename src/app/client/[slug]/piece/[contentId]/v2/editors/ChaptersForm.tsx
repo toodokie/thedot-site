@@ -31,21 +31,34 @@ export function chapterProblems(rows: ChapterItem[]): string[] {
   return problems
 }
 
+function readRows(value: string | null): ChapterItem[] | null {
+  if (!value) return null
+  try {
+    const rows: unknown = JSON.parse(value)
+    if (!Array.isArray(rows)) return null
+    return rows.filter((row): row is ChapterItem => Boolean(row) && typeof row.time === 'string' && typeof row.title === 'string')
+  } catch {
+    return null
+  }
+}
+
 // Chapters are a time and a title per row, written back into the chapter lines of the description
-// and nowhere else (replaceChapters). A row saves once it has a time and a title; the list needs
-// two complete rows to stay a chapter list, and until then the last saved version stands.
+// and nowhere else (replaceChapters). A row goes into the description once it has a time and a
+// title; the list needs two complete rows to stay a chapter list. Rows the description cannot hold
+// yet are kept as she typed them in the provider's field scratch, so closing never loses them.
 export default function ChaptersForm({ target, block, source }: { target: ReviewTarget; block: ReviewCopyBlock; source: string }) {
-  const { saveDraft } = useReviewDrafts()
+  const { saveDraft, readFieldScratch, saveFieldScratch } = useReviewDrafts()
   const isDescription = block.key === 'youtube-description'
   const pkg = useMemo(() => (isDescription ? null : parseYouTubePackage(source)), [isDescription, source])
   const description = isDescription ? source : (pkg ? youTubeFieldValue(pkg, 'description') ?? '' : '')
   const chapters = useMemo(() => findChapters(description), [description])
-  const [rows, setRows] = useState<ChapterItem[]>(() => chapters?.items ?? [])
+  const [rows, setRows] = useState<ChapterItem[]>(() => readRows(readFieldScratch(target, 'chapters')) ?? chapters?.items ?? [])
   if (!chapters) return <p className={styles.meta}>No chapters in this version.</p>
 
   function update(next: ChapterItem[]) {
     setRows(next)
     if (!chapters) return
+    saveFieldScratch(target, 'chapters', next.every(complete) ? null : JSON.stringify(next))
     const ready = next.filter(complete)
     if (ready.length < 2) return
     const nextDescription = replaceChapters(description, chapters, ready)
@@ -72,7 +85,7 @@ export default function ChaptersForm({ target, block, source }: { target: Review
           onClick={() => update(rows.filter((_, i) => i !== index))}>Remove</button>
       </li>)}
     </ol>
-    <button type="button" className={styles.link} onClick={() => setRows([...rows, { time: '', title: '' }])}>Add a chapter</button>
+    <button type="button" className={styles.link} onClick={() => update([...rows, { time: '', title: '' }])}>Add a chapter</button>
     <div role="status">
       {waiting.map((n) => <p key={n} className={styles.hint}>Chapter {n} saves once it has a time like 12:30 and a title.</p>)}
       {ready.length < 2 && <p className={styles.hint}>Keep at least two chapters with a time and a title. Until then your last saved list stands.</p>}
