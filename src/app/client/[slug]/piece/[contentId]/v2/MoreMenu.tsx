@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { createPortal } from 'react-dom'
 import RemovalRequestForm from '../RemovalRequestForm'
 import styles from './piece-page.module.css'
 
@@ -51,7 +52,8 @@ export default function MoreMenu({ idPrefix, removal }: {
 
   async function copyLink() {
     try {
-      await navigator.clipboard.writeText(window.location.href)
+      // The page itself: no query (open tab) or fragment from this session.
+      await navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}`)
       setCopied('copied')
     } catch {
       setCopied('failed')
@@ -78,7 +80,8 @@ export default function MoreMenu({ idPrefix, removal }: {
     <span className={styles.srOnly} role="status">
       {copied === 'copied' ? 'Link copied' : copied === 'failed' ? 'Could not copy the link' : ''}
     </span>
-    {removing && removal && <dialog ref={dialogRef} className={styles.dialog} aria-labelledby={`${idPrefix}-removal-title`}
+    {/* Portalled to <body>: the condensed bar is inert while hidden, and a dialog inside it would be too. */}
+    {removing && removal && createPortal(<dialog ref={dialogRef} className={styles.dialog} aria-labelledby={`${idPrefix}-removal-title`}
       onClose={() => { setRemoving(false); buttonRef.current?.focus() }}>
       <div className={styles.dialogHead}>
         <h2 id={`${idPrefix}-removal-title`}>Request removal</h2>
@@ -86,6 +89,6 @@ export default function MoreMenu({ idPrefix, removal }: {
           onClick={() => dialogRef.current?.close()}>×</button>
       </div>
       <RemovalRequestForm slug={removal.slug} contentId={removal.contentId} idempotencyKey={removal.idempotencyKey} startOpen />
-    </dialog>}
+    </dialog>, document.body)}
   </div>
 }
