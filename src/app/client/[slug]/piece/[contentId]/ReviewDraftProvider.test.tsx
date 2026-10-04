@@ -74,7 +74,7 @@ beforeEach(() => {
   }) => ({ outcome: 'saved', draft: row({ id: '22222222-2222-4222-8222-222222222222', body: input.body,
     saved_at: input.savedAt, base_version: input.baseVersion, target_key: input.targetKey }) }))
   actions.discardReviewDraft.mockResolvedValue({ outcome: 'discarded' })
-  actions.reportReviewSendFailure.mockResolvedValue(undefined)
+  actions.reportReviewSendFailure.mockResolvedValue({ recorded: true, retryable: false })
 })
 afterEach(() => { vi.useRealTimers() })
 
@@ -279,6 +279,32 @@ describe('sending', () => {
       slug: 'kanset', contentId: 'piece', contentVersion: 2, draftIds: [SERVER_ID],
       drafts: [expect.objectContaining({ proposedText: 'Server text' })],
     })))
+  })
+
+  it('retries the failure report on the save retry schedule until it is written down', async () => {
+    vi.useFakeTimers()
+    actions.sendReviewDrafts.mockRejectedValue(new TypeError('Failed to fetch'))
+    actions.reportReviewSendFailure
+      .mockResolvedValueOnce({ recorded: false, retryable: true })
+      .mockResolvedValueOnce({ recorded: true, retryable: false })
+    mount([row()])
+    await act(async () => { await api.send('') })
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(actions.reportReviewSendFailure).toHaveBeenCalledTimes(1)
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000) })
+    expect(actions.reportReviewSendFailure).toHaveBeenCalledTimes(2)
+    await act(async () => { await vi.advanceTimersByTimeAsync(60000) })
+    expect(actions.reportReviewSendFailure).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not retry a failure report the server says it will never accept', async () => {
+    vi.useFakeTimers()
+    actions.sendReviewDrafts.mockRejectedValue(new TypeError('Failed to fetch'))
+    actions.reportReviewSendFailure.mockResolvedValue({ recorded: false, retryable: false })
+    mount([row()])
+    await act(async () => { await api.send('') })
+    await act(async () => { await vi.advanceTimersByTimeAsync(60000) })
+    expect(actions.reportReviewSendFailure).toHaveBeenCalledTimes(1)
   })
 
   it('does not send while a draft has not reached the server', async () => {

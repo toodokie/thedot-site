@@ -36,6 +36,7 @@ export type AgencyReviewDraftRow = ServerDraftRow & {
 export const AGENCY_DRAFT_COLUMNS = `${SERVER_DRAFT_COLUMNS}, client_id, auth_user_id, sent_at, discarded_at, discard_reason, send_attempts`
 
 // Agency Ops (plan 5): every seat's drafts on one piece, read-only through service_role.
+// Callers must require an admin session (requireAdminSession) first: this bypasses RLS.
 export async function getAgencyReviewDrafts(contentItemId: string): Promise<AgencyReviewDraftRow[]> {
   const { data, error } = await createSupabaseAdmin().from('content_review_drafts').select(AGENCY_DRAFT_COLUMNS)
     .eq('content_item_id', contentItemId).order('saved_at', { ascending: false }).limit(500)
@@ -44,6 +45,7 @@ export async function getAgencyReviewDrafts(contentItemId: string): Promise<Agen
 }
 
 // Agency Ops (plan 5): unsent drafts older than 24 hours on a piece due within 3 days.
+// Callers must require an admin session (requireAdminSession) first: this runs as service_role.
 export async function getUnsentDraftAlerts(now: Date = new Date()): Promise<UnsentDraftAlert[]> {
   const { data, error } = await createSupabaseAdmin().rpc('agency_unsent_review_draft_alerts', {
     p_now: now.toISOString(),

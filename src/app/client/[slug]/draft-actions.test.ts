@@ -74,6 +74,18 @@ describe('saveReviewDraft', () => {
     expect(mocks.rpc).not.toHaveBeenCalled()
   })
 
+  it('takes the client and seat from the session, never from the input', async () => {
+    mocks.rpc.mockResolvedValue({ data: { outcome: 'saved', draft: { id: DRAFT_A } }, error: null })
+    await saveReviewDraft({ ...SAVE, clientId: 'forged-client', clientSlug: 'other', userId: 'forged-user',
+      auth_user_id: 'forged-user', p_client_id: 'forged-client' } as never)
+    expect(mocks.getContentItem).toHaveBeenCalledWith('client-1', 'piece')
+    const args = mocks.rpc.mock.calls[0][1]
+    expect(JSON.stringify(args)).not.toMatch(/forged/)
+    expect(Object.keys(args).sort()).toEqual(['p_anchor', 'p_anchor_label', 'p_base_version', 'p_body',
+      'p_content_id', 'p_quoted_text', 'p_saved_at', 'p_target_key', 'p_target_kind', 'p_target_label',
+      'p_url_snapshot'])
+  })
+
   it('refuses a seat that cannot submit edits without calling the database', async () => {
     mocks.getClientSession.mockResolvedValue({ ...SESSION, canSubmitRequests: false })
     expect(await saveReviewDraft(SAVE)).toMatchObject({ retryable: false })
@@ -161,6 +173,28 @@ describe('sendReviewDrafts', () => {
     expect(mocks.recordRefusal.mock.calls.every(([record]) => record.reason === 'empty_bundle')).toBe(true)
   })
 
+  it('never assumes every draft was sent when the database does not say which were', async () => {
+    mocks.rpc.mockResolvedValue({ data: { bundle_id: 'b1', request_ids: ['r1'], outcome: 'created' }, error: null })
+    const missing = await sendReviewDrafts(SEND)
+    expect(missing.success).toBeUndefined()
+    expect(missing.error).toMatch(/could not confirm/)
+    mocks.rpc.mockResolvedValue({ data: { bundle_id: 'b1', request_ids: ['r1'], outcome: 'created',
+      sent_draft_ids: [DRAFT_A] }, error: null })
+    const partial = await sendReviewDrafts(SEND)
+    expect(partial.success).toBeUndefined()
+    expect(mocks.recordRefusal).toHaveBeenCalledTimes(2)
+    expect(mocks.recordRefusal.mock.calls.every(([record]) => record.reason === 'write_failed')).toBe(true)
+  })
+
+  it('logs refusals against the session seat and client, ignoring forged input', async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { message: 'boom' } })
+    await sendReviewDrafts({ ...SEND, clientId: 'forged-client', userId: 'forged-user' } as never)
+    expect(mocks.getContentItem).toHaveBeenCalledWith('client-1', 'piece')
+    expect(mocks.recordRefusal).toHaveBeenCalledWith(expect.objectContaining({
+      clientId: 'client-1', requestedBy: 'user-1', requesterName: 'Maria Guerts' }))
+    expect(JSON.stringify(mocks.rpc.mock.calls[0][1])).not.toMatch(/forged/)
+  })
+
   it('refuses a page that is behind the released version', async () => {
     mocks.getContentItem.mockResolvedValue({ id: 'item-1', content_id: 'piece', version: 3 })
     const result = await sendReviewDrafts(SEND)
@@ -171,17 +205,35 @@ describe('sendReviewDrafts', () => {
 
 describe('reportReviewSendFailure', () => {
   it('records a send that never reached the server, with her text', async () => {
-    await reportReviewSendFailure({ slug: 'kanset', contentId: 'piece', contentVersion: 2, draftIds: [DRAFT_A, 'nope'],
-      drafts: [{ targetKind: 'copy_block', targetKey: 'caption', targetLabel: 'Caption', proposedText: 'Typed on the train' }] })
+    mocks.recordRefusal.mockResolvedValue({ recorded: true })
+    expect(await reportReviewSendFailure({ slug: 'kanset', contentId: 'piece', contentVersion: 2, draftIds: [DRAFT_A, 'nope'],
+      drafts: [{ targetKind: 'copy_block', targetKey: 'caption', targetLabel: 'Caption', proposedText: 'Typed on the train' }] }))
+      .toEqual({ recorded: true, retryable: false })
     expect(mocks.recordRefusal).toHaveBeenCalledWith(expect.objectContaining({
       reason: 'network_unreachable', clientMessage: "Couldn't send. Retry", contentItemId: 'item-1',
       draftIds: [DRAFT_A], drafts: [expect.objectContaining({ proposedText: 'Typed on the train' })],
     }))
+    expect(mocks.getContentItem).toHaveBeenCalledWith('client-1', 'piece')
+  })
+
+  it('tells the browser to retry when the failure could not be written down', async () => {
+    mocks.recordRefusal.mockResolvedValue({ recorded: false })
+    expect(await reportReviewSendFailure({ slug: 'kanset', contentId: 'piece', contentVersion: 2, draftIds: [],
+      drafts: [] })).toEqual({ recorded: false, retryable: true })
+  })
+
+  it('records it against the session client and seat, ignoring forged input', async () => {
+    mocks.recordRefusal.mockResolvedValue({ recorded: true })
+    await reportReviewSendFailure({ slug: 'kanset', contentId: 'piece', contentVersion: 2, draftIds: [], drafts: [],
+      clientId: 'forged-client', requestedBy: 'forged-user' } as never)
+    expect(mocks.recordRefusal).toHaveBeenCalledWith(expect.objectContaining({
+      clientId: 'client-1', requestedBy: 'user-1' }))
   })
 
   it('records nothing for a seat that cannot submit edits', async () => {
     mocks.getClientSession.mockResolvedValue({ ...SESSION, canSubmitRequests: false })
-    await reportReviewSendFailure({ slug: 'kanset', contentId: 'piece', contentVersion: 2, draftIds: [], drafts: [] })
+    expect(await reportReviewSendFailure({ slug: 'kanset', contentId: 'piece', contentVersion: 2, draftIds: [],
+      drafts: [] })).toEqual({ recorded: false, retryable: false })
     expect(mocks.recordRefusal).not.toHaveBeenCalled()
   })
 })

@@ -232,15 +232,23 @@ export async function sendReviewDrafts(input: {
       await withText(failed))
   }
   const result = data && typeof data === 'object' ? data as Record<string, unknown> : {}
+  const strings = (value: unknown) => Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === 'string') : []
+  // Never assume every draft went: the browser clears exactly what the database says it sent. An
+  // answer that does not name every draft is treated as a refusal; a retry with the same key gets
+  // the full answer back from the idempotent path, and nothing is sent twice.
+  const sentDraftIds = strings(result.sent_draft_ids)
+  if (!Array.isArray(result.sent_draft_ids) || draftIds.some((id) => !sentDraftIds.includes(id))) {
+    return refuse('The portal could not confirm your edits were sent. They are still saved. Send them again.',
+      'write_failed', await withText({ contentItemId: item.id }))
+  }
   revalidatePath(`/client/${input.slug}`)
   revalidatePath(`/client/${input.slug}/requests`)
   revalidatePath(`/client/${input.slug}/piece/${input.contentId}`)
-  const strings = (value: unknown) => Array.isArray(value)
-    ? value.filter((entry): entry is string => typeof entry === 'string') : []
   return {
     success: draftIds.length === 1 ? 'Your edit was sent to The Dot.' : `Your ${draftIds.length} edits were sent to The Dot.`,
     requestIds: strings(result.request_ids),
-    sentDraftIds: Array.isArray(result.sent_draft_ids) ? strings(result.sent_draft_ids) : draftIds,
+    sentDraftIds,
   }
 }
 
@@ -252,9 +260,11 @@ export async function reportReviewSendFailure(input: {
   contentVersion: number
   draftIds: string[]
   drafts: RefusedDraft[]
-}): Promise<void> {
+}): Promise<{ recorded: boolean; retryable: boolean }> {
   const session = await getClientSession(input.slug)
-  if (!session || !session.canSubmitRequests) return
+  // A lapsed session can come back (the next request refreshes it), so the browser tries again.
+  if (!session) return { recorded: false, retryable: true }
+  if (!session.canSubmitRequests) return { recorded: false, retryable: false }
   const str = (value: unknown) => (typeof value === 'string' ? value : null)
   const drafts = (Array.isArray(input.drafts) ? input.drafts : []).slice(0, 50).map((draft) => ({
     targetKind: str(draft?.targetKind),
@@ -265,7 +275,7 @@ export async function reportReviewSendFailure(input: {
   const draftIds = (Array.isArray(input.draftIds) ? input.draftIds : [])
     .filter((id) => typeof id === 'string' && UUID.test(id)).slice(0, 50)
   const item = await getContentItem(session.clientId, input.contentId).catch(() => null)
-  await recordRefusal({
+  const { recorded } = await recordRefusal({
     clientId: session.clientId,
     contentItemId: item?.id ?? null,
     contentId: input.contentId,
@@ -277,4 +287,5 @@ export async function reportReviewSendFailure(input: {
     drafts,
     draftIds,
   })
+  return { recorded, retryable: !recorded }
 }

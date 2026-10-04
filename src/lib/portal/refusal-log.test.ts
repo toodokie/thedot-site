@@ -49,9 +49,9 @@ describe('recording a refused edit', () => {
   it('never throws, whatever the database does', async () => {
     // Logging a refusal must not turn into a second failure on top of the one being logged.
     insert.mockResolvedValue({ error: { message: 'boom' } })
-    await expect(recordRefusal({ ...base })).resolves.toBeUndefined()
+    await expect(recordRefusal({ ...base })).resolves.toEqual({ recorded: false })
     insert.mockRejectedValue(new Error('connection lost'))
-    await expect(recordRefusal({ ...base })).resolves.toBeUndefined()
+    await expect(recordRefusal({ ...base })).resolves.toEqual({ recorded: false })
   })
 
   it('raises the attempt in Agency Ops with her draft ids (migration 0093)', async () => {
@@ -66,8 +66,14 @@ describe('recording a refused edit', () => {
     expect(rpc).not.toHaveBeenCalled()
   })
 
-  it('never throws when raising the event fails', async () => {
+  it('never throws when raising the event fails, and says it was not recorded', async () => {
     rpc.mockRejectedValue(new Error('down'))
-    await expect(recordRefusal({ ...base, reason: 'network_unreachable' })).resolves.toBeUndefined()
+    await expect(recordRefusal({ ...base, reason: 'network_unreachable' })).resolves.toEqual({ recorded: false })
+    rpc.mockResolvedValue({ data: null, error: { message: 'boom' } })
+    await expect(recordRefusal({ ...base, reason: 'network_unreachable' })).resolves.toEqual({ recorded: false })
+  })
+
+  it('says the failure was recorded once the row and the Agency Ops event are both written', async () => {
+    await expect(recordRefusal({ ...base, draftIds: ['d1'] })).resolves.toEqual({ recorded: true })
   })
 })

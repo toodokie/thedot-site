@@ -108,6 +108,7 @@ export default function ReviewDraftProvider({
   const inFlightRef = useRef<Promise<boolean> | null>(null)
   const sendKeyRef = useRef<string | null>(null)
   const failureReportRef = useRef<FailureReport | null>(null)
+  const reportTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const flushRef = useRef<() => Promise<boolean>>(async () => true)
   const [revision, bump] = useReducer((count: number) => count + 1, 0)
   const [pendingCount, setPendingCount] = useState(0)
@@ -308,13 +309,25 @@ export default function ReviewDraftProvider({
   const deliverFailureReport = useCallback(async () => {
     const report = failureReportRef.current
     if (!report) return
+    if (reportTimerRef.current) { clearTimeout(reportTimerRef.current); reportTimerRef.current = null }
+    let retry = true
     try {
-      await reportReviewSendFailure(report)
-      failureReportRef.current = null
+      const result = await reportReviewSendFailure(report)
+      // Written down, or refused for good (the seat cannot submit edits): stop either way.
+      if (!result || result.recorded || !result.retryable) retry = false
     } catch {
-      // Stays queued until the connection returns.
+      // The report itself did not arrive: keep it and try again.
     }
+    if (failureReportRef.current !== report) return
+    if (!retry) { failureReportRef.current = null; return }
+    // Same schedule as a failed save. Offline, it also goes again when the connection returns.
+    reportTimerRef.current = setTimeout(() => {
+      reportTimerRef.current = null
+      if (isOnline()) void deliverFailureReportRef.current()
+    }, SAVE_RETRY_DELAY_MS)
   }, [])
+  const deliverFailureReportRef = useRef(deliverFailureReport)
+  useEffect(() => { deliverFailureReportRef.current = deliverFailureReport }, [deliverFailureReport])
 
   const send = useCallback(async (note: string): Promise<SendOutcome> => {
     const isCurrent = (draft: ReviewDraft) => draft.baseVersion === version
@@ -429,7 +442,10 @@ export default function ReviewDraftProvider({
     }
   }, [deliverFailureReport, flush, serverSync])
 
-  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current) }, [])
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    if (reportTimerRef.current) clearTimeout(reportTimerRef.current)
+  }, [])
 
   const drafts = useMemo(() => Object.values(storeRef.current),
     // eslint-disable-next-line react-hooks/exhaustive-deps

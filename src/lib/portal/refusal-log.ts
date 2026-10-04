@@ -59,7 +59,11 @@ export type RefusalRecord = {
 // refusal never truncates the thing it exists to preserve.
 const TEXT_CAP = 200000
 
-export async function recordRefusal(record: RefusalRecord): Promise<void> {
+// `recorded` is true only when the failure row AND its Agency Ops event were both written, so a
+// caller that can retry (the browser's network-failure report) knows to try again.
+export type RefusalRecorded = { recorded: boolean }
+
+export async function recordRefusal(record: RefusalRecord): Promise<RefusalRecorded> {
   try {
     const attemptId = randomUUID()
     const drafts = record.drafts?.length ? record.drafts : [{}]
@@ -87,7 +91,7 @@ export async function recordRefusal(record: RefusalRecord): Promise<void> {
     const { error } = await admin.from('client_request_failures').insert(rows)
     if (error) {
       console.error('refusal log write failed:', error.message)
-      return
+      return { recorded: false }
     }
     // Spec 6.3 and 8: raise it in Agency Ops straight away (activity, inbox event, agency email)
     // and mark her drafts as failed. Migration 0093.
@@ -95,8 +99,13 @@ export async function recordRefusal(record: RefusalRecord): Promise<void> {
       p_attempt_id: attemptId,
       p_draft_ids: record.draftIds ?? [],
     })
-    if (eventError) console.error('refusal event write failed:', eventError.message)
+    if (eventError) {
+      console.error('refusal event write failed:', eventError.message)
+      return { recorded: false }
+    }
+    return { recorded: true }
   } catch (error) {
     console.error('refusal log threw:', error instanceof Error ? error.message : String(error))
+    return { recorded: false }
   }
 }
