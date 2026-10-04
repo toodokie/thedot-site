@@ -105,7 +105,7 @@ export type SignedReviewPreview = {
 export type SignedUrlStorage = {
   from(bucket: string): {
     createSignedUrls(paths: string[], expiresIn: number): Promise<{
-      data: Array<{ path: string | null; signedUrl: string; error: string | null }> | null
+      data: Array<{ path: string | null; signedUrl: string | null; error: string | null }> | null
       error: { message: string } | null
     }>
   }
