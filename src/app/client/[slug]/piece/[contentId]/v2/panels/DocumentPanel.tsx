@@ -8,7 +8,7 @@ import TrackedText from '@/components/portal/editor/TrackedText'
 import ChangedMarkdown from '../ChangedMarkdown'
 import CarriedDraftNotice from '../CarriedDraftNotice'
 import { EditSlot, useEditorHost } from '../EditorHost'
-import { SentCopyMarker } from '../SentEdits'
+import { SentCopyMarker, useSentSegmentSpots } from '../SentEdits'
 import styles from '../piece-page.module.css'
 import { editedSegments, useBlockDraft } from './use-block-draft'
 
@@ -35,6 +35,7 @@ function DocumentBlock({ block, tab, page, onPageChange, pageThumbs, before, can
   const segmented = segmentBlock(source, 'pages')
   const baseSegments = segmentBlock(block.body, 'pages').segments
   const edited = editedSegments(block.body, source, 'pages')
+  const sentSpots = useSentSegmentSpots(block.key, block.body, source, 'pages')
   const editable = canEdit && Boolean(block.key)
   const previous = draft ? null : before[block.key ?? ''] ?? null
   const wholeSlot = `${block.key}:whole`
@@ -85,7 +86,7 @@ function DocumentBlock({ block, tab, page, onPageChange, pageThumbs, before, can
                     </div>
                     : <ChangedMarkdown body={segmentText(segment)} before={previous} className={styles.frameText} />}
                 </EditSlot>
-                <SentCopyMarker spot={`${block.key}:page:${index}`} />
+                {sentSpots[index] && <SentCopyMarker spot={sentSpots[index] as string} />}
               </div>
               <div className={styles.ractions}>
                 {editable && <button type="button" className={styles.link} aria-label={`Edit text, ${segment.label}`}

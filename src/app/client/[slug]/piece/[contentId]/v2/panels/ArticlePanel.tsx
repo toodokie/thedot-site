@@ -7,7 +7,7 @@ import JumpToEdits from '../editors/JumpToEdits'
 import ChangedMarkdown from '../ChangedMarkdown'
 import CarriedDraftNotice from '../CarriedDraftNotice'
 import { EditSlot, useEditorHost } from '../EditorHost'
-import { SentCopyMarker } from '../SentEdits'
+import { SentCopyMarker, useSentSegmentSpots } from '../SentEdits'
 import styles from '../piece-page.module.css'
 import { editedSegments, useBlockDraft } from './use-block-draft'
 
@@ -26,6 +26,7 @@ export default function ArticlePanel({ tab, coverUrl, before, canEdit, version }
   const segmented = segmentBlock(source, 'sections')
   const baseSegments = segmentBlock(block.body, 'sections').segments
   const edited = editedSegments(block.body, source, 'sections')
+  const sentSpots = useSentSegmentSpots(block.key, block.body, source, 'sections')
   const previous = draft ? null : before[block.key ?? ''] ?? null
   const editable = canEdit && Boolean(block.key)
   const openWhole = () => open({
@@ -70,7 +71,7 @@ export default function ArticlePanel({ tab, coverUrl, before, canEdit, version }
               </div>
               : <ChangedMarkdown body={body} before={previous} className={styles.copy} />}
           </EditSlot>
-          <SentCopyMarker spot={`${block.key}:section:${index}`} />
+          {sentSpots[index] && <SentCopyMarker spot={sentSpots[index] as string} />}
         </section>
       })}
     </article>

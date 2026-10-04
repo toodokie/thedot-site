@@ -8,7 +8,7 @@ import TrackedText from '@/components/portal/editor/TrackedText'
 import ChangedMarkdown from '../ChangedMarkdown'
 import CarriedDraftNotice from '../CarriedDraftNotice'
 import { EditSlot, useEditorHost } from '../EditorHost'
-import { SentCopyMarker, SentVisualMarker } from '../SentEdits'
+import { SentCopyMarker, SentVisualMarker, useSentSegmentSpots } from '../SentEdits'
 import styles from '../piece-page.module.css'
 import { editedSegments, useBlockDraft } from './use-block-draft'
 
@@ -36,6 +36,10 @@ function OnScreenBlock({ block, frames, before, canEdit, onSuggestFrame, version
   const baseSegments = segmentBlock(block.body, 'frames').segments
   const edited = editedSegments(block.body, source, 'frames')
   const total = segmented.segments.length
+  const sentSpots = useSentSegmentSpots(block.key, block.body, source, 'frames')
+  // A note on a video still sits beside a text frame only when the stills and the text frames are
+  // the same frames: the same count, and a text frame named as the still is (Frame n).
+  const stillsMatchText = frames.length === total
   const previous = draft ? null : before[block.key ?? ''] ?? null
   const editable = canEdit && Boolean(block.key)
   const wholeSlot = `${block.key}:whole`
@@ -88,8 +92,8 @@ function OnScreenBlock({ block, frames, before, canEdit, onSuggestFrame, version
                     </div>
                     : <ChangedMarkdown body={segmentText(segment)} before={previous} className={styles.frameText} />}
                 </EditSlot>
-                <SentCopyMarker spot={`${block.key}:frame:${index}`} />
-                <SentVisualMarker spot={`frame:${segment.number}`} />
+                {sentSpots[index] && <SentCopyMarker spot={sentSpots[index] as string} />}
+                {stillsMatchText && segment.label === `Frame ${segment.number}` && <SentVisualMarker spot={`frame:${segment.number}`} />}
               </div>
               <div className={styles.ractions}>
                 {editable && <button type="button" className={styles.link} aria-label={`Edit text, ${segment.label}`}

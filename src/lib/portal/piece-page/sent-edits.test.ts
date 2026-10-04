@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ContentRequestRow } from '@/lib/portal/request-target'
 import type { CopyTab } from './copy-tabs'
-import { buildSentEditIndex, splitVisualNote } from './sent-edits'
+import { buildSentEditIndex, placeReleasedSegments, splitVisualNote } from './sent-edits'
 
 const SCRIPT = '**1.** FOR EMPLOYERS\n\n**2.** $1,000 PER POSITION'
 const tabs: CopyTab[] = [
@@ -73,5 +73,31 @@ describe('buildSentEditIndex', () => {
       request(payload, { status: 'rejected' }), request(payload, { base_version: 1 }), request(payload, { request_type: 'archive' }),
     ] })
     expect(index).toEqual({ copy: {}, visual: {}, unmatched: [] })
+  })
+})
+
+describe('only her own seat', () => {
+  it('keeps only requests this seat sent when the seat request ids are known', () => {
+    const mine = request({ target_kind: 'copy_block', target_key: 'social-caption', proposed_text: 'Mine.' })
+    const theirs = request({ target_kind: 'copy_block', target_key: 'social-caption', proposed_text: 'A colleague.' })
+    const index = buildSentEditIndex({ ...base, requests: [mine, theirs], seatRequestIds: new Set([mine.id]) })
+    expect(index.copy['social-caption:whole'].map((entry) => entry.content)).toEqual([{ kind: 'text', base: 'Caption.', proposed: 'Mine.' }])
+  })
+})
+
+describe('placeReleasedSegments', () => {
+  it('maps each shown segment to its released segment, by position when the shape is unchanged', () => {
+    expect(placeReleasedSegments(SCRIPT, SCRIPT.replace('PER POSITION', 'PER JOB'), 'frames'))
+      .toEqual({ releasedFor: [0, 1], orphaned: [] })
+  })
+
+  it('follows a released frame past an inserted frame, by its words', () => {
+    expect(placeReleasedSegments(SCRIPT, '**1.** FOR EMPLOYERS\n\n**2.** NEW\n\n**3.** $1,000 PER POSITION', 'frames'))
+      .toEqual({ releasedFor: [0, null, 1], orphaned: [] })
+  })
+
+  it('orphans a released frame with no confident match', () => {
+    expect(placeReleasedSegments(SCRIPT, '**1.** FOR EMPLOYERS\n\n**2.** NEW\n\n**3.** OTHER', 'frames'))
+      .toEqual({ releasedFor: [0, null, null], orphaned: [1] })
   })
 })

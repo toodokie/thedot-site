@@ -14,6 +14,7 @@ vi.mock('@/app/client/[slug]/requests/RequestHistory', () => ({ default: () => <
 
 import type { ContentRow } from '@/lib/portal/data'
 import type { ContentRequestRow } from '@/lib/portal/requests'
+import type { ServerDraftRow } from '@/lib/portal/review-drafts-core'
 import type { SignedReviewPreview } from '@/lib/portal/review-preview-core'
 import { deriveWorkspaceData, type DeriveInput } from './derive'
 import PieceWorkspace from './PieceWorkspace'
@@ -70,9 +71,19 @@ function marker(scope: HTMLElement): HTMLDetailsElement {
   return within(scope).getByText('Sent · being applied').closest('details') as HTMLDetailsElement
 }
 
-function show(requests: ContentRequestRow[], mode: 'client' | 'preview' = 'client') {
-  return render(<PieceWorkspace data={data(requests)} mode={mode} draftScope={mode === 'client' ? 'maria' : 'read-only-preview:Maria'}
-    serverDrafts={mode === 'client' ? [] : null} ticks={[]} />)
+function show(requests: ContentRequestRow[], mode: 'client' | 'preview' = 'client', options: { drafts?: ServerDraftRow[]; extra?: Partial<DeriveInput> } = {}) {
+  return render(<PieceWorkspace data={data(requests, options.extra)} mode={mode} draftScope={mode === 'client' ? 'maria' : 'read-only-preview:Maria'}
+    serverDrafts={mode === 'client' ? options.drafts ?? [] : null} ticks={[]} />)
+}
+
+// A new unsent draft of the on-screen text, written after the sent edit.
+function scriptDraft(body: string): ServerDraftRow {
+  return {
+    id: 'd1', content_item_id: 'item-1', base_version: 2, target_kind: 'copy_block', target_key: 'reel-script', anchor: '',
+    anchor_label: null, target_label: 'Reel, on screen', url_snapshot: null, quoted_text: null, body, status: 'unsent',
+    saved_at: '2026-10-04T10:00:00.000Z', updated_at: '2026-10-04T10:00:00.000Z', carried_over_at: null,
+    carried_over_to_version: null, send_failed_at: null, last_send_error: null,
+  } as ServerDraftRow
 }
 
 beforeEach(() => {
@@ -150,5 +161,37 @@ describe('sent edits stay where she made them', () => {
     expect(details).toHaveTextContent('Slow the ending down a little.')
     expect(saveReviewDraft).not.toHaveBeenCalled()
     expect(sendReviewDrafts).not.toHaveBeenCalled()
+  })
+})
+
+describe('sent markers follow the released frame through a newer draft (review fixes)', () => {
+  const sentFrameTwo = () => request({ target_kind: 'copy_block', target_key: 'reel-script', proposed_text: SCRIPT.replace('PER POSITION', 'PER JOB') })
+
+  it('stays on the right frame when her new draft inserts a frame before it', () => {
+    show([sentFrameTwo()], 'client', { drafts: [scriptDraft('**1.** FOR EMPLOYERS\n\n**2.** A NEW FRAME\n\n**3.** $1,000 PER POSITION')] })
+    const rows = within(screen.getByRole('tabpanel')).getAllByRole('listitem')
+    expect(rows).toHaveLength(3)
+    expect(within(rows[1]).queryByText('Sent · being applied')).not.toBeInTheDocument()
+    expect(marker(rows[2]).querySelector('ins')).toHaveTextContent('JOB')
+    expect(screen.queryByText(/^Sent edits/)).not.toBeInTheDocument()
+  })
+
+  it('moves to the top list when no frame in her draft confidently matches', () => {
+    show([sentFrameTwo()], 'client', { drafts: [scriptDraft('**1.** FOR EMPLOYERS\n\n**2.** REWRITTEN\n\n**3.** ALSO NEW')] })
+    const rows = within(screen.getByRole('tabpanel')).getAllByRole('listitem')
+    rows.forEach((row) => expect(within(row).queryByText('Sent · being applied')).not.toBeInTheDocument())
+    const top = screen.getByText('Sent edits (1)').closest('details') as HTMLDetailsElement
+    expect(top.querySelector('ins')).toHaveTextContent('JOB')
+  })
+
+  it('keeps a video-still note off a text frame that does not correspond to it', () => {
+    const three = { ...preview, frames: [...preview.frames, { label: '12 s', url: 'https://signed.example/f3.jpg' }] }
+    show([request({ target_kind: 'asset', target_key: 'reel-video', proposed_text: 'Frame 2: Darker background.' })], 'client',
+      { extra: { previews: [three] } })
+    const rows = within(screen.getByRole('tabpanel')).getAllByRole('listitem')
+    rows.forEach((row) => expect(within(row).queryByText('Sent · being applied')).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('tab', { name: /Caption/ }))
+    const grid = screen.getByRole('region', { name: 'What does hiring cost?: frames' })
+    expect(marker(within(grid).getAllByRole('listitem')[1])).toHaveTextContent('Darker background.')
   })
 })

@@ -58,6 +58,8 @@ export function buildSentEditIndex(input: {
   coverKey: string | null
   frameCount: number
   visualWord: 'frame' | 'page'
+  // The ids of the requests this seat sent, when known: markers show only her own edits.
+  seatRequestIds?: ReadonlySet<string> | null
 }): SentEditIndex {
   const index: SentEditIndex = { copy: {}, visual: {}, unmatched: [] }
   const blocks = new Map<string, { body: string; label: string; mode: SegmentMode | null }>()
@@ -68,7 +70,8 @@ export function buildSentEditIndex(input: {
   }
   const sent = input.requests
     .filter((request) => request.request_type === 'edit' && request.base_version === input.version
-      && isUnresolvedContentRequest(request.status))
+      && isUnresolvedContentRequest(request.status)
+      && (!input.seatRequestIds || input.seatRequestIds.has(request.id)))
     .map((request, order) => ({ request, order }))
     .sort((a, b) => a.request.created_at.localeCompare(b.request.created_at) || a.order - b.order)
 
@@ -132,4 +135,43 @@ export function buildSentEditIndex(input: {
     }
   }
   return index
+}
+
+// A frame, page or section's words without its marker ('**2.**', 'Frame 2:', '## Page 2'), so a
+// frame renumbered by an insertion is still recognised.
+function segmentWords(raw: string): string {
+  return raw
+    .replace(/^\s*(?:#{1,6}\s+)?(?:\*\*\s*)?(?:(?:page|slide|frame|scene|card)\s*\d+|\d+\.)\s*(?:\*\*)?\s*[:.\-]?\s*/i, '')
+    .replace(/\s+/g, ' ').trim()
+}
+
+// Sent copy markers belong to the released frames, pages and sections; the panel shows her
+// current draft. Maps each shown segment to the released one it still is: by position when the
+// shape is unchanged, else by its exact text, else by its words without the marker, and only when
+// exactly one shown segment matches. A released segment with no confident match is orphaned, and
+// its markers go to the top "Sent edits" list.
+export function placeReleasedSegments(base: string, source: string, mode: SegmentMode): {
+  releasedFor: Array<number | null>
+  orphaned: number[]
+} {
+  const before = segmentBlock(base, mode).segments
+  const after = segmentBlock(source, mode).segments
+  if (base === source || before.length === after.length) {
+    return { releasedFor: after.map((_, i) => (i < before.length ? i : null)), orphaned: [] }
+  }
+  const releasedFor: Array<number | null> = after.map(() => null)
+  const orphaned: number[] = []
+  const exact = (raw: string) => raw.replace(/\s+$/, '')
+  before.forEach((segment, i) => {
+    for (const same of [
+      (shown: string) => exact(shown) === exact(segment.raw),
+      (shown: string) => segmentWords(shown) !== '' && segmentWords(shown) === segmentWords(segment.raw),
+    ]) {
+      const hits = after.map((shown, j) => (releasedFor[j] === null && same(shown.raw) ? j : -1)).filter((j) => j >= 0)
+      if (hits.length === 1) { releasedFor[hits[0]] = i; return }
+      if (hits.length > 1) break
+    }
+    orphaned.push(i)
+  })
+  return { releasedFor, orphaned }
 }
