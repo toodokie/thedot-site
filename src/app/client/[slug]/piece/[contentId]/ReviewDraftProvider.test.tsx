@@ -538,3 +538,43 @@ describe('races that must never lose her text', () => {
     expect(actions.saveReviewDraft).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('field scratch', () => {
+  it('drops the scratch of a target once its draft is sent', async () => {
+    actions.sendReviewDrafts.mockResolvedValue({ success: 'Your edit was sent to The Dot.', requestIds: ['r1'], sentDraftIds: [SERVER_ID] })
+    mount([row()])
+    act(() => api.saveFieldScratch(caption, 'chapters', '[{"time":"","title":"x"}]'))
+    expect(api.readFieldScratch(caption, 'chapters')).not.toBeNull()
+    await act(async () => { await api.send('Thanks') })
+    expect(api.readFieldScratch(caption, 'chapters')).toBeNull()
+    expect(Object.keys({ ...window.localStorage }).some((key) => key.startsWith('portal-edit-scratch:'))).toBe(false)
+  })
+
+  it('purges scratch kept for other versions when the page loads', () => {
+    const scratchBase = 'portal-edit-scratch:maria:kanset:piece:'
+    window.localStorage.setItem(`${scratchBase}v1:copy_block%3Acaption%3A:chapters`, JSON.stringify({ value: 'old', savedAt: '2026-10-01T10:00:00.000Z' }))
+    window.localStorage.setItem(`${scratchBase}v2:copy_block%3Acaption%3A:chapters`, JSON.stringify({ value: 'kept', savedAt: '2026-10-01T10:00:00.000Z' }))
+    mount()
+    expect(window.localStorage.getItem(`${scratchBase}v1:copy_block%3Acaption%3A:chapters`)).toBeNull()
+    expect(api.readFieldScratch(caption, 'chapters')).toBe('kept')
+  })
+
+  it('prefers a newer draft from another device over older scratch, and newer scratch over an older draft', () => {
+    const scratchKey = 'portal-edit-scratch:maria:kanset:piece:v2:copy_block%3Acaption%3A:chapters'
+    window.localStorage.setItem(scratchKey, JSON.stringify({ value: 'typed here', savedAt: '2026-10-03T09:00:00.000Z' }))
+    const first = mount([row({ saved_at: '2026-10-03T10:00:00.000Z' })])
+    expect(api.readFieldScratch(caption, 'chapters')).toBeNull()
+    first.unmount()
+    window.localStorage.clear()
+    window.localStorage.setItem(scratchKey, JSON.stringify({ value: 'typed here', savedAt: '2026-10-03T11:00:00.000Z' }))
+    mount([row({ saved_at: '2026-10-03T10:00:00.000Z' })])
+    expect(api.readFieldScratch(caption, 'chapters')).toBe('typed here')
+  })
+
+  it('keeps scratch as new as her own later saves on this device', () => {
+    mount()
+    act(() => api.saveFieldScratch(caption, 'chapters', 'typed here'))
+    act(() => api.saveDraft(caption, 'New caption', null))
+    expect(api.readFieldScratch(caption, 'chapters')).toBe('typed here')
+  })
+})

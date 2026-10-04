@@ -298,6 +298,78 @@ export default function ReviewDraftProvider({
     markPending(id, { op: 'discard', reason, savedAt: existing.savedAt, draft: existing })
   }, [dropDraft, markPending])
 
+  // Field scratch: { value, savedAt } per target and field. savedAt follows her own later saves of
+  // that target on this device, so only a draft saved elsewhere afterwards can be newer.
+  type Scratch = { value: string; savedAt: string }
+  const scratchRef = useRef<Record<string, Scratch | null>>({})
+  const scratchBase = useMemo(() => `portal-edit-scratch:${piecePrefix.slice('portal-edit-draft:'.length)}`, [piecePrefix])
+  const scratchPrefix = useMemo(() => `${scratchBase}v${version}:`, [scratchBase, version])
+  const scratchTargetPrefix = useCallback((target: DraftIdentityParts) =>
+    `${scratchPrefix}${encodeURIComponent(draftIdentity({ kind: target.kind, key: target.key, anchor: target.anchor ?? '' }))}:`,
+  [scratchPrefix])
+  const scratchKey = useCallback((target: ReviewTarget, field: string) =>
+    `${scratchTargetPrefix(target)}${encodeURIComponent(field)}`, [scratchTargetPrefix])
+
+  const readScratch = useCallback((key: string): Scratch | null => {
+    if (key in scratchRef.current) return scratchRef.current[key]
+    try {
+      const raw: unknown = JSON.parse(window.localStorage.getItem(key) ?? 'null')
+      if (!raw || typeof raw !== 'object') return null
+      const { value, savedAt } = raw as Record<string, unknown>
+      return typeof value === 'string' && typeof savedAt === 'string' ? { value, savedAt } : null
+    } catch {
+      return null
+    }
+  }, [])
+
+  const writeScratch = useCallback((key: string, scratch: Scratch | null) => {
+    scratchRef.current = { ...scratchRef.current, [key]: scratch }
+    withStorage((storage) => {
+      if (scratch === null) storage.removeItem(key)
+      else storage.setItem(key, JSON.stringify(scratch))
+    })
+  }, [withStorage])
+
+  const readFieldScratch = useCallback((target: ReviewTarget, field: string): string | null => {
+    const scratch = readScratch(scratchKey(target, field))
+    if (!scratch) return null
+    // A draft of this target saved later (on another device) wins over older scratch.
+    const draft = storeRef.current[draftIdentity({ kind: target.kind, key: target.key, anchor: target.anchor ?? '' })]
+    if (draft && Date.parse(draft.savedAt) > Date.parse(scratch.savedAt)) return null
+    return scratch.value
+  }, [readScratch, scratchKey])
+
+  const saveFieldScratch = useCallback((target: ReviewTarget, field: string, value: string | null) => {
+    const draft = storeRef.current[draftIdentity({ kind: target.kind, key: target.key, anchor: target.anchor ?? '' })]
+    const now = new Date().toISOString()
+    const savedAt = draft && Date.parse(draft.savedAt) > Date.parse(now) ? draft.savedAt : now
+    writeScratch(scratchKey(target, field), value === null ? null : { value, savedAt })
+  }, [scratchKey, writeScratch])
+
+  // Every scratch key under a prefix, in memory and in this browser.
+  const scratchKeys = useCallback((prefix: string, exceptPrefix: string | null = null): string[] => {
+    const keys = new Set(Object.keys(scratchRef.current).filter((key) => key.startsWith(prefix)))
+    try {
+      for (let index = 0; index < window.localStorage.length; index += 1) {
+        const key = window.localStorage.key(index)
+        if (key?.startsWith(prefix)) keys.add(key)
+      }
+    } catch { /* storage blocked: memory only */ }
+    return [...keys].filter((key) => exceptPrefix === null || !key.startsWith(exceptPrefix))
+  }, [])
+
+  const dropScratch = useCallback((prefix: string) => {
+    for (const key of scratchKeys(prefix)) writeScratch(key, null)
+  }, [scratchKeys, writeScratch])
+
+  // Her own save of a target keeps its scratch as new as the save.
+  const touchScratch = useCallback((target: DraftIdentityParts, savedAt: string) => {
+    for (const key of scratchKeys(scratchTargetPrefix(target))) {
+      const scratch = readScratch(key)
+      if (scratch && Date.parse(savedAt) > Date.parse(scratch.savedAt)) writeScratch(key, { ...scratch, savedAt })
+    }
+  }, [readScratch, scratchKeys, scratchTargetPrefix, writeScratch])
+
   const saveDraft = useCallback((target: ReviewTarget, proposedText: string, quotedText?: string | null) => {
     const anchor = target.anchor ?? ''
     const id = draftIdentity({ kind: target.kind, key: target.key, anchor })
@@ -308,6 +380,7 @@ export default function ReviewDraftProvider({
       return
     }
     const existing = storeRef.current[id]
+    const savedAt = nextSavedAt(existing?.savedAt)
     putDraft({
       kind: target.kind,
       key: target.key,
@@ -321,49 +394,20 @@ export default function ReviewDraftProvider({
       // Editing a carried draft is the "adjust" in spec 6.2: it now belongs to this version.
       baseVersion: version,
       carriedFromVersion: null,
-      savedAt: nextSavedAt(existing?.savedAt),
+      savedAt,
       serverId: existing?.serverId ?? null,
       syncedAt: existing?.syncedAt ?? null,
       sendFailedAt: existing?.sendFailedAt ?? null,
     })
     markPending(id, { op: 'save' })
-  }, [discardInternal, markPending, putDraft, version])
-
-  const scratchRef = useRef<Record<string, string | null>>({})
-  const scratchPrefix = useMemo(() => `portal-edit-scratch:${piecePrefix.slice('portal-edit-draft:'.length)}v${version}:`, [piecePrefix, version])
-  const scratchKey = useCallback((target: ReviewTarget, field: string) =>
-    `${scratchPrefix}${encodeURIComponent(draftIdentity({ kind: target.kind, key: target.key, anchor: target.anchor ?? '' }))}:${encodeURIComponent(field)}`,
-  [scratchPrefix])
-
-  const readFieldScratch = useCallback((target: ReviewTarget, field: string): string | null => {
-    const key = scratchKey(target, field)
-    if (key in scratchRef.current) return scratchRef.current[key]
-    try { return window.localStorage.getItem(key) } catch { return null }
-  }, [scratchKey])
-
-  const saveFieldScratch = useCallback((target: ReviewTarget, field: string, value: string | null) => {
-    const key = scratchKey(target, field)
-    scratchRef.current = { ...scratchRef.current, [key]: value }
-    withStorage((storage) => { if (value === null) storage.removeItem(key); else storage.setItem(key, value) })
-  }, [scratchKey, withStorage])
-
-  const dropScratch = useCallback((prefix: string) => {
-    for (const key of Object.keys(scratchRef.current)) if (key.startsWith(prefix)) scratchRef.current[key] = null
-    withStorage((storage) => {
-      const doomed: string[] = []
-      for (let index = 0; index < storage.length; index += 1) {
-        const key = storage.key(index)
-        if (key?.startsWith(prefix)) doomed.push(key)
-      }
-      for (const key of doomed) storage.removeItem(key)
-    })
-  }, [withStorage])
+    touchScratch({ kind: target.kind, key: target.key, anchor }, savedAt)
+  }, [discardInternal, markPending, putDraft, touchScratch, version])
 
   const removeDraft = useCallback((target: ReviewTarget) => {
     // The caller has already asked Maria to confirm (spec 6.1).
     discardInternal({ kind: target.kind, key: target.key, anchor: target.anchor ?? '' }, 'client_discarded')
-    dropScratch(scratchKey(target, ''))
-  }, [discardInternal, dropScratch, scratchKey])
+    dropScratch(scratchTargetPrefix(target))
+  }, [discardInternal, dropScratch, scratchTargetPrefix])
 
   const keepCarriedDraft = useCallback((draft: ReviewDraft) => {
     const target = targetsRef.current[draftIdentity(draft)]
@@ -433,7 +477,7 @@ export default function ReviewDraftProvider({
         setSendError(result.error)
         return { ok: false, message: result.error }
       }
-      for (const draft of current) dropDraft(draft)
+      for (const draft of current) { dropDraft(draft); dropScratch(scratchTargetPrefix(draft)) }
       sendKeyRef.current = null
       setSendError(null)
       return { ok: true, message: result.success ?? 'Your edits were sent to The Dot.' }
@@ -480,7 +524,7 @@ export default function ReviewDraftProvider({
       const id = draftIdentity(draft)
       const latest = storeRef.current[id]
       if (!latest) continue
-      if (latest.savedAt === draft.savedAt) { dropDraft(draft); continue }
+      if (latest.savedAt === draft.savedAt) { dropDraft(draft); dropScratch(scratchTargetPrefix(draft)); continue }
       // She typed again while the send was in flight: that newer text is a new unsent draft.
       putDraft({ ...latest, serverId: null, syncedAt: null, sendFailedAt: null })
       if (!pendingRef.current.has(id)) markPending(id, { op: 'save' })
@@ -488,12 +532,15 @@ export default function ReviewDraftProvider({
     sendKeyRef.current = null
     setSendError(null)
     return { ok: true, message: result.success ?? 'Your edits were sent to The Dot.' }
-  }, [contentId, deliverFailureReport, dropDraft, flush, markPending, mobile, putDraft, serverSync, slug, version])
+  }, [contentId, deliverFailureReport, dropDraft, dropScratch, flush, markPending, mobile, putDraft, scratchTargetPrefix,
+    serverSync, slug, version])
 
   // Reconcile the browser buffer with the server once per page load.
   useEffect(() => {
     let entries: LocalDraftEntry[] = []
     try { entries = readLocalDrafts(window.localStorage, piecePrefix) } catch { setStorageAvailable(false) }
+    // Scratch belongs to one version: a newer version's page purges the rest.
+    for (const key of scratchKeys(scratchBase, scratchPrefix)) writeScratch(key, null)
     if (!serverSync) {
       storeRef.current = Object.fromEntries(entries.filter((entry) => entry.version === version).map((entry) => {
         const draft = localEntryToDraft(entry, version)
