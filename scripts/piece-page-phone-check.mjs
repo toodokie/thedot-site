@@ -12,6 +12,9 @@
 // Writes PNGs to OUT. Exits 1 on any failure.
 //
 //   BASE=http://localhost:3000 PIECES=<reel id>,<podcast id>,<linkedin id>,<article id> node scripts/piece-page-phone-check.mjs
+// Plan 5 adds the agency-mode admin piece page for every PIECES id and, with CLIENT_EMAIL (a fresh
+// LOCAL seat; needs the local NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY), the client
+// seat checks for the rollout note and the feedback card on CLIENT_PIECE (default: the first id).
 import { SignJWT } from 'jose'
 import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 
@@ -179,6 +182,141 @@ try {
       console.log(`${label}: checked`)
     }
     await context.close()
+  }
+
+  // Plan 5 (Task 18): the admin piece page in agency mode is Maria's page read-only with the
+  // agency panel beside it (below it on a phone) and the "Maria's view" bar, never her decision bar.
+  for (const vp of VIEWPORTS) {
+    const context = await browser.newContext({
+      viewport: { width: vp.width, height: vp.height }, isMobile: vp.isMobile, hasTouch: vp.hasTouch, deviceScaleFactor: 2,
+      ...(LOCAL_HTTP ? { extraHTTPHeaders: { 'x-forwarded-proto': 'https' } } : {}),
+    })
+    await context.addCookies([{ name: 'session', value: token, domain: new URL(BASE).hostname, path: '/',
+      httpOnly: true, secure: BASE.startsWith('https'), sameSite: 'Lax' }])
+    const page = await context.newPage()
+    for (const id of PIECES) {
+      const label = `${vp.name} agency ${id}`
+      await page.goto(`${BASE}/admin/portal/pieces/${encodeURIComponent(id)}`, { waitUntil: 'networkidle', timeout: 60000 })
+      if (page.url().includes('/admin/login')) { failures.push(`${label}: bounced to login`); continue }
+      const facts = await page.evaluate(() => {
+        const root = document.querySelector('[data-piece-page-v2]')
+        const panel = document.querySelector('aside[aria-label="Agency panel"]')
+        const box = (el) => (el ? el.getBoundingClientRect().toJSON() : null)
+        return {
+          root: box(root), panel: box(panel),
+          decisionBars: document.querySelectorAll('[aria-label="Your review"]').length,
+          agencyBars: document.querySelectorAll('[aria-label="Maria\'s view"]').length,
+          overflow: document.scrollingElement.scrollWidth - document.scrollingElement.clientWidth,
+        }
+      })
+      if (!facts.root) failures.push(`${label}: Maria's page (v2) not rendered in the centre`)
+      if (!facts.panel || facts.panel.width === 0) failures.push(`${label}: agency panel missing`)
+      if (facts.decisionBars !== 0) failures.push(`${label}: ${facts.decisionBars} client decision bar(s) on the agency page`)
+      if (facts.agencyBars !== 1) failures.push(`${label}: ${facts.agencyBars} "Maria's view" bars`)
+      if (facts.overflow > 0) failures.push(`${label}: horizontal scroll of ${facts.overflow}px`)
+      if (facts.root && facts.panel) {
+        if (vp.phone && facts.panel.top < facts.root.bottom - 1) failures.push(`${label}: panel not stacked below the page`)
+        if (!vp.phone && facts.panel.left < facts.root.right - 1) failures.push(`${label}: panel not to the right of the page`)
+      }
+      await page.screenshot({ path: `${OUT}/${vp.name}-agency-${id}-full.png`, fullPage: true })
+      console.log(`${label}: checked`)
+    }
+    await context.close()
+  }
+
+  // Plan 5 (Task 18): the client seat's own page. CLIENT_EMAIL must be a fresh LOCAL seat that has
+  // never acknowledged the rollout note. Signs in through the real magic-link confirm flow (local
+  // Supabase only), then per viewport: the rollout note shows on the seat's first visit only, never
+  // together with the feedback card; a new tab (new visit) shows the card, which must not overlap
+  // the decision bar, Approve or the assistant button; Close hides it for the visit. Nothing is sent.
+  const CLIENT_EMAIL = process.env.CLIENT_EMAIL
+  if (CLIENT_EMAIL) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+    if (!LOCAL_HTTP || !/^http:\/\/(127\.0\.0\.1|localhost)(:|\/|$)/.test(supabaseUrl)) {
+      throw new Error('The client-seat check runs only against a local server and a local Supabase')
+    }
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(supabaseUrl, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+    const slug = process.env.CLIENT_SLUG || 'kanset'
+    const piece = process.env.CLIENT_PIECE || PIECES[0]
+    const pieceUrl = `${BASE}/client/${slug}/piece/${encodeURIComponent(piece)}`
+    let noteSeen = 0
+    const overlap = (a, b) => a && b && a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5
+    const cardFacts = (page) => page.evaluate(() => {
+      const box = (el) => (el && el.getBoundingClientRect().width > 0 ? el.getBoundingClientRect().toJSON() : null)
+      const card = [...document.querySelectorAll('aside[role="dialog"]')].find((el) => el.querySelector('legend'))
+      const approve = [...document.querySelectorAll('[aria-label="Your review"] button')].find((el) => /^Approv/.test(el.textContent.trim()))
+      return {
+        notes: [...document.querySelectorAll('dialog[open]')].filter((el) => el.querySelector('#piece-intro-title')).length,
+        card: box(card), bar: box(document.querySelector('[aria-label="Your review"]')), approve: box(approve),
+        assistant: box(document.querySelector('button[aria-label="Kanset Assistant"]')),
+        vh: window.innerHeight, vw: window.innerWidth,
+      }
+    })
+    for (const vp of VIEWPORTS) {
+      const context = await browser.newContext({
+        viewport: { width: vp.width, height: vp.height }, isMobile: vp.isMobile, hasTouch: vp.hasTouch, deviceScaleFactor: 2,
+        extraHTTPHeaders: { 'x-forwarded-proto': 'https' },
+      })
+      const link = await supabase.auth.admin.generateLink({ type: 'magiclink', email: CLIENT_EMAIL })
+      if (link.error) throw new Error(`generateLink: ${link.error.message}`)
+      const page = await context.newPage()
+      // The confirm page's form POSTs to the verify route. Behind x-forwarded-proto=https the server
+      // sees an https origin, so this same-origin POST says so too; the context's request client
+      // keeps the session cookie the 303 sets. The redirect itself (to https://localhost) is not followed.
+      const verify = await context.request.post(`${BASE}/client/auth/confirm/verify`, {
+        form: { token_hash: link.data.properties.hashed_token, type: 'magiclink', next: `/client/${slug}/piece/${piece}` },
+        headers: { origin: BASE.replace(/^http:/, 'https:') }, maxRedirects: 0,
+      })
+      if (verify.status() !== 303) throw new Error(`client sign-in returned ${verify.status()}`)
+      if (/\/client\/login/.test(verify.headers().location || '')) throw new Error(`client sign-in failed: ${verify.headers().location}`)
+      await page.goto(pieceUrl, { waitUntil: 'networkidle', timeout: 60000 })
+      await page.waitForSelector('[data-piece-page-v2]', { timeout: 20000 })
+      await page.waitForTimeout(500)
+      const label = `${vp.name} client ${piece}`
+      const first = await cardFacts(page)
+      if (first.notes > 1) failures.push(`${label}: ${first.notes} rollout notes at once`)
+      if (first.notes === 1) {
+        noteSeen += 1
+        if (first.card) failures.push(`${label}: feedback card shown together with the rollout note`)
+        await page.screenshot({ path: `${OUT}/${vp.name}-client-note.png` })
+        await page.getByRole('button', { name: 'Got it' }).click()
+        await page.waitForTimeout(300)
+        if ((await cardFacts(page)).card) failures.push(`${label}: feedback card appeared in the same visit as the note`)
+        await page.reload({ waitUntil: 'networkidle' })
+        await page.waitForTimeout(500)
+        const reloaded = await cardFacts(page)
+        if (reloaded.notes || reloaded.card) failures.push(`${label}: reload in the same visit shows ${reloaded.notes} note(s) and ${reloaded.card ? 'the card' : 'no card'}`)
+      }
+      // A new tab is a new visit (sessionStorage is per tab).
+      const tab = await context.newPage()
+      await tab.goto(pieceUrl, { waitUntil: 'networkidle', timeout: 60000 })
+      await tab.waitForSelector('[data-piece-page-v2]', { timeout: 20000 })
+      await tab.waitForTimeout(500)
+      const facts = await cardFacts(tab)
+      if (facts.notes) failures.push(`${label}: rollout note shown again on a later visit`)
+      if (!facts.card) failures.push(`${label}: feedback card missing on a new visit`)
+      else {
+        if (facts.card.top < 0 || facts.card.bottom > facts.vh + 0.5 || facts.card.left < 0 || facts.card.right > facts.vw + 0.5) {
+          failures.push(`${label}: feedback card outside the viewport ${JSON.stringify(facts.card)}`)
+        }
+        if (!facts.bar) failures.push(`${label}: decision bar missing`)
+        if (overlap(facts.card, facts.bar)) failures.push(`${label}: feedback card overlaps the decision bar (card bottom ${Math.round(facts.card.bottom)}, bar top ${Math.round(facts.bar.top)})`)
+        if (overlap(facts.card, facts.approve)) failures.push(`${label}: feedback card overlaps Approve`)
+        if (overlap(facts.card, facts.assistant)) failures.push(`${label}: feedback card overlaps the assistant button`)
+        console.log(`${label}: card ${JSON.stringify({ top: facts.card.top, bottom: facts.card.bottom })} bar top ${facts.bar?.top} approve ${facts.approve ? 'shown' : 'absent'}`)
+        await tab.screenshot({ path: `${OUT}/${vp.name}-client-feedback-card.png` })
+        await tab.getByRole('button', { name: 'Close', exact: true }).click()
+        await tab.waitForTimeout(200)
+        if ((await cardFacts(tab)).card) failures.push(`${label}: Close did not hide the card`)
+        await tab.reload({ waitUntil: 'networkidle' })
+        await tab.waitForTimeout(500)
+        if ((await cardFacts(tab)).card) failures.push(`${label}: card came back in the same visit after Close`)
+      }
+      await context.close()
+      console.log(`${label}: checked`)
+    }
+    if (noteSeen !== 1) failures.push(`client: rollout note shown on ${noteSeen} visits, expected exactly 1 (use a fresh local seat)`)
   }
 } finally {
   await browser.close()
