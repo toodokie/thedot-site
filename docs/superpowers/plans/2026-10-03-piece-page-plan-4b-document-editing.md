@@ -2633,6 +2633,8 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 ### Task 12: Documentation
 
+> **Amended 2026-10-04 (Anastasia): the docs must know about cover tiles and sent-edit markers.** In addition to the steps below, update these so every agent knows what Maria sees and what to upload: `~/Kanset/START-HERE.md`, `~/Kanset/PORTAL-OPERATIONS-PLAYBOOK.md` (the "Portal preview" section and the review sections), `~/Kanset/.claude/skills/kanset-production-workflow/SKILL.md` ("Portal preview"), `~/Kanset/.claude/skills/kanset-graphic-design/SKILL.md` ("Hand off cleanly"), the Ask Kanset and Kanset Talks playbooks (`~/Kanset/content/ask-kanset-series.md`, `~/Kanset/content/studio-reels-workflow.md` and any Kanset Talks / podcast playbook), and `docs/PORTAL-AGENT-MANUAL.md`. The facts to record: Ask Kanset reels and Kanset Talks cuts show a "Cover" tile at the front of the frame strip with its own "Suggest a change"; Kanset Talks episodes show the same tile labelled "YouTube thumbnail"; website blog articles keep their "Cover image" tab; LinkedIn PDFs show in the page viewer with per-page suggestions; Maria's sent edits stay visible where she made them ("Sent · being applied") until the next version. Upload consequence: the approved cover goes up as the preview's poster. The `.agents/` skill mirrors follow automatically (same files). These are skill and system docs: show Anastasia the exact edits and apply them only after her ok (her discuss-before-changing rule); record her ok in the hand-off.
+
 **Files:**
 - Modify: `docs/PORTAL-AGENT-MANUAL.md`
 
