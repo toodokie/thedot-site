@@ -158,8 +158,9 @@ describe('ReviewVerdict resolver', () => {
     render(serverSubject([serverRow()]))
     fireEvent.click(screen.getByRole('button', { name: 'Send my edits (1)' }))
     expect(await screen.findByText('Your edits could not be sent. They are still saved, and we have your text.')).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Retry sending (1)' })).toBeVisible()
-    expect(screen.getByText("Couldn't send. Retry")).toBeVisible()
+    // The button and the status line settle a render after the message; wait for them under load.
+    expect(await screen.findByRole('button', { name: 'Retry sending (1)' })).toBeVisible()
+    expect(await screen.findByText("Couldn't send. Retry")).toBeVisible()
   })
 
   it('moves focus into the carried discard prompt and back to Discard on cancel', () => {
