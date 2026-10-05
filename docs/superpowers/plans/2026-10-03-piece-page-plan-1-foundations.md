@@ -1,6 +1,10 @@
 # Piece Page Redesign, Plan 1 of 5: Foundations and Quick Fixes Implementation Plan
 
-**Approved by Anastasia 2026-10-03** ("aok"). Not built yet.
+**Approved by Anastasia 2026-10-03** ("aok"). Built and deployed to production on 2026-10-04 (commit a942714).
+
+Checkboxes were not maintained during execution; the commits above are the record.
+
+> **Deploy correction 2026-10-04 (overrides every deploy step below).** Pushing `feat/portal-audit-fixes-2026-09-15` builds a Vercel **Preview only**; production is NOT deployed by a push (found when plan 1 shipped: commit a942714 built as Preview, production unchanged). Production deploys with the Vercel CLI from the clean frozen checkout: `cp -R ~/thedot-site/.vercel <worktree>/.vercel && cd <worktree> && npx vercel --prod --yes`, after the push so git and production match. Agents cannot run the push or the deploy (Claude Code's auto-mode blocks production deploys): hand Anastasia both commands, then confirm the new `target: production` deployment is READY (Vercel `list_deployments`) and verify live with a browser user agent (plain curl gets 403).
 
 > **Amended 2026-10-03 (release path aligned with plans 2 and 3).** Task 12 already deployed by pushing `feat/portal-audit-fixes-2026-09-15`, but reviewed after deploy. Step 5 now adds a `code-review` skill pass on the frozen hash before Anastasia's go-ahead, Step 6 checks the pushed HEAD is that hash, and Step 7 first verifies the Vercel deployment for that commit. No migration, so there is no apply step.
 

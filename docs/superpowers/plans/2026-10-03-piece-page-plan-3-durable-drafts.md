@@ -1,6 +1,8 @@
 # Piece Page Plan 3 of 5: Durable Drafts Implementation Plan
 
-**Approved spec; **plan approved by Anastasia 2026-10-03** with all seven Decisions as recommended, except decision 6: the offline line says "this device" on desktop and "this phone" on mobile. Production deploys by pushing feat/portal-audit-fixes-2026-09-15 (verified 2026-09-30 when ac03a60 deployed).** Not built yet.
+**Approved spec; **plan approved by Anastasia 2026-10-03** with all seven Decisions as recommended, except decision 6: the offline line says "this device" on desktop and "this phone" on mobile. Production deploys by pushing feat/portal-audit-fixes-2026-09-15 (verified 2026-09-30 when ac03a60 deployed).** Built and deployed to production on 2026-10-04 (commit 359520d, migration 0093).
+
+Checkboxes were not maintained during execution; the commits above are the record.
 
 > **Amended 2026-10-03 (cross-review from plan 5).**
 > 1. **The send-failure event no longer freezes the agency inbox.** `review_send_failed` is written with `requires_reconciliation = true` and object type `client_request_failure_attempt`, but `ack_portal_inbox` (latest body 0014) only let `content_change_request` events through, so the first refused send would have blocked the inbox cursor for good. Plan 5 fixed this, but plan 3 ships first, so 0093 (Task 1) now re-creates `ack_portal_inbox` with one more terminal case (a send failure whose failure rows are all resolved, by a successful retry or by hand), asserts it in `assert_review_draft_security()`, and Task 11 adds `DR16` proving the cursor is held while the failure is open and moves past it once resolved. Plan 5 keeps this clause and adds only its own `agency_inbox_resolutions` case.

@@ -1,6 +1,8 @@
 # Piece Page Plan 4b of 5: Editing Like a Document Implementation Plan
 
-**Approved spec; **plan approved by Anastasia 2026-10-03** with all decisions as recommended (switch per seat, preview seat first; server-side ticks gating Approve; DB approve guard on unsent drafts; Approve waits for media; phone nav hidden on the piece page, 767/1100 breakpoints; ProseMirror with our own Markdown codec; cut the line "I usually reply the same day"; Maria's switch flips with plan 5; media guard: design link counts per piece, new versions re-attach media, an approved no-media override silences the no-media alert, playback limits 1 per 10 min / 20 a day / 15 s stall, portal-ship gets --no-media).** Not built.
+**Approved spec; **plan approved by Anastasia 2026-10-03** with all decisions as recommended (switch per seat, preview seat first; server-side ticks gating Approve; DB approve guard on unsent drafts; Approve waits for media; phone nav hidden on the piece page, 767/1100 breakpoints; ProseMirror with our own Markdown codec; cut the line "I usually reply the same day"; Maria's switch flips with plan 5; media guard: design link counts per piece, new versions re-attach media, an approved no-media override silences the no-media alert, playback limits 1 per 10 min / 20 a day / 15 s stall, portal-ship gets --no-media).** Built and deployed to production on 2026-10-05 (commit 836bb0b).
+
+Checkboxes were not maintained during execution; the commits above are the record.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
