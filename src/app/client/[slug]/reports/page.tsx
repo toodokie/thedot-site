@@ -363,17 +363,6 @@ export default async function Reports({ params }: { params: Promise<{ slug: stri
           </Button>
         </section>
       )}
-      {slug === 'kanset' && (
-        <section className={styles.featured} aria-label="August 2026 performance report">
-          <div>
-            <span className={styles.featuredKicker}>Monthly review · August 2026</span>
-            <Heading level={3}>August 2026 performance report</Heading>
-          </div>
-          <Button as="a" href={`/client/${encodeURIComponent(slug)}/reports/august-2026`} variant="black" size="sm">
-            Open August report
-          </Button>
-        </section>
-      )}
 
       {rows.length === 0 ? (
         <div className={styles.empty}>
