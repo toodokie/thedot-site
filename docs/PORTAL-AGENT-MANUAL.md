@@ -30,8 +30,8 @@ after that use the table of contents.
 11. Calendar sync, invoices, notifications, projections
 12. The Client Work Assistant (OpenAI)
 13. **Design & UI** — the design system, the shell, the rules
-14. Ownership model (Claude / Codex) & the frozen-hash review
-15. Deploy discipline (two-tier) + the launch gate
+14. Ownership model & the frozen-hash review
+15. Deploy discipline + the launch gate
 16. Environment & config
 17. Testing
 18. Common recipes (add a surface, a migration, an approval, a deploy)
@@ -163,7 +163,7 @@ multi-tenant, and the security model is defended in-migration.
 - `npm run test:rls` (two-tenant, real-JWT) proves tenant A cannot see tenant B and cannot call a
   write RPC for B.
 - Exact grant + column assertions match intent.
-- **Codex reviews the frozen migration hash BEFORE it is applied to prod** (§14).
+- **An agent code review of the frozen migration hash passes BEFORE it is applied to prod** (§14).
 
 ---
 
@@ -600,48 +600,54 @@ right?). **Design from the signed spec, not from compacted memory** ([[design-fr
 
 ---
 
-## 14. Ownership model (Claude / Codex) & the frozen-hash review
+## 14. Ownership model & the frozen-hash review
 
-Single-pen discipline — only one agent edits a given checkout at a time:
+There is no Codex lane (Anastasia, 2026-09-21). Whichever agent is on a task owns it end to end:
+diagnosis, code, migration, tests, and the hand-off for deploy.
 
-- **Codex** owns SQL/migrations/RPCs, the historical importer, `portal-write.ts` / `portal-inbox.ts`
-  tooling, and server actions. It commits its own files and hands over a **frozen commit hash**.
-- **Claude** owns content authoring + client-safe classification, the `~/Kanset/portal-content/` repo
-  pen, the display-plane UI, and **review of Codex's frozen hashes** (never the live tree).
-- **Review the hash, not the working tree.** A DB/security change is reviewed by Codex **before**
-  prod apply. A display-plane change deploys, then gets Codex post-hoc review.
+- **Single pen:** only one agent edits a given checkout at a time.
+- **Review the hash, not the working tree.** Every change is reviewed as an agent code review of a
+  **frozen commit hash** before it reaches production, DB/security changes before the migration is
+  applied.
+- Content authoring and client-safe classification stay in the `~/Kanset/portal-content/` repo
+  (see `~/Kanset/PORTAL-OPERATIONS-PLAYBOOK.md`).
 
 ---
 
-## 15. Deploy discipline (two-tier) + the launch gate
+## 15. Deploy discipline + the launch gate
 
-**Two tiers, different rules:**
+**Production deploys only through the Vercel CLI from a clean, frozen worktree.** A `git push` builds
+a Preview deployment only; it never reaches `www.thedotcreative.co`. Claude Code blocks agent
+deploys, so the agent prepares the frozen commit and hands Anastasia the exact push and deploy
+commands to run.
 
-1. **DB / security plane** (migrations, RPCs, grants): Codex review of the frozen hash **before**
-   applying to prod. Apply in order. Back up first (`git bundle` per `BACKUP-RESTORE.txt`), catalog-
-   compare prod vs local.
-2. **Display plane** (UI, copy, client/admin components, CSS): deploy, then Codex post-hoc review.
+**Order:**
 
-**The display-plane deploy recipe (used for the admin rebuild):**
+1. **Review** the frozen hash (agent code review, §14).
+2. **Migrations before code.** Never deploy a UI that queries an unapplied table. From
+   `~/thedot-site`: `supabase db push --dry-run`, confirm it lists exactly the intended migrations,
+   then `supabase db push`. An agent may run the push after Anastasia's go. Then verify
+   `assert_portal_security()` passes against production.
+3. **Code**, run by Anastasia:
 
 ```bash
-# from ~/thedot-site, HEAD = the currently-deployed prod commit
+# from ~/thedot-site, at the frozen reviewed commit
+git push origin <branch>                          # Preview build only
 WT=~/worktrees/kanset-deploy
-git worktree add "$WT" <deployed-commit>       # clean checkout at prod's commit
-rm -rf "$WT/src/app/<your-changed-subtree>"     # sync ONLY your intended files in
-cp -R src/app/<your-changed-subtree> "$WT/src/app/<your-changed-subtree>"
-cp -R .vercel "$WT/.vercel"                      # bring the Vercel project link
-git -C "$WT" status --short                      # CONFIRM: only your files, no unrelated drift
-cd "$WT" && npx vercel --prod --yes              # Vercel builds remotely
-git worktree remove "$WT" --force
+git worktree add "$WT" <frozen-commit>            # clean checkout, no working-tree drift
+cp -R ~/thedot-site/.vercel "$WT/.vercel"         # bring the Vercel project link
+git -C "$WT" status --short                       # CONFIRM: clean
+cd "$WT" && npx vercel --prod --yes               # production; Vercel builds remotely
+cd ~/thedot-site && git worktree remove "$WT" --force
 ```
 
-**Why the worktree:** it isolates exactly your intended change on top of the known-good prod commit,
-so unrelated working-tree drift (e.g. a Notion `sync-portfolio` regen of `src/data/portfolio/*.json`)
-**cannot ride along**. Smoke-test after: the admin routes should 307 → `/admin/login`, not 404.
+**Why the worktree:** it deploys exactly the reviewed commit, so unrelated working-tree drift
+(e.g. a Notion `sync-portfolio` regen of `src/data/portfolio/*.json`) **cannot ride along**.
+Smoke-test after: the admin routes should 307 to `/admin/login`, not 404. Remove the worktree once
+the deployment is verified.
 
-**Commit/push:** do **not** commit to the branch or push unless Anastasia asks. The worktree deploy
-needs no branch commit.
+**Client-facing changes:** rehearse Maria's full cycle on the Kanset Sandbox (§18) before
+switching her to any portal change.
 
 **The launch gate (§3.17):** the `client_portal_launch` switch stays **OFF** until every v1 surface,
 import, security assertion, and end-to-end check passes. Flipping it (both scopes) is what makes the
@@ -704,7 +710,7 @@ self-wraps). Reuse `StatusPill` + `portal-admin.module.css` classes.
 **Add a schema/security change:** write `supabase/migrations/00NN_*.sql` (next number). Start new
 tables with `REVOKE ALL` then explicit grants. Add an `assert_portal_*_security()` and call it at the
 end + extend the cumulative fold. Add real-JWT tests in `test-rls.ts`. Fresh replay + upgrade replay
-must pass. Hand the **frozen hash** to Codex for review **before** prod apply.
+must pass. Review the **frozen hash** (§14) **before** prod apply, then apply per §15.
 
 **Record a client approval (pre-launch):** `record_external_decision(...)` with Maria's documented
 email date; log it in the approvals ledger. Post-launch she clicks Approve → `record_content_decision`.
@@ -718,7 +724,9 @@ stable `assetKey`, channel, kind, Canva or Drive URL, pixel dimensions, and capt
 `burned_in_verified` only after the teaser captions were proofed. A generic item-level design link
 does not satisfy the podcast readiness contract.
 
-**What Maria sees on the new piece page (approved 2026-10-04):** reels play inline with a still per on-screen frame; Ask Kanset reels and Kanset Talks cuts show a "Cover" tile at the front of the strip with its own "Suggest a change" (Kanset Talks episodes: the same tile labelled "YouTube thumbnail"); website articles keep their "Cover image" tab; LinkedIn PDFs show in a page viewer with per-page suggestions. She edits in place (full screen on a phone); edits autosave and stay unsent until she sends; after sending, each spot shows "Sent · being applied" with what she wrote until the next version. Upload the approved cover as the preview poster and attach the cover file as a review asset (`reel-cover` or `youtube-cover`) so the Cover tile gets its "Suggest a change"; cover notes are saved against that asset key.
+**What Maria sees on the new piece page (approved 2026-10-04):** reels play inline with a still per on-screen frame; Ask Kanset reels and Kanset Talks cuts show a "Cover" tile at the front of the strip with its own "Suggest a change" (Kanset Talks episodes: the same tile labelled "YouTube thumbnail"); website articles keep their "Cover image" tab; LinkedIn PDFs show in a page viewer with per-page suggestions. She edits in place (full screen on a phone); edits autosave and stay unsent until she sends; after sending, each spot shows "Sent · being applied" with what she wrote until the next version. Upload the approved cover as the preview poster and attach the cover file as a review asset (`reel-cover` or `youtube-cover`) so the Cover tile gets its "Suggest a change"; cover notes are saved against that asset key. Today the new page is live for the preview seat only (`PORTAL_PIECE_PAGE_V2` = `toodokie@gmail.com`) until Anastasia switches Maria; Maria still sees the old page.
+
+**Rehearse on the Kanset Sandbox:** client `kanset-sandbox`, seat `toodokie@gmail.com` as "Maria (sandbox)" (decider), pieces prefixed `sandbox-`, client emails off. Rehearse Maria's full cycle there before switching her to any portal change. **Every sandbox agency command runs through `~/Kanset/scripts/kanset-sandbox-env.sh`** (it refuses `kanset`); its canonical repo is `~/Kanset/sandbox-content`. Full rules: `~/Kanset/PORTAL-OPERATIONS-PLAYBOOK.md`, "Kanset Sandbox (rehearsal client)".
 
 **Attach a review preview (portal-hosted copy of a render):** run `portal-write review-preview` with
 `clientSlug`, `contentId`, the exact `contentVersion`, a `previewKey` (`reel`, `teaser`, `carousel`),
