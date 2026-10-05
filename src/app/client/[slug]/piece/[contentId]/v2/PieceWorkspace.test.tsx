@@ -164,3 +164,49 @@ describe('PieceWorkspace agency mode (plan 5)', () => {
     expect(reportReviewPlaybackFailure).not.toHaveBeenCalled()
   })
 })
+
+// One review (client rule, 2026-09-14): once she has decided, or her sent edits are being applied,
+// nothing on any tab invites editing the same version again.
+describe('PieceWorkspace edit affordances', () => {
+  const EDIT_LIKE = /^(Edit\b|Suggest a change|Jump to my edits)/
+
+  function editButtonsOnEveryTab(): string[] {
+    const found: string[] = []
+    for (const tab of screen.getAllByRole('tab')) {
+      fireEvent.click(tab)
+      for (const button of screen.queryAllByRole('button')) {
+        const name = button.getAttribute('aria-label') ?? button.textContent ?? ''
+        if (EDIT_LIKE.test(name.trim())) found.push(name.trim())
+      }
+    }
+    return found
+  }
+
+  it('offers editing on a piece waiting for her review', () => {
+    render(<PieceWorkspace data={data()} mode="client" draftScope="maria" serverDrafts={[]} ticks={[]} />)
+    const found = editButtonsOnEveryTab()
+    expect(found).toEqual(expect.arrayContaining(['Edit Caption', 'Suggest a change to frame 2']))
+    expect(found.some((name) => name.startsWith('Edit YouTube'))).toBe(true)
+  })
+
+  it.each(['approved', 'scheduled', 'partially_scheduled', 'with_dot'] as const)('shows no edit affordance once the piece is %s', (state) => {
+    render(<PieceWorkspace data={data({ state })} mode="client" draftScope="maria" serverDrafts={[]} ticks={[]} />)
+    expect(editButtonsOnEveryTab()).toEqual([])
+  })
+
+  it('shows no edit affordance once the piece is posted', () => {
+    render(<PieceWorkspace data={data({ state: 'live' })} mode="client" draftScope="maria" serverDrafts={[]} ticks={[]} />)
+    expect(editButtonsOnEveryTab()).toEqual([])
+  })
+
+  it('shows no edit affordance while her sent edits are being applied', () => {
+    const applying = { id: 'r1', client_id: 'c', content_id: 'item-1', request_type: 'edit', base_version: 2,
+      payload: { target_kind: 'copy_block', target_key: 'social-caption', target_label: 'Caption', proposed_text: 'New' },
+      status: 'applying', requester_name: 'Maria', created_at: '2026-09-30T17:20:00Z', updated_at: '', reconciled_at: null,
+      reconciled_by: null, canonical_version: null, resolution_note: null, canonical_content_key: null, base_copy_text: null,
+    } as DeriveInput['requests'][number]
+    render(<PieceWorkspace data={data({}, { requests: [applying] })} mode="client" draftScope="maria" serverDrafts={[]} ticks={[]} />)
+    expect(screen.getByText(/Editing is paused/)).toBeInTheDocument()
+    expect(editButtonsOnEveryTab()).toEqual([])
+  })
+})

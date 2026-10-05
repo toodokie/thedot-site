@@ -267,7 +267,9 @@ export function deriveWorkspaceData(input: DeriveInput): WorkspaceData {
     removal: capabilities.canSubmitRequests && !removalPending
       ? { slug: input.slug, contentId: item.content_id, idempotencyKey: input.removalKey }
       : null,
-    canEdit: capabilities.canSubmitRequests && !isPublished && !revisionStarted,
+    // One review (client rule, 2026-09-14): editing is open only while the version waits for her
+    // review. Once she has decided, or the piece is back with me, nothing invites a second pass.
+    canEdit: capabilities.canSubmitRequests && item.state === 'needs_review' && !isPublished && !revisionStarted,
     canDecide: capabilities.canDecide,
     canComment: capabilities.canComment,
     canSubmitRequests: capabilities.canSubmitRequests,

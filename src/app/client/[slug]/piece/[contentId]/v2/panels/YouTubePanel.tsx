@@ -27,6 +27,18 @@ export function Chips({ tags }: { tags: string[] }) {
   return <ul className={styles.chips} aria-label="Tags">{tags.map((tag) => <li key={tag} className={styles.chip}>{tag}</li>)}</ul>
 }
 
+// Spec 4.3: a title or tag list that changed since the previous version reads as updated, the same
+// light highlight the other tabs give a changed paragraph. previous=null means nothing to compare.
+function Changed({ value, previous, children }: { value: string; previous: string | null; children: ReactNode }) {
+  if (previous === null || previous.trim() === value.trim()) return <>{children}</>
+  return <div className={styles.changed} data-changed="true"><span className={styles.srOnly}>Updated: </span>{children}</div>
+}
+
+function sameTags(a: string, b: string | null): string | null {
+  if (b === null) return null
+  return parseTags(a).join('\n') === parseTags(b).join('\n') ? a : b
+}
+
 // Spec 5: YouTube as Title, Description, Tags. One package block or three separate blocks.
 export default function YouTubePanel(props: Props) {
   return <>{props.tab.blocks.map((block, index) => <YouTubeBlock key={block.key ?? index} block={block} {...props} />)}</>
@@ -54,12 +66,15 @@ function YouTubeBlock({ block, before, canEdit, version }: Props & { block: Revi
   const previousDescription = previousPackage ? youTubeFieldValue(previousPackage, 'description') : null
   const basePackage = parseYouTubePackage(block.body)
   const baseDescription = basePackage ? youTubeFieldValue(basePackage, 'description') : null
+  const previousField = (name: 'title' | 'tags') => (previousPackage ? youTubeFieldValue(previousPackage, name) : null)
 
   let content: ReactNode
   if (block.key === 'youtube-title') {
-    content = <Field label="Title"><p className={`${styles.fieldValue} ${styles.fieldTitle}`}>{source}</p></Field>
+    content = <Field label="Title"><Changed value={source} previous={previous}>
+      <p className={`${styles.fieldValue} ${styles.fieldTitle}`}>{source}</p></Changed></Field>
   } else if (block.key === 'youtube-tags') {
-    content = <Field label="Tags"><Chips tags={parseTags(source)} /></Field>
+    content = <Field label="Tags"><Changed value={source} previous={sameTags(source, previous)}>
+      <Chips tags={parseTags(source)} /></Changed></Field>
   } else if (block.key === 'youtube-description') {
     content = <Field label="Description">
       {draft
@@ -73,9 +88,11 @@ function YouTubeBlock({ block, before, canEdit, version }: Props & { block: Revi
       : <>
         {pkg.preamble.trim() && <div className={styles.preamble}><MarkdownCopy body={pkg.preamble} /></div>}
         {pkg.fields.map((field) => field.name === 'title'
-          ? <Field key="title" label="Title"><p className={`${styles.fieldValue} ${styles.fieldTitle}`}>{field.value}</p></Field>
+          ? <Field key="title" label="Title"><Changed value={field.value} previous={previousField('title')}>
+            <p className={`${styles.fieldValue} ${styles.fieldTitle}`}>{field.value}</p></Changed></Field>
           : field.name === 'tags'
-            ? <Field key="tags" label="Tags"><Chips tags={parseTags(field.value)} /></Field>
+            ? <Field key="tags" label="Tags"><Changed value={field.value} previous={sameTags(field.value, previousField('tags'))}>
+              <Chips tags={parseTags(field.value)} /></Changed></Field>
             : <Field key="description" label="Description">
               {draft && baseDescription !== null
                 ? <div className={styles.fieldValue}><TrackedText base={baseDescription} current={field.value} /></div>

@@ -93,6 +93,14 @@ describe('deriveWorkspaceData', () => {
     expect(data.sentSummary).toEqual({ count: 1, dateLabel: 'Sep 30' })
   })
 
+  it('closes editing once she has decided or the piece is back with The Dot (one review)', () => {
+    for (const state of ['approved', 'scheduled', 'partially_scheduled', 'schedule_failed', 'reschedule_pending',
+      'cancel_pending', 'publish_failed', 'with_dot', 'live', 'partially_live', 'archived'] as const) {
+      expect(deriveWorkspaceData(input({ item: item({ state }) })).canEdit, state).toBe(false)
+    }
+    expect(deriveWorkspaceData(input()).canEdit).toBe(true)
+  })
+
   it('reads an approved, scheduled piece as approved with its date', () => {
     const data = deriveWorkspaceData(input({
       item: item({ state: 'scheduled' }),

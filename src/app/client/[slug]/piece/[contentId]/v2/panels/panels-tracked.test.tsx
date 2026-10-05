@@ -11,6 +11,7 @@ import { renderInPage, stubDialogs } from '../test-utils'
 import ArticlePanel from './ArticlePanel'
 import CopyPanel from './CopyPanel'
 import OnScreenTextPanel from './OnScreenTextPanel'
+import YouTubePanel from './YouTubePanel'
 
 function Save({ target, text }: { target: ReviewTarget; text: string }) {
   const { saveDraft } = useReviewDrafts()
@@ -59,5 +60,35 @@ describe('Jump to my edits', () => {
     act(() => fireEvent.click(screen.getByRole('button', { name: 'save draft' })))
     fireEvent.click(screen.getByRole('button', { name: 'Jump to my edits (1)' }))
     expect(screen.getByRole('link', { name: 'Start here' })).toHaveAttribute('href', '#article-section-1')
+  })
+})
+
+describe('YouTube read view marks what changed since the previous version', () => {
+  const NOW = '**Title:** New title\n\n**Description:** Same description.\n\n**Tags:** visa, work permit'
+  const youtube: CopyTab = { key: 'youtube', kind: 'youtube', label: 'YouTube', blocks: [{ key: 'youtube-package', label: 'YouTube Short', body: NOW }] }
+
+  it('highlights a changed title and tags, and leaves an unchanged description plain', () => {
+    const before = { 'youtube-package': '**Title:** Old title\n\n**Description:** Same description.\n\n**Tags:** visa' }
+    renderInPage(<YouTubePanel tab={youtube} before={before} canEdit={false} version={2} />)
+    const changed = [...document.querySelectorAll('[data-changed="true"]')].map((el) => el.textContent)
+    expect(changed.some((text) => text?.includes('New title'))).toBe(true)
+    expect(changed.some((text) => text?.includes('work permit'))).toBe(true)
+    expect(changed.some((text) => text?.includes('Same description.'))).toBe(false)
+  })
+
+  it('highlights nothing when there is no previous version', () => {
+    renderInPage(<YouTubePanel tab={youtube} before={{}} canEdit={false} version={2} />)
+    expect(document.querySelector('[data-changed="true"]')).toBeNull()
+  })
+
+  it('highlights separate title and tags blocks', () => {
+    const split: CopyTab = { key: 'youtube', kind: 'youtube', label: 'YouTube', blocks: [
+      { key: 'youtube-title', label: 'Title', body: 'New title' },
+      { key: 'youtube-tags', label: 'Tags', body: 'visa, work permit' },
+    ] }
+    renderInPage(<YouTubePanel tab={split} before={{ 'youtube-title': 'Old title', 'youtube-tags': 'visa, work permit' }} canEdit={false} version={2} />)
+    const changed = [...document.querySelectorAll('[data-changed="true"]')].map((el) => el.textContent)
+    expect(changed).toHaveLength(1)
+    expect(changed[0]).toContain('New title')
   })
 })

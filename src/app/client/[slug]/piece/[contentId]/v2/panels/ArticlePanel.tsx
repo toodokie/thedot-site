@@ -40,7 +40,7 @@ export default function ArticlePanel({ tab, coverUrl, before, canEdit, version }
       ? <img className={styles.cover} src={coverUrl} alt="Cover image" />
       : <div className={styles.coverPlaceholder}>Cover image</div>}
     {draft && <p className={styles.saved}>Saved · not sent yet</p>}
-    {draft && <JumpToEdits sections={segmented.segments.filter((_, i) => edited[i])
+    {draft && editable && <JumpToEdits sections={segmented.segments.filter((_, i) => edited[i])
       .map((segment) => ({ index: segment.index, name: segment.level === 1 ? 'Opening' : segment.label }))} />}
     {carried && <CarriedDraftNotice draft={carried} currentText={block.body} version={version} onAdjust={openWhole} />}
     <article className={styles.article}>
