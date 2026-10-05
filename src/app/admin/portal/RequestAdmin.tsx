@@ -276,7 +276,7 @@ export function RequestList({
         </details>}
         {request.edit && request.edit.targetKind !== 'copy_block' && <details className={styles.editReview} open>
           <summary>Visual change: {request.edit.targetLabel ?? request.edit.targetKey ?? 'visual'}</summary>
-          <p className={styles.editReviewHint}>Maria’s request is binding. Prepare a new version, replace the exact asset or design link, then release it for re-review.</p>
+          <p className={styles.editReviewHint}>Maria’s request is binding. Apply her note in a new version with the exact asset or design link replaced, answer and close her request, then release with applied-release so it lands on Approved. It never goes back to her for another look.</p>
           <pre className={styles.editReviewText}>{request.edit.proposedText}</pre>
           {request.edit.targetUrl && <a href={request.edit.targetUrl} target="_blank" rel="noreferrer" className={styles.disclose}>Open the reviewed visual</a>}
         </details>}

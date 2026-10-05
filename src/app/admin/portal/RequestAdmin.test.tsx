@@ -53,3 +53,18 @@ describe('RequestList safe-merge review', () => {
     expect(screen.getByRole('button', { name: 'Approve candidate' })).toBeDisabled()
   })
 })
+
+describe('RequestList visual change card', () => {
+  it('sends the agency to applied-release, never back to Maria for a re-review', () => {
+    render(<RequestList requests={[request({
+      reviewCandidate: null,
+      edit: { targetKind: 'asset', targetKey: 'cover', targetLabel: 'Cover', targetUrl: null,
+        blockKey: null, blockLabel: null, originalText: null, proposedText: 'Use the warmer photo.' },
+    })]} />)
+
+    const card = screen.getByText('Visual change: Cover').closest('details') as HTMLElement
+    expect(card.textContent).not.toMatch(/re-?review/i)
+    expect(card.textContent).toMatch(/applied-release/)
+    expect(card.textContent).toMatch(/lands on Approved/)
+  })
+})
