@@ -14,7 +14,7 @@ describe('FirstVisitIntro', () => {
     render(<FirstVisitIntro slug="kanset" show persist />)
     expect(screen.getByRole('dialog', { name: 'Your review page, rebuilt' })).toBeVisible()
     expect(screen.getAllByRole('listitem')).toHaveLength(4)
-    expect(screen.getByText('Next time you visit, a small card will ask how the new page works for you. One tap is plenty.'))
+    expect(screen.getByText('Next time you visit, a small card will ask how the new page works for you.'))
       .toBeInTheDocument()
     expect(screen.getByText('Anastasia')).toBeInTheDocument()
     for (const line of PIECE_PAGE_INTRO_LINES) expect(line).not.toMatch(/\u2014/)

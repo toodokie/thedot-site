@@ -1,6 +1,8 @@
 # Piece Page Plan 2 of 5: Media Previews Implementation Plan
 
-**Approved by Anastasia 2026-10-03** ("aok"). Not built yet.
+**Approved by Anastasia 2026-10-03** ("aok"). Built and deployed to production on 2026-10-04 (commit 1f72a73, migration 0092).
+
+Checkboxes were not maintained during execution; the commits above are the record.
 
 > **Amended 2026-10-03 (cross-review from plan 5).** (1) Preview housekeeping no longer queues a notification. Both `review_preview_uploaded` (actor `'anastasia'`) and `review_preview_deleted` (actor `'agent'`) used to enqueue a client `in_app` row addressed to Maria through `portal_activity_notify` (0078) and `portal_notification_recipient()` (0015), which sends every non-client actor to the client; she never saw them, but `scripts/portal-notification-audit.ts` counted them. No `actor_type` value avoids that (`'client'` emails the agency instead), so Task 1 now adds `activity_event_types.agency_internal`, re-creates `portal_activity_notify` as 0078's body plus an early return for flagged types, flags both preview event types, and asserts all of it. The block is shared verbatim with plan 3's migration and safe to run twice, so either plan may land first. (2) Task 12 gains `RT5`, proving no notification row (client or agency) is created by preview uploads or deletions. (3) Task 15's deploy no longer uses the display-plane recipe or pushes a feature branch: frozen commit, `code-review` skill pass, Anastasia's go-ahead, apply 0092, fast-forward and push `feat/portal-audit-fixes-2026-09-15`, verify the Vercel deployment for that commit, clean up (now steps 2 to 7).
 

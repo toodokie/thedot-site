@@ -55,6 +55,29 @@ describe('podcast review-package readiness', () => {
     })
   })
 
+  it('mirrors the database: a podcast asset with the right key but the wrong channel or kind does not count', () => {
+    const wrong = [
+      asset('social-cover', 'youtube', 'cover'),
+      asset('social-teaser', 'social', 'cover', 'burned_in_verified'),
+      asset('youtube-cover', 'social', 'cover'),
+    ]
+    expect(reviewPackageReadiness('podcast', blocks, wrong, false)).toEqual({
+      ready: false,
+      missing: [
+        'Instagram and Facebook reel cover',
+        'Instagram and Facebook teaser video',
+        'YouTube horizontal cover',
+      ],
+    })
+  })
+
+  it('mirrors the database: a website cover on the wrong channel or kind does not count', () => {
+    for (const wrong of [asset('website-cover', 'social', 'cover'), asset('website-cover', 'website', 'document')]) {
+      expect(reviewPackageReadiness('podcast_article', [{ key: 'article-body' }], [wrong], false))
+        .toEqual({ ready: false, missing: ['website cover'] })
+    }
+  })
+
   it('treats the companion website article as its own complete package', () => {
     expect(reviewPackageReadiness(
       'podcast_article',

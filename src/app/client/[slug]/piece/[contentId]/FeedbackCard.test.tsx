@@ -59,7 +59,7 @@ describe('FeedbackCard', () => {
     await waitFor(() => expect(submit).toHaveBeenCalledWith('kanset', {
       rating: 5, comment: 'Much easier on my phone.', contentItemId: 'item-1',
     }))
-    expect(await screen.findByText('Thank you. I read every answer.')).toBeInTheDocument()
+    expect(await screen.findByText('Thank you. This helps.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })

@@ -61,3 +61,36 @@ export async function getCurrentReviewAssetsByItem(
   }
   return assetsByItem
 }
+
+// The content rows for the pieces that sit in the given plan cycles, once each. The plan
+// page only needs review assets for those, not for every piece the client has ever had.
+export function cycleContentRows<T extends { id: string; version: number }>(
+  cycles: Array<{ items: Array<{ content_id: string }> }>,
+  contentById: Map<string, T>,
+): T[] {
+  const seen = new Set<string>()
+  const rows: T[] = []
+  for (const { items } of cycles) {
+    for (const item of items) {
+      const row = contentById.get(item.content_id)
+      if (!row || seen.has(row.id)) continue
+      seen.add(row.id)
+      rows.push(row)
+    }
+  }
+  return rows
+}
+
+// Plan-page variant: the review assets only colour a one-line availability note, so a
+// failed lookup must never take Maria's plan page down. Log it and fall back to no assets.
+export async function getPlanReviewAssetsByItem(
+  clientId: string,
+  items: Array<{ id: string; version: number }>,
+): Promise<Map<string, ReviewAsset[]>> {
+  try {
+    return await getCurrentReviewAssetsByItem(clientId, items)
+  } catch (error) {
+    console.error('[plan] review assets unavailable, rendering without them', error)
+    return new Map()
+  }
+}

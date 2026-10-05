@@ -11,8 +11,15 @@ function hasBlock(blocks: CopyBlock[], keys: string[]): boolean {
   return blocks.some((block) => block.key !== null && keys.includes(block.key))
 }
 
-function assetByKey(assets: ReviewAsset[], key: string): ReviewAsset | null {
-  return assets.find((asset) => asset.asset_key === key) ?? null
+// Same match as the database package check (0073): key, channel and kind must all agree.
+// Matching on the key alone showed Approve for a pack the database then refused.
+function packAsset(
+  assets: ReviewAsset[],
+  key: string,
+  channel: ReviewAsset['channel'],
+  kind: ReviewAsset['asset_kind'],
+): ReviewAsset | null {
+  return assets.find((asset) => asset.asset_key === key && asset.channel === channel && asset.asset_kind === kind) ?? null
 }
 
 export function reviewPackageReadiness(
@@ -31,16 +38,16 @@ export function reviewPackageReadiness(
     if (!hasBlock(blocks, ['youtube-description'])) missing.push('YouTube description')
     if (!hasBlock(blocks, ['youtube-tags'])) missing.push('YouTube tags')
 
-    if (!assetByKey(assets, 'social-cover')) missing.push('Instagram and Facebook reel cover')
-    const teaser = assetByKey(assets, 'social-teaser')
+    if (!packAsset(assets, 'social-cover', 'social', 'cover')) missing.push('Instagram and Facebook reel cover')
+    const teaser = packAsset(assets, 'social-teaser', 'social', 'video')
     if (!teaser) missing.push('Instagram and Facebook teaser video')
     else if (teaser.caption_status !== 'burned_in_verified') {
       missing.push('verified burned-in captions on the teaser')
     }
-    if (!assetByKey(assets, 'youtube-cover')) missing.push('YouTube horizontal cover')
+    if (!packAsset(assets, 'youtube-cover', 'youtube', 'cover')) missing.push('YouTube horizontal cover')
   } else if (format === 'podcast_article') {
     if (!hasBlock(blocks, ['article-body'])) missing.push('website article')
-    if (!assetByKey(assets, 'website-cover')) missing.push('website cover')
+    if (!packAsset(assets, 'website-cover', 'website', 'cover')) missing.push('website cover')
   } else if (!hasLegacyDesign && assets.length === 0) {
     missing.push('linked design')
   }
