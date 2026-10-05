@@ -350,14 +350,24 @@ export default async function Reports({ params }: { params: Promise<{ slug: stri
       </div>
 
       {slug === 'kanset' && (
+        <section className={styles.featured} aria-label="September 2026 performance report">
+          <div>
+            <span className={styles.featuredKicker}>Monthly review · September 2026</span>
+            <Heading level={3}>September 2026 performance report</Heading>
+            <Text tone="graphite">
+              What September reached, what worked, and six suggestions for the next episodes and shoots.
+            </Text>
+          </div>
+          <Button as="a" href={`/client/${encodeURIComponent(slug)}/reports/september-2026`} variant="black" size="sm">
+            Open September report
+          </Button>
+        </section>
+      )}
+      {slug === 'kanset' && (
         <section className={styles.featured} aria-label="August 2026 performance report">
           <div>
             <span className={styles.featuredKicker}>Monthly review · August 2026</span>
             <Heading level={3}>August 2026 performance report</Heading>
-            <Text tone="graphite">
-              What August reached, what held attention, and the next actions across social, LinkedIn,
-              YouTube, and the website.
-            </Text>
           </div>
           <Button as="a" href={`/client/${encodeURIComponent(slug)}/reports/august-2026`} variant="black" size="sm">
             Open August report

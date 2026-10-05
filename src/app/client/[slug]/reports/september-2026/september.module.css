@@ -1,0 +1,34 @@
+/* September 2026 report layout overrides (Anastasia, 2026-10-03). Kept separate so the July and
+   August reports Maria has already seen keep their layout. */
+
+/* Use more of a wide screen; the shared report caps at 1080px. */
+main.wide { max-width: 1440px; }
+
+/* Breathing room between list items, everywhere in this report. */
+.lists ul,
+.lists ol { margin: 10px 0 0; padding-left: 22px; }
+.lists li { margin-bottom: 12px; line-height: 1.55; }
+.lists li:last-child { margin-bottom: 0; }
+
+/* Two cards side by side at equal width. The shared .finding:first-child rule stretches the first
+   card across the row and strands the second in a half column. */
+.pair { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
+.pair > article { grid-column: auto !important; }
+
+@media (max-width: 760px) {
+  .pair { grid-template-columns: 1fr; }
+}
+
+/* Space between the metric strip and the channel cards, and between rows of channel cards. */
+.gapTop { margin-top: 16px; }
+
+/* Card headings inside paired cards were inheriting a very small size. */
+.pair > article > h3 {
+  margin: 0 0 6px;
+  font-family: var(--dot-font-display);
+  font-size: 1.2rem;
+  font-weight: var(--dot-weight-medium);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--report-ink);
+}
