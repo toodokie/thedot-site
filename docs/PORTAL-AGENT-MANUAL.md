@@ -628,7 +628,13 @@ commands to run.
    no backups (`supabase backups list --project-ref ltotkkpytvtcgelrgdkg` returns none), so take a
    manual dump first, into the private folder `~/thedot-site-backups/db/` (mode 700, never synced,
    it holds client data): `supabase db dump --linked -f <date>-schema.sql`, the same with
-   `--data-only` and `--role-only`, then `chmod 600` the files. Never deploy a UI that queries an
+   `--data-only` and `--role-only`, then `chmod 600` the files. Easiest: run
+   `~/thedot-site-backups/backup-db.sh pre-migration` (it starts Docker if needed, gzips, and keeps
+   the newest 6). A launchd job (`co.thedotcreative.portal-db-backup`, Mondays 9:15) runs the same
+   script weekly and keeps the newest 8; it logs to `~/thedot-site-backups/backup.log` and warns
+   when the database passes 250 MB (Free plan limit 500 MB; it was 41 MB on 2026-10-05). To
+   restore data, load the schema dump first, then the data dump inside
+   `set session_replication_role = replica;` (the data dump has circular foreign keys). Never deploy a UI that queries an
    unapplied table. From
    `~/thedot-site`: `supabase db push --dry-run`, confirm it lists exactly the intended migrations,
    then `supabase db push`. An agent may run the push after Anastasia's go. Then verify
