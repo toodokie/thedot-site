@@ -111,6 +111,8 @@ const FORMAT_NAMES: Record<string, string> = {
   article: 'Website article', carousel: 'Carousel', single: 'Single post', post: 'Post', 'linkedin-post': 'LinkedIn post',
 }
 
+const EDITABLE_STATES = new Set<ClientState>(['needs_review', 'with_dot'])
+
 export function pieceFormatLabel(format: string | null, platforms: string[]): string {
   const name = FORMAT_NAMES[(format ?? '').toLowerCase()] ?? 'Piece'
   const where = [...new Set(platforms.map(destinationLabel))].join(', ')
@@ -267,9 +269,10 @@ export function deriveWorkspaceData(input: DeriveInput): WorkspaceData {
     removal: capabilities.canSubmitRequests && !removalPending
       ? { slug: input.slug, contentId: item.content_id, idempotencyKey: input.removalKey }
       : null,
-    // One review (client rule, 2026-09-14): editing is open only while the version waits for her
-    // review. Once she has decided, or the piece is back with me, nothing invites a second pass.
-    canEdit: capabilities.canSubmitRequests && item.state === 'needs_review' && !isPublished && !revisionStarted,
+    // One review (client rule, 2026-09-14): editing closes once she has decided, the piece is
+    // scheduled or posted, or her edits are being applied. While sent edits only wait (with_dot,
+    // pending) it stays open so she can send additional edits.
+    canEdit: capabilities.canSubmitRequests && EDITABLE_STATES.has(item.state) && !isPublished && !revisionStarted,
     canDecide: capabilities.canDecide,
     canComment: capabilities.canComment,
     canSubmitRequests: capabilities.canSubmitRequests,

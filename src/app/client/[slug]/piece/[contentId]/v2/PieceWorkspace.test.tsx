@@ -189,7 +189,7 @@ describe('PieceWorkspace edit affordances', () => {
     expect(found.some((name) => name.startsWith('Edit YouTube'))).toBe(true)
   })
 
-  it.each(['approved', 'scheduled', 'partially_scheduled', 'with_dot'] as const)('shows no edit affordance once the piece is %s', (state) => {
+  it.each(['approved', 'scheduled', 'partially_scheduled'] as const)('shows no edit affordance once the piece is %s', (state) => {
     render(<PieceWorkspace data={data({ state })} mode="client" draftScope="maria" serverDrafts={[]} ticks={[]} />)
     expect(editButtonsOnEveryTab()).toEqual([])
   })
@@ -199,13 +199,23 @@ describe('PieceWorkspace edit affordances', () => {
     expect(editButtonsOnEveryTab()).toEqual([])
   })
 
+  it('keeps editing open while her sent edits only wait (with_dot, pending)', () => {
+    const pending = { id: 'r1', client_id: 'c', content_id: 'item-1', request_type: 'edit', base_version: 2,
+      payload: { target_kind: 'copy_block', target_key: 'social-caption', target_label: 'Caption', proposed_text: 'New' },
+      status: 'pending', requester_name: 'Maria', created_at: '2026-09-30T17:20:00Z', updated_at: '', reconciled_at: null,
+      reconciled_by: null, canonical_version: null, resolution_note: null, canonical_content_key: null, base_copy_text: null,
+    } as DeriveInput['requests'][number]
+    render(<PieceWorkspace data={data({ state: 'with_dot' }, { requests: [pending] })} mode="client" draftScope="maria" serverDrafts={[]} ticks={[]} />)
+    expect(editButtonsOnEveryTab()).toEqual(expect.arrayContaining(['Edit Caption']))
+  })
+
   it('shows no edit affordance while her sent edits are being applied', () => {
     const applying = { id: 'r1', client_id: 'c', content_id: 'item-1', request_type: 'edit', base_version: 2,
       payload: { target_kind: 'copy_block', target_key: 'social-caption', target_label: 'Caption', proposed_text: 'New' },
       status: 'applying', requester_name: 'Maria', created_at: '2026-09-30T17:20:00Z', updated_at: '', reconciled_at: null,
       reconciled_by: null, canonical_version: null, resolution_note: null, canonical_content_key: null, base_copy_text: null,
     } as DeriveInput['requests'][number]
-    render(<PieceWorkspace data={data({}, { requests: [applying] })} mode="client" draftScope="maria" serverDrafts={[]} ticks={[]} />)
+    render(<PieceWorkspace data={data({ state: 'with_dot' }, { requests: [applying] })} mode="client" draftScope="maria" serverDrafts={[]} ticks={[]} />)
     expect(screen.getByText(/Editing is paused/)).toBeInTheDocument()
     expect(editButtonsOnEveryTab()).toEqual([])
   })

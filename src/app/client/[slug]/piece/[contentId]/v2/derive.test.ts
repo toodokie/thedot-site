@@ -93,12 +93,19 @@ describe('deriveWorkspaceData', () => {
     expect(data.sentSummary).toEqual({ count: 1, dateLabel: 'Sep 30' })
   })
 
-  it('closes editing once she has decided or the piece is back with The Dot (one review)', () => {
+  it('closes editing once she has decided or the piece is posted (one review)', () => {
     for (const state of ['approved', 'scheduled', 'partially_scheduled', 'schedule_failed', 'reschedule_pending',
-      'cancel_pending', 'publish_failed', 'with_dot', 'live', 'partially_live', 'archived'] as const) {
+      'cancel_pending', 'publish_failed', 'live', 'partially_live', 'archived'] as const) {
       expect(deriveWorkspaceData(input({ item: item({ state }) })).canEdit, state).toBe(false)
     }
     expect(deriveWorkspaceData(input()).canEdit).toBe(true)
+  })
+
+  it('keeps editing open while her sent edits only wait, so she can send additional edits', () => {
+    const waiting = deriveWorkspaceData(input({ item: item({ state: 'with_dot' }), requests: [request({ status: 'pending' })] }))
+    expect(waiting.canEdit).toBe(true)
+    const applying = deriveWorkspaceData(input({ item: item({ state: 'with_dot' }), requests: [request({ status: 'applying' })] }))
+    expect(applying.canEdit).toBe(false)
   })
 
   it('reads an approved, scheduled piece as approved with its date', () => {
