@@ -624,7 +624,12 @@ commands to run.
 **Order:**
 
 1. **Review** the frozen hash (agent code review, §14).
-2. **Migrations before code.** Never deploy a UI that queries an unapplied table. From
+2. **Back up, then migrations before code.** Production is on the Supabase Free plan, which keeps
+   no backups (`supabase backups list --project-ref ltotkkpytvtcgelrgdkg` returns none), so take a
+   manual dump first, into the private folder `~/thedot-site-backups/db/` (mode 700, never synced,
+   it holds client data): `supabase db dump --linked -f <date>-schema.sql`, the same with
+   `--data-only` and `--role-only`, then `chmod 600` the files. Never deploy a UI that queries an
+   unapplied table. From
    `~/thedot-site`: `supabase db push --dry-run`, confirm it lists exactly the intended migrations,
    then `supabase db push`. An agent may run the push after Anastasia's go. Then verify
    `assert_portal_security()` passes against production.
