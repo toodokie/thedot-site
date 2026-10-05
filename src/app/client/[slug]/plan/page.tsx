@@ -4,7 +4,7 @@ import { getClientSession } from '@/lib/portal/auth'
 import { getSchedule, statusAccent, belongsOnPlanSurface, type ScheduleRow } from '@/lib/portal/schedule'
 import { getOpenPlanCycles, getPlanCycleDecisions, getUpcomingPlanCycles, type PlanCycleItem } from '@/lib/portal/plan-cycle'
 import { getContent, type ContentRow } from '@/lib/portal/data'
-import { getCurrentReviewAssetsByItem } from '@/lib/portal/review-assets'
+import { cycleContentRows, getPlanReviewAssetsByItem } from '@/lib/portal/review-assets'
 import { Eyebrow, Heading, Text } from '@thedot/design-system'
 import PlanDecideForm from './PlanDecideForm'
 import styles from './plan.module.css'
@@ -78,11 +78,6 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
     getContent(session.clientId),
   ])
   const contentById = new Map(content.map((item) => [item.content_id, item]))
-  const assetsByItem = await getCurrentReviewAssetsByItem(session.clientId, content)
-  const hasAssets = (contentId: string) => {
-    const row = contentById.get(contentId)
-    return Boolean(row && (assetsByItem.get(row.id)?.length ?? 0) > 0)
-  }
 
   // A client may be asked to approve multiple future weeks at once. This is a queue, not
   // a single "current" plan. A missing projection still throws into the route boundary.
@@ -90,6 +85,15 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
     getOpenPlanCycles(session.clientId),
     getUpcomingPlanCycles(session.clientId),
   ])
+  // Review assets only for the pieces in these cycles; a failed lookup renders without them.
+  const assetsByItem = await getPlanReviewAssetsByItem(
+    session.clientId,
+    cycleContentRows([...openCycles, ...upcomingCycles], contentById),
+  )
+  const hasAssets = (contentId: string) => {
+    const row = contentById.get(contentId)
+    return Boolean(row && (assetsByItem.get(row.id)?.length ?? 0) > 0)
+  }
   const decisionsByCycle = new Map(await Promise.all(openCycles.map(async ({ cycle }) => [
     cycle.id,
     await getPlanCycleDecisions(session.clientId, cycle.id),
