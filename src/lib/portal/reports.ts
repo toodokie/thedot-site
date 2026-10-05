@@ -5,7 +5,7 @@ import { PortalDataError } from '@/lib/portal/data'
 // Data is AGENT-FED and free-form (no live API), so the metrics blob is intentionally loose;
 // the page renders it defensively (see reports/page.tsx). This reader stays thin: fetch + order.
 
-export type ReportPlatform = 'instagram' | 'facebook' | 'youtube' | 'website'
+export type ReportPlatform = 'instagram' | 'facebook' | 'youtube' | 'linkedin' | 'website'
 
 // A single metric value is EITHER a plain number, OR an object carrying the previous period's
 // value alongside the current one (so the page can show a delta). Anything else is skipped.

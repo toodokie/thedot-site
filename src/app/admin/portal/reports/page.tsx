@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { verifySession } from '@/lib/auth'
 import AdminPageHeader from '../AdminPageHeader'
@@ -133,8 +134,12 @@ export default async function PortalAdminReportsPage() {
   return (
     <>
       <AdminPageHeader kicker="Agency ops" title="Reports"
-        intro="The twice-monthly performance review Maria sees, one snapshot per platform per half-month period."
+        intro="The monthly performance review Maria sees, one snapshot per platform per calendar month."
         count={rows.length} countLabel="snapshots" />
+      <section className={styles.card}>
+        <div className={styles.reportSectionHead}><span className={styles.groupLabel}>Draft, not visible to Maria</span></div>
+        <p><Link href="/admin/portal/reports/september-2026-preview">September 2026 report and draft Strategy cards</Link></p>
+      </section>
       <section className={styles.card}>
         {rows.length === 0
           ? <p className={styles.empty}>No report snapshots yet.</p>

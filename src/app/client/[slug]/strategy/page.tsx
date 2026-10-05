@@ -3,6 +3,7 @@ import { getClientSession } from '@/lib/portal/auth'
 import { getRecommendations, type RecommendationCategory } from '@/lib/portal/recommendations'
 import { Eyebrow, Heading, Text, Button } from '@thedot/design-system'
 import RecommendationCard from './RecommendationCard'
+import PageFeedback from '../PageFeedback'
 import styles from './strategy.module.css'
 
 // Quiet, human-readable label per category. 'copy' reads as "Copywriting" (the client word for it).
@@ -65,6 +66,8 @@ export default async function Strategy({ params }: { params: Promise<{ slug: str
           />
         ))
       )}
+
+      <PageFeedback slug={slug} topic="Feedback on the Strategy page" />
     </div>
   )
 }
