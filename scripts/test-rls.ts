@@ -4601,9 +4601,35 @@ async function main(): Promise<void> {
           episode.error?.message ?? 'EPISODE ACCEPTED')
 
         const longCut = await admin.rpc('agency_register_review_preview',
-          registerArgs(previewContentId, 'long-cut', { p_duration_seconds: 2213 }))
-        check('RP11: a video longer than 240 seconds is refused',
-          !!longCut.error && /240 seconds/.test(longCut.error.message), longCut.error?.message ?? 'ACCEPTED')
+          registerArgs(previewContentId, 'long-cut', { p_duration_seconds: 1200.01 }))
+        check('RP11: a video longer than 1200 seconds is refused',
+          !!longCut.error && /1200 seconds/.test(longCut.error.message), longCut.error?.message ?? 'ACCEPTED')
+
+        // 0096: YouTube cuts of an episode run longer than the old 240 s cap (the Ep3 cut is 4:31).
+        const cutUpload = await uploadReviewPreview(admin, {
+          ...tools, probe: async () => ({ width: 1920, height: 1080, durationSeconds: 271 }),
+        }, { clientId: bClientId!, contentItemId: podcastItem.id, request: request(podcastId, [frameA], 'cut-ep3') })
+        const cutRow = await admin.from('content_review_previews').select('duration_seconds')
+          .eq('id', cutUpload.previewId).single()
+        check('RP13: a 271 s cut of a podcast episode registers',
+          cutUpload.outcome === 'registered' && Number(cutRow.data?.duration_seconds) === 271,
+          cutRow.error?.message ?? JSON.stringify({ cutUpload, row: cutRow.data }))
+        const fullEpisode = await admin.rpc('agency_register_review_preview',
+          registerArgs(podcastId, 'episode', { p_duration_seconds: 2213 }))
+        const shortEpisode = await admin.rpc('agency_register_review_preview',
+          registerArgs(podcastId, 'full', { p_duration_seconds: 600 }))
+        check('RP14: a full podcast episode is still refused, whatever its length',
+          !!fullEpisode.error && /full podcast episodes/.test(fullEpisode.error.message)
+            && !!shortEpisode.error && /full podcast episodes/.test(shortEpisode.error.message),
+          JSON.stringify({ full: fullEpisode.error?.message ?? 'ACCEPTED', short: shortEpisode.error?.message ?? 'ACCEPTED' }))
+        const longPodcastCut = await admin.rpc('agency_register_review_preview',
+          registerArgs(podcastId, 'cut-long', { p_duration_seconds: 2213 }))
+        const rawLongRow = await admin.rpc('agency_register_review_preview',
+          registerArgs(previewContentId, 'reel-long', { p_duration_seconds: 1201 }))
+        check('RP15: a video over 1200 s is refused even under a cut key',
+          !!longPodcastCut.error && /1200 seconds/.test(longPodcastCut.error.message)
+            && !!rawLongRow.error && /1200 seconds/.test(rawLongRow.error.message),
+          JSON.stringify({ cut: longPodcastCut.error?.message ?? 'ACCEPTED', reel: rawLongRow.error?.message ?? 'ACCEPTED' }))
 
         const replaced = await uploadReviewPreview(admin, tools, {
           clientId: bClientId!, contentItemId: previewItemId, request: request(previewContentId, [frameA, frameB]),
