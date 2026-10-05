@@ -5,6 +5,7 @@ import StatusPill, { type PillTone } from '../StatusPill'
 import { loadPlan, loadPlanCycle } from '../mirror-data'
 import styles from '../portal-admin.module.css'
 import PlanDateControl from './PlanDateControl'
+import { adminPieceHref } from '@/lib/portal/admin-piece-href'
 
 export const dynamic = 'force-dynamic'
 
@@ -66,7 +67,7 @@ export default async function PortalAdminPlanPage() {
                           <PlanDateControl clientSlug="kanset" contentId={it.content_id} initialDate={it.planned_date} />
                         </td>
                         <td className={styles.pieceCol}>
-                          <a className={styles.pieceLink} href={`/admin/portal/pieces/${encodeURIComponent(it.content_id)}`}>
+                          <a className={styles.pieceLink} href={adminPieceHref(it.content_id)}>
                             {it.title}
                           </a>
                         </td>
@@ -111,7 +112,7 @@ export default async function PortalAdminPlanPage() {
                     <td className={styles.cellNum}>{it.position}</td>
                     <td className={styles.cellNum}>{it.planned_date ?? <span className={styles.cellMuted}>unscheduled</span>}</td>
                     <td className={styles.pieceCol}>
-                      <a className={styles.pieceLink} href={`/admin/portal/pieces/${encodeURIComponent(it.content_id)}`}>{it.title}</a>
+                      <a className={styles.pieceLink} href={adminPieceHref(it.content_id)}>{it.title}</a>
                     </td>
                     <td className={styles.cellMuted}>{it.format ?? ''}</td>
                     <td className={styles.cellMuted}>{it.platforms.join(', ')}</td>
@@ -137,7 +138,7 @@ export default async function PortalAdminPlanPage() {
                   <tr key={r.id}>
                     <td className={styles.cellNum}>{r.planned_date ?? <span className={styles.cellMuted}>unscheduled</span>}</td>
                     <td className={styles.pieceCol}>
-                      <a className={styles.pieceLink} href={`/admin/portal/pieces/${encodeURIComponent(r.content_id)}`}>
+                      <a className={styles.pieceLink} href={adminPieceHref(r.content_id, r.client_slug)}>
                         {r.title}
                       </a>
                     </td>

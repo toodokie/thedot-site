@@ -171,3 +171,18 @@ describe('AgencyPanel asset detail (review fixes 2026-10-04)', () => {
     expect(screen.queryByRole('region', { name: /Working copy/ })).not.toBeInTheDocument()
   })
 })
+
+describe('links for a client other than Kanset', () => {
+  it('carries the piece\'s client on View as Maria from the panel and the bar', () => {
+    render(<AgencyPanel model={model({ contentId: 'acme-reel', clientSlug: 'acme' })} />)
+    const panel = screen.getByRole('complementary', { name: 'Agency panel' })
+    expect(within(panel).getByRole('link', { name: 'View as Maria' }))
+      .toHaveAttribute('href', '/admin/portal/pieces/acme-reel/maria-preview?client=acme')
+  })
+
+  it('carries it from the state bar', () => {
+    render(<AgencyStateBar contentId="acme-reel" clientSlug="acme" line="Shared" released />)
+    expect(screen.getByRole('link', { name: 'View as Maria' }))
+      .toHaveAttribute('href', '/admin/portal/pieces/acme-reel/maria-preview?client=acme')
+  })
+})

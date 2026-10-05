@@ -10,6 +10,7 @@ import styles from './portal-admin.module.css'
 import ClientSignalsPanel from './ClientSignalsPanel'
 import type { ClientSignal, ReleaseMediaAlert } from '@/lib/portal/agency-ops-core'
 import type { UnsentDraftAlert } from '@/lib/portal/review-drafts-core'
+import { adminPieceHref } from '@/lib/portal/admin-piece-href'
 
 // Agency-only surface (gate-system spec sections 4 + 6.8): My Tasks + the per-piece gate
 // strip render HERE, never in the client shell. Read-only: emissions go through
@@ -66,7 +67,7 @@ function TaskRow({ task, showClient, todayIso }: { task: MyTask; showClient: boo
   const title = 'title' in task ? task.title : ''
   const pieceHref = task.kind === 'ops'
     ? null
-    : `/admin/portal/pieces/${encodeURIComponent(task.contentId)}`
+    : adminPieceHref(task.contentId, task.clientId)
   let trail: ReactNode = null
   let lead: ReactNode = null
   if (task.kind === 'action') {
@@ -180,7 +181,7 @@ function weekCalendarDays(pieces: StagePiece[]): Record<string, WeekCalendarChip
     )
     const chip: WeekCalendarChip = {
       id: `${piece.clientId}:${piece.contentId}`,
-      href: `/admin/portal/pieces/${encodeURIComponent(piece.contentId)}`,
+      href: adminPieceHref(piece.contentId, piece.clientId),
       title: piece.title,
       meta: [piece.format, piece.pillar].filter(Boolean).join(' · ') || null,
       platforms: piece.platforms,
@@ -293,7 +294,7 @@ export function MyTasksAdmin({ pieces, opsTasks, completedOps, openComments, ope
                 {openComments.slice(0, 3).map((comment) => (
                   <li key={`comment:${comment.id}`} className={styles.taskRow}>
                     <span className={styles.taskMain}>
-                      <a href={`/admin/portal/pieces/${encodeURIComponent(comment.contentId)}`}
+                      <a href={adminPieceHref(comment.contentId, comment.clientId)}
                         className={`${styles.pieceLink} ${styles.taskLink}`}>{comment.title}</a>
                       <span className={styles.meta}>{comment.targetKind === 'design' ? 'Design' : 'Copy'} · {comment.clientName}</span>
                     </span>
@@ -407,7 +408,7 @@ export function PiecesAdmin({ pieces }: { pieces: StagePiece[] }) {
                     <td className={`${styles.cellMuted} ${styles.cellNum}`}>{formatPieceDate(piece.latestPublishedAt ?? piece.plannedDate)}</td>
                     {multiClient && <td className={styles.cellMuted}>{piece.clientName}</td>}
                     <td className={styles.pieceCol}>
-                      <a href={`/admin/portal/pieces/${encodeURIComponent(piece.contentId)}`} className={styles.pieceLink}>{piece.title}</a>
+                      <a href={adminPieceHref(piece.contentId, piece.clientId)} className={styles.pieceLink}>{piece.title}</a>
                     </td>
                     <td>
                       <span className={styles.stageCell}>

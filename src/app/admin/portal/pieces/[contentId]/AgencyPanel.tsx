@@ -1,5 +1,6 @@
 import { Button } from '@thedot/design-system'
 import { feedbackLine } from '@/lib/portal/agency-ops-core'
+import { adminPieceHref } from '@/lib/portal/admin-piece-href'
 import type { AgencyPieceData, AgencyReviewAsset } from './agency-piece-data'
 import { unsentAlertSentence } from './agency-piece-data-view'
 import styles from './agency-panel.module.css'
@@ -8,6 +9,8 @@ export type AgencyPanelModel = Pick<AgencyPieceData,
   'contentId' | 'stageLabel' | 'gates' | 'gatesSummary' | 'versions' | 'requestViews' | 'reviewAssets'
   | 'workingAssets' | 'previews' | 'previewError' | 'mediaOverride' | 'design' | 'drafts' | 'feedback' | 'plannedDate' | 'todayIso' | 'nowIso'> & {
   released: boolean
+  // The piece's client, so links out of the page reach the same piece. Absent in older callers.
+  clientSlug?: string
 }
 
 function shortDay(iso: string | null): string {
@@ -40,7 +43,7 @@ export default function AgencyPanel({ model }: { model: AgencyPanelModel }) {
         <div className={styles.head}>
           <span className={styles.label} style={{ margin: 0, color: 'var(--dot-black)' }}>Agency</span>
           {model.released && <Button as="a" variant="ghost" size="sm"
-            href={`/admin/portal/pieces/${encodeURIComponent(model.contentId)}/maria-preview`}>View as Maria</Button>}
+            href={adminPieceHref(model.contentId, model.clientSlug, 'maria-preview')}>View as Maria</Button>}
         </div>
         <p className={styles.meta}>{model.released ? `Stage: ${model.stageLabel} · ${model.gatesSummary}` : 'Not shared with Maria yet'}</p>
       </section>

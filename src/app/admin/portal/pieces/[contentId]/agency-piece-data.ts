@@ -14,6 +14,7 @@ import { usesPiecePageV2 } from '@/lib/portal/piece-page/piece-page-switch'
 import { PREVIEW_SEAT_EMAIL, loadClientPiecePreview, type ClientPiecePreviewData } from './maria-preview/preview-data'
 import { loadAdminComments, loadRequests, type AdminComment } from '../../data'
 import type { AdminContentRequest } from '../../RequestAdmin'
+import { resolvePieceClient } from './piece-client'
 import { stageDisplay } from '../../GatesAdmin'
 import {
   buildRequestViews, reviewTickCount, stateBarLine, summarizeDrafts,
@@ -31,6 +32,8 @@ const ASSET_COLUMNS = 'id, label, channel, asset_kind, url, caption_status, revi
 
 export type AgencyPieceData = {
   contentId: string
+  // The piece's own client, carried on every link out of the page.
+  clientSlug: string
   piece: StagePiece
   stageLabel: string
   gates: GateDot[]
@@ -70,12 +73,18 @@ function torontoToday(now: Date): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now)
 }
 
-export async function loadAgencyPieceData(contentId: string): Promise<AgencyPieceData | null> {
+// A content_id two clients share, with no ?client= to settle it: the page offers the choice.
+export type AmbiguousAgencyPiece = { ambiguous: true; contentId: string; clients: Array<{ slug: string; name: string }> }
+
+export async function loadAgencyPieceData(
+  contentId: string, clientHint?: string | null,
+): Promise<AgencyPieceData | AmbiguousAgencyPiece | null> {
   const admin = createSupabaseAdmin()
-  // Single-client launch, as before: resolve Kanset explicitly so every read stays tenant-scoped.
-  const client = await admin.from('clients').select('id').eq('slug', 'kanset').single()
-  if (client.error || !client.data) return null
-  const clientId = client.data.id as string
+  // Resolve the piece's own client, then keep every read scoped to it.
+  const resolved = await resolvePieceClient(admin, contentId, clientHint)
+  if (resolved.kind === 'missing') return null
+  if (resolved.kind === 'ambiguous') return { ambiguous: true, contentId, clients: resolved.clients }
+  const { clientId, slug: clientSlug } = resolved
   const piece = await loadAgencyStagePiece(admin, clientId, contentId)
   if (!piece) return null
   const itemRow = await admin.from('content_items').select('id, working_version, client_visible_version, planned_date')
@@ -133,7 +142,7 @@ export async function loadAgencyPieceData(contentId: string): Promise<AgencyPiec
   let mariaPreviewError: string | null = null
   if (piece.released) {
     try {
-      mariaPreview = await loadClientPiecePreview('kanset', contentId)
+      mariaPreview = await loadClientPiecePreview(clientSlug, contentId)
     } catch (error) {
       mariaPreviewError = error instanceof Error ? error.message : String(error)
     }
@@ -192,6 +201,7 @@ export async function loadAgencyPieceData(contentId: string): Promise<AgencyPiec
 
   return {
     contentId,
+    clientSlug,
     piece,
     stageLabel: [display.label, display.detail].filter(Boolean).join(' · '),
     gates: dots,

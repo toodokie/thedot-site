@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Eyebrow } from '@thedot/design-system'
 import type { AdminComment } from './data'
 import styles from './portal-admin.module.css'
+import { adminPieceHref } from '@/lib/portal/admin-piece-href'
 
 function ReplyForm({ comment }: { comment: AdminComment }) {
   const router = useRouter()
@@ -62,7 +63,7 @@ export function CommentList({
           <span>{comment.clientName}</span><span>{comment.authorName}</span><time dateTime={comment.createdAt}>{new Date(comment.createdAt).toLocaleString('en-CA', { timeZone: 'America/Toronto' })}</time>
           {!comment.resolved && <span className={styles.commentOpen}>needs reply</span>}
         </div>
-        {showPieceLink && <Link href={`/admin/portal/pieces/${encodeURIComponent(comment.contentId)}`} className={styles.commentPiece}>{comment.title}</Link>}
+        {showPieceLink && <Link href={adminPieceHref(comment.contentId, comment.clientId)} className={styles.commentPiece}>{comment.title}</Link>}
         <div className={styles.commentTarget}>{comment.targetKind === 'design' ? 'Design feedback' : `Copy${comment.copyBlockKey ? ` · ${comment.copyBlockKey}` : ''}`}</div>
         {comment.targetUrl && <a href={comment.targetUrl} target="_blank" rel="noreferrer" className={styles.destLink}>Open referenced design</a>}
         {comment.quotedText && <blockquote className={styles.commentQuote}>{comment.quotedText}</blockquote>}

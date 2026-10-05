@@ -26,6 +26,8 @@ export type OpenClientSignalRow = {
 export type ClientSignal = {
   id: string
   kind: ClientSignalType
+  // The client the signal came from, so its piece link opens under that client.
+  clientId?: string | null
   pieceKey: string | null
   pieceTitle: string | null
   headline: string
@@ -60,7 +62,7 @@ export function clientSignalFromRow(row: OpenClientSignalRow): ClientSignal | nu
   const kind = row.event_type as ClientSignalType
   const piece = row.title ?? row.content_key ?? 'a piece'
   const base = {
-    id: row.event_id, kind, pieceKey: row.content_key, pieceTitle: row.title,
+    id: row.event_id, kind, clientId: row.client_id, pieceKey: row.content_key, pieceTitle: row.title,
     createdAt: row.created_at, resolvable: signalResolveRefusal(kind) === null,
   }
   if (kind === 'portal_feedback_submitted') {

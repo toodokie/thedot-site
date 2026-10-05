@@ -4,6 +4,7 @@ import type { AgencyPieceCalendarRow } from '@/lib/portal/gates-loader'
 import StatusPill from './StatusPill'
 import { stageDisplay } from './GatesAdmin'
 import styles from './portal-admin.module.css'
+import { adminPieceHref } from '@/lib/portal/admin-piece-href'
 
 // The branded content-calendar table (spec 2026-07-23 section 8): one row per piece,
 // newest planned date first, grouped into ISO weeks, Notes shown full-width and
@@ -72,7 +73,7 @@ export default function PieceCalendarTable({ rows }: { rows: AgencyPieceCalendar
                       <tr className={hasNote ? styles.calRow : `${styles.calRow} ${styles.calRowEnd}`}>
                         <td className={styles.calDate}>{r.plannedDate ? fmt(r.plannedDate) : '—'}</td>
                         <td className={styles.pieceCol}>
-                          <a className={styles.pieceLink} href={`/admin/portal/pieces/${encodeURIComponent(r.contentId)}`}>{r.title}</a>
+                          <a className={styles.pieceLink} href={adminPieceHref(r.contentId, r.clientSlug)}>{r.title}</a>
                           {r.notShared && <span className={styles.notShared}>not shared</span>}
                         </td>
                         <td className={styles.cellMuted}>{r.pillar ?? ''}</td>

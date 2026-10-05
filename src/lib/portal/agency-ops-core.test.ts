@@ -16,7 +16,7 @@ const signal = (overrides: Partial<OpenClientSignalRow> = {}): OpenClientSignalR
 describe('clientSignalFromRow', () => {
   it('turns a feedback answer into a resolvable line', () => {
     expect(clientSignalFromRow(signal())).toEqual({
-      id: 'e1', kind: 'portal_feedback_submitted', pieceKey: null, pieceTitle: null,
+      id: 'e1', kind: 'portal_feedback_submitted', clientId: 'c1', pieceKey: null, pieceTitle: null,
       headline: 'Feedback: 4 of 5', detail: 'Maria: “Much easier on my phone.”',
       createdAt: '2026-10-03T14:00:00.000Z', resolvable: true,
     })
@@ -26,7 +26,7 @@ describe('clientSignalFromRow', () => {
     const row = signal({ event_type: 'review_send_failed', content_key: 'kanset-reel', title: 'Hiring cost reel',
       payload: { edit_count: 2, reason_code: 'draft_too_long' } })
     expect(clientSignalFromRow(row)).toMatchObject({
-      kind: 'review_send_failed', pieceKey: 'kanset-reel', headline: 'Edits not sent: Hiring cost reel',
+      kind: 'review_send_failed', clientId: 'c1', pieceKey: 'kanset-reel', headline: 'Edits not sent: Hiring cost reel',
       detail: '2 edits refused (draft too long). Her text is saved.', resolvable: false,
     })
   })

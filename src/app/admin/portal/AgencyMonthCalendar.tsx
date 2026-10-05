@@ -2,6 +2,7 @@ import MonthGrid, { type CalendarChip } from '@/app/client/[slug]/calendar/Month
 import { deriveContentStage, type ContentStage } from '@/lib/portal/gates'
 import type { AgencyPieceCalendarRow } from '@/lib/portal/gates-loader'
 import { stageDisplay } from './GatesAdmin'
+import { adminPieceHref } from '@/lib/portal/admin-piece-href'
 
 export type AgencyCalendarDays = Record<string, CalendarChip[]>
 
@@ -22,7 +23,7 @@ export function buildAgencyCalendarDays(rows: AgencyPieceCalendarRow[]): AgencyC
     const key = row.plannedDate.slice(0, 10)
     const chip: CalendarChip = {
       id: `${row.clientId}:${row.contentId}`,
-      href: `/admin/portal/pieces/${encodeURIComponent(row.contentId)}`,
+      href: adminPieceHref(row.contentId, row.clientSlug),
       title: row.title,
       meta: [row.format, row.pillar].filter(Boolean).join(' · ') || null,
       platforms: row.platforms,

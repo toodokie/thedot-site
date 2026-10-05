@@ -7,6 +7,7 @@ import type { ContentRequestMessage, ContentRequestRow } from '@/lib/portal/requ
 import type { ReviewAsset } from '@/lib/portal/review-assets'
 import type { PieceReviewCapabilities } from '@/app/client/[slug]/piece/[contentId]/PieceReviewScreen'
 import { seatRequestIdsFrom, type BundleReader } from '@/lib/portal/piece-page/seat-requests'
+import { pickPreviewSeat, type PreviewSeatRow } from '../piece-client'
 
 const REQUEST_SELECT = 'id, client_id, content_id, request_type, base_version, payload, status, requester_name, created_at, updated_at, reconciled_at, reconciled_by, canonical_version, resolution_note, canonical_content_key'
 
@@ -59,13 +60,9 @@ export async function loadClientPiecePreview(
   if (accessResult.error) throw new PortalDataError(accessResult.error.message)
   if (!itemResult.data) return null
   const item = mapContentRow(itemResult.data)
-  const maria = (accessResult.data ?? []).find((row: {
-    client_id?: string; email?: string
-  }) => row.client_id === clientId && row.email === PREVIEW_SEAT_EMAIL) as {
-    auth_user_id?: string; name?: string; can_decide?: boolean; can_comment?: boolean
-    can_submit_requests?: boolean; can_manage_schedule?: boolean
-  } | undefined
-  if (!maria) throw new PortalDataError('Maria portal seat is unavailable')
+  // Maria's seat for Kanset; another client's deciding seat otherwise.
+  const maria = pickPreviewSeat((accessResult.data ?? []) as PreviewSeatRow[], clientId, PREVIEW_SEAT_EMAIL)
+  if (!maria) throw new PortalDataError(clientSlug === 'kanset' ? 'Maria portal seat is unavailable' : 'No deciding client seat to preview')
 
   const [commentsResult, scheduleTargetsResult, scheduleRequestsResult, publicationResult,
     requestsResult, requestMessagesResult, assetsResult] = await Promise.all([

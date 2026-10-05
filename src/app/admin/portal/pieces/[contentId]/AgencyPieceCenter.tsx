@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import PieceReviewScreen from '@/app/client/[slug]/piece/[contentId]/PieceReviewScreen'
 import PiecePageV2 from '@/app/client/[slug]/piece/[contentId]/v2/PiecePageV2'
+import { adminPieceHref } from '@/lib/portal/admin-piece-href'
 import type { SignedReviewPreview } from '@/lib/portal/review-preview-core'
 import ReadOnlyPreview from './maria-preview/ReadOnlyPreview'
 import type { ClientPiecePreviewData } from './maria-preview/preview-data'
@@ -20,7 +21,7 @@ export default function AgencyPieceCenter({ contentId, preview, layout, previews
   sidePanel: ReactNode
   bottomBar: ReactNode
 }) {
-  const backHref = `/admin/portal/pieces/${encodeURIComponent(contentId)}`
+  const backHref = adminPieceHref(contentId, preview?.slug)
   let centre: ReactNode = <>{fallback}{bottomBar}</>
   if (preview && layout === 'v2') {
     centre = <PiecePageV2

@@ -4,6 +4,9 @@ import PieceReviewScreen from '@/app/client/[slug]/piece/[contentId]/PieceReview
 import PiecePageV2 from '@/app/client/[slug]/piece/[contentId]/v2/PiecePageV2'
 import { getAgencyReviewPreviews } from '@/lib/portal/review-previews'
 import { usesPiecePageV2 } from '@/lib/portal/piece-page/piece-page-switch'
+import { createSupabaseAdmin } from '@/lib/supabase/admin'
+import { adminPieceHref } from '@/lib/portal/admin-piece-href'
+import { resolvePieceClient } from '../piece-client'
 import { PREVIEW_SEAT_EMAIL, loadClientPiecePreview } from './preview-data'
 import ReadOnlyPreview from './ReadOnlyPreview'
 
@@ -11,7 +14,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function MariaPiecePreviewPage({ params, searchParams }: {
   params: Promise<{ contentId: string }>
-  searchParams: Promise<{ layout?: string }>
+  searchParams: Promise<{ layout?: string; client?: string }>
 }) {
   const session = await verifySession()
   if (!session || session.role !== 'admin' || session.userId !== 'admin') {
@@ -19,9 +22,14 @@ export default async function MariaPiecePreviewPage({ params, searchParams }: {
   }
   const { contentId } = await params
   const decoded = decodeURIComponent(contentId)
-  const preview = await loadClientPiecePreview('kanset', decoded)
+  const { layout, client } = await searchParams
+  // The piece's own client; a shared content_id goes back to the piece page to choose.
+  const resolved = await resolvePieceClient(createSupabaseAdmin(), decoded, client ?? null)
+  if (resolved.kind === 'missing') notFound()
+  if (resolved.kind === 'ambiguous') redirect(adminPieceHref(decoded))
+  const preview = await loadClientPiecePreview(resolved.slug, decoded)
   if (!preview) notFound()
-  const { layout } = await searchParams
+  const backHref = adminPieceHref(decoded, preview.slug)
   // Defaults to the layout her seat has today; ?layout=v1 or v2 forces one.
   if (layout === 'v2' || (layout !== 'v1' && usesPiecePageV2(PREVIEW_SEAT_EMAIL))) {
     const previews = await getAgencyReviewPreviews(preview.item.id, preview.item.version).catch(() => [])
@@ -43,7 +51,7 @@ export default async function MariaPiecePreviewPage({ params, searchParams }: {
           previews={previews}
           capabilities={preview.capabilities}
           showIntro={false}
-          backHref={`/admin/portal/pieces/${encodeURIComponent(decoded)}`}
+          backHref={backHref}
           backLabel="Back to Agency Ops"
           previewRefreshBase="/api/admin/portal/review-previews"
           draftScope={`read-only-preview:${preview.seatName}`}
@@ -75,7 +83,7 @@ export default async function MariaPiecePreviewPage({ params, searchParams }: {
         capabilities={preview.capabilities}
         draftScope={`read-only-preview:${preview.seatName}`}
         showReviewIntro={false}
-        backHref={`/admin/portal/pieces/${encodeURIComponent(decoded)}`}
+        backHref={backHref}
         backLabel="Back to Agency Ops"
       />
     </ReadOnlyPreview>

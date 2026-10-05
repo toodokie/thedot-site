@@ -5,12 +5,13 @@ import {
 import { unsentDraftAlertLine, type UnsentDraftAlert } from '@/lib/portal/review-drafts-core'
 import ResolveSignalButton from './ResolveSignalButton'
 import styles from './portal-admin.module.css'
+import { adminPieceHref } from '@/lib/portal/admin-piece-href'
 
 // Spec 8: the client signals the redesign creates. Unsent-edit alerts come first (a forgotten
 // Send on a piece that posts soon), then send failures, carried drafts and feedback, newest first.
 // Alerts have no Done: they clear when she sends, discards, or the piece posts.
-function pieceHref(key: string | null): string | null {
-  return key ? `/admin/portal/pieces/${encodeURIComponent(key)}` : null
+function pieceHref(key: string | null, clientId?: string | null): string | null {
+  return key ? adminPieceHref(key, clientId) : null
 }
 
 // A send failure closes itself when her retry succeeds. Done would move the inbox cursor past a
@@ -40,7 +41,7 @@ export default function ClientSignalsPanel({ signals, alerts, mediaAlerts = [], 
       {error && <p className={styles.panelNote} role="alert">Could not load signals from Maria: {error}</p>}
       <ul className={styles.taskList}>
         {alerts.map((alert) => {
-          const href = pieceHref(alert.content_id)
+          const href = pieceHref(alert.content_id, alert.client_id)
           const line = unsentDraftAlertLine(alert)
           return <li key={`alert:${alert.content_item_id}:${alert.auth_user_id}`} className={styles.taskRow}>
             <span className={styles.taskMain}>
@@ -51,7 +52,7 @@ export default function ClientSignalsPanel({ signals, alerts, mediaAlerts = [], 
           </li>
         })}
         {mediaAlerts.map((alert) => {
-          const href = pieceHref(alert.content_key)
+          const href = pieceHref(alert.content_key, alert.client_id)
           const line = releaseMediaAlertLine(alert)
           return <li key={`media:${alert.content_item_id}`} className={styles.taskRow}>
             <span className={styles.taskMain}>
@@ -62,7 +63,7 @@ export default function ClientSignalsPanel({ signals, alerts, mediaAlerts = [], 
           </li>
         })}
         {signals.map((signal) => {
-          const href = pieceHref(signal.pieceKey)
+          const href = pieceHref(signal.pieceKey, signal.clientId)
           return <li key={`signal:${signal.id}`} className={styles.taskRow}>
             <span className={styles.taskMain}>
               {href ? <a className={`${styles.taskTitle} ${styles.pieceLink} ${styles.taskLink}`} href={href}>{signal.headline}</a>

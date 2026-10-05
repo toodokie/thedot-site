@@ -53,3 +53,11 @@ describe('AgencyPieceCenter', () => {
     expect(screen.queryByTestId('v2')).not.toBeInTheDocument()
   })
 })
+
+describe('AgencyPieceCenter for another client', () => {
+  it('points the back link at the piece under its own client', () => {
+    calls.v2.length = 0
+    render(<AgencyPieceCenter {...common} contentId="acme-reel" preview={{ ...preview, slug: 'acme' } as ClientPiecePreviewData} layout="v2" />)
+    expect(calls.v2[0]).toMatchObject({ backHref: '/admin/portal/pieces/acme-reel?client=acme' })
+  })
+})

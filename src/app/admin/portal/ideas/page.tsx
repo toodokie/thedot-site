@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { verifySession } from '@/lib/auth'
+import { adminPieceHref } from '@/lib/portal/admin-piece-href'
 import AdminPageHeader from '../AdminPageHeader'
 import StatusPill from '../StatusPill'
 import { loadIdeaComments, loadIdeas } from '../mirror-data'
@@ -25,7 +26,7 @@ export default async function PortalAdminIdeasPage() {
             <article key={idea.id} id={`idea-${idea.id}`} className={styles.subCard}>
               <div className={styles.pubPieceHead}>
                 {idea.became_content_id ? (
-                  <Link className={styles.subCardTitle} href={`/admin/portal/pieces/${encodeURIComponent(idea.became_content_id)}`}>
+                  <Link className={styles.subCardTitle} href={adminPieceHref(idea.became_content_id)}>
                     {idea.title}
                   </Link>
                 ) : <span className={styles.subCardTitle}>{idea.title}</span>}

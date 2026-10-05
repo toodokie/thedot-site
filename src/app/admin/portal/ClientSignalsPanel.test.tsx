@@ -99,7 +99,7 @@ describe('ClientSignalsPanel media lines (amended 2026-10-03)', () => {
       todayIso="2026-10-03" nowIso="2026-10-03T16:00:00.000Z" />)
     expect(screen.getByRole('heading', { level: 2, name: 'From Maria' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'No media on Work permit article v3: Maria is reviewing it' }))
-      .toHaveAttribute('href', '/admin/portal/pieces/kanset-article')
+      .toHaveAttribute('href', '/admin/portal/pieces/kanset-article?client=c')
     expect(screen.getByText('Attach a review asset, preview or design link · posts in 3 days')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Done/ })).not.toBeInTheDocument()
   })
@@ -110,5 +110,16 @@ describe('ClientSignalsPanel media lines (amended 2026-10-03)', () => {
     expect(screen.getByRole('link', { name: "Maria's video didn't play: iPhone, Safari" }))
       .toHaveAttribute('href', '/admin/portal/pieces/kanset-reel')
     expect(screen.getByRole('button', { name: "Done: Maria's video didn't play: iPhone, Safari" })).toBeInTheDocument()
+  })
+})
+
+describe('ClientSignalsPanel links for another client', () => {
+  it('carries the client on every piece link', () => {
+    render(<ClientSignalsPanel signals={[{ ...failure, pieceKey: 'acme-reel', clientId: 'c-acme' }]}
+      alerts={[{ ...alert, client_id: 'c-acme', content_id: 'acme-post', title: 'Acme post' }]} error={null}
+      todayIso="2026-10-03" nowIso="2026-10-03T16:00:00.000Z" />)
+    expect(screen.getByRole('link', { name: 'Edits not sent: Hiring cost reel' }))
+      .toHaveAttribute('href', '/admin/portal/pieces/acme-reel?client=c-acme')
+    expect(screen.getAllByRole('link').some((link) => link.getAttribute('href') === '/admin/portal/pieces/acme-post?client=c-acme')).toBe(true)
   })
 })

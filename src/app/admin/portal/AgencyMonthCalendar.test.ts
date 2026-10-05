@@ -52,7 +52,7 @@ describe('AgencyMonthCalendar data', () => {
     expect(days['2026-07-27']).toHaveLength(1)
     expect(days['2026-07-27'][0]).toMatchObject({
       id: 'client-a:piece-1',
-      href: '/admin/portal/pieces/piece-1',
+      href: '/admin/portal/pieces/piece-1?client=kanset',
       title: 'A planned piece',
       meta: 'reel · employer',
       accent: 'with_dot',

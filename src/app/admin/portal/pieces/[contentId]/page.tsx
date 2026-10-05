@@ -8,6 +8,7 @@ import AdminPageHeader from '../../AdminPageHeader'
 import { CommentList } from '../../CommentInbox'
 import { RequestList } from '../../RequestAdmin'
 import adminStyles from '../../portal-admin.module.css'
+import { adminPieceHref } from '@/lib/portal/admin-piece-href'
 import { loadAgencyPieceData } from './agency-piece-data'
 import { centreFallbackHeading } from './agency-piece-data-view'
 import AgencyPieceCenter from './AgencyPieceCenter'
@@ -21,12 +22,28 @@ export const dynamic = 'force-dynamic'
 // Admin piece page (spec 2026-10-03 section 8): Maria's exact page, read-only, plus the agency
 // panel. Read and operate, not authoring: content still changes only through the canonical CLI.
 // The reply threads and the full step detail stay below the layout: the panel summarises, they operate.
-export default async function AdminPiecePage({ params }: { params: Promise<{ contentId: string }> }) {
+export default async function AdminPiecePage({ params, searchParams }: {
+  params: Promise<{ contentId: string }>
+  searchParams: Promise<{ client?: string }>
+}) {
   const session = await verifySession()
   if (!session || session.role !== 'admin') redirect('/admin/login')
   const { contentId } = await params
-  const data = await loadAgencyPieceData(decodeURIComponent(contentId))
+  const { client } = await searchParams
+  const data = await loadAgencyPieceData(decodeURIComponent(contentId), client ?? null)
   if (!data) notFound()
+  // content_id is unique per client only: when two clients share one, ask which piece is meant.
+  if ('ambiguous' in data) return (
+    <>
+      <Link href="/admin/portal/pieces" className={styles.back}>← All pieces</Link>
+      <AdminPageHeader kicker="Agency ops · Piece" title={data.contentId} display intro="More than one client has a piece with this id. Choose the client." />
+      <ul className={styles.rows}>
+        {data.clients.map((option) => <li key={option.slug}>
+          <Link href={adminPieceHref(data.contentId, option.slug)}>{option.name}</Link>
+        </li>)}
+      </ul>
+    </>
+  )
   const { piece } = data
   const meta = [
     piece.pillar, piece.format,
@@ -56,7 +73,7 @@ export default async function AdminPiecePage({ params }: { params: Promise<{ con
           blocks={data.working.blocks} clientBody={data.working.clientBody}
           canva={data.design.canva} drive={data.design.drive} />}
         sidePanel={<AgencyPanel model={{ ...data, released }} />}
-        bottomBar={<AgencyStateBar contentId={data.contentId} line={data.barLine} released={released} />}
+        bottomBar={<AgencyStateBar contentId={data.contentId} clientSlug={data.clientSlug} line={data.barLine} released={released} />}
       />
 
       <div className={styles.below}>
