@@ -66,7 +66,7 @@ function ChannelRow({ label, before, after, change }: { label: string; before: s
 // Restructured 2026-10-01 to Maria's own feedback on the August report (ideas board, 2026-09-08):
 // point form, shorter, channel overview merged with channel detail, topics merged with findings,
 // no platform mechanics, no agency action list, no "method and limits" section.
-export default function SeptemberReportBody({ backHref, backLabel, feedback }: { backHref: string; backLabel: string; feedback?: React.ReactNode }) {
+export default function SeptemberReportBody({ backHref, backLabel, feedback, strategyHref }: { backHref: string; backLabel: string; feedback?: React.ReactNode; strategyHref?: string }) {
   return (
     <main className={`${styles.page} ${sept.wide} ${sept.lists}`}>
       <nav className={styles.back} aria-label="Report navigation">
@@ -224,6 +224,14 @@ export default function SeptemberReportBody({ backHref, backLabel, feedback }: {
           </article>
         </div>
       </section>
+
+      {strategyHref && (
+        <section className={sept.strategyNote} aria-label="Strategy page updated">
+          <h2>Your Strategy page is updated</h2>
+          <p>What September showed is now on your Strategy page: four new points and five updated ones, so you can see the plan in one place.</p>
+          <Link href={strategyHref}>Open the Strategy page →</Link>
+        </section>
+      )}
 
       {feedback}
 

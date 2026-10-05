@@ -27,7 +27,8 @@ export default async function SeptemberReport({ params }: { params: Promise<{ sl
     <>
       {PUBLISHED && <MarkReportViewed slug={slug} reportKey="2026-09" />}
       <SeptemberReportBody backHref={`/client/${encodeURIComponent(slug)}/reports`} backLabel="← Performance reports"
-        feedback={<PageFeedback slug={slug} topic="Feedback on the September 2026 report" />} />
+        feedback={<PageFeedback slug={slug} topic="Feedback on the September 2026 report" />}
+        strategyHref={`/client/${encodeURIComponent(slug)}/strategy`} />
     </>
   )
 }

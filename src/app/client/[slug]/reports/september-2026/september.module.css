@@ -32,3 +32,9 @@ main.wide { max-width: 1440px; }
   text-transform: none;
   color: var(--report-ink);
 }
+
+/* Pointer to the Strategy page update (Anastasia, 2026-10-05: so Maria does not miss it). */
+.strategyNote { margin: 40px 0 0; padding: 24px 28px; border-left: 4px solid var(--report-river); background: var(--report-panel); }
+.strategyNote h2 { margin: 0 0 8px; font-family: var(--dot-font-display); font-size: 1.3rem; font-weight: var(--dot-weight-medium); letter-spacing: 0; text-transform: none; color: var(--report-ink); }
+.strategyNote p { margin: 0 0 14px; max-width: 68ch; }
+.strategyNote a { font-weight: 600; color: var(--report-river); }

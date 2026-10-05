@@ -44,7 +44,7 @@ export default async function SeptemberReportPreview() {
         <strong>Agency copy of the September report.</strong> Maria sees the same body at her Reports page.{' '}
         <Link href="/admin/portal/reports">Back to Reports</Link>
       </div>
-      <SeptemberReportBody backHref="/admin/portal/reports" backLabel="← Agency reports"
+      <SeptemberReportBody backHref="/admin/portal/reports" backLabel="← Agency reports" strategyHref="/admin/portal/strategy"
         feedback={<p style={{ margin: '40px 0', padding: 16, border: '1px dashed #b9a24b', borderRadius: 12 }}>Maria sees a &ldquo;Questions or comments?&rdquo; box here. Her note lands on the ideas board as &ldquo;Feedback on the September 2026 report&rdquo;.</p>} />
       <main className={`${styles.page} ${sept.wide} ${sept.lists}`}>
         <section className={styles.section} aria-labelledby="draft-strategy">
