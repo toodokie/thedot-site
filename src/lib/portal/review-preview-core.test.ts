@@ -65,7 +65,7 @@ describe('review preview paths', () => {
 
   it('keeps the limits the migration enforces', () => {
     expect(PREVIEW_LIMITS.maxVideoBytes).toBe(52_428_800)
-    expect(PREVIEW_LIMITS.maxDurationSeconds).toBe(240)
+    expect(PREVIEW_LIMITS.maxDurationSeconds).toBe(1200)
     expect(PREVIEW_LIMITS.maxFrames).toBe(40)
     expect(PREVIEW_LIMITS.maxTotalBytes).toBe(52_428_800 + 41 * 2_097_152)
   })

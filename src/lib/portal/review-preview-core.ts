@@ -12,7 +12,10 @@ export const PREVIEW_LIMITS = {
   maxVideoBytes: 52_428_800,
   maxImageBytes: 2_097_152,
   maxFrames: 40,
-  maxDurationSeconds: 240,
+  // 20 minutes covers a YouTube cut of an episode (the Ep3 cut runs 4:31). Full podcast episodes
+  // are refused by format and preview key in agency_register_review_preview (0092, 0096), not by
+  // this number. A render over maxVideoBytes needs a compressed review copy.
+  maxDurationSeconds: 1200,
   maxTotalBytes: 138_412_032,
 } as const
 

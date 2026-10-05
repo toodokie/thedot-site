@@ -119,11 +119,28 @@ describe('uploadReviewPreview', () => {
     expect(c.objectPrefix).not.toBe(a.objectPrefix)
   })
 
-  it('refuses a video longer than 240 seconds before uploading anything', async () => {
+  it('refuses a full-length episode render before uploading anything', async () => {
     const { admin, uploads } = fakeAdmin()
     await expect(uploadReviewPreview(admin, fakeTools(FILES, {}, { width: 1920, height: 1080, durationSeconds: 2213 }),
       { ...target, request: videoRequest() })).rejects.toThrow('never a full episode')
     expect(uploads).toEqual([])
+  })
+
+  it('refuses a video longer than 1200 seconds before uploading anything', async () => {
+    const { admin, uploads } = fakeAdmin()
+    await expect(uploadReviewPreview(admin, fakeTools(FILES, {}, { width: 1920, height: 1080, durationSeconds: 1200.6 }),
+      { ...target, request: videoRequest() })).rejects.toThrow('cuts up to 1200s')
+    expect(uploads).toEqual([])
+  })
+
+  it('accepts a 4:31 YouTube cut and a cut of exactly 1200 seconds', async () => {
+    for (const durationSeconds of [271, 1200]) {
+      const { admin, rpcs } = fakeAdmin()
+      await uploadReviewPreview(admin, fakeTools(FILES, {}, { width: 1920, height: 1080, durationSeconds }),
+        { ...target, request: videoRequest() })
+      const register = rpcs.find((c) => c.fn === 'agency_register_review_preview')?.args as Record<string, unknown>
+      expect(register.p_duration_seconds).toBe(durationSeconds)
+    }
   })
 
   it('refuses an oversized video before uploading anything', async () => {
