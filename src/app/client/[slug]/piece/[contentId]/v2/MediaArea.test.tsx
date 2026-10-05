@@ -19,7 +19,7 @@ const pages: SignedReviewPreview = { ...reel, id: 'p2', mediaKind: 'pages', vide
   frames: Array.from({ length: 12 }, (_, i) => ({ label: `Page ${i + 1}`, url: `https://signed.example/page${i + 1}.jpg` })) }
 
 const base = {
-  title: 'Foreign worker cost', refreshUrl: null, fallbackMedia: [], episodeDriveUrl: null, mediaPending: false,
+  title: 'Foreign worker cost', refreshUrl: null, fallbackMedia: [], episodeDriveUrl: null, episodeTrailer: false, mediaPending: false,
   framesCollapsed: false, page: 0, onPageChange: vi.fn(), onSuggestWhole: vi.fn(), onSuggestAt: vi.fn(),
 }
 
@@ -46,11 +46,19 @@ describe('MediaArea', () => {
   })
 
   it('plays an episode trailer full width and links the full episode in Drive', () => {
-    render(<MediaArea {...base} layout="horizontal" preview={{ ...reel, width: 1920, height: 1080, frames: [] }}
-      episodeDriveUrl="https://drive.google.com/full" />)
+    render(<MediaArea {...base} layout="horizontal" preview={{ ...reel, previewKey: 'trailer', width: 1920, height: 1080, frames: [] }}
+      episodeDriveUrl="https://drive.google.com/full" episodeTrailer />)
     expect(screen.getByLabelText('Foreign worker cost: trailer')).toBeInTheDocument()
     expect(screen.getByText('This is the trailer. The full episode stays on Drive.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Open the full episode in Drive' })).toHaveAttribute('href', 'https://drive.google.com/full')
+  })
+
+  it('plays any other horizontal video without the trailer note', () => {
+    render(<MediaArea {...base} layout="horizontal" preview={{ ...reel, previewKey: 'cut', width: 1920, height: 1080, frames: [] }} />)
+    expect(screen.getByLabelText('Foreign worker cost: video')).toBeInTheDocument()
+    expect(screen.queryByText(/This is the trailer/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open the full episode in Drive' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Suggest a change to the video' })).toBeInTheDocument()
   })
 
   it('pages through a PDF with arrows, thumbnails and the keyboard', () => {

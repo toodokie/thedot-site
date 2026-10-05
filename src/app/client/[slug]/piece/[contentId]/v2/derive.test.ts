@@ -139,6 +139,24 @@ describe('deriveWorkspaceData', () => {
     expect(data.canRequestSchedule).toBe(false)
   })
 
+  it('calls a horizontal video a trailer only for a podcast episode with a teaser or trailer preview', () => {
+    const wide = { ...preview, width: 1920, height: 1080, frames: [] }
+    const drive = 'https://drive.google.com/full'
+    const cut = deriveWorkspaceData(input({ item: item({ format: 'video', drive_url: drive }), previews: [{ ...wide, previewKey: 'cut' }] }))
+    expect(cut.layout).toBe('horizontal')
+    expect(cut.episodeTrailer).toBe(false)
+    expect(cut.episodeDriveUrl).toBeNull()
+    const episodeCut = deriveWorkspaceData(input({ item: item({ format: 'podcast', drive_url: drive }), previews: [{ ...wide, previewKey: 'cut' }] }))
+    expect(episodeCut.episodeTrailer).toBe(false)
+    expect(episodeCut.episodeDriveUrl).toBe(drive)
+    for (const previewKey of ['teaser', 'trailer']) {
+      const trailer = deriveWorkspaceData(input({ item: item({ format: 'podcast', drive_url: drive }), previews: [{ ...wide, previewKey }] }))
+      expect(trailer.episodeTrailer).toBe(true)
+      expect(trailer.episodeDriveUrl).toBe(drive)
+    }
+    expect(deriveWorkspaceData(input()).episodeTrailer).toBe(false)
+  })
+
   it('labels formats plainly', () => {
     expect(pieceFormatLabel('podcast_article', ['squarespace'])).toBe('Website article · kanset.com')
     expect(pieceFormatLabel('linkedin-post', ['linkedin'])).toBe('LinkedIn post · LinkedIn')

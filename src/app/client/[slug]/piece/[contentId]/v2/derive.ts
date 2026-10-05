@@ -49,6 +49,9 @@ export type WorkspaceData = {
   previewRefreshUrl: string | null
   fallbackMedia: Array<{ label: string; url: string }>
   episodeDriveUrl: string | null
+  // A podcast episode reviewed through its teaser or trailer: only then does the page say the full
+  // episode stays on Drive. A YouTube cut or any other horizontal video is just the video.
+  episodeTrailer: boolean
   mediaPending: boolean
   visualTarget: VisualTarget | null
   cover: CoverInfo | null
@@ -177,6 +180,9 @@ function pickCoverTile(layout: PieceLayout, preview: SignedReviewPreview | null,
   }
 }
 
+const EPISODE_FORMATS = new Set(['podcast', 'podcast_article', 'episode'])
+const TRAILER_KEYS = new Set(['teaser', 'trailer'])
+
 export function deriveWorkspaceData(input: DeriveInput): WorkspaceData {
   const { item, capabilities } = input
   const blocks = item.copy_blocks && item.copy_blocks.length > 0
@@ -184,6 +190,8 @@ export function deriveWorkspaceData(input: DeriveInput): WorkspaceData {
     : (item.client_body ? [{ key: null, label: 'Caption', body: item.client_body }] : [])
   const layout = pieceLayout(item.format, blocks, input.previews)
   const preview = primaryPreview(layout, input.previews)
+  const episode = EPISODE_FORMATS.has((item.format ?? '').toLowerCase())
+  const episodeTrailer = layout === 'horizontal' && episode && preview !== null && TRAILER_KEYS.has(preview.previewKey)
   const tabs = buildCopyTabs(layout, blocks, input.reviewAssets)
 
   const isPublished = input.publication.some((target) => target.status === 'live')
@@ -251,7 +259,8 @@ export function deriveWorkspaceData(input: DeriveInput): WorkspaceData {
     preview,
     previewRefreshUrl: preview ? `${input.previewRefreshBase}/${preview.id}` : null,
     fallbackMedia,
-    episodeDriveUrl: layout === 'horizontal' && isHttps(item.drive_url) ? item.drive_url : null,
+    episodeDriveUrl: layout === 'horizontal' && episode && isHttps(item.drive_url) ? item.drive_url : null,
+    episodeTrailer,
     mediaPending: expectsMedia && !preview && fallbackMedia.length === 0,
     visualTarget,
     cover,

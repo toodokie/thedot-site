@@ -200,7 +200,7 @@ function WorkspaceBody({ data, mode, bottomBar }: { data: WorkspaceData; mode: W
 
   const media = data.layout === 'vertical' || data.layout === 'horizontal' || data.layout === 'pages'
     ? <MediaArea layout={data.layout} title={data.title} preview={data.preview} refreshUrl={data.previewRefreshUrl}
-      fallbackMedia={data.fallbackMedia} episodeDriveUrl={data.episodeDriveUrl} mediaPending={data.mediaPending}
+      fallbackMedia={data.fallbackMedia} episodeDriveUrl={data.episodeDriveUrl} episodeTrailer={data.episodeTrailer} mediaPending={data.mediaPending}
       framesCollapsed={activeTab?.kind === 'onscreen'} page={page} onPageChange={setPage}
       onSuggestWhole={canSuggest ? () => suggest(null) : null}
       onSuggestAt={canSuggest && visual?.anchors ? (at) => suggest(at) : null}

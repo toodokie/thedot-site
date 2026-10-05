@@ -22,6 +22,8 @@ export default function MediaArea(props: {
   refreshUrl: string | null
   fallbackMedia: Array<{ label: string; url: string }>
   episodeDriveUrl: string | null
+  // True only for a podcast episode shown through its teaser or trailer (derive.ts).
+  episodeTrailer?: boolean
   mediaPending: boolean
   framesCollapsed: boolean
   page: number
@@ -74,11 +76,12 @@ export default function MediaArea(props: {
 
   if (preview && preview.videoUrl) {
     const horizontal = preview.width > preview.height
+    const trailer = horizontal && props.episodeTrailer === true
     return <div>
       <ReviewVideoPlayer preview={preview} className={`${styles.player} ${horizontal ? styles.playerH : styles.playerV}`}
-        label={`${props.title}: ${horizontal ? 'trailer' : 'video'}`} refresh={refresh} forceRefresh={forceRefresh}
+        label={`${props.title}: ${trailer ? 'trailer' : 'video'}`} refresh={refresh} forceRefresh={forceRefresh}
         report={report} />
-      {horizontal && <p className={styles.mediaNote}>This is the trailer. The full episode stays on Drive.</p>}
+      {trailer && <p className={styles.mediaNote}>This is the trailer. The full episode stays on Drive.</p>}
       <div className={styles.underMedia}>
         {props.onSuggestWhole && <button type="button" className={`${styles.link} ${styles.linkSmall}`} onClick={props.onSuggestWhole}>
           {horizontal ? 'Suggest a change to the video' : 'Suggest a change to the whole video'}
