@@ -13,6 +13,8 @@ function textField(data: FormData, key: string): string | null {
 
 const FINAL_PACKAGE_NOT_READY =
   'The final package is not ready yet. You can leave copy feedback now; final approval opens once a linked design is ready.'
+const EPISODE_PACKAGE_INCOMPLETE =
+  "This episode's package is not complete yet. I will let you know when it is ready to approve."
 
 export async function decide(formData: FormData): Promise<{ error?: string }> {
   const slug = textField(formData, 'slug')
@@ -48,10 +50,13 @@ export async function decide(formData: FormData): Promise<{ error?: string }> {
     if (error.message.includes('unsent_review_drafts')) {
       return { error: 'You have edits that are not sent yet. Send them or discard them, then approve.' }
     }
-    // 0073: the database refuses a decision until the final package (design link or review
-    // asset, plus the podcast pack keys) is attached to this version.
-    if (error.message.includes('final_package_design_required')
-      || error.message.includes('final_package_incomplete')) {
+    // 0073: the database refuses a podcast or podcast_article decision until every pack
+    // block and asset (key, channel, kind, verified captions) is on this version.
+    if (error.message.includes('final_package_incomplete')) {
+      return { error: EPISODE_PACKAGE_INCOMPLETE }
+    }
+    // 0073: any piece needs a design link or review asset on this version.
+    if (error.message.includes('final_package_design_required')) {
       return { error: FINAL_PACKAGE_NOT_READY }
     }
     return { error: 'Could not save your decision. Please try again.' }

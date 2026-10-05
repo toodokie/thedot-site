@@ -50,14 +50,19 @@ describe('decide', () => {
     })
   })
 
-  it.each(['final_package_design_required', 'final_package_incomplete'])(
-    'explains a database refusal for a missing final package (%s)',
-    async (code) => {
-      mocks.getContentItem.mockResolvedValue({ id: 'i1', version: 2, status: 'draft', canva_url: null, drive_url: null })
-      mocks.rpc.mockResolvedValue({ error: { message: code } })
-      expect(await decide(form())).toEqual({
-        error: 'The final package is not ready yet. You can leave copy feedback now; final approval opens once a linked design is ready.',
-      })
-    },
-  )
+  it('explains a database refusal for a missing linked design', async () => {
+    mocks.getContentItem.mockResolvedValue({ id: 'i1', version: 2, status: 'draft', canva_url: null, drive_url: null })
+    mocks.rpc.mockResolvedValue({ error: { message: 'final_package_design_required' } })
+    expect(await decide(form())).toEqual({
+      error: 'The final package is not ready yet. You can leave copy feedback now; final approval opens once a linked design is ready.',
+    })
+  })
+
+  it('explains an incomplete episode package in its own words, not as a missing design', async () => {
+    mocks.getContentItem.mockResolvedValue({ id: 'i1', version: 2, status: 'draft', canva_url: null, drive_url: null })
+    mocks.rpc.mockResolvedValue({ error: { message: 'final_package_incomplete' } })
+    expect(await decide(form())).toEqual({
+      error: 'This episode\'s package is not complete yet. I will let you know when it is ready to approve.',
+    })
+  })
 })
