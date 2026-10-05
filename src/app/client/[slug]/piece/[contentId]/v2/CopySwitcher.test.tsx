@@ -29,6 +29,14 @@ describe('CopySwitcher', () => {
     expect(document.querySelectorAll('[data-checked="true"]')).toHaveLength(2)
   })
 
+  it('shows no review status on a decided piece', () => {
+    render(subject({ showTicks: false }))
+    expect(screen.queryByText('not reviewed yet')).not.toBeInTheDocument()
+    expect(screen.queryByText('reviewed')).not.toBeInTheDocument()
+    expect(document.querySelectorAll('[data-checked]')).toHaveLength(0)
+    expect(screen.getByRole('tab', { name: /Caption.*updated/ })).toBeInTheDocument()
+  })
+
   it('moves with the arrow keys, Home and End', () => {
     const onSelect = vi.fn()
     render(subject({ onSelect }))

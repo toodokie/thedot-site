@@ -90,3 +90,11 @@ export function headerStatus(input: {
   if (dateLabel) return { kind: 'unconfirmed', verb, dateLabel, keyFact: `${verb} ${dateLabel}` }
   return { kind: 'undated', keyFact: 'No date yet' }
 }
+
+// The decision bar line once every provider time is confirmed: the header's groups in one line.
+// Several days already name their date in each group; one day names it once, before the first.
+export function scheduledLabel(status: Extract<HeaderStatus, { kind: 'scheduled' }>): string {
+  const multiDay = status.groups.some((group) => group.time.includes(','))
+  const groups = status.groups.map((group) => `${group.time} ${group.destinations}`).join(' · ')
+  return `Scheduled · ${multiDay ? groups : `${status.dateLabel}, ${groups}`}`
+}

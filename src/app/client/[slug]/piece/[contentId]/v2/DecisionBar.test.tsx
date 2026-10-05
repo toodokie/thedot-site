@@ -53,6 +53,18 @@ describe('DecisionBar', () => {
     expect(screen.getByText('New version 2. Your earlier ticks are cleared for this version.')).toBeInTheDocument()
   })
 
+  it('says her edits are applied before the approved line', () => {
+    renderInPage(bar({ kind: 'decided' }, { editsApplied: true }))
+    const region = screen.getByRole('region', { name: 'Your review' })
+    expect(region).toHaveTextContent(/Your edits are applied\.\s*Approved · posts Fri Oct 2\s*Thank you\. Nothing else needed from you\./)
+  })
+
+  it('leaves the approved line alone when no edits of hers were applied', () => {
+    renderInPage(bar({ kind: 'decided' }))
+    expect(screen.queryByText('Your edits are applied.')).not.toBeInTheDocument()
+    expect(screen.getByText('Approved · posts Fri Oct 2')).toBeInTheDocument()
+  })
+
   it('waits for the media', () => {
     renderInPage(bar({ kind: 'approve', enabled: false, reason: 'media', untickedLabels: [] }, { ticks: { total: 3, done: 3 } }))
     expect(screen.getByText('You can approve once the video is here. I will let you know.')).toBeInTheDocument()

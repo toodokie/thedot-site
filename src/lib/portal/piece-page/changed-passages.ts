@@ -21,13 +21,31 @@ export function changedParagraphs(before: string | null, after: string): boolean
 
 export type AppliedChanges = { before: Map<string, string>; visualsChanged: boolean }
 
+function isAppliedEdit(request: ContentRequestRow): boolean {
+  return request.request_type === 'edit' && ['applied', 'superseded'].includes(request.status)
+    && request.base_version !== null && request.canonical_version !== null && request.base_version < request.canonical_version
+}
+
+// Her applied edits shown on a piece she has already decided (one review, 2026-09-14). The agency
+// may release later versions after applying them (the Oct 5 news roundup: edits applied into v2, a
+// YouTube-only courtesy release made v3), so this takes her latest review round applied into this
+// version or an earlier one, not only into this exact version.
+export function decidedAppliedChanges(version: number, requests: ContentRequestRow[]): AppliedChanges {
+  const applied = requests.filter((request) => isAppliedEdit(request) && (request.canonical_version as number) <= version)
+  if (!applied.length) return { before: new Map(), visualsChanged: false }
+  const round = Math.max(...applied.map((request) => request.base_version as number))
+  return collectChanges(applied.filter((request) => request.base_version === round))
+}
+
 export function appliedChanges(version: number, requests: ContentRequestRow[]): AppliedChanges {
+  return collectChanges(requests.filter((request) => isAppliedEdit(request) && request.canonical_version === version))
+}
+
+function collectChanges(requests: ContentRequestRow[]): AppliedChanges {
   const before = new Map<string, { text: string; base: number }>()
   let visualsChanged = false
   for (const request of requests) {
-    if (request.request_type !== 'edit' || request.canonical_version !== version) continue
-    if (!['applied', 'superseded'].includes(request.status)) continue
-    if (request.base_version === null || request.base_version >= version) continue
+    if (request.base_version === null) continue
     const kind = typeof request.payload.target_kind === 'string' ? request.payload.target_kind : 'copy_block'
     if (kind !== 'copy_block') { visualsChanged = true; continue }
     const key = typeof request.payload.target_key === 'string' ? request.payload.target_key

@@ -191,7 +191,7 @@ function WorkspaceBody({ data, mode, bottomBar }: { data: WorkspaceData; mode: W
     <SentEditsElsewhere />
     {visualCarried.map((draft) => <CarriedDraftNotice key={draftIdentity(draft)} draft={draft} currentText="" version={data.version} />)}
     {data.tabs.length > 0 && <CopySwitcher idPrefix="piece" tabs={data.tabs} active={activeTab?.key ?? ''} onSelect={setActive}
-      ticked={ticked} draftCounts={draftCounts} updated={new Set(data.updatedTabKeys)} />}
+      ticked={ticked} draftCounts={draftCounts} updated={new Set(data.updatedTabKeys)} showTicks={!data.decided} />}
     <div role="tabpanel" id="piece-panel" aria-labelledby={activeTab ? tabDomId('piece', activeTab.key) : undefined}
       className={styles.sheet} tabIndex={0} {...(isPhone ? swipe : {})}>
       {panel}
@@ -222,7 +222,7 @@ function WorkspaceBody({ data, mode, bottomBar }: { data: WorkspaceData; mode: W
           : <div className={styles.readw}>{copy}</div>}
     </div>
     {mode === 'agency' ? bottomBar ?? null : <DecisionBar action={action} ticks={{ total: data.tabs.length, done: data.tabs.length - unticked.length }}
-      version={data.version} reReview={data.reReview} approvedLabel={data.approvedLabel} postedLabel={data.postedLabel}
+      version={data.version} reReview={data.reReview} editsApplied={data.editsApplied} approvedLabel={data.approvedLabel} postedLabel={data.postedLabel}
       sentSummary={data.sentSummary} slug={data.slug} contentId={data.contentId} mode={mode} canEdit={data.canEdit}
       onOpenPastEdits={() => setDrawer({ open: true, tab: 'past' })} onShowCarried={showCarried} />}
     <QuestionsDrawer open={drawer.open} tab={drawer.tab} onTabChange={(tab) => setDrawer((d) => ({ ...d, tab }))}

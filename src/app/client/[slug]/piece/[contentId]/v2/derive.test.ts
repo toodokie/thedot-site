@@ -114,9 +114,79 @@ describe('deriveWorkspaceData', () => {
       schedule: { targets: [{ id: 't', content_id: 'item-1', content_version: 2, destination: 'instagram', required: true,
         scheduled_at: '2026-10-02T22:00:00Z', status: 'scheduled', verified_at: null, verification_label: '' }], requests: [] },
     }))
-    expect(data.approvedLabel).toBe('Approved · posts Fri Oct 2')
+    expect(data.approvedLabel).toBe('Scheduled · Fri Oct 2, 6 p.m. Instagram')
     expect(data.canRequestSchedule).toBe(true)
     expect(data.scheduleHasExternalTargets).toBe(true)
+  })
+
+  it('names confirmed times per destination, by day when they span several days', () => {
+    const target = (destination: string, scheduled_at: string) => ({ id: destination, content_id: 'item-1', content_version: 2,
+      destination, required: true, scheduled_at, status: 'scheduled' as const, verified_at: null, verification_label: '' })
+    const oneDay = deriveWorkspaceData(input({ item: item({ state: 'scheduled' }), schedule: { targets: [
+      target('facebook', '2026-10-05T22:30:00Z'), target('instagram', '2026-10-05T22:30:00Z'), target('youtube', '2026-10-05T23:00:00Z'),
+    ], requests: [] } }))
+    expect(oneDay.approvedLabel).toBe('Scheduled · Mon Oct 5, 6:30 p.m. Facebook, Instagram · 7 p.m. YouTube')
+    const twoDays = deriveWorkspaceData(input({ item: item({ state: 'scheduled' }), schedule: { targets: [
+      target('instagram', '2026-10-05T22:30:00Z'), target('youtube', '2026-10-06T13:00:00Z'),
+    ], requests: [] } }))
+    expect(twoDays.approvedLabel).toBe('Scheduled · Mon Oct 5, 6:30 p.m. Instagram · Tue Oct 6, 9 a.m. YouTube')
+  })
+
+  it('keeps "Approved · posts" while any provider time is unconfirmed', () => {
+    const data = deriveWorkspaceData(input({ item: item({ state: 'approved' }), schedule: { targets: [
+      { id: 't', content_id: 'item-1', content_version: 2, destination: 'instagram', required: true,
+        scheduled_at: null, status: 'pending', verified_at: null, verification_label: 'not yet verified' },
+    ], requests: [] } }))
+    expect(data.approvedLabel).toBe('Approved · posts Fri Oct 2')
+  })
+
+  // Mirrors kanset-2026-10-05-news-roundup as read from production on 2026-10-05: her two edits
+  // (caption, on-screen) sent on v1 were applied into v2 (status applied, canonical_version 2) and
+  // released by courtesy release; v3 is a later agency courtesy release (YouTube description only)
+  // and is the version she sees, approved, with provider times not yet confirmed.
+  it('shows her applied edits on a decided piece even when a later agency version carries them', () => {
+    const roundup = deriveWorkspaceData(input({
+      item: item({ version: 3, state: 'approved', current_decision: null, planned_date: '2026-10-05' }),
+      requests: [
+        request({ id: 'r-caption', base_version: 1, status: 'applied', canonical_version: 2, base_copy_text: 'Old caption.' }),
+        request({ id: 'r-script', base_version: 1, status: 'applied', canonical_version: 2, base_copy_text: '**1.** Old',
+          payload: { target_kind: 'copy_block', target_key: 'reel-script', block_key: 'reel-script', target_label: 'Reel, on screen', proposed_text: 'New' } }),
+      ],
+      schedule: { targets: ['facebook', 'instagram', 'youtube'].map((destination) => ({ id: destination, content_id: 'item-1',
+        content_version: 3, destination, required: true, scheduled_at: null, status: 'pending' as const, verified_at: null,
+        verification_label: 'not yet verified' })), requests: [] },
+    }))
+    expect(roundup.reReview).toBe(false)
+    expect(roundup.editsApplied).toBe(true)
+    expect(roundup.decided).toBe(true)
+    expect(roundup.updatedTabKeys).toEqual(['onscreen', 'caption'])
+    expect(roundup.updatedLine).toBe('on-screen text, caption')
+    expect(roundup.beforeByBlock).toEqual({ 'social-caption': 'Old caption.', 'reel-script': '**1.** Old' })
+    expect(roundup.approvedLabel).toBe('Approved · posts Mon Oct 5')
+  })
+
+  it('shows only the latest round of applied edits, and none before she has decided', () => {
+    const rounds = [
+      request({ id: 'old', base_version: 1, status: 'applied', canonical_version: 2, base_copy_text: 'First.' }),
+      request({ id: 'new', base_version: 3, status: 'superseded', canonical_version: 4, base_copy_text: '**1.** Third',
+        payload: { target_kind: 'copy_block', target_key: 'reel-script', target_label: 'Reel, on screen', proposed_text: 'x' } }),
+    ]
+    const latest = deriveWorkspaceData(input({ item: item({ version: 5, state: 'scheduled' }), requests: rounds }))
+    expect(latest.beforeByBlock).toEqual({ 'reel-script': '**1.** Third' })
+    expect(latest.updatedLine).toBe('on-screen text')
+    const undecided = deriveWorkspaceData(input({ item: item({ version: 3, state: 'with_dot' }), requests: rounds.slice(0, 1) }))
+    expect(undecided.editsApplied).toBe(false)
+    expect(undecided.decided).toBe(false)
+    expect(undecided.updatedLine).toBeNull()
+    expect(undecided.beforeByBlock).toEqual({})
+  })
+
+  it('counts a posted piece as decided and a plain approval without her edits as not edited', () => {
+    expect(deriveWorkspaceData(input({ item: item({ state: 'live' }) })).decided).toBe(true)
+    const plain = deriveWorkspaceData(input({ item: item({ state: 'approved' }) }))
+    expect(plain.decided).toBe(true)
+    expect(plain.editsApplied).toBe(false)
+    expect(plain.updatedLine).toBeNull()
   })
 
   it('names what changed after her feedback and keeps the previous text for highlighting', () => {

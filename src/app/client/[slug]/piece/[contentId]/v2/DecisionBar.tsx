@@ -25,7 +25,7 @@ const SUB_ID = 'decision-bar-sub'
 // draft for kanset-copywriting (first person singular, no em dashes).
 export default function DecisionBar({
   action, ticks, version, reReview, approvedLabel, postedLabel, sentSummary, slug, contentId, mode, canEdit,
-  onOpenPastEdits, onShowCarried,
+  onOpenPastEdits, onShowCarried, editsApplied = false,
 }: {
   action: PieceAction
   ticks: { total: number; done: number }
@@ -40,6 +40,7 @@ export default function DecisionBar({
   canEdit: boolean
   onOpenPastEdits: () => void
   onShowCarried: () => void
+  editsApplied?: boolean
 }) {
   const { send, sendError, syncState } = useReviewDrafts()
   const closeEditor = useCloseEditor()
@@ -162,7 +163,8 @@ export default function DecisionBar({
       act = pastLink
       break
     case 'decided':
-      prog = <><strong className={styles.progStrong}>{approvedLabel}</strong><span className={styles.sub}>Thank you. Nothing else needed from you.</span></>
+      prog = <>{editsApplied && <span className={styles.progStrong}>Your edits are applied.</span>}
+        <strong className={styles.progStrong}>{approvedLabel}</strong><span className={styles.sub}>Thank you. Nothing else needed from you.</span></>
       break
     case 'published':
       prog = <><strong className={styles.progStrong}>{postedLabel}</strong>

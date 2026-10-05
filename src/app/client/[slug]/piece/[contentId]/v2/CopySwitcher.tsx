@@ -10,7 +10,8 @@ export function tabDomId(idPrefix: string, key: string): string {
 
 // One text at a time (spec 4.3). A tab ticks once opened (the workspace records it); Approve
 // stays off until every tab is ticked.
-export default function CopySwitcher({ idPrefix, tabs, active, onSelect, ticked, draftCounts, updated }: {
+// showTicks=false on a decided piece: there is nothing left to review, so no tab reads unreviewed.
+export default function CopySwitcher({ idPrefix, tabs, active, onSelect, ticked, draftCounts, updated, showTicks = true }: {
   idPrefix: string
   tabs: Array<{ key: string; label: string }>
   active: string
@@ -18,6 +19,7 @@ export default function CopySwitcher({ idPrefix, tabs, active, onSelect, ticked,
   ticked: ReadonlySet<string>
   draftCounts: Record<string, number>
   updated: ReadonlySet<string>
+  showTicks?: boolean
 }) {
   const refs = useRef<Record<string, HTMLButtonElement | null>>({})
 
@@ -51,8 +53,8 @@ export default function CopySwitcher({ idPrefix, tabs, active, onSelect, ticked,
           <span className={styles.srOnly}>{count} unsent {count === 1 ? 'edit' : 'edits'}</span>
         </span>}
         {isUpdated && <><span className={styles.dotmark} aria-hidden="true" /><span className={styles.srOnly}>updated</span></>}
-        <TickDot checked={isTicked} />
-        <span className={styles.srOnly}>{isTicked ? 'reviewed' : 'not reviewed yet'}</span>
+        {showTicks && <><TickDot checked={isTicked} />
+          <span className={styles.srOnly}>{isTicked ? 'reviewed' : 'not reviewed yet'}</span></>}
       </button>
     })}
   </div>

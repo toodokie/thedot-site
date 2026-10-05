@@ -35,7 +35,7 @@ export type PieceAction =
   | { kind: 'decider-only' }
   | { kind: 'approve'; enabled: boolean; reason: 'ticks' | 'media' | null; untickedLabels: string[] }
 
-const DECIDED = new Set<ClientState>([
+export const DECIDED_STATES: ReadonlySet<ClientState> = new Set<ClientState>([
   'approved', 'partially_scheduled', 'schedule_failed', 'scheduled', 'reschedule_pending', 'cancel_pending',
   'publish_failed',
 ])
@@ -54,7 +54,7 @@ export function resolvePieceAction(input: PieceActionInput): PieceAction {
   }
   if (input.carriedDraftCount > 0) return { kind: 'carried', count: input.carriedDraftCount }
   if (input.sentUnresolvedCount > 0) return { kind: 'sent', count: input.sentUnresolvedCount }
-  if (input.state !== 'needs_review') return DECIDED.has(input.state) ? { kind: 'decided' } : { kind: 'none' }
+  if (input.state !== 'needs_review') return DECIDED_STATES.has(input.state) ? { kind: 'decided' } : { kind: 'none' }
   if (!input.packageReady) return { kind: 'incomplete', missing: input.missing }
   if (!input.canDecide) return { kind: 'decider-only' }
   if (input.tabsTicked < input.tabsTotal) {

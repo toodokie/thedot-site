@@ -4,9 +4,10 @@
 import type { ClientSession } from '@/lib/portal/auth'
 import type { CommentRow } from '@/lib/portal/comments'
 import type { ContentRow } from '@/lib/portal/data'
-import { appliedChanges, updatedAreasLine, updatedTabKeys } from '@/lib/portal/piece-page/changed-passages'
+import { appliedChanges, decidedAppliedChanges, updatedAreasLine, updatedTabKeys } from '@/lib/portal/piece-page/changed-passages'
 import { buildCopyTabs, pieceLayout, primaryPreview, type CopyTab, type PieceLayout } from '@/lib/portal/piece-page/copy-tabs'
-import { destinationLabel, headerStatus, type HeaderStatus } from '@/lib/portal/piece-page/header-status'
+import { destinationLabel, headerStatus, scheduledLabel, type HeaderStatus } from '@/lib/portal/piece-page/header-status'
+import { DECIDED_STATES } from '@/lib/portal/piece-page/piece-action'
 import { buildSentEditIndex, type SentEditIndex } from '@/lib/portal/piece-page/sent-edits'
 import { contentReviewPackageReadiness } from '@/lib/portal/podcast-review'
 import type { PublicationTargetRow } from '@/lib/portal/publication'
@@ -45,6 +46,10 @@ export type WorkspaceData = {
   updatedLine: string | null
   beforeByBlock: Record<string, string>
   reReview: boolean
+  // Decided (approved, scheduled or posted) with her edits applied: the page names and marks them
+  // without asking her to review again.
+  editsApplied: boolean
+  decided: boolean
   preview: SignedReviewPreview | null
   previewRefreshUrl: string | null
   fallbackMedia: Array<{ label: string; url: string }>
@@ -203,8 +208,12 @@ export function deriveWorkspaceData(input: DeriveInput): WorkspaceData {
   const firstSent = unresolved.map((r) => r.created_at).filter(Boolean).sort()[0]
 
   const reReview = reReviewContext(item.version, item.state, item.current_decision, input.requests)
-  const changes = appliedChanges(item.version, input.requests)
-  const updated = reReview ? updatedTabKeys(tabs, changes) : new Set<string>()
+  const decided = isPublished || DECIDED_STATES.has(item.state)
+  const decidedChanges = !reReview && decided ? decidedAppliedChanges(item.version, input.requests) : null
+  const editsApplied = decidedChanges !== null && (decidedChanges.before.size > 0 || decidedChanges.visualsChanged)
+  const showChanges = reReview !== null || editsApplied
+  const changes = decidedChanges ?? appliedChanges(item.version, input.requests)
+  const updated = showChanges ? updatedTabKeys(tabs, changes) : new Set<string>()
 
   const designLinks = [
     isHttps(item.canva_url) ? { key: 'canva' as const, label: 'Canva', url: item.canva_url } : null,
@@ -253,9 +262,11 @@ export function deriveWorkspaceData(input: DeriveInput): WorkspaceData {
     layout,
     tabs,
     updatedTabKeys: [...updated],
-    updatedLine: reReview ? (updatedAreasLine(tabs, updated, changes.visualsChanged) || null) : null,
-    beforeByBlock: reReview ? Object.fromEntries(changes.before) : {},
+    updatedLine: showChanges ? (updatedAreasLine(tabs, updated, changes.visualsChanged) || null) : null,
+    beforeByBlock: showChanges ? Object.fromEntries(changes.before) : {},
     reReview: reReview !== null,
+    editsApplied,
+    decided,
     preview,
     previewRefreshUrl: preview ? `${input.previewRefreshBase}/${preview.id}` : null,
     fallbackMedia,
@@ -266,7 +277,8 @@ export function deriveWorkspaceData(input: DeriveInput): WorkspaceData {
     cover,
     coverTile,
     status,
-    approvedLabel: status.kind === 'scheduled' || status.kind === 'unconfirmed'
+    approvedLabel: status.kind === 'scheduled' ? scheduledLabel(status)
+      : status.kind === 'unconfirmed'
       ? `Approved · ${status.keyFact.charAt(0).toLowerCase()}${status.keyFact.slice(1)}`
       : 'Approved',
     postedLabel: status.kind === 'live' && status.postedLabel ? status.postedLabel : 'Posted',

@@ -68,6 +68,23 @@ describe('PieceWorkspace', () => {
     expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled()
   })
 
+  it('shows a decided piece with her applied edits: updated line, highlights, no review ticks', () => {
+    const decided = data({ version: 3, state: 'approved', planned_date: '2026-10-05' }, { requests: [{
+      id: 'r', client_id: 'c', content_id: 'item-1', request_type: 'edit', base_version: 1, status: 'applied', canonical_version: 2,
+      payload: { target_kind: 'copy_block', target_key: 'social-caption', target_label: 'Caption', proposed_text: 'Caption.' },
+      requester_name: 'Maria', created_at: '2026-10-05T13:06:53Z', updated_at: '', reconciled_at: null, reconciled_by: null,
+      resolution_note: null, canonical_content_key: null, base_copy_text: 'Old caption.',
+    }] })
+    render(<PieceWorkspace data={decided} mode="client" draftScope="maria" serverDrafts={[]} ticks={[]} />)
+    expect(screen.getByText(/Updated after your feedback: caption/)).toBeInTheDocument()
+    expect(screen.getByText('Your edits are applied.')).toBeInTheDocument()
+    expect(screen.getByText('Approved · posts Mon Oct 5')).toBeInTheDocument()
+    expect(screen.queryByText('not reviewed yet')).not.toBeInTheDocument()
+    expect(document.querySelectorAll('[data-checked]')).toHaveLength(0)
+    fireEvent.click(screen.getByRole('tab', { name: /Caption/ }))
+    expect(document.querySelector('[role="tabpanel"] [data-changed="true"]')).not.toBeNull()
+  })
+
   it('starts from the seat ticks on this version', () => {
     render(<PieceWorkspace data={data()} mode="client" draftScope="maria" serverDrafts={[]} ticks={['caption', 'youtube']} />)
     expect(screen.getByText('3 of 3 reviewed')).toBeInTheDocument()
