@@ -40,4 +40,24 @@ describe('decide', () => {
     mocks.rpc.mockResolvedValue({ error: { message: 'unresolved client edit request' } })
     expect(await decide(form())).toEqual({ error: 'Could not save your decision. Please try again.' })
   })
+
+  it('sends an approval to the database when the media lives in review assets, not canva/drive urls', async () => {
+    mocks.getContentItem.mockResolvedValue({ id: 'i1', version: 2, status: 'draft', canva_url: null, drive_url: null })
+    mocks.rpc.mockResolvedValue({ error: null })
+    await expect(decide(form())).rejects.toThrow('REDIRECT /client/kanset')
+    expect(mocks.rpc).toHaveBeenCalledWith('record_content_decision', {
+      p_content_id: 'i1', p_content_version: 2, p_decision: 'approved', p_note: null,
+    })
+  })
+
+  it.each(['final_package_design_required', 'final_package_incomplete'])(
+    'explains a database refusal for a missing final package (%s)',
+    async (code) => {
+      mocks.getContentItem.mockResolvedValue({ id: 'i1', version: 2, status: 'draft', canva_url: null, drive_url: null })
+      mocks.rpc.mockResolvedValue({ error: { message: code } })
+      expect(await decide(form())).toEqual({
+        error: 'The final package is not ready yet. You can leave copy feedback now; final approval opens once a linked design is ready.',
+      })
+    },
+  )
 })

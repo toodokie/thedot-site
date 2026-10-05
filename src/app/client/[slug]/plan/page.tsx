@@ -4,6 +4,7 @@ import { getClientSession } from '@/lib/portal/auth'
 import { getSchedule, statusAccent, belongsOnPlanSurface, type ScheduleRow } from '@/lib/portal/schedule'
 import { getOpenPlanCycles, getPlanCycleDecisions, getUpcomingPlanCycles, type PlanCycleItem } from '@/lib/portal/plan-cycle'
 import { getContent, type ContentRow } from '@/lib/portal/data'
+import { getCurrentReviewAssetsByItem } from '@/lib/portal/review-assets'
 import { Eyebrow, Heading, Text } from '@thedot/design-system'
 import PlanDecideForm from './PlanDecideForm'
 import styles from './plan.module.css'
@@ -35,12 +36,15 @@ function fmtRange(startIso: string, endIso: string): string {
   return `${fmtDay(startIso)} to ${fmtDay(endIso)}`
 }
 
-function CycleItem({ item, slug, content }: { item: PlanCycleItem; slug: string; content: ContentRow | null }) {
+function CycleItem({ item, slug, content, hasReviewAssets }: {
+  item: PlanCycleItem; slug: string; content: ContentRow | null; hasReviewAssets: boolean
+}) {
   const meta = [item.format, ...item.platforms].filter(Boolean)
   const href = content
     ? `/client/${encodeURIComponent(slug)}/piece/${encodeURIComponent(item.content_id)}`
     : `/client/${encodeURIComponent(slug)}/plan/${encodeURIComponent(item.content_id)}`
-  const hasDesign = Boolean(content?.canva_url || content?.drive_url)
+  // Same package rule as the database (0073): a design link or a review asset on this version.
+  const hasDesign = Boolean(content?.canva_url || content?.drive_url || hasReviewAssets)
   return (
     <li className={styles.cycleItem}>
       <Link href={href} className={styles.cycleItemLink}>
@@ -74,6 +78,11 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
     getContent(session.clientId),
   ])
   const contentById = new Map(content.map((item) => [item.content_id, item]))
+  const assetsByItem = await getCurrentReviewAssetsByItem(session.clientId, content)
+  const hasAssets = (contentId: string) => {
+    const row = contentById.get(contentId)
+    return Boolean(row && (assetsByItem.get(row.id)?.length ?? 0) > 0)
+  }
 
   // A client may be asked to approve multiple future weeks at once. This is a queue, not
   // a single "current" plan. A missing projection still throws into the route boundary.
@@ -186,7 +195,7 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
 
           {cycleItems.length > 0 && (
             <ol className={styles.cycleList}>
-              {cycleItems.map((it) => <CycleItem key={it.id} item={it} slug={slug} content={contentById.get(it.content_id) ?? null} />)}
+              {cycleItems.map((it) => <CycleItem key={it.id} item={it} slug={slug} content={contentById.get(it.content_id) ?? null} hasReviewAssets={hasAssets(it.content_id)} />)}
             </ol>
           )}
 
@@ -226,7 +235,7 @@ export default async function Plan({ params }: { params: Promise<{ slug: string 
           </div>
           {items.length > 0 && (
             <ol className={styles.cycleList}>
-              {items.map((it) => <CycleItem key={it.id} item={it} slug={slug} content={contentById.get(it.content_id) ?? null} />)}
+              {items.map((it) => <CycleItem key={it.id} item={it} slug={slug} content={contentById.get(it.content_id) ?? null} hasReviewAssets={hasAssets(it.content_id)} />)}
             </ol>
           )}
           <p className={styles.decisionMuted} role="status">
