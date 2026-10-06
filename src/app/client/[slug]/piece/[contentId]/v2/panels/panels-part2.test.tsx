@@ -59,6 +59,21 @@ describe('YouTubePanel', () => {
   })
 })
 
+describe('YouTubePanel title note (item 4)', () => {
+  it('shows only the title line in the Title field and the italic note under it, without asterisks', () => {
+    const body = 'Life after PR | Kanset Talks Ep. 4\n\n*Kept short on purpose: YouTube cuts long titles.*'
+    const tab: CopyTab = { key: 'youtube', kind: 'youtube', label: 'YouTube', blocks: [{ key: 'youtube-title', label: 'YouTube title', body }] }
+    renderInPage(<YouTubePanel tab={tab} before={{}} canEdit version={2} />)
+    expect(screen.getByText('Life after PR | Kanset Talks Ep. 4').tagName).toBe('P')
+    expect(screen.getByText('Life after PR | Kanset Talks Ep. 4').textContent).not.toContain('Kept short')
+    expect(screen.getByText('Kept short on purpose: YouTube cuts long titles.')).toHaveAttribute('data-title-note')
+    expect(document.body.textContent).not.toContain('*')
+    fireEvent.click(screen.getByRole('button', { name: 'Edit YouTube title' }))
+    expect(screen.getByLabelText('Title')).toHaveValue('Life after PR | Kanset Talks Ep. 4')
+    expect(screen.getByText('34 of 100 characters')).toBeInTheDocument()
+  })
+})
+
 describe('ChaptersPanel', () => {
   it('lists chapter times and titles from the description', () => {
     renderInPage(<ChaptersPanel tab={chapters} canEdit version={2} />)

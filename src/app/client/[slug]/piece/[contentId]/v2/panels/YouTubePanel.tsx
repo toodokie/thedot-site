@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react'
 import MarkdownCopy from '@/components/portal/MarkdownCopy'
 import type { CopyTab } from '@/lib/portal/piece-page/copy-tabs'
-import { parseTags, parseYouTubePackage, youTubeFieldValue } from '@/lib/portal/piece-page/youtube-fields'
+import { parseTags, parseTitleBlock, parseYouTubePackage, youTubeFieldValue } from '@/lib/portal/piece-page/youtube-fields'
 import type { ReviewCopyBlock } from '@/lib/portal/review-package'
 import TrackedText from '@/components/portal/editor/TrackedText'
 import ChangedMarkdown from '../ChangedMarkdown'
@@ -70,8 +70,14 @@ function YouTubeBlock({ block, before, canEdit, version }: Props & { block: Revi
 
   let content: ReactNode
   if (block.key === 'youtube-title') {
-    content = <Field label="Title"><Changed value={source} previous={previous}>
-      <p className={`${styles.fieldValue} ${styles.fieldTitle}`}>{source}</p></Changed></Field>
+    // Item 4: the Title field holds the title line only; the agency's italic note sits under it.
+    const titleBlock = parseTitleBlock(source)
+    content = <Field label="Title"><Changed value={titleBlock.title}
+      previous={previous === null ? null : parseTitleBlock(previous).title}>
+      <p className={`${styles.fieldValue} ${styles.fieldTitle}`}>{titleBlock.title}</p></Changed>
+      {titleBlock.notes.map((note, index) => <p key={`n${index}`} className={styles.fieldNote} data-title-note="">{note}</p>)}
+      {titleBlock.extra.length > 0 && <div className={styles.fieldNote}><MarkdownCopy body={titleBlock.extra.join('\n\n')} /></div>}
+    </Field>
   } else if (block.key === 'youtube-tags') {
     content = <Field label="Tags"><Changed value={source} previous={sameTags(source, previous)}>
       <Chips tags={parseTags(source)} /></Changed></Field>

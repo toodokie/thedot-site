@@ -4,8 +4,8 @@ import { useMemo, useRef, useState } from 'react'
 import DocumentEditor from '@/components/portal/editor/LazyDocumentEditor'
 import { characterCount } from '@/lib/portal/piece-page/limits'
 import {
-  formatTagsLike, parseTags, parseYouTubePackage, serializeYouTubePackage, setYouTubeField, youTubeFieldValue,
-  type YouTubeFieldName,
+  formatTagsLike, parseTags, parseTitleBlock, parseYouTubePackage, serializeYouTubePackage, setTitleBlockTitle,
+  setYouTubeField, youTubeFieldValue, type YouTubeFieldName,
 } from '@/lib/portal/piece-page/youtube-fields'
 import { useReviewDrafts, type ReviewTarget } from '../../ReviewDraftProvider'
 import styles from '../piece-page.module.css'
@@ -76,11 +76,14 @@ export function YouTubePackageForm({ target, source, base }: { target: ReviewTar
   </div>
 }
 
-// Episodes keep title, description and tags in separate blocks; each edits its own block.
+// Episodes keep title, description and tags in separate blocks; each edits its own block. A title
+// block may carry the agency's note on lines after the title (item 4): only the title line is
+// edited and counted, the rest of the block is kept byte for byte.
 export function TitleBlockForm({ target, source }: { target: ReviewTarget; source: string }) {
   const { saveDraft } = useReviewDrafts()
-  const [value, setValue] = useState(source)
-  return <TitleField id="youtube-title-block" value={value} onChange={(next) => { setValue(next); saveDraft(target, next, null) }} />
+  const [value, setValue] = useState(() => parseTitleBlock(source).title)
+  return <TitleField id="youtube-title-block" value={value}
+    onChange={(next) => { setValue(next); saveDraft(target, setTitleBlockTitle(source, next), null) }} />
 }
 
 export function TagsBlockForm({ target, source, base }: { target: ReviewTarget; source: string; base: string }) {

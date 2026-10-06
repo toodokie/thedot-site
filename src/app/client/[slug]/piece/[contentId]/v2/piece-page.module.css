@@ -118,8 +118,13 @@
 
 /* Player and placeholders */
 .player { display: block; width: 100%; background: var(--dot-black); }
-.playerV { width: 270px; max-width: 100%; aspect-ratio: 9 / 16; margin: 0 auto; object-fit: contain; }
-.playerH { aspect-ratio: 16 / 9; object-fit: contain; }
+/* Item 1 (2026-10-06): the player takes the video's own shape from --media-ar (width / height) and
+   --media-wr (width over height), set inline from the preview; 9:16 and 16:9 are the fallbacks. A
+   portrait or square video is capped by height (--player-max-h), so a 9:16 reel stays 270px wide
+   and a 4:5 trailer fills its column instead of sitting letterboxed in a 9:16 box. */
+.playerV { --player-max-h: 480px; width: min(100%, calc(var(--player-max-h) * var(--media-wr, 0.5625))); max-width: 100%;
+  aspect-ratio: var(--media-ar, 9 / 16); margin: 0 auto; object-fit: contain; }
+.playerH { aspect-ratio: var(--media-ar, 16 / 9); object-fit: contain; }
 .underMedia { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--dot-space-3); margin-top: var(--dot-space-2); }
 .mediaNote { margin: var(--dot-space-2) 0 0; font-size: 0.9375rem; color: var(--dot-graphite); }
 .phMedia { display: grid; place-items: center; text-align: center; min-height: 240px; background: var(--dot-off-white);
@@ -131,12 +136,35 @@
 .stripHead { display: flex; justify-content: space-between; align-items: baseline; margin: var(--dot-space-5) 0 var(--dot-space-2); }
 .fgrid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--dot-space-4) var(--dot-space-3); }
 .fg { min-width: 0; }
-.thumb { display: block; width: 100%; aspect-ratio: 9 / 16; object-fit: cover; border: 1px solid var(--dot-hairline); background: var(--dot-black); }
+.thumb { display: block; width: 100%; aspect-ratio: var(--frame-ar, 9 / 16); object-fit: cover; border: 1px solid var(--dot-hairline); background: var(--dot-black); }
 .thumbWide { aspect-ratio: 16 / 9; }
 .thumbEmpty { background: var(--dot-off-white); }
 .fgridCover { margin-top: var(--dot-space-5); }
 .fgN { font-size: 0.75rem; color: var(--dot-graphite); margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 .fg .link { font-size: 0.75rem; line-height: 1.25; text-align: left; align-items: flex-start; padding-top: 4px; }
+/* Media by destination (2026-10-06): a group per destination, each item at its own shape. Portrait
+   items sit side by side (two across on a phone); landscape items take a wider column. Every box
+   reserves its aspect ratio before the file loads. */
+.mgroups { display: grid; gap: var(--dot-space-7); }
+.mgroupHead { margin: 0 0 var(--dot-space-3); }
+.mitems { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--dot-space-5) var(--dot-space-4); align-items: flex-start; }
+.mitem { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
+.mitemV { width: min(100%, calc(var(--mitem-max-h, 280px) * var(--media-wr, 0.5625))); }
+/* A playable video gets a watchable size: 270px wide at 9:16, its own row in a narrow column. */
+.mitemVideo { --mitem-max-h: 480px; }
+.mitemH { width: min(100%, 360px); }
+.mbox { display: block; width: 100%; aspect-ratio: var(--media-ar, 9 / 16); object-fit: cover; border: 1px solid var(--dot-hairline); background: var(--dot-black); }
+video.mbox { object-fit: contain; }
+.mboxEmpty { background: var(--dot-off-white); }
+.mitemChosen .mbox { outline: 3px solid var(--dot-black); outline-offset: 2px; }
+.mlabel { margin-top: var(--dot-space-2); font-size: 0.875rem; line-height: 1.4; color: var(--dot-black); font-weight: var(--dot-weight-medium); }
+.mnote { margin: 4px 0 0; font-size: 0.8125rem; line-height: 1.45; color: var(--dot-graphite); }
+.chosen { display: inline-flex; align-items: center; margin-top: 6px; padding: 2px 8px; border: 1px solid var(--dot-black);
+  background: var(--dot-grad-highlight); font-size: 0.75rem; font-weight: var(--dot-weight-medium); letter-spacing: 0.08em; text-transform: uppercase; }
+.mactions { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--dot-space-4); margin-top: var(--dot-space-2); }
+.mactions .ghostButton { padding: 8px 14px; font-size: 0.75rem; }
+.mactions .link { font-size: 0.8125rem; }
+.mgroup .stripHead { margin-top: var(--dot-space-5); }
 .fcollapsed { display: flex; align-items: center; gap: var(--dot-space-3); margin-top: var(--dot-space-5); padding: var(--dot-space-3) 0;
   border-top: 1px solid var(--dot-hairline); border-bottom: 1px solid var(--dot-hairline); font-size: 0.9375rem; color: var(--dot-graphite); }
 .fcollapsed strong { color: var(--dot-black); font-weight: var(--dot-weight-medium); }
@@ -144,12 +172,12 @@
 /* Page viewer */
 .pager { position: relative; border: 1px solid var(--dot-hairline); background: var(--dot-white); }
 .pagerButton { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; touch-action: pan-y; }
-.pagerImage { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; }
+.pagerImage { display: block; width: 100%; aspect-ratio: var(--frame-ar, 4 / 5); object-fit: cover; }
 .pagerNav { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: var(--dot-space-2); margin-top: var(--dot-space-3); }
 .count { text-align: center; font-variant-numeric: tabular-nums; font-size: 0.9375rem; }
 .pthumbs { list-style: none; margin: var(--dot-space-4) 0 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--dot-space-2); }
 .pthumb { display: block; width: 100%; min-height: 44px; padding: 0; border: 0; background: none; cursor: pointer; }
-.pthumb img { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border: 1px solid var(--dot-hairline); }
+.pthumb img { display: block; width: 100%; aspect-ratio: var(--frame-ar, 4 / 5); object-fit: cover; border: 1px solid var(--dot-hairline); }
 .pthumb[aria-current='true'] img { outline: 2px solid var(--dot-black); outline-offset: 1px; }
 .enlarge { width: min(900px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: var(--dot-space-4); border: 1px solid var(--dot-black); background: var(--dot-cream); }
 .enlarge::backdrop { background: color-mix(in srgb, var(--dot-black) 55%, transparent); }
@@ -193,7 +221,7 @@
 .frow, .ptext > li { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: var(--dot-space-5);
   padding: var(--dot-space-5) 0; border-top: 1px solid var(--dot-hairline); align-items: start; }
 .frow:first-child, .ptext > li:first-child { border-top: 0; padding-top: 0; }
-.ft { width: 72px; aspect-ratio: 9 / 16; object-fit: cover; border: 1px solid var(--dot-hairline); background: var(--dot-off-white); }
+.ft { width: 72px; aspect-ratio: var(--frame-ar, 9 / 16); object-fit: cover; border: 1px solid var(--dot-hairline); background: var(--dot-off-white); }
 .ftPage { aspect-ratio: 4 / 5; }
 .fnum { display: flex; flex-wrap: wrap; gap: var(--dot-space-2); align-items: center; font-size: 0.8125rem;
   color: var(--dot-grey-accessible); margin-bottom: 6px; font-variant-numeric: tabular-nums; }
@@ -212,6 +240,8 @@
 .fieldTitle { font-family: var(--dot-font-display); font-weight: var(--dot-weight-regular); font-size: 1.375rem; line-height: 1.35; }
 .chips { display: flex; flex-wrap: wrap; gap: var(--dot-space-2); list-style: none; margin: 0; padding: 0; }
 .chip { display: inline-flex; align-items: center; min-height: 36px; padding: 0 var(--dot-space-3); border: 1px solid var(--dot-hairline); background: var(--dot-off-white); font-size: 0.9375rem; }
+/* Item 4: the agency's note under a field (a youtube-title block's italic line), plain text. */
+.fieldNote { margin: var(--dot-space-2) 0 0; max-width: 66ch; font-size: 0.9375rem; line-height: 1.55; color: var(--dot-graphite); }
 .charcount { font-size: 0.8125rem; color: var(--dot-grey-accessible); font-variant-numeric: tabular-nums; }
 .chapters { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: var(--dot-space-7); }
 .chapters li { break-inside: avoid; display: grid; grid-template-columns: 72px 1fr; gap: var(--dot-space-3); padding: 10px 0; border-bottom: 1px solid var(--dot-hairline); }
@@ -289,7 +319,7 @@
 .editorSheet[open] { display: flex; flex-direction: column; }
 .editorSheet::backdrop { background: color-mix(in srgb, var(--dot-black) 45%, transparent); }
 .sheetH { display: flex; align-items: center; gap: var(--dot-space-3); padding: var(--dot-space-3) var(--dot-space-4); border-bottom: 1px solid var(--dot-hairline); }
-.sheetH img { width: 32px; aspect-ratio: 9 / 16; object-fit: cover; border: 1px solid var(--dot-hairline); }
+.sheetH img { width: 32px; aspect-ratio: var(--frame-ar, 9 / 16); object-fit: cover; border: 1px solid var(--dot-hairline); }
 .sheetTitle { flex: 1; margin: 0; font-size: 1rem; font-weight: var(--dot-weight-medium); line-height: 1.3; }
 .sheetB { flex: 1; overflow: auto; padding: var(--dot-space-4); }
 .sheetT { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--dot-space-3);
@@ -321,8 +351,11 @@
   .title { font-size: 2rem; }
   .status { font-size: 0.9375rem; }
   .page { padding: var(--dot-space-4) var(--dot-space-4) calc(var(--bar-h) + var(--dot-space-7) + env(safe-area-inset-bottom, 0px)); }
-  .playerV { width: 236px; }
+  .playerV { --player-max-h: 420px; }
   .underMedia { justify-content: center; }
+  .mitemV { width: calc(50% - var(--dot-space-4) / 2); }
+  .mitemV.mitemVideo { width: min(100%, calc(420px * var(--media-wr, 0.5625))); }
+  .mitemH { width: 100%; }
   .tabs { gap: var(--dot-space-4); -webkit-mask-image: linear-gradient(to right, var(--dot-black) 85%, transparent); mask-image: linear-gradient(to right, var(--dot-black) 85%, transparent); }
   .tab { letter-spacing: 0.08em; font-size: 0.7rem; gap: 6px; }
   .sheet { padding: var(--dot-space-5) var(--dot-space-4); border-left: 0; border-right: 0; margin: 0 calc(-1 * var(--dot-space-4)); }

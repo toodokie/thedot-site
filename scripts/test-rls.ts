@@ -6573,6 +6573,137 @@ async function main(): Promise<void> {
         audit.error?.message ?? '')
     }
 
+    // 0098: cover option picker. Agency marks alternatives with option_group/option_label through
+    // set_content_review_asset; the deciding seat picks one per group on the released version until
+    // the piece is decided. A pick is a choice, not an edit request: no change request, no client
+    // notification, the review state is unchanged; the agency gets an activity row and an inbox event.
+    console.log('\n--- 0098 cover option picker ---')
+    {
+      const optId = `rls-options-${RUN_ID}`
+      const [optSynced] = await sync([snapshot(bClientId!, optId, 1, 'Options fixture', 'Options caption', 'caption')])
+      const optItemId = optSynced.item_id
+      const setAsset = (key: string, label: string, group: string | null, optionLabel: string | null, channel = 'youtube') =>
+        admin.rpc('set_content_review_asset', {
+          p_client_id: bClientId, p_content_id: optId, p_content_version: 1, p_asset_key: key, p_label: label,
+          p_channel: channel, p_asset_kind: 'cover', p_url: `https://drive.google.com/open?id=OPT${key.toUpperCase()}`,
+          p_width_px: channel === 'youtube' ? 1280 : 1080, p_height_px: channel === 'youtube' ? 720 : 1920,
+          p_caption_status: 'not_applicable', p_review_note: null,
+          p_actor_key: 'thedot-admin', p_idempotency_key: `rls-opt-${key}-${RUN_ID}`,
+          ...(group ? { p_option_group: group, p_option_label: optionLabel } : {}),
+        })
+      const fixed = await setAsset('youtube-cover', 'Test cover 1', null, null)
+      const rust = await setAsset('youtube-cover-test-3-rust', 'Test cover 3, option A: rust', 'youtube-test-3', 'Rust')
+      const teal = await setAsset('youtube-cover-test-3-teal', 'Test cover 3, option B: teal', 'youtube-test-3', 'Teal')
+      const halfOption = await admin.rpc('set_content_review_asset', {
+        p_client_id: bClientId, p_content_id: optId, p_content_version: 1, p_asset_key: 'half-option', p_label: 'Half',
+        p_channel: 'social', p_asset_kind: 'cover', p_url: 'https://drive.google.com/open?id=OPTHALF',
+        p_width_px: 1080, p_height_px: 1920, p_caption_status: 'not_applicable', p_review_note: null,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-opt-half-${RUN_ID}`, p_option_group: 'social-cover',
+      })
+      check('OP1: the agency marks options through set_content_review_asset; group and label go together',
+        !fixed.error && !rust.error && !teal.error && !!halfOption.error,
+        JSON.stringify([fixed, rust, teal].map((r) => r.error?.message ?? 'ok').concat(halfOption.error?.message ?? 'NO ERROR')))
+
+      const pick = (client: SupabaseClient, key: string, version = 1) => client.rpc('pick_review_asset_option', {
+        p_content_id: optItemId, p_content_version: version, p_asset_key: key,
+      })
+      const early = await pick(bClient, 'youtube-cover-test-3-rust')
+      const released = await admin.rpc('mark_content_ready', { p_content_id: optItemId, p_content_version: 1 })
+      if (released.error) throw new Error(`options release: ${released.error.message}`)
+      const requestsBefore = await admin.from('content_change_requests').select('id', { count: 'exact', head: true })
+        .eq('content_id', optItemId)
+      const stateBefore = await admin.from('content_with_state').select('client_state, current_decision').eq('id', optItemId).single()
+
+      const picked = await pick(bClient, 'youtube-cover-test-3-rust')
+      const notOption = await pick(bClient, 'youtube-cover')
+      const crossTenant = await pick(kansetClient, 'youtube-cover-test-3-rust')
+      const anonPick = await pick(anonClient, 'youtube-cover-test-3-rust')
+      const viewerPick = await pick(bViewerClient, 'youtube-cover-test-3-teal')
+      const wrongVersion = await pick(bClient, 'youtube-cover-test-3-teal', 2)
+      check('OP2: the deciding seat picks only its own client\'s released option; a fixed cover, an unreleased version, another tenant, a non-deciding seat and anon are refused',
+        !!early.error && /review_option_version_not_released/.test(early.error.message)
+          && !picked.error && (picked.data as { outcome?: string } | null)?.outcome === 'picked'
+          && !!notOption.error && /review_option_not_an_option/.test(notOption.error.message)
+          && !!crossTenant.error && !!anonPick.error && !!viewerPick.error && !!wrongVersion.error,
+        JSON.stringify({ early: early.error?.message ?? 'NO ERROR', picked: picked.data ?? picked.error?.message,
+          notOption: notOption.error?.message ?? 'NO ERROR', cross: crossTenant.error?.message ?? 'NO ERROR',
+          anon: anonPick.error?.message ?? 'NO ERROR', viewer: viewerPick.error?.message ?? 'NO ERROR',
+          version: wrongVersion.error?.message ?? 'NO ERROR' }))
+
+      const changed = await pick(bClient, 'youtube-cover-test-3-teal')
+      const same = await pick(bClient, 'youtube-cover-test-3-teal')
+      const own = await bClient.from('content_review_option_picks').select('option_group, asset_key, content_version')
+        .eq('content_item_id', optItemId)
+      const otherSeat = await bViewerClient.from('content_review_option_picks').select('asset_key').eq('content_item_id', optItemId)
+      const otherTenant = await kansetClient.from('content_review_option_picks').select('asset_key').eq('content_item_id', optItemId)
+      const directInsert = await bClient.from('content_review_option_picks').insert({
+        content_item_id: optItemId, content_version: 1, option_group: 'youtube-test-3', asset_key: 'youtube-cover-test-3-rust',
+      })
+      const directUpdate = await bClient.from('content_review_option_picks').update({ asset_key: 'youtube-cover-test-3-rust' })
+        .eq('content_item_id', optItemId).select('asset_key')
+      const agencyRead = await rawAdmin.from('content_review_option_picks').select('auth_user_id, option_group, asset_key')
+        .eq('content_item_id', optItemId)
+      check('OP3: the pick is changeable before a decision, one current pick per group, read by its seat and the agency only',
+        !changed.error && (changed.data as { outcome?: string } | null)?.outcome === 'picked'
+          && !same.error && (same.data as { outcome?: string } | null)?.outcome === 'unchanged'
+          && !own.error && own.data?.length === 1 && own.data[0].asset_key === 'youtube-cover-test-3-teal'
+          && own.data[0].option_group === 'youtube-test-3'
+          && !otherSeat.error && otherSeat.data?.length === 0 && !otherTenant.error && otherTenant.data?.length === 0
+          && !!directInsert.error && (!!directUpdate.error || directUpdate.data?.length === 0)
+          && !agencyRead.error && agencyRead.data?.length === 1 && agencyRead.data[0].auth_user_id === bUserId
+          && agencyRead.data[0].asset_key === 'youtube-cover-test-3-teal',
+        JSON.stringify({ changed: changed.data ?? changed.error?.message, same: same.data ?? same.error?.message,
+          own: own.data ?? own.error?.message, agency: agencyRead.data ?? agencyRead.error?.message,
+          insert: directInsert.error?.message ?? 'NO ERROR' }))
+
+      const activity = await rawAdmin.from('activity_log').select('id, title, actor_type, event_type')
+        .eq('client_id', bClientId).eq('content_id', optItemId).eq('event_type', 'review_option_picked')
+      const activityIds = (activity.data ?? []).map((row) => row.id as string)
+      const outbox = activityIds.length
+        ? await rawAdmin.from('notification_outbox').select('recipient_kind, channel').in('source_activity_id', activityIds)
+        : { data: [] as Array<{ recipient_kind: string; channel: string }>, error: null }
+      // The service role cannot select portal_inbox_events; show_portal_inbox_event returns the
+      // latest event for the pick row, which is the second change (rust, then teal).
+      const pickRow = await rawAdmin.from('content_review_option_picks').select('id').eq('content_item_id', optItemId).single()
+      const shown = pickRow.data
+        ? await admin.rpc('show_portal_inbox_event', { p_client_id: bClientId, p_event_id: pickRow.data.id })
+        : { data: null, error: new Error('no pick row') }
+      const inboxRow = shown.data as {
+        event_type?: string; requires_reconciliation?: boolean
+        payload?: { content_item_id?: string; asset_key?: string; previous_asset_key?: string | null }
+      } | null
+      const requestsAfter = await admin.from('content_change_requests').select('id', { count: 'exact', head: true })
+        .eq('content_id', optItemId)
+      const stateAfter = await admin.from('content_with_state').select('client_state, current_decision').eq('id', optItemId).single()
+      check('OP4: each changed pick reaches the agency (in-app and inbox), never the client, and creates no edit request or review change',
+        !activity.error && activityIds.length === 2 && (activity.data ?? []).every((row) => row.actor_type === 'client')
+          && !outbox.error && (outbox.data ?? []).length > 0
+          && (outbox.data ?? []).every((row) => row.recipient_kind === 'agency')
+          && (outbox.data ?? []).some((row) => row.channel === 'in_app')
+          && !shown.error && inboxRow?.event_type === 'review_option_picked' && inboxRow.requires_reconciliation === false
+          && inboxRow.payload?.content_item_id === optItemId && inboxRow.payload?.asset_key === 'youtube-cover-test-3-teal'
+          && inboxRow.payload?.previous_asset_key === 'youtube-cover-test-3-rust'
+          && (requestsBefore.count ?? 0) === 0 && (requestsAfter.count ?? 0) === 0
+          && stateBefore.data?.client_state === 'needs_review' && stateAfter.data?.client_state === 'needs_review'
+          && stateAfter.data?.current_decision === null,
+        JSON.stringify({ activity: activity.data, outbox: outbox.data, inbox: inboxRow ?? shown.error?.message,
+          requests: [requestsBefore.count, requestsAfter.count], state: [stateBefore.data, stateAfter.data] }))
+
+      const approved = await bClient.rpc('record_content_decision', {
+        p_content_id: optItemId, p_content_version: 1, p_decision: 'approved', p_note: null,
+      })
+      const afterDecision = await pick(bClient, 'youtube-cover-test-3-rust')
+      const kept = await bClient.from('content_review_option_picks').select('asset_key').eq('content_item_id', optItemId)
+      check('OP5: once the piece is decided the pick is refused and the chosen option stays',
+        !approved.error && !!afterDecision.error && /review_option_piece_decided/.test(afterDecision.error.message)
+          && kept.data?.[0]?.asset_key === 'youtube-cover-test-3-teal',
+        approved.error?.message ?? afterDecision.error?.message ?? 'NO ERROR')
+
+      const audit = await rawAdmin.rpc('assert_portal_security')
+      check('OP6: the cumulative security assertion holds with the 0098 option picks', !audit.error,
+        audit.error?.message ?? '')
+    }
+
     {
       const stop = await admin.rpc('set_portal_feature_switch', {
         p_client_id: bClientId, p_feature: 'client_mutations', p_enabled: false,

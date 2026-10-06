@@ -3,7 +3,9 @@
 import { useState } from 'react'
 import { Button } from '@thedot/design-system'
 import type { PieceLayout } from '@/lib/portal/piece-page/copy-tabs'
-import type { CoverTile } from './derive'
+import type { CoverTile, MediaGroup, MediaItem } from './derive'
+import { mediaVars } from './media-size'
+import MediaGroups, { type OptionPicker } from './MediaGroups'
 import type { SignedReviewPreview } from '@/lib/portal/review-preview-core'
 import { useSignedPreview } from '@/components/portal/useSignedPreview'
 import { reportReviewPlaybackFailure } from '../../../playback-actions'
@@ -35,6 +37,13 @@ export default function MediaArea(props: {
   onSuggestCover?: (() => void) | null
   // Client mode only (amended 2026-10-03): report a failed play to the agency. Null in the admin preview.
   playbackReport?: { slug: string; contentId: string } | null
+  // 2026-10-06: an episode package by destination (null keeps the single-video layout), the asset
+  // her whole-video notes target, her cover picks, and who may pick (null: read-only).
+  mediaGroups?: MediaGroup[] | null
+  visualKey?: string | null
+  chosenOptions?: Record<string, string>
+  optionPicker?: OptionPicker | null
+  onSuggestAsset?: ((item: MediaItem) => void) | null
 }) {
   const { preview, refresh, forceRefresh } = useSignedPreview(props.preview, props.refreshUrl)
   const target = props.playbackReport ?? null
@@ -65,6 +74,18 @@ export default function MediaArea(props: {
     </div>
   }
 
+  if (props.mediaGroups && props.mediaGroups.length > 0) {
+    const primary = preview && preview.mediaKind === 'video' && preview.frames.length > 0 ? preview : null
+    return <div>
+      {imagesNotice}
+      <MediaGroups title={props.title} groups={props.mediaGroups} visualKey={props.visualKey ?? null}
+        chosen={props.chosenOptions ?? {}} picker={props.optionPicker ?? null} onSuggest={props.onSuggestAsset ?? null}
+        report={report}
+        frames={primary && <FrameGrid key={imageAttempt} title={props.title} frames={primary.frames} collapsed={props.framesCollapsed}
+          onSuggest={props.onSuggestAt} onImageError={onImageError} frameWidth={primary.width} frameHeight={primary.height} />} />
+    </div>
+  }
+
   if (preview && preview.mediaKind === 'pages') {
     return <div>
       {imagesNotice}
@@ -79,7 +100,7 @@ export default function MediaArea(props: {
     const trailer = horizontal && props.episodeTrailer === true
     return <div>
       <ReviewVideoPlayer preview={preview} className={`${styles.player} ${horizontal ? styles.playerH : styles.playerV}`}
-        label={`${props.title}: ${trailer ? 'trailer' : 'video'}`} refresh={refresh} forceRefresh={forceRefresh}
+        style={mediaVars(preview.width, preview.height)} label={`${props.title}: ${trailer ? 'trailer' : 'video'}`} refresh={refresh} forceRefresh={forceRefresh}
         report={report} />
       {trailer && <p className={styles.mediaNote}>This is the trailer. The full episode stays on Drive.</p>}
       <div className={styles.underMedia}>
@@ -92,7 +113,8 @@ export default function MediaArea(props: {
       <SentVisualMarker spot="whole" />
       {imagesNotice}
       <FrameGrid key={imageAttempt} title={props.title} frames={preview.frames} collapsed={props.framesCollapsed}
-        onSuggest={props.onSuggestAt} onImageError={onImageError} cover={props.cover ?? null} onSuggestCover={props.onSuggestCover ?? null} />
+        onSuggest={props.onSuggestAt} onImageError={onImageError} cover={props.cover ?? null} onSuggestCover={props.onSuggestCover ?? null}
+        frameWidth={preview.width} frameHeight={preview.height} />
     </div>
   }
 

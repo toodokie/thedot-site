@@ -5,6 +5,6 @@ import type { WorkspaceData } from './derive'
 export function readOnlyWorkspace(data: WorkspaceData): WorkspaceData {
   return {
     ...data, canEdit: false, canDecide: false, canComment: false, canSubmitRequests: false,
-    canRequestSchedule: false, removal: null, showIntro: false,
+    canRequestSchedule: false, removal: null, showIntro: false, canPickOptions: false,
   }
 }

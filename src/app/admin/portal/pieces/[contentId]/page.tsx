@@ -69,6 +69,7 @@ export default async function AdminPiecePage({ params, searchParams }: {
         layout={data.mariaLayout}
         previews={data.previews}
         ticks={data.mariaTicks}
+        optionPicks={data.mariaOptionPicks}
         fallback={<WorkingCopy heading={centreFallbackHeading(released, piece.workingVersion)}
           blocks={data.working.blocks} clientBody={data.working.clientBody}
           canva={data.design.canva} drive={data.design.drive} />}

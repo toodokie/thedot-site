@@ -186,3 +186,28 @@ describe('links for a client other than Kanset', () => {
       .toHaveAttribute('href', '/admin/portal/pieces/acme-reel/maria-preview?client=acme')
   })
 })
+
+describe('AgencyPanel cover choices (0098)', () => {
+  it('shows Maria\'s pick per option group, and the options while nothing is chosen', () => {
+    render(<AgencyPanel model={model({ optionChoices: [
+      { group: 'social-cover', options: [
+        { assetKey: 'social-cover', label: 'Reel cover, option A: teal', optionLabel: 'Teal' },
+        { assetKey: 'social-cover-rust', label: 'Reel cover, option B: rust', optionLabel: 'Rust' }],
+      chosen: null, pickedAt: null, pickedBy: null },
+      { group: 'youtube-test-3', options: [
+        { assetKey: 'youtube-cover-test-3-rust', label: 'Test cover 3, option A: rust', optionLabel: 'Rust' },
+        { assetKey: 'youtube-cover-test-3-teal', label: 'Test cover 3, option B: teal', optionLabel: 'Teal' }],
+      chosen: { assetKey: 'youtube-cover-test-3-teal', label: 'Test cover 3, option B: teal', optionLabel: 'Teal' },
+      pickedAt: '2026-10-06T20:00:00Z', pickedBy: 'Maria Guerts' },
+    ] })} />)
+    const list = screen.getByRole('heading', { name: 'Cover choices' }).nextElementSibling as HTMLElement
+    const rows = within(list).getAllByRole('listitem')
+    expect(rows[0]).toHaveTextContent('Reel cover, option A: teal or Reel cover, option B: rustNot chosen yet')
+    expect(rows[1]).toHaveTextContent('Test cover 3, option B: tealChosen by Maria · Oct 6')
+  })
+
+  it('has no cover choices section when the version has no options', () => {
+    render(<AgencyPanel model={model()} />)
+    expect(screen.queryByRole('heading', { name: 'Cover choices' })).not.toBeInTheDocument()
+  })
+})

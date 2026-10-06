@@ -54,6 +54,13 @@ describe('buildSentEditIndex', () => {
     expect(index.unmatched).toEqual([])
   })
 
+  it('places a note on another grouped asset at that asset (grouped media view, 2026-10-06)', () => {
+    const index = buildSentEditIndex({ ...base, coverKey: null, assetKeys: new Set(['reel-video', 'social-teaser-fb']),
+      requests: [request({ target_kind: 'asset', target_key: 'social-teaser-fb', target_label: 'Facebook trailer', proposed_text: 'Frame 2: Bigger.' })] })
+    expect(index.visual['asset:social-teaser-fb']?.[0].content).toEqual({ kind: 'note', text: 'Frame 2: Bigger.' })
+    expect(index.unmatched).toEqual([])
+  })
+
   it('never drops an edit whose spot is gone: it goes to the unmatched list', () => {
     const index = buildSentEditIndex({ ...base, requests: [
       request({ target_kind: 'asset', target_key: 'reel-video', target_label: 'Reel video', proposed_text: 'Frame 9: Too late.' }),

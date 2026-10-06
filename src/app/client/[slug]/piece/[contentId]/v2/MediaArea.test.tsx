@@ -8,6 +8,8 @@ import { reportReviewPlaybackFailure } from '@/app/client/[slug]/playback-action
 vi.mock('@/app/client/[slug]/playback-actions', () => ({
   reportReviewPlaybackFailure: vi.fn(async () => ({ ok: true })),
 }))
+const { pickReviewOption } = vi.hoisted(() => ({ pickReviewOption: vi.fn(async () => ({ ok: true })) }))
+vi.mock('@/app/client/[slug]/option-actions', () => ({ pickReviewOption }))
 
 const frames = Array.from({ length: 8 }, (_, i) => ({ label: `${(i + 4) / 2} s`, url: `https://signed.example/f${i + 1}.jpg` }))
 const reel: SignedReviewPreview = {
@@ -195,5 +197,102 @@ describe('MediaArea link refresh cap', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
     vi.unstubAllGlobals()
+  })
+})
+
+// Item 1 (2026-10-06): the player, frames and cover take the media's own shape.
+describe('MediaArea sizing from the media', () => {
+  it('sizes a 4:5 LinkedIn trailer and its frames from the preview, not 9:16', () => {
+    const linkedin = { ...reel, width: 1080, height: 1350 }
+    render(<MediaArea {...base} layout="vertical" preview={linkedin} />)
+    const video = screen.getByLabelText('Foreign worker cost: video')
+    expect(video.style.getPropertyValue('--media-ar')).toBe('1080 / 1350')
+    expect(video.style.getPropertyValue('--media-wr')).toBe('0.8')
+    const grid = screen.getAllByRole('listitem')[0].closest('ol')!
+    expect(grid.style.getPropertyValue('--frame-ar')).toBe('1080 / 1350')
+  })
+
+  it('sizes the cover tile from the cover asset', () => {
+    render(<MediaArea {...base} layout="vertical" preview={reel}
+      cover={{ label: 'Cover', imageUrl: 'https://signed.example/c.jpg', driveUrl: null, wide: false, width: 1080, height: 1350, target: null }} />)
+    const tile = document.querySelector('[data-cover-tile] img') as HTMLElement
+    expect(tile.style.getPropertyValue('aspect-ratio')).toBe('1080 / 1350')
+  })
+})
+
+// Item 2 and 3 (2026-10-06): an episode package by destination, with the cover option picker.
+describe('MediaArea grouped by destination', () => {
+  const item = (key: string, label: string, kind: 'video' | 'cover', width: number, height: number,
+    extra: Partial<import('./derive').MediaItem> = {}): import('./derive').MediaItem => ({
+    key, label, kind, driveUrl: `https://drive.google.com/open?id=${key}`, width, height, note: null,
+    preview: null, refreshUrl: null, imageUrl: null, option: null, ...extra,
+  })
+  const groups: import('./derive').MediaGroup[] = [
+    { key: 'youtube', label: 'YouTube', items: [
+      item('youtube-cover', 'Test cover 1: your usual style', 'cover', 1280, 720),
+      item('youtube-cover-test-3-rust', 'Test cover 3, option A: rust', 'cover', 1280, 720, { option: { group: 'youtube-test-3', label: 'Rust' } }),
+      item('youtube-cover-test-3-teal', 'Test cover 3, option B: teal', 'cover', 1280, 720, { option: { group: 'youtube-test-3', label: 'Teal' } }),
+    ] },
+    { key: 'instagram', label: 'Instagram', items: [
+      item('social-teaser', 'Instagram trailer, 24 seconds', 'video', 1080, 1920, { preview: { ...reel, reviewAssetKey: 'social-teaser' } }),
+    ] },
+    { key: 'facebook', label: 'Facebook', items: [item('social-teaser-fb', 'Facebook trailer, 24 seconds', 'video', 1080, 1920)] },
+  ]
+  const grouped = { ...base, layout: 'horizontal' as const, preview: { ...reel, reviewAssetKey: 'social-teaser' }, mediaGroups: groups,
+    visualKey: 'social-teaser', chosenOptions: { 'youtube-test-3': 'youtube-cover-test-3-rust' }, onSuggestAsset: vi.fn(),
+    optionPicker: { slug: 'kanset', contentId: 'piece', version: 2, persist: true } }
+
+  it('shows every item under its destination at its own size, the trailer playable and the other on Drive', () => {
+    render(<MediaArea {...grouped} />)
+    expect(screen.getByRole('heading', { name: 'YouTube' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Instagram' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Facebook' })).toBeInTheDocument()
+    const ig = screen.getByLabelText('Foreign worker cost: Instagram trailer, 24 seconds')
+    expect(ig.tagName).toBe('VIDEO')
+    expect(ig.style.getPropertyValue('--media-ar')).toBe('1080 / 1920')
+    expect(screen.getByRole('link', { name: 'Open Facebook trailer, 24 seconds' }))
+      .toHaveAttribute('href', 'https://drive.google.com/open?id=social-teaser-fb')
+    const wide = screen.getByRole('region', { name: 'Test cover 1: your usual style' })
+    expect(wide.style.getPropertyValue('--media-ar')).toBe('1280 / 720')
+  })
+
+  it('keeps Suggest a change on each item, aimed at that asset', () => {
+    render(<MediaArea {...grouped} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Suggest a change to Facebook trailer, 24 seconds' }))
+    expect(grouped.onSuggestAsset).toHaveBeenCalledWith(expect.objectContaining({ key: 'social-teaser-fb' }))
+  })
+
+  it('marks her pick as Chosen and lets her switch to the other option', async () => {
+    render(<MediaArea {...grouped} />)
+    const rust = screen.getByRole('region', { name: 'Test cover 3, option A: rust' })
+    expect(rust).toHaveTextContent('Chosen')
+    expect(screen.queryByRole('button', { name: 'Choose Test cover 3, option A: rust' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Choose Test cover 1/ })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Choose Test cover 3, option B: teal' }))
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Test cover 3, option B: teal' })).toHaveTextContent('Chosen'))
+    expect(pickReviewOption).toHaveBeenCalledWith({ slug: 'kanset', contentId: 'piece', contentVersion: 2, assetKey: 'youtube-cover-test-3-teal' })
+    expect(screen.getByRole('region', { name: 'Test cover 3, option A: rust' })).not.toHaveTextContent('Chosen')
+  })
+
+  it('in the read-only preview, choosing shows the flow but saves nothing', async () => {
+    pickReviewOption.mockClear()
+    render(<MediaArea {...grouped} optionPicker={{ ...grouped.optionPicker, persist: false }} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Choose Test cover 3, option B: teal' }))
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Test cover 3, option B: teal' })).toHaveTextContent('Chosen'))
+    expect(pickReviewOption).not.toHaveBeenCalled()
+  })
+
+  it('shows the pick read-only when she cannot choose', () => {
+    render(<MediaArea {...grouped} optionPicker={null} />)
+    expect(screen.getByRole('region', { name: 'Test cover 3, option A: rust' })).toHaveTextContent('Chosen')
+    expect(screen.queryByRole('button', { name: /^Choose / })).not.toBeInTheDocument()
+  })
+
+  it('says so when a choice does not save, and keeps the earlier pick', async () => {
+    pickReviewOption.mockResolvedValueOnce({ ok: false, reason: 'failed' } as never)
+    render(<MediaArea {...grouped} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Choose Test cover 3, option B: teal' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent("Your choice didn't save. Try again.")
+    expect(screen.getByRole('region', { name: 'Test cover 3, option A: rust' })).toHaveTextContent('Chosen')
   })
 })
