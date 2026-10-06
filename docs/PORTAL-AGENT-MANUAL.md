@@ -818,6 +818,16 @@ and a retry with the same key returns the first result. A request already closed
 still go through `visual-revision`, only while the piece sits back with The Dot under her
 `change_requested` decision and nothing newer exists; the result reports `reopened`.
 
+**Declined edit, landed quietly (since 0099):** when every request she sent on the released
+version was answered or declined with no change and nothing is open, run `portal-write
+applied-release` on the CURRENT released version (`contentVersion` = the version she decided on)
+with a reason starting `Agency override authorized by Anastasia:`. No new version is made. The
+piece lands on Approved through a `content_courtesy_releases` row and a `courtesy_release_recorded`
+activity, her `change_requested` decision row is left untouched (`current_decision` still says so,
+`client_state` reads `approved`), no review is armed and no client email is written. It refuses
+while any request is pending, applying, prepared or conflicted, when a newer version exists, when
+the piece is published or archived, and without the named reason.
+
 **Release media guard (since 0092):** every release refuses a version with no review asset, no
 portal preview and no design link: `portal-admin ready`, `update-portal --re-share` (with or
 without `--quiet`), `portal-write applied-release`, `courtesy-release` and `supersede`, and

@@ -4519,6 +4519,73 @@ async function main(): Promise<void> {
           && /inconsistent|incompatible/.test(settledBegin.error.message),
         otherRevision.error?.message ?? settledBegin.error?.message ?? 'NO ERROR')
 
+      // Declined-only: every request she sent on the released version was answered and closed
+      // with no change. The released version itself lands on approved as an agency release,
+      // never as her approval, with no email and no review prompt.
+      const declinedOnly = await videoFixture('declined-only')
+      const declinedOnlyClose = await rawAdmin.rpc('reply_to_content_request', {
+        p_request_id: declinedOnly.requestId, p_body: 'Thanks, Maria. As discussed, no change needed here.',
+        p_close: true, p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const declinedMailBefore = await rawAdmin.from('notification_outbox').select('id', { count: 'exact', head: true })
+        .eq('client_id', bClientId).eq('recipient_kind', 'client').eq('channel', 'email')
+      const declinedKey = randomUUID()
+      const declinedRelease = await appliedRelease(declinedOnly.itemId, 1, declinedKey)
+      const declinedRetry = await appliedRelease(declinedOnly.itemId, 1, declinedKey)
+      const declinedMailAfter = await rawAdmin.from('notification_outbox').select('id', { count: 'exact', head: true })
+        .eq('client_id', bClientId).eq('recipient_kind', 'client').eq('channel', 'email')
+      const declinedItem = await rawAdmin.from('content_items')
+        .select('status, working_version, client_visible_version, review_ready_at, revision_in_progress')
+        .eq('id', declinedOnly.itemId).single()
+      const declinedState = await bClient.from('content_with_state').select('client_state')
+        .eq('id', declinedOnly.itemId).single()
+      const declinedArmed = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
+        .eq('content_id', declinedOnly.itemId).eq('content_version', 1).eq('event_type', 'needs_review')
+      const declinedAudit = await bClient.from('activity_log').select('event_type, actor_type')
+        .eq('content_id', declinedOnly.itemId).eq('content_version', 1).eq('event_type', 'courtesy_release_recorded')
+      const declinedApprovals = await rawAdmin.from('approvals').select('state')
+        .eq('content_id', declinedOnly.itemId).eq('content_version', 1)
+      check('VAR9: a declined-only edit lands the released version on approved as an agency release',
+        !declinedOnlyClose.error && !declinedRelease.error && !declinedRetry.error
+          && JSON.stringify(declinedRetry.data) === JSON.stringify(declinedRelease.data)
+          && declinedItem.data?.status === 'approved' && declinedItem.data?.client_visible_version === 1
+          && declinedItem.data?.working_version === 1 && declinedItem.data?.review_ready_at === null
+          && declinedItem.data?.revision_in_progress === false
+          && declinedState.data?.client_state === 'approved'
+          && declinedArmed.count === 1 && declinedMailBefore.count === declinedMailAfter.count
+          && declinedAudit.data?.length === 1 && declinedAudit.data[0].actor_type === 'anastasia'
+          && !declinedApprovals.error && declinedApprovals.data?.length === 1
+          && declinedApprovals.data[0].state === 'change_requested',
+        declinedOnlyClose.error?.message ?? declinedRelease.error?.message ?? declinedRetry.error?.message
+          ?? JSON.stringify({ item: declinedItem.data, state: declinedState.data, armed: declinedArmed.count,
+            mail: [declinedMailBefore.count, declinedMailAfter.count], audit: declinedAudit.data,
+            approvals: declinedApprovals.data ?? declinedApprovals.error?.message }))
+
+      const stillPending = await videoFixture('declined-pending')
+      const pendingRelease = await appliedRelease(stillPending.itemId, 1)
+      check('VAR10: the declined release refuses while a request is still open',
+        !!pendingRelease.error && /still open/.test(pendingRelease.error.message),
+        pendingRelease.error?.message ?? 'NO ERROR')
+
+      const newerRelease = await appliedRelease(notStranded.itemId, 1)
+      check('VAR11: the declined release refuses once a newer version exists',
+        !!newerRelease.error && /newer/.test(newerRelease.error.message),
+        newerRelease.error?.message ?? 'NO ERROR')
+
+      const declinedCopy = await videoFixture('declined-reason')
+      await rawAdmin.rpc('reply_to_content_request', {
+        p_request_id: declinedCopy.requestId, p_body: 'Thanks, Maria. No change needed.',
+        p_close: true, p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const unnamed = await rawAdmin.rpc('record_agency_applied_release', {
+        p_content_id: declinedCopy.itemId, p_content_version: 1,
+        p_reason: 'Declined her edit, landing it anyway without a named override.',
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      check('VAR12: the declined release requires the named Anastasia override',
+        !!unnamed.error && /Agency override authorized by Anastasia/i.test(unnamed.error.message),
+        unnamed.error?.message ?? 'NO ERROR')
+
       // Locked: a published version never moves.
       const lockedItem = await rawAdmin.from('content_items').select('id, client_visible_version, publication_locked_version')
         .eq('id', bItemId).single()

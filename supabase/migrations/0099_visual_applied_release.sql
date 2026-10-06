@@ -30,6 +30,14 @@
 --      before anything else; the same unchanged-asset check at release time (the asset could be
 --      reverted after prepare); and a real idempotent retry. Before, a retry with the same key hit
 --      "not ahead of the released version" because the first call had already promoted.
+--   4. record_agency_applied_release, declined branch: when every request she sent on the
+--      released version was answered or declined with no change (kanset-2026-10-ep3-red-flags-long,
+--      "FASTER" answered "no change needed"), the SAME version lands on approved as a named agency
+--      release. Requires her latest decision on it to be change_requested, nothing open, nothing
+--      newer, nothing published, not archived, and a reason starting "Agency override authorized
+--      by Anastasia:". Her decision row is never touched or impersonated.
+--   5. content_with_state: a change_requested decision no longer reads "Back with The Dot" once a
+--      named agency release of that same version was recorded after it.
 -- No review is armed and no client email is possible on any of these paths, as before.
 
 begin;
@@ -294,6 +302,16 @@ declare
   v_flagged text;
   v_armed integer;
   v_result jsonb;
+  v_reason text;
+  v_latest text;
+  v_title text;
+  v_fact_check text;
+  v_scope text;
+  v_exemption text;
+  v_ledger jsonb;
+  v_body text;
+  v_release_id uuid;
+  v_revision bigint;
 begin
   select * into v_actor from public.agency_actors where actor_key = p_actor_key and active;
   if not found then raise exception 'unknown or inactive agency actor'; end if;
@@ -330,6 +348,136 @@ begin
   end if;
   if v_item.archived_at is not null then
     raise exception 'content item is archived';
+  end if;
+
+  -- 0099 declined release: every request she sent on the released version was answered or
+  -- declined with no change, so there is no new version to release. The released version itself
+  -- lands on approved as a named agency release (a content_courtesy_releases row, labelled
+  -- "Courtesy release"), never as her approval: her change_requested decision row stays as it is.
+  if p_content_version = coalesce(v_item.client_visible_version, 0)
+     and exists (
+       select 1 from public.approvals a
+       where a.client_id = v_item.client_id and a.content_id = v_item.id
+         and a.content_version = p_content_version and a.state = 'change_requested'
+     ) then
+    v_reason := pg_catalog.btrim(p_reason);
+    if p_idempotency_key is null or v_reason is null
+       or pg_catalog.char_length(v_reason) not between 10 and 2000
+       or not public.portal_client_summary_shape_valid(v_reason) then
+      raise exception 'invalid declined release';
+    end if;
+    if pg_catalog.lower(v_reason) not like 'agency override authorized by anastasia:%' then
+      raise exception 'a declined release requires a reason starting "Agency override authorized by Anastasia:"';
+    end if;
+    if not public.portal_feature_enabled(v_item.client_id, 'agency_mutations') then
+      raise exception 'agency_mutations_disabled' using errcode = '42501';
+    end if;
+    select a.state into v_latest from public.approvals a
+     where a.client_id = v_item.client_id and a.content_id = v_item.id
+       and a.content_version = p_content_version
+     order by a.created_at desc, a.id desc limit 1;
+    if v_latest is distinct from 'change_requested' then
+      raise exception 'her latest decision on v% is not a change request; this is not a declined release',
+        p_content_version;
+    end if;
+    if v_item.working_version is distinct from p_content_version then
+      raise exception 'a newer version v% exists; release that one instead', v_item.working_version;
+    end if;
+    if exists (
+      select 1 from public.content_change_requests r
+      where r.client_id = v_item.client_id and r.content_id = v_item.id and r.request_type = 'edit'
+        and r.status in ('pending', 'applying', 'prepared', 'conflicted')
+    ) then
+      raise exception 'a client edit request on this piece is still open; answer it or apply it first';
+    end if;
+    if not exists (
+      select 1 from public.content_change_requests r
+      where r.client_id = v_item.client_id and r.content_id = v_item.id and r.request_type = 'edit'
+        and r.base_version = p_content_version and r.status in ('answered', 'rejected')
+    ) then
+      raise exception 'no request on v% was closed without a change; this is not a declined release',
+        p_content_version;
+    end if;
+    if v_item.status <> 'draft' or not v_item.client_visible then
+      raise exception 'content is not eligible for a declined release';
+    end if;
+    if exists (
+      select 1 from public.content_courtesy_releases cr
+      where cr.client_id = v_item.client_id and cr.content_id = v_item.id
+        and cr.content_version = p_content_version
+    ) then
+      raise exception 'courtesy release already recorded';
+    end if;
+    select cv.title, cv.fact_check, cv.fact_check_scope, cv.fact_check_exemption,
+           cv.fact_check_ledger, cv.client_body
+      into v_title, v_fact_check, v_scope, v_exemption, v_ledger, v_body
+    from public.content_item_versions cv
+    where cv.content_item_id = v_item.id and cv.client_id = v_item.client_id
+      and cv.version = p_content_version;
+    if not found then raise exception 'released content snapshot not found'; end if;
+    if v_fact_check <> 'confirmed'
+       or not public.portal_fact_check_ledger_release_valid(v_ledger, v_scope, v_exemption)
+       or not public.portal_fact_check_release_complete(v_ledger, v_scope, v_exemption)
+       or pg_catalog.btrim(v_body) = '' then
+      raise exception 'content is not release-complete';
+    end if;
+    perform public.portal_assert_release_media(v_item.id, p_content_version);
+
+    insert into public.content_courtesy_releases(
+      client_id, content_id, content_version, reason, recorded_by_actor_id
+    ) values (
+      v_item.client_id, v_item.id, p_content_version, v_reason, v_actor.id
+    ) returning id into v_release_id;
+    update public.content_items
+    set status = 'approved', review_ready_at = null, revision_in_progress = false,
+        projection_revision = projection_revision + 1, updated_at = pg_catalog.now()
+    where id = v_item.id
+    returning projection_revision into v_revision;
+    perform public.portal_ensure_schedule_targets(v_item.id, p_content_version);
+    insert into public.activity_log(
+      client_id, content_id, content_version, event_type, event_key, title, summary, actor_type, actor_name
+    ) values (
+      v_item.client_id, v_item.id, p_content_version, 'courtesy_release_recorded',
+      'courtesy-release:' || v_release_id::text,
+      'Courtesy release: ' || v_title, v_reason, 'anastasia', v_actor.display_name
+    );
+    insert into public.portal_inbox_events(
+      client_id, event_key, event_type, object_type, object_id, actor_type, actor_name, payload,
+      requires_reconciliation
+    ) values (
+      v_item.client_id, 'courtesy-release:' || v_release_id::text, 'courtesy_release_recorded',
+      'content_courtesy_release', v_release_id, 'anastasia', v_actor.display_name,
+      pg_catalog.jsonb_build_object('content_id', v_item.id, 'content_version', p_content_version), false
+    );
+    insert into public.projection_outbox(
+      client_id, event_key, destination, operation, object_type, object_key, object_revision, payload
+    ) values (
+      v_item.client_id, 'courtesy-release:' || v_release_id::text, 'notion', 'upsert', 'content',
+      v_item.id::text, v_revision, pg_catalog.jsonb_build_object('reason', 'courtesy_release_recorded')
+    );
+    v_result := pg_catalog.jsonb_build_object(
+      'courtesy_release_id', v_release_id, 'content_id', v_item.id,
+      'content_version', p_content_version, 'outcome', 'recorded', 'declined_release', true
+    );
+    v_fingerprint := pg_catalog.encode(extensions.digest(pg_catalog.convert_to(
+      pg_catalog.jsonb_build_object(
+        'content_id', p_content_id, 'content_version', p_content_version,
+        'reason', v_reason, 'actor', p_actor_key
+      )::text, 'UTF8'), 'sha256'), 'hex');
+    insert into public.portal_command_receipts(
+      client_id, command_type, idempotency_key, request_fingerprint, response
+    ) values (
+      v_item.client_id, 'record_content_courtesy_release', p_idempotency_key::text, v_fingerprint, v_result
+    );
+    select pg_catalog.count(*)::integer into v_armed from public.activity_log a
+     where a.client_id = v_item.client_id and a.content_id = v_item.id
+       and a.content_version = p_content_version and a.event_type = 'needs_review'
+       and a.created_at >= pg_catalog.transaction_timestamp();
+    if v_armed > 0 then
+      raise exception 'release armed a client review; refusing to complete an agency release';
+    end if;
+    return v_result || pg_catalog.jsonb_build_object('released_version', p_content_version,
+      'review_armed', false);
   end if;
 
   -- The version being released must be strictly ahead of what she sees, and must not be work
@@ -398,7 +546,56 @@ revoke all on function public.record_agency_applied_release(uuid, integer, text,
 grant execute on function public.record_agency_applied_release(uuid, integer, text, text, uuid)
   to service_role;
 
--- 4. Security assertion, folded into the chain.
+-- 4. The shared projection. A change_requested decision returns the piece to "Back with The Dot";
+--    once the agency has landed that same version with a named release recorded AFTER the
+--    decision, it reads Approved. The decision row itself is untouched (current_decision still
+--    says change_requested). Clients cannot read content_courtesy_releases, and the view is
+--    security_invoker, so the check goes through a narrow definer helper returning one boolean,
+--    the same shape as portal_content_schedule_state.
+create or replace function public.portal_agency_landed_after_decision(
+  p_content_id uuid, p_content_version integer, p_decided_at timestamptz
+) returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p_decided_at is not null and exists (
+    select 1 from public.content_courtesy_releases cr
+    where cr.content_id = p_content_id and cr.content_version = p_content_version
+      and cr.recorded_at >= p_decided_at
+  )
+$$;
+revoke all on function public.portal_agency_landed_after_decision(uuid, integer, timestamptz)
+  from public, anon;
+grant execute on function public.portal_agency_landed_after_decision(uuid, integer, timestamptz)
+  to authenticated, service_role;
+
+do $view$
+declare
+  v_def text;
+  v_old_select text := 'SELECT a.state
+           FROM approvals a';
+  v_new_select text := 'SELECT a.state,
+            a.created_at
+           FROM approvals a';
+  v_old_when text := 'WHEN ((decision.state = ''change_requested''::text) OR ci.revision_in_progress';
+  v_new_when text := 'WHEN (((decision.state = ''change_requested''::text) AND (NOT public.portal_agency_landed_after_decision(ci.id, ci.client_visible_version, decision.created_at))) OR ci.revision_in_progress';
+begin
+  select pg_catalog.pg_get_viewdef('public.content_with_state'::pg_catalog.regclass) into v_def;
+  if v_def is null
+     or (pg_catalog.length(v_def) - pg_catalog.length(pg_catalog.replace(v_def, v_old_select, '')))
+        <> pg_catalog.length(v_old_select)
+     or (pg_catalog.length(v_def) - pg_catalog.length(pg_catalog.replace(v_def, v_old_when, '')))
+        <> pg_catalog.length(v_old_when) then
+    raise exception 'content_with_state decision projection drifted; 0099 will not rewrite it blindly';
+  end if;
+  v_def := pg_catalog.replace(pg_catalog.replace(v_def, v_old_select, v_new_select), v_old_when, v_new_when);
+  execute 'create or replace view public.content_with_state with (security_invoker = true) as ' || v_def;
+end;
+$view$;
+
+-- 5. Security assertion, folded into the chain.
 create or replace function public.assert_visual_applied_release_security() returns void
 language plpgsql
 set search_path = public, pg_catalog
@@ -433,6 +630,23 @@ begin
      or v_def not ilike '%suppress_review_arm%'
      or v_def not ilike '%record_content_courtesy_release%' then
     raise exception 'visual applied release guards drifted';
+  end if;
+  if v_def not ilike '%a declined release requires a reason starting%'
+     or v_def not ilike '%is still open; answer it or apply it first%'
+     or v_def not ilike '%a newer version v% exists%'
+     or v_def not ilike '%portal_assert_release_media%' then
+    raise exception 'declined release guards drifted';
+  end if;
+  if pg_catalog.pg_get_viewdef('public.content_with_state'::pg_catalog.regclass)
+       not ilike '%portal_agency_landed_after_decision(ci.id, ci.client_visible_version, decision.created_at)%'
+     or not exists (select 1 from pg_catalog.pg_class c
+                    where c.oid = 'public.content_with_state'::pg_catalog.regclass
+                      and 'security_invoker=true' = any(c.reloptions)) then
+    raise exception 'content_with_state declined-release projection drifted';
+  end if;
+  if pg_catalog.has_function_privilege('anon',
+       'public.portal_agency_landed_after_decision(uuid,integer,timestamptz)', 'EXECUTE') then
+    raise exception 'declined-release projection helper is exposed to anon';
   end if;
 
   if pg_catalog.has_function_privilege('anon', 'public.begin_visual_request_revision(uuid[],text,uuid)', 'EXECUTE')
