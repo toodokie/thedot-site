@@ -5957,6 +5957,134 @@ async function main(): Promise<void> {
         JSON.stringify({ listedBefore, recorded: recorded.error?.message ?? 'ok', listedAfter }))
     }
 
+    // 0097: the agency editing-session email names the kind of edit, the area and quotes the
+    // client. Replays the three 2026-10-06 sends (a video edit, a reel-script copy edit, a
+    // YouTube cut video edit) and one comment, through the piece-page bundle path.
+    console.log('\n--- 0097 agency digest names kind, area and words ---')
+    {
+      const E_EMAIL = `rls-digest-${RUN_ID}@example.com`
+      const createdSeat = await admin.auth.admin.createUser({ email: E_EMAIL, email_confirm: true })
+      if (createdSeat.error || !createdSeat.data.user) {
+        throw new Error(`digest seat: ${createdSeat.error?.message ?? 'missing'}`)
+      }
+      const seat = await admin.rpc('upsert_portal_membership', {
+        p_client_id: bClientId, p_auth_user_id: createdSeat.data.user.id, p_email: E_EMAIL,
+        p_name: 'Maria Guerts', p_can_decide: false, p_can_comment: true,
+        p_can_submit_requests: true, p_can_manage_schedule: false, p_can_use_assistant: false,
+        p_actor_key: 'thedot-admin', p_idempotency_key: `rls-digest-seat-${RUN_ID}`,
+      })
+      if (seat.error) throw new Error(`digest seat membership: ${seat.error.message}`)
+      const eClient = clientForToken(await tokenFor(E_EMAIL))
+
+      const reelOriginal = [
+        'IRCC can ask you to prove a job offer is genuine', '',
+        'Six frames, 26.5 seconds, silent master for Instagram, Facebook and the YouTube Short.', '',
+        '**1.** FOR EMPLOYERS · **IRCC CAN ASK YOU TO PROVE A JOB OFFER IS GENUINE**', '',
+        '**2.** **THE LETTER GOES TO YOUR WORKER** · You send the evidence to IRCC.', '',
+        '**6.** End card: **HIRING A FOREIGN WORKER?** · BOOK A CONSULTATION · WWW.KANSET.COM',
+      ].join('\n')
+      const reelProposed = [
+        'IRCC can ask you to prove a job offer is genuine', '',
+        'Six frames, 26.5 seconds, silent master for Instagram, Facebook and the YouTube Short.', '',
+        '**1.** FOR EMPLOYERS · **IRCC CAN ASK YOU TO PROVE THAT A JOB OFFER IS GENUINE EVEN AFTER LMIA WAS APPROVED BY ESDC**', '',
+        '**2.** PROVIDE A DETAILED EMPLOYMENT REFERENCE AND/OR JOB OFFER LETTER', '',
+        '**6.** End card: **HIRING A FOREIGN WORKER?** · BOOK A CONSULTATION · WWW.KANSET.COM',
+      ].join('\n')
+
+      const fixture = async (id: string, title: string, blocks: { key: string; label: string; body: string }[],
+        asset: { key: string; label: string; url: string; channel: string } | null) => {
+        const snap = snapshot(bClientId!, id, 1, title, blocks[0].body, blocks[0].key)
+        snap.copy_blocks = blocks
+        const [synced] = await sync([snap])
+        if (asset) {
+          const set = await admin.rpc('set_content_review_asset', {
+            p_client_id: bClientId, p_content_id: id, p_content_version: 1,
+            p_asset_key: asset.key, p_label: asset.label, p_channel: asset.channel,
+            p_asset_kind: 'video', p_url: asset.url, p_width_px: 1080, p_height_px: 1920,
+            p_caption_status: 'burned_in_verified', p_review_note: null,
+            p_actor_key: 'thedot-admin', p_idempotency_key: `rls-digest-asset-${id}`,
+          })
+          if (set.error) throw new Error(`digest asset: ${set.error.message}`)
+        }
+        const release = await admin.rpc('mark_content_ready', { p_content_id: synced.item_id, p_content_version: 1 })
+        if (release.error) throw new Error(`digest release ${id}: ${release.error.message}`)
+        return synced.item_id
+      }
+      const REMOTE_URL = 'https://drive.google.com/open?id=DIGESTREMOTETEASER'
+      const EP3_URL = 'https://drive.google.com/open?id=DIGESTEP3CUT'
+      const remoteId = await fixture(`rls-digest-remote-${RUN_ID}`,
+        'Ask Kanset: Does remote work count as Canadian experience?',
+        [{ key: 'on-screen-copy', label: 'On screen', body: 'Remote work on screen.' }],
+        { key: 'social-teaser', label: 'Captioned teaser video', url: REMOTE_URL, channel: 'social' })
+      const employerId = await fixture(`rls-digest-employer-${RUN_ID}`,
+        'IRCC can ask you to prove a job offer is genuine',
+        [{ key: 'reel-script', label: 'Reel, on screen', body: reelOriginal },
+          { key: 'social-caption', label: 'Instagram and Facebook caption', body: 'Employer caption.' }],
+        null)
+      const ep3Id = await fixture(`rls-digest-ep3-${RUN_ID}`,
+        'How to choose an immigration consultant (Kanset Talks Ep. 3, YouTube)',
+        [{ key: 'youtube-package', label: 'YouTube video', body: 'Ep3 YouTube package.' }],
+        { key: 'youtube-cut', label: 'YouTube cut', url: EP3_URL, channel: 'youtube' })
+
+      const sendBundle = (itemId: string, edit: Record<string, unknown>) => eClient.rpc('request_content_edit_bundle', {
+        p_content_id: itemId, p_content_version: 1, p_edits: [edit], p_note: null,
+        p_idempotency_key: randomUUID(),
+      })
+      const remoteSend = await sendBundle(remoteId, { target_kind: 'asset', target_key: 'social-teaser',
+        target_label: 'Reel, 19 seconds', proposed_text: 'please make it faster', url_snapshot: REMOTE_URL })
+      const employerSend = await sendBundle(employerId, { target_kind: 'copy_block', target_key: 'reel-script',
+        target_label: 'Reel, on screen', proposed_text: reelProposed, url_snapshot: null })
+      const ep3Send = await sendBundle(ep3Id, { target_kind: 'asset', target_key: 'youtube-cut',
+        target_label: 'YouTube video, 4:32', proposed_text: 'FASTER', url_snapshot: EP3_URL })
+      const ep3Comment = await eClient.rpc('add_comment', {
+        p_content_id: ep3Id, p_body: 'The intro is great, keep that part as it is.',
+      })
+
+      const digest = async (itemId: string) => {
+        const rows = await rawAdmin.from('notification_outbox')
+          .select('subject,body,bundle_event_count,bundle_edit_count,bundle_comment_count,bundle_targets,bundle_items')
+          .eq('client_id', bClientId).eq('template_key', 'agency_piece_digest')
+          .eq('bundle_key', `piece-edit:${itemId}`)
+        if (rows.error) throw new Error(`digest read: ${rows.error.message}`)
+        return rows.data ?? []
+      }
+      const remoteRows = await digest(remoteId)
+      const employerRows = await digest(employerId)
+      const ep3Rows = await digest(ep3Id)
+      console.log(`SAMPLE remote:\n${remoteRows[0]?.subject}\n${remoteRows[0]?.body}\n`)
+      console.log(`SAMPLE employer:\n${employerRows[0]?.subject}\n${employerRows[0]?.body}\n`)
+      console.log(`SAMPLE ep3:\n${ep3Rows[0]?.subject}\n${ep3Rows[0]?.body}\n`)
+
+      check('DG1: a video edit names the kind, the client-facing area and quotes the words',
+        !remoteSend.error && remoteRows.length === 1
+          && remoteRows[0].subject === 'Maria Guerts updated: Ask Kanset: Does remote work count as Canadian experience?'
+          && remoteRows[0].body === 'Maria Guerts sent 1 video edit on "Ask Kanset: Does remote work count as Canadian experience?".'
+            + '\n\nReel, 19 seconds: "please make it faster"\n\nOpen the piece to review.'
+          && remoteRows[0].bundle_edit_count === 1 && remoteRows[0].bundle_comment_count === 0
+          && JSON.stringify(remoteRows[0].bundle_targets) === JSON.stringify(['Reel, 19 seconds']),
+        remoteSend.error?.message ?? JSON.stringify(remoteRows))
+      const employerBody = employerRows[0]?.body ?? ''
+      check('DG2: a reel-script copy edit names the block and quotes only the lines Maria changed',
+        !employerSend.error && employerRows.length === 1
+          && employerBody.startsWith('Maria Guerts sent 1 copy edit on "IRCC can ask you to prove a job offer is genuine".\n\nReel, on screen: "1. FOR EMPLOYERS · IRCC CAN ASK YOU TO PROVE THAT A JOB OFFER IS GENUINE EVEN AFTER LMIA WAS APPROVED BY ESDC / 2. PROVIDE A DETAILED')
+          && employerBody.endsWith('"\n\nOpen the piece to review.')
+          && !employerBody.includes('Six frames') && !employerBody.includes('**')
+          && !/Areas: Copy|copy and feedback/.test(employerBody),
+        employerSend.error?.message ?? JSON.stringify(employerRows))
+      check('DG3: a YouTube cut edit plus a comment lists each kind with its count and quotes both',
+        !ep3Send.error && !ep3Comment.error && ep3Rows.length === 1
+          && ep3Rows[0].body === 'Maria Guerts sent 1 video edit and 1 comment on "How to choose an immigration consultant (Kanset Talks Ep. 3, YouTube)".'
+            + '\n\nYouTube video, 4:32: "FASTER"'
+            + '\n\nGeneral feedback: "The intro is great, keep that part as it is."'
+            + '\n\nOpen the piece to review.'
+          && ep3Rows[0].bundle_event_count === 2 && ep3Rows[0].bundle_edit_count === 1
+          && ep3Rows[0].bundle_comment_count === 1,
+        ep3Send.error?.message ?? ep3Comment.error?.message ?? JSON.stringify(ep3Rows))
+      const audit = await rawAdmin.rpc('assert_portal_security')
+      check('DG4: the cumulative security assertion holds with the 0097 digest', !audit.error,
+        audit.error?.message ?? '')
+    }
+
     {
       const stop = await admin.rpc('set_portal_feature_switch', {
         p_client_id: bClientId, p_feature: 'client_mutations', p_enabled: false,
