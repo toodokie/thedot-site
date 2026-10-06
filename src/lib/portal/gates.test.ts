@@ -37,6 +37,45 @@ describe('deriveContentStage', () => {
       currentDecision: null,
     }))).toEqual({ stage: 'awaiting_idea_approval', label: 'awaiting idea approval' })
   })
+  // Since 2026-09-02 the plan is a heads-up, never decided. Once a version is released to
+  // Maria, an undecided plan cycle must not mask her final-package decision or edits.
+  it('a released piece with Maria change request reads as her changes, not plan direction', () => {
+    const result = deriveContentStage(piece({
+      ideaApprovalSentAt: '2026-10-01T12:00:00Z', released: true, visibleVersion: 1,
+      currentDecision: 'change_requested', openClientEdits: 2,
+      gates: [gate('approval_sent', 'done')],
+    }))
+    expect(result).toEqual({ stage: 'changes_requested', label: 'Maria asked for changes; 2 edits open' })
+  })
+  it('counts one edit in the singular and accepts open edits without a change_requested decision', () => {
+    expect(deriveContentStage(piece({
+      released: true, visibleVersion: 1, openClientEdits: 1,
+    }))).toEqual({ stage: 'changes_requested', label: 'Maria asked for changes; 1 edit open' })
+  })
+  it('a change_requested decision with no open edit rows still reads as changes', () => {
+    expect(deriveContentStage(piece({
+      released: true, visibleVersion: 1, currentDecision: 'change_requested', openClientEdits: 0,
+    }))).toEqual({ stage: 'changes_requested', label: 'Maria asked for changes' })
+  })
+  it('a released piece with an undecided plan cycle and no decision is awaiting Maria, not plan direction', () => {
+    expect(deriveContentStage(piece({
+      ideaApprovalSentAt: '2026-10-01T12:00:00Z', released: true, visibleVersion: 1,
+    })).stage).toBe('awaiting_decision')
+  })
+  it('an unreleased piece in an undecided plan cycle still awaits plan direction', () => {
+    expect(deriveContentStage(piece({
+      ideaApprovalSentAt: '2026-10-01T12:00:00Z', released: false, visibleVersion: null,
+    })).stage).toBe('awaiting_idea_approval')
+  })
+  it('an approval still wins over open edits, and provider state wins over changes', () => {
+    expect(deriveContentStage(piece({
+      released: true, visibleVersion: 1, currentDecision: 'approved', openClientEdits: 1,
+    })).stage).toBe('approved')
+    expect(deriveContentStage(piece({
+      released: true, visibleVersion: 1, currentDecision: 'change_requested',
+      dests: [dest('instagram', { scheduleStatus: 'scheduled' }), dest('facebook', { scheduleStatus: 'scheduled' })],
+    })).stage).toBe('scheduled')
+  })
   it('0: a durable identity without version 1 is an idea', () => {
     expect(deriveContentStage(piece({ workingVersion: null, status: 'idea' }))).toEqual({
       stage: 'idea',
@@ -212,6 +251,14 @@ describe('deriveMyTasks', () => {
     })
   })
 
+  it('a released piece in an undecided plan cycle waits on Maria final review, not plan direction', () => {
+    const tasks = deriveMyTasks([piece({
+      ideaApprovalSentAt: '2026-09-28T12:00:00Z', released: true, visibleVersion: 1,
+      gates: [gate('approval_sent', 'done', { occurred_at: '2026-10-02T12:00:00Z' })],
+    })], [], '2026-10-06')
+    expect(tasks).toHaveLength(1)
+    expect(tasks[0]).toMatchObject({ kind: 'waiting_maria', waitingFor: 'final_review', daysWaiting: 2 })
+  })
   it('routes Maria plan changes back to the agency as a specific action', () => {
     const tasks = deriveMyTasks([piece({
       ideaApprovalSentAt: '2026-07-26T12:00:00Z',

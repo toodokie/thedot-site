@@ -258,6 +258,25 @@ async function loadDependents(
   ] as const
 }
 
+// Open binding edit requests per content item (the same unresolved statuses the My Tasks
+// loader has always counted). Every agency surface that derives a stage needs the count, or
+// "Maria asked for changes" loses its "N edits open" detail on the Pieces table and calendar.
+const OPEN_EDIT_STATUSES = ['pending', 'applying', 'prepared', 'conflicted']
+async function loadOpenEditCounts(admin: Client, itemIds: string[]): Promise<Map<string, number>> {
+  const wanted = new Set(itemIds)
+  const rows = await run<{ content_id: string; request_type: string }>(
+    admin.from('content_change_requests').select('content_id,request_type').in('status', OPEN_EDIT_STATUSES),
+    'content_change_requests')
+  const counts = new Map<string, number>()
+  for (const row of rows) {
+    if (row.request_type !== 'edit' || !wanted.has(row.content_id)) continue
+    counts.set(row.content_id, (counts.get(row.content_id) ?? 0) + 1)
+  }
+  return counts
+}
+const withOpenEdits = (pieces: StagePiece[], counts: Map<string, number>): StagePiece[] =>
+  pieces.map((piece) => ({ ...piece, openClientEdits: piece.internalContentId ? counts.get(piece.internalContentId) ?? 0 : 0 }))
+
 // All pieces for a client (or every client when clientId is omitted), unreleased included.
 export async function loadAgencyStagePieces(admin: Client, clientId?: string): Promise<StagePiece[]> {
   let query = admin.from('content_items').select(ITEM_COLS)
@@ -269,7 +288,8 @@ export async function loadAgencyStagePieces(admin: Client, clientId?: string): P
     await loadDependents(admin, items, items.map((i) => i.id), clientIds,
       new Map(items.map((item) => [item.id, item.working_version])))
   const clientNames = new Map(clients.map((c) => [c.id, c.name]))
-  return buildPieces(items, versions, approvals, gates, schedules, publications, clientNames, factCheckValid, ideaDecisions, legacyItems, courtesyReleases)
+  const openEdits = await loadOpenEditCounts(admin, items.map((i) => i.id))
+  return withOpenEdits(buildPieces(items, versions, approvals, gates, schedules, publications, clientNames, factCheckValid, ideaDecisions, legacyItems, courtesyReleases), openEdits)
 }
 
 // One piece by content_id (for STATUS GATES block regeneration), unreleased included;
@@ -283,7 +303,8 @@ export async function loadAgencyStagePiece(admin: Client, clientId: string, cont
     await loadDependents(admin, [items[0]], [items[0].id], [items[0].client_id],
       new Map([[items[0].id, items[0].working_version]]))
   const clientNames = new Map(clients.map((c) => [c.id, c.name]))
-  return buildPieces([items[0]], versions, approvals, gates, schedules, publications, clientNames, factCheckValid, ideaDecisions, legacyItems, courtesyReleases)[0] ?? null
+  const openEdits = await loadOpenEditCounts(admin, [items[0].id])
+  return withOpenEdits(buildPieces([items[0]], versions, approvals, gates, schedules, publications, clientNames, factCheckValid, ideaDecisions, legacyItems, courtesyReleases), openEdits)[0] ?? null
 }
 
 export type AgencyPieceCalendarRow = StagePiece & {
