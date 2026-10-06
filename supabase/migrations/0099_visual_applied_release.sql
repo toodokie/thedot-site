@@ -669,12 +669,15 @@ grant execute on function public.assert_visual_applied_release_security() to ser
 
 select public.assert_visual_applied_release_security();
 
-create or replace function public.assert_portal_security()
+-- Wrap, don't replace: keep every check earlier migrations chained in (0098 option picks included).
+alter function public.assert_portal_security() rename to assert_portal_pre_visual_release_security;
+revoke all on function public.assert_portal_pre_visual_release_security() from public, anon, authenticated;
+grant execute on function public.assert_portal_pre_visual_release_security() to service_role;
+
+create function public.assert_portal_security()
 returns void language plpgsql security definer set search_path='' as $$
 begin
-  perform public.assert_portal_pre_ops_feedback_security();
-  perform public.assert_agency_ops_feedback_security();
-  perform public.assert_agency_media_signal_security();
+  perform public.assert_portal_pre_visual_release_security();
   perform public.assert_visual_applied_release_security();
 end;
 $$;
