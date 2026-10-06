@@ -3099,6 +3099,220 @@ async function main(): Promise<void> {
           ?? JSON.stringify(transcriptTasks.data))
     }
 
+    console.log('\n--- 0100 YouTube-only podcast episode + agency review media removal ---')
+
+    {
+      // Rule of 2026-10-06: an episode is four pieces, so the format 'podcast' piece is YouTube-only.
+      const ytBlocks = [
+        { key: 'youtube-title', label: 'YouTube title', body: 'Episode title' },
+        { key: 'youtube-description', label: 'YouTube description', body: 'Episode description.' },
+        { key: 'youtube-tags', label: 'YouTube tags', body: 'kanset, immigration' },
+      ]
+      const setAsset = async (contentId: string, version: number, key: string, channel: string,
+        kind: string, width: number, height: number, caption = 'not_applicable') => {
+        const result = await rawAdmin.rpc('set_content_review_asset', {
+          p_client_id: bClientId, p_content_id: contentId, p_content_version: version,
+          p_asset_key: key, p_label: `Fixture ${key}`, p_channel: channel, p_asset_kind: kind,
+          p_url: `https://drive.google.com/open?id=${key.toUpperCase()}`, p_width_px: width, p_height_px: height,
+          p_caption_status: caption, p_review_note: null, p_actor_key: 'thedot-admin',
+          p_idempotency_key: `rls-0100-${contentId}-${version}-${key}`,
+        })
+        if (result.error) throw new Error(`0100 asset ${key}: ${result.error.message}`)
+      }
+      const podcastFixture = async (suffix: string, platforms: string[], blocks: typeof ytBlocks) => {
+        const contentId = `rls-ytpod-${suffix}-${RUN_ID}`
+        const snap = snapshot(bClientId!, contentId, 1, `YouTube episode ${suffix}`, 'Episode body.',
+          'youtube-title', { format: 'podcast', platforms })
+        snap.copy_blocks = blocks
+        const synced = await sync([snap])
+        return { contentId, itemId: synced[0].item_id, snap }
+      }
+      const decide = (itemId: string, version: number) => bClient.rpc('record_content_decision', {
+        p_content_id: itemId, p_content_version: version, p_decision: 'approved', p_note: null,
+      })
+
+      // PY1: YouTube parts only, released bare (rawAdmin: the youtube-cover is the media) and approved.
+      const yt = await podcastFixture('ok', ['youtube'], ytBlocks)
+      await setAsset(yt.contentId, 1, 'youtube-cover', 'youtube', 'cover', 1280, 720)
+      const ytRelease = await rawAdmin.rpc('mark_content_ready', { p_content_id: yt.itemId, p_content_version: 1 })
+      const ytApproved = ytRelease.error ? null : await decide(yt.itemId, 1)
+      check('PY1: a YouTube-only podcast with YouTube copy and a YouTube cover releases and is approved',
+        !ytRelease.error && !!ytApproved && !ytApproved.error,
+        ytRelease.error?.message ?? ytApproved?.error?.message ?? '')
+
+      // PY2: a YouTube-only podcast still needs its YouTube cover.
+      const noCover = await podcastFixture('nocover', ['youtube'], ytBlocks)
+      const noCoverRelease = await admin.rpc('mark_content_ready', { p_content_id: noCover.itemId, p_content_version: 1 })
+      const noCoverDecision = noCoverRelease.error ? null : await decide(noCover.itemId, 1)
+      check('PY2: a YouTube-only podcast without a youtube-cover is refused as incomplete',
+        !noCoverRelease.error && !!noCoverDecision?.error && /final_package_incomplete/.test(noCoverDecision.error.message),
+        noCoverRelease.error?.message ?? noCoverDecision?.error?.message ?? 'NO ERROR')
+
+      // PY3: an older combined piece that lists Instagram still needs every IG/FB part.
+      const combined = await podcastFixture('combined', ['youtube', 'instagram'], ytBlocks)
+      await setAsset(combined.contentId, 1, 'youtube-cover', 'youtube', 'cover', 1280, 720)
+      const combinedRelease = await rawAdmin.rpc('mark_content_ready', { p_content_id: combined.itemId, p_content_version: 1 })
+      const combinedDecision = combinedRelease.error ? null : await decide(combined.itemId, 1)
+      check('PY3: a combined podcast listing instagram still needs the IG/FB caption, cover and verified teaser',
+        !combinedRelease.error && !!combinedDecision?.error
+          && /final_package_incomplete/.test(combinedDecision.error.message),
+        combinedRelease.error?.message ?? combinedDecision?.error?.message ?? 'NO ERROR')
+
+      // Removal. The ep4 shape: a combined v1 released to her, undecided, with IG/FB media and a
+      // trailer preview keyed to the teaser, plus a horizontal cut preview that stays.
+      const split = await podcastFixture('split', ['youtube', 'instagram', 'facebook'],
+        [...ytBlocks, { key: 'ig-facebook-caption', label: 'Instagram and Facebook caption', body: 'Social caption.' }])
+      for (const [key, channel, kind, w, h, caption] of [
+        ['youtube-cover', 'youtube', 'cover', 1280, 720, 'not_applicable'],
+        ['social-cover', 'social', 'cover', 1080, 1920, 'not_applicable'],
+        ['social-cover-rust', 'social', 'cover', 1080, 1920, 'not_applicable'],
+        ['social-teaser', 'social', 'video', 1080, 1920, 'burned_in_verified'],
+        ['social-teaser-fb', 'social', 'video', 1080, 1920, 'burned_in_verified'],
+      ] as const) await setAsset(split.contentId, 1, key, channel, kind, w, h, caption)
+      const previewArgs = (version: number, key: string, assetKey: string | null, sha: string, w: number, h: number) => {
+        const prefix = `${bClientId}/${split.itemId}/v${version}/${key}/${sha.slice(0, 16)}/`
+        return {
+          p_client_id: bClientId, p_content_id: split.contentId, p_content_version: version,
+          p_preview_key: key, p_review_asset_key: assetKey, p_media_kind: 'video', p_object_prefix: prefix,
+          p_video_path: `${prefix}video.mp4`, p_poster_path: `${prefix}poster.jpg`,
+          p_frames: [{ path: `${prefix}frame-1.jpg`, label: 'Frame 1' }],
+          p_width_px: w, p_height_px: h, p_duration_seconds: 24, p_byte_total: 1000,
+          p_source_sha256: sha, p_actor_key: 'thedot-admin',
+        }
+      }
+      for (const args of [previewArgs(1, 'trailer', 'social-teaser', 'b'.repeat(64), 1080, 1920),
+        previewArgs(1, 'cut', null, 'c'.repeat(64), 1280, 720)]) {
+        const registered = await rawAdmin.rpc('agency_register_review_preview', args)
+        if (registered.error) throw new Error(`0100 preview: ${registered.error.message}`)
+      }
+      const splitRelease = await rawAdmin.rpc('mark_content_ready', { p_content_id: split.itemId, p_content_version: 1 })
+      if (splitRelease.error) throw new Error(`0100 split release: ${splitRelease.error.message}`)
+      const removeArgs = (version: number, assetKeys: string[], previewKeys: string[] = [], contentId = split.contentId) => ({
+        p_client_id: bClientId, p_content_id: contentId, p_content_version: version,
+        p_asset_keys: assetKeys, p_preview_keys: previewKeys,
+        p_reason: 'The trailer moved to its own reel piece (rule of 2026-10-06).', p_actor_key: 'thedot-admin',
+      })
+      const SOCIAL = ['social-cover', 'social-cover-rust', 'social-teaser', 'social-teaser-fb']
+
+      const seatRemove = await bClient.rpc('agency_remove_review_assets', removeArgs(1, SOCIAL))
+      check('RA1: a client seat cannot execute agency_remove_review_assets', !!seatRemove.error,
+        seatRemove.error?.message ?? 'NO ERROR')
+      const seenRemove = await rawAdmin.rpc('agency_remove_review_assets', removeArgs(1, SOCIAL, ['trailer']))
+      check('RA2: removal is refused on a version the client has seen',
+        !!seenRemove.error && /client has seen v1/.test(seenRemove.error.message), seenRemove.error?.message ?? 'NO ERROR')
+      check('RA3: removal is refused on a decided version',
+        await (async () => {
+          const r = await rawAdmin.rpc('agency_remove_review_assets', removeArgs(1, ['youtube-cover'], [], yt.contentId))
+          return !!r.error && /carries a decision/.test(r.error.message)
+        })())
+      const lockedRemove = await rawAdmin.rpc('agency_remove_review_assets', {
+        ...removeArgs(1, ['anything']), p_content_id: B_CONTENT_ID,
+      })
+      check('RA4: removal is refused on a publication-locked piece',
+        !!lockedRemove.error && /publication-locked/.test(lockedRemove.error.message), lockedRemove.error?.message ?? 'NO ERROR')
+
+      // The documented sequence: open a revision, copy-only sync without the IG/FB block and with
+      // platforms [youtube], remove the carried media, release quietly.
+      const revision = await rawAdmin.rpc('begin_content_revision', { p_content_id: split.itemId, p_content_version: 1 })
+      if (revision.error) throw new Error(`0100 revision: ${revision.error.message}`)
+      const v2 = { ...split.snap, version: 2, platforms: ['youtube'], copy_blocks: ytBlocks }
+      await sync([v2])
+      const carried = await rawAdmin.from('content_review_assets').select('asset_key')
+        .eq('content_item_id', split.itemId).eq('content_version', 2)
+      const carriedPreviews = await rawAdmin.from('content_review_previews').select('preview_key')
+        .eq('content_item_id', split.itemId).eq('content_version', 2)
+      check('RA5: a copy-only revision carries every asset and preview forward to v2',
+        carried.data?.length === 5 && carriedPreviews.data?.length === 2,
+        `assets=${carried.data?.length} previews=${carriedPreviews.data?.length}`)
+
+      const outboxBefore = await rawAdmin.from('notification_outbox').select('id', { count: 'exact', head: true })
+        .eq('client_id', bClientId)
+      const removed = await rawAdmin.rpc('agency_remove_review_assets', removeArgs(2, SOCIAL, ['trailer']))
+      const result = removed.data as { outcome?: string; removed_assets?: string[]; removed_previews?: string[] } | null
+      const left = await rawAdmin.from('content_review_assets').select('asset_key')
+        .eq('content_item_id', split.itemId).eq('content_version', 2)
+      const leftPreviews = await rawAdmin.from('content_review_previews').select('preview_key')
+        .eq('content_item_id', split.itemId).eq('content_version', 2)
+      const v1Assets = await rawAdmin.from('content_review_assets').select('asset_key')
+        .eq('content_item_id', split.itemId).eq('content_version', 1)
+      const queued = await rawAdmin.from('content_review_preview_removals').select('id,preview_key,reason,object_paths')
+        .eq('content_item_id', split.itemId).eq('content_version', 2)
+      const pending = await rawAdmin.rpc('agency_pending_review_preview_removals', { p_limit: 500 })
+      const pendingForTrailer = ((pending.data ?? []) as Array<{ id: string; object_paths: string[] }>)
+        .find((row) => row.id === queued.data?.[0]?.id)
+      check('RA6: removal on the working version takes the named assets and the trailer preview, keeps the rest and v1',
+        !removed.error && result?.outcome === 'removed' && result.removed_assets?.length === 4
+          && result.removed_previews?.join() === 'trailer'
+          && left.data?.map((r) => r.asset_key).join() === 'youtube-cover'
+          && leftPreviews.data?.map((r) => r.preview_key).join() === 'cut'
+          && v1Assets.data?.length === 5
+          && queued.data?.length === 1 && queued.data[0].reason === 'removed',
+        removed.error?.message ?? JSON.stringify({ result, left: left.data, leftPreviews: leftPreviews.data, queued: queued.data }))
+      // v1 still uses the same content-addressed paths, so the drain must not delete them yet.
+      check('RA7: queued storage paths still used by the released version are held back from the drain',
+        !pending.error && !!pendingForTrailer && pendingForTrailer.object_paths.length === 0,
+        pending.error?.message ?? JSON.stringify(pendingForTrailer))
+
+      const internal = await rawAdmin.rpc('agency_internal_activity', { p_client_id: bClientId, p_content_item_id: split.itemId })
+      const removalRows = ((internal.data ?? []) as Array<{ id: string; event_type: string; summary: string; content_version: number }>)
+        .filter((row) => row.event_type === 'review_asset_removed')
+      const seatSees = await bClient.from('activity_log').select('id').eq('content_id', split.itemId)
+        .eq('event_type', 'review_asset_removed')
+      const outboxAfter = await rawAdmin.from('notification_outbox').select('id', { count: 'exact', head: true })
+        .eq('client_id', bClientId)
+      const outboxForRow = removalRows[0] ? await rawAdmin.from('notification_outbox').select('id')
+        .eq('source_activity_id', removalRows[0].id) : null
+      const events = await rawAdmin.from('content_review_asset_events').select('asset_key,asset_snapshot')
+        .eq('content_item_id', split.itemId).eq('content_version', 2)
+      check('RA8: the removal is audited agency_internal with its reason, snapshotted, and notifies nobody',
+        !internal.error && removalRows.length === 1 && removalRows[0].content_version === 2
+          && removalRows[0].summary.includes('trailer moved to its own reel piece')
+          && !seatSees.error && (seatSees.data?.length ?? 0) === 0
+          && outboxBefore.count === outboxAfter.count && (outboxForRow?.data?.length ?? 0) === 0
+          && (events.data ?? []).filter((e) => (e.asset_snapshot as { removed?: boolean }).removed).length === 4,
+        internal.error?.message ?? JSON.stringify({ rows: removalRows.length, seat: seatSees.data?.length,
+          before: outboxBefore.count, after: outboxAfter.count, events: events.data?.length }))
+
+      const again = await rawAdmin.rpc('agency_remove_review_assets', removeArgs(2, SOCIAL, ['trailer']))
+      const internalAgain = await rawAdmin.rpc('agency_internal_activity', { p_client_id: bClientId, p_content_item_id: split.itemId })
+      check('RA9: a repeat removal is idempotent: unchanged, no second audit row',
+        !again.error && (again.data as { outcome?: string }).outcome === 'unchanged'
+          && ((internalAgain.data ?? []) as Array<{ event_type: string }>).filter((r) => r.event_type === 'review_asset_removed').length === 1,
+        again.error?.message ?? JSON.stringify(again.data))
+
+      const bare = await rawAdmin.rpc('agency_remove_review_assets', removeArgs(2, ['youtube-cover'], ['cut']))
+      const stillThere = await rawAdmin.from('content_review_assets').select('asset_key')
+        .eq('content_item_id', split.itemId).eq('content_version', 2)
+      check('RA10: removal that would leave the version with no media is refused and rolls back',
+        !!bare.error && /review_asset_removal_leaves_no_media/.test(bare.error.message) && stillThere.data?.length === 1,
+        bare.error?.message ?? 'NO ERROR')
+
+      // Quiet release of the cleaned version: the release media guard holds (rawAdmin, no fixture
+      // link), she is not re-asked, and she can approve the YouTube-only episode.
+      const mailBefore = await rawAdmin.from('notification_outbox').select('id', { count: 'exact', head: true })
+        .eq('client_id', bClientId).eq('recipient_kind', 'client').eq('channel', 'email')
+      const superseded = await rawAdmin.rpc('record_agency_supersession', {
+        p_content_id: split.itemId, p_content_version: 2,
+        p_reason: 'Agency override authorized by Anastasia: the trailer is now its own piece.',
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const mailAfter = await rawAdmin.from('notification_outbox').select('id', { count: 'exact', head: true })
+        .eq('client_id', bClientId).eq('recipient_kind', 'client').eq('channel', 'email')
+      const seatAssets = await bClient.from('content_review_assets').select('asset_key').eq('content_item_id', split.itemId)
+      const splitApproved = superseded.error ? null : await decide(split.itemId, 2)
+      const targets = await rawAdmin.from('content_schedule_targets').select('destination')
+        .eq('content_id', split.itemId).eq('content_version', 2)
+      check('RA11: the cleaned version releases quietly past the media guard, shows only YouTube media and is approved',
+        !superseded.error && mailBefore.count === mailAfter.count
+          && seatAssets.data?.map((r) => r.asset_key).join() === 'youtube-cover'
+          && !!splitApproved && !splitApproved.error,
+        superseded.error?.message ?? splitApproved?.error?.message
+          ?? JSON.stringify({ seat: seatAssets.data, before: mailBefore.count, after: mailAfter.count }))
+      check('RA12: approval of the YouTube-only version creates a YouTube target only',
+        !targets.error && (targets.data ?? []).map((t) => t.destination).join() === 'youtube',
+        targets.error?.message ?? JSON.stringify(targets.data))
+    }
+
     console.log('\n--- 0022 production gates + ops tasks (agency-only) ---')
 
     {

@@ -23,6 +23,8 @@ function asset(
   }
 }
 
+const COMBINED = ['youtube', 'instagram', 'facebook']
+
 describe('podcast review-package readiness', () => {
   const blocks = [
     { key: 'social-caption' },
@@ -37,11 +39,11 @@ describe('podcast review-package readiness', () => {
   ]
 
   it('requires every podcast copy surface and exact review asset', () => {
-    expect(reviewPackageReadiness('podcast', blocks, assets, false)).toEqual({
+    expect(reviewPackageReadiness('podcast', blocks, assets, false, COMBINED)).toEqual({
       ready: true,
       missing: [],
     })
-    expect(reviewPackageReadiness('podcast', blocks.filter((b) => b.key !== 'youtube-tags'), assets, false))
+    expect(reviewPackageReadiness('podcast', blocks.filter((b) => b.key !== 'youtube-tags'), assets, false, COMBINED))
       .toMatchObject({ ready: false, missing: ['YouTube tags'] })
   })
 
@@ -49,7 +51,7 @@ describe('podcast review-package readiness', () => {
     const pending = assets.map((row) => row.asset_key === 'social-teaser'
       ? { ...row, caption_status: 'burned_in_pending' as const }
       : row)
-    expect(reviewPackageReadiness('podcast', blocks, pending, false)).toMatchObject({
+    expect(reviewPackageReadiness('podcast', blocks, pending, false, COMBINED)).toMatchObject({
       ready: false,
       missing: ['verified burned-in captions on the teaser'],
     })
@@ -61,7 +63,7 @@ describe('podcast review-package readiness', () => {
       asset('social-teaser', 'social', 'cover', 'burned_in_verified'),
       asset('youtube-cover', 'social', 'cover'),
     ]
-    expect(reviewPackageReadiness('podcast', blocks, wrong, false)).toEqual({
+    expect(reviewPackageReadiness('podcast', blocks, wrong, false, COMBINED)).toEqual({
       ready: false,
       missing: [
         'Instagram and Facebook reel cover',
@@ -73,7 +75,7 @@ describe('podcast review-package readiness', () => {
 
   it('mirrors the database: a website cover on the wrong channel or kind does not count', () => {
     for (const wrong of [asset('website-cover', 'social', 'cover'), asset('website-cover', 'website', 'document')]) {
-      expect(reviewPackageReadiness('podcast_article', [{ key: 'article-body' }], [wrong], false))
+      expect(reviewPackageReadiness('podcast_article', [{ key: 'article-body' }], [wrong], false, ['squarespace']))
         .toEqual({ ready: false, missing: ['website cover'] })
     }
   })
@@ -84,20 +86,65 @@ describe('podcast review-package readiness', () => {
       [{ key: 'article-body' }],
       [asset('website-cover', 'website', 'cover')],
       false,
+      ['squarespace'],
     )).toEqual({ ready: true, missing: [] })
   })
 
   it('preserves legacy design readiness for ordinary pieces', () => {
-    expect(reviewPackageReadiness('reel', [], [], true).ready).toBe(true)
-    expect(reviewPackageReadiness('reel', [], [], false).missing).toEqual(['linked design'])
+    expect(reviewPackageReadiness('reel', [], [], true, ['instagram']).ready).toBe(true)
+    expect(reviewPackageReadiness('reel', [], [], false, ['instagram']).missing).toEqual(['linked design'])
   })
 
   it('treats a current review asset as a ready ordinary package', () => {
     expect(contentReviewPackageReadiness({
       format: 'reel',
       copy_blocks: [],
+      platforms: ['instagram', 'facebook'],
       canva_url: null,
       drive_url: null,
     }, [asset('social-cover', 'social', 'cover')])).toEqual({ ready: true, missing: [] })
+  })
+
+  // Rule of 2026-10-06 (Anastasia): an episode is four pieces. The format 'podcast' piece is the
+  // YouTube episode alone; the Instagram and Facebook trailer is its own reel. Mirrors 0100.
+  describe('YouTube-only episode', () => {
+    const youtubeBlocks = [{ key: 'youtube-title' }, { key: 'youtube-description' }, { key: 'youtube-tags' }]
+    const youtubeCover = asset('youtube-cover', 'youtube', 'cover')
+
+    it('is ready with the three YouTube blocks and a YouTube cover, and no Instagram or Facebook parts', () => {
+      expect(reviewPackageReadiness('podcast', youtubeBlocks, [youtubeCover], false, ['youtube']))
+        .toEqual({ ready: true, missing: [] })
+    })
+
+    it('still needs every YouTube block and the YouTube cover', () => {
+      expect(reviewPackageReadiness('podcast', [], [], false, ['youtube'])).toEqual({
+        ready: false,
+        missing: ['YouTube title', 'YouTube description', 'YouTube tags', 'YouTube horizontal cover'],
+      })
+    })
+
+    it('treats a podcast with no platforms as YouTube-only, like the database', () => {
+      expect(reviewPackageReadiness('podcast', youtubeBlocks, [youtubeCover], false, []).ready).toBe(true)
+      expect(reviewPackageReadiness('podcast', youtubeBlocks, [youtubeCover], false, null).ready).toBe(true)
+    })
+
+    it('keeps the Instagram and Facebook parts for an older combined piece', () => {
+      for (const platforms of [['youtube', 'instagram'], ['facebook', 'youtube'], ['YouTube', ' Instagram ']]) {
+        expect(reviewPackageReadiness('podcast', youtubeBlocks, [youtubeCover], false, platforms)).toEqual({
+          ready: false,
+          missing: [
+            'Instagram and Facebook caption',
+            'Instagram and Facebook reel cover',
+            'Instagram and Facebook teaser video',
+          ],
+        })
+      }
+    })
+
+    it('reads platforms through contentReviewPackageReadiness', () => {
+      const item = { format: 'podcast', copy_blocks: youtubeBlocks, canva_url: null, drive_url: null }
+      expect(contentReviewPackageReadiness({ ...item, platforms: ['youtube'] }, [youtubeCover]).ready).toBe(true)
+      expect(contentReviewPackageReadiness({ ...item, platforms: COMBINED }, [youtubeCover]).ready).toBe(false)
+    })
   })
 })
