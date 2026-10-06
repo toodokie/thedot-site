@@ -29,6 +29,13 @@ describe('pieceLayout', () => {
     expect(pieceLayout(null, [block('caption')], [])).toBe('text')
   })
 
+  it('shows a video post as video when its only preview is a video', () => {
+    expect(pieceLayout('linkedin-post', [block('linkedin-caption')], [preview({ width: 1080, height: 1350 })])).toBe('vertical')
+    expect(pieceLayout('linkedin-post', [block('linkedin-caption')], [preview({ width: 1920, height: 1080 })])).toBe('horizontal')
+    expect(pieceLayout('linkedin-post', [block('linkedin-caption')],
+      [preview({ width: 1080, height: 1350 }), preview({ mediaKind: 'pages', videoUrl: null })])).toBe('pages')
+  })
+
   it('needs an article body for the article layout', () => {
     expect(pieceLayout('article', [block('summary')], [])).toBe('text')
   })

@@ -48,7 +48,16 @@ export function pieceLayout(
   const f = (format ?? '').toLowerCase()
   if (HORIZONTAL_FORMATS.has(f)) return 'horizontal'
   if (VERTICAL_FORMATS.has(f)) return 'vertical'
-  if (PAGES_FORMATS.has(f)) return 'pages'
+  if (PAGES_FORMATS.has(f)) {
+    // A post format usually carries pages (a document or a single image), but a LinkedIn or
+    // feed post can be a video. When the only preview is a video, show the video
+    // (Kanset Talks ep4 LinkedIn trailer, 2026-10-06).
+    const onlyVideo = previews.find((p) => p.mediaKind === 'video')
+    if (onlyVideo && !previews.some((p) => p.mediaKind === 'pages')) {
+      return onlyVideo.width > onlyVideo.height ? 'horizontal' : 'vertical'
+    }
+    return 'pages'
+  }
   const video = previews.find((p) => p.mediaKind === 'video')
   if (video) return video.width > video.height ? 'horizontal' : 'vertical'
   if (previews.some((p) => p.mediaKind === 'pages') || kinds.has('document')) return 'pages'
