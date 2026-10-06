@@ -150,3 +150,44 @@ export function replaceChapters(text: string, chapters: Chapters, items: Chapter
   }).join(breakWith)
   return text.slice(0, chapters.start) + lines + text.slice(chapters.end)
 }
+
+// A youtube-title block (item 4, 2026-10-06). The title is the first non-blank line. A later line
+// that is one full italic span (`*...*` or `_..._`) is the agency's note about the title, shown
+// under the field without its asterisks and never counted toward the title's limit. Any other
+// later line is kept as extra text. setTitleBlockTitle swaps the title line only, so the note and
+// every other byte of the block survive an edit.
+export type TitleBlock = { title: string; notes: string[]; extra: string[] }
+
+const ITALIC_NOTE = /^[ \t]*(?:\*(?!\*)([^*\r\n]*[^*\s\r\n])\*|_(?!_)([^_\r\n]*[^_\s\r\n])_)[ \t]*$/
+
+function titleLineSpan(body: string): { start: number; end: number } | null {
+  let offset = 0
+  for (const line of body.split('\n')) {
+    const text = line.replace(/\r$/, '')
+    if (text.trim() !== '') return { start: offset, end: offset + text.length }
+    offset += line.length + 1
+  }
+  return null
+}
+
+export function parseTitleBlock(body: string): TitleBlock {
+  const span = titleLineSpan(body)
+  if (!span) return { title: '', notes: [], extra: [] }
+  const notes: string[] = []
+  const extra: string[] = []
+  for (const raw of body.slice(span.end).split('\n')) {
+    const line = raw.replace(/\r$/, '')
+    if (line.trim() === '') continue
+    const note = ITALIC_NOTE.exec(line)
+    if (note) notes.push((note[1] ?? note[2]).trim())
+    else extra.push(line.trim())
+  }
+  return { title: body.slice(span.start, span.end), notes, extra }
+}
+
+export function setTitleBlockTitle(body: string, title: string): string {
+  const clean = title.replace(/\s*\r?\n\s*/g, ' ')
+  const span = titleLineSpan(body)
+  if (!span) return clean === '' ? body : clean + body
+  return body.slice(0, span.start) + clean + body.slice(span.end)
+}

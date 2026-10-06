@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   findChapters, formatTags, formatTagsLike, parseTags, parseYouTubePackage, replaceChapters,
-  serializeYouTubePackage, setYouTubeField, youTubeFieldValue, type YouTubeFieldName,
+  parseTitleBlock, serializeYouTubePackage, setTitleBlockTitle, setYouTubeField, youTubeFieldValue, type YouTubeFieldName,
 } from './youtube-fields'
 
 const INLINE = [
@@ -291,5 +291,37 @@ describe('formatTagsLike (Task 8: tags keep their separator style)', () => {
     expect(formatTagsLike('a, b,', ['a'])).toBe('a,')
     expect(formatTagsLike('only', ['only', 'more'])).toBe('only, more')
     expect(formatTagsLike('', ['first'])).toBe('first')
+  })
+})
+
+// Item 4 (2026-10-06): a youtube-title block is the title on its first line; a later line that is
+// a full italic line is the agency's note about the title (e.g. why it is kept short).
+describe('title block notes', () => {
+  const EP4 = 'Life after PR in Canada: what comes next | Kanset Talks Ep. 4\n\n*Kept short on purpose: YouTube cuts long titles in search results and on phones.*'
+
+  it('reads the first line as the title and a full italic line as a note, without asterisks', () => {
+    const block = parseTitleBlock(EP4)
+    expect(block.title).toBe('Life after PR in Canada: what comes next | Kanset Talks Ep. 4')
+    expect(block.notes).toEqual(['Kept short on purpose: YouTube cuts long titles in search results and on phones.'])
+    expect(block.extra).toEqual([])
+  })
+
+  it('accepts underscore italics and CRLF lines, and leaves bold and partly italic lines as extra text', () => {
+    const block = parseTitleBlock('Title here\r\n_Note one_\r\n**Bold line**\r\nHalf *italic* line')
+    expect(block.title).toBe('Title here')
+    expect(block.notes).toEqual(['Note one'])
+    expect(block.extra).toEqual(['**Bold line**', 'Half *italic* line'])
+  })
+
+  it('a plain one-line title has no notes', () => {
+    expect(parseTitleBlock('Old title')).toEqual({ title: 'Old title', notes: [], extra: [] })
+  })
+
+  it('round-trips byte for byte and replaces only the title line', () => {
+    const bodies = [EP4, 'Old title', '\nLeading blank\n*n*', 'T\r\n\r\n*note*\r\n', '']
+    for (const body of bodies) expect(setTitleBlockTitle(body, parseTitleBlock(body).title)).toBe(body)
+    expect(setTitleBlockTitle(EP4, 'Life after PR | Kanset Talks Ep. 4'))
+      .toBe(EP4.replace('Life after PR in Canada: what comes next | Kanset Talks Ep. 4', 'Life after PR | Kanset Talks Ep. 4'))
+    expect(setTitleBlockTitle('T\r\n*note*', 'New')).toBe('New\r\n*note*')
   })
 })

@@ -84,6 +84,16 @@ describe('separate episode blocks', () => {
     expect(screen.getAllByRole('listitem').map((li) => li.textContent?.replace('×', ''))).toEqual(['a', 'b'])
   })
 
+  it('edits only the title line of a title block and keeps the note byte for byte (item 4)', async () => {
+    const body = 'Old title\n\n*Kept short on purpose.*'
+    const titleTarget: ReviewTarget = { kind: 'copy_block', key: 'youtube-title', label: 'YouTube title', currentText: body }
+    renderInPage(<><TitleBlockForm target={titleTarget} source={body} /><DraftProbe of={titleTarget} /></>)
+    expect(screen.getByLabelText('Title')).toHaveValue('Old title')
+    expect(screen.getByText('9 of 100 characters')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'New title' } })
+    await waitFor(() => expect(screen.getByTestId('draft').textContent).toBe('New title\n\n*Kept short on purpose.*'))
+  })
+
   it('keeps newline-separated tags on their own lines', async () => {
     const tagsTarget: ReviewTarget = { kind: 'copy_block', key: 'youtube-tags', label: 'YouTube tags', currentText: 'a\nb\nc' }
     renderInPage(<><TagsBlockForm target={tagsTarget} source={'a\nb\nc'} base={'a\nb\nc'} /><DraftProbe of={tagsTarget} /></>)
