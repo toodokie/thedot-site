@@ -24,6 +24,11 @@
 //                        Replaces the old client_alerts off / release / on window, which dropped
 //                        every other client email while it was open and could be left off on a
 //                        throw. Refused if she has already decided on the released version.
+//     --hold-release     With --re-share --apply --confirm: open the revision, commit and sync the new
+//                        version, then STOP before releasing it, so review media can be changed on the
+//                        working version first (e.g. portal-write review-asset-remove, 0100). Re-run
+//                        the same command without --hold-release to release it: the stranded-release
+//                        retry path picks up the synced version unchanged.
 //
 // EXIT CODES: 2 = refused input (open fact-check gate, missing pack or change note), 3 = locked,
 // 4 = open client edit request or version reconcile, 5 = on-screen text block missing (a reel,
@@ -92,6 +97,7 @@ type Flags = {
   changeNote: string | null
   confirm: boolean
   noMediaReason: string | null
+  holdRelease: boolean
 }
 
 function parseArgs(argv: string[]): Flags {
@@ -103,6 +109,7 @@ function parseArgs(argv: string[]): Flags {
   let confirm = false
   let changeNote: string | null = null
   let noMediaReason: string | null = null
+  let holdRelease = false
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     if (arg === '--apply') apply = true
@@ -110,6 +117,7 @@ function parseArgs(argv: string[]): Flags {
     else if (arg === '--re-share') reShare = true
     else if (arg === '--quiet') quiet = true
     else if (arg === '--confirm') confirm = true
+    else if (arg === '--hold-release') holdRelease = true
     else if (arg === '--change-note') {
       const candidate = argv[i + 1]
       if (!candidate || candidate.startsWith('--')) throw new Error('--change-note requires a value')
@@ -135,8 +143,9 @@ function parseArgs(argv: string[]): Flags {
   if (confirm && !reShare) throw new Error('--confirm is only valid with --re-share')
   if (changeNote !== null && !reShare) throw new Error('--change-note is only valid with --re-share')
   if (noMediaReason !== null && !reShare) throw new Error('--no-media is only valid with --re-share')
+  if (holdRelease && !reShare) throw new Error('--hold-release is only valid with --re-share')
   const note = changeNote !== null ? validateChangeNote(changeNote) : null
-  return { target: positional[0], apply: apply && !previewOnly, reShare, quiet, changeNote: note, confirm, noMediaReason }
+  return { target: positional[0], apply: apply && !previewOnly, reShare, quiet, changeNote: note, confirm, noMediaReason, holdRelease }
 }
 
 function logRun(entry: Record<string, unknown>): void {
@@ -448,6 +457,7 @@ async function main() {
           packPath, extractedBody: extractedBody!, releasedVersion: clientVisibleVersion, workingVersion,
           canonicalVersion, bodyChanged, revisionInProgress, newVersion: plan.newVersion,
           pendingRelease: plan.pendingRelease, changeNote: flags.changeNote!,
+          holdRelease: flags.holdRelease,
           apply: flags.apply, confirm: flags.confirm, quiet: flags.quiet, noMediaReason: flags.noMediaReason, report })
         return
     }
@@ -536,6 +546,7 @@ async function runReshare(ctx: {
   releasedVersion: number; workingVersion: number; canonicalVersion: number | null; bodyChanged: boolean
   revisionInProgress: boolean; newVersion: number; pendingRelease: boolean
   changeNote: string; apply: boolean; confirm: boolean; quiet: boolean; noMediaReason: string | null
+  holdRelease: boolean
   report: (extra?: Record<string, unknown>) => void
 }) {
   if (!ctx.apply || !ctx.confirm) {
@@ -559,6 +570,11 @@ async function runReshare(ctx: {
   // (Codex blocker 3).
   const releaseRetry = ctx.pendingRelease && !ctx.bodyChanged
     && ctx.canonicalVersion === ctx.workingVersion && ctx.revisionInProgress
+  if (releaseRetry && ctx.holdRelease) {
+    ctx.report({ outcome: 'reshare-held', new_version: ctx.workingVersion })
+    console.log(`HELD ${ctx.contentId} v${ctx.workingVersion} is already synced and unreleased. Re-run without --hold-release to release it.`)
+    return
+  }
   if (releaseRetry) {
     inspect(ctx.portalDir, 'apply')
     assertCanonicalIdentity(parseContentFile(readFileSync(ctx.canonicalPath, 'utf8'), ctx.canonicalName), ctx.contentId)
@@ -597,6 +613,14 @@ async function runReshare(ctx: {
     // the retry path on re-run. Marker RETAINED.
     ctx.report({ outcome: 'reshare-incomplete', stage: 'sync', new_version: ctx.newVersion, error: error.message })
     throw new Error(`sync failed during re-share (left an unreleased draft — safe; re-run to retry): ${error.message}`)
+  }
+  if (ctx.holdRelease) {
+    // Marker RETAINED: the piece still owes its release.
+    ctx.report({ outcome: 'reshare-held', new_version: ctx.newVersion })
+    console.log(`HELD ${ctx.contentId} v${ctx.newVersion}: synced as the working version, NOT released. Maria still sees v${ctx.releasedVersion}.`)
+    console.log('   Change its review media now (portal-write review-asset-remove / review-asset / review-preview),')
+    console.log('   then re-run this exact command without --hold-release to release it.')
+    return
   }
   reopenGateOrThrow(ctx.packPath, ctx.changeNote) // SF7: re-open the pack gate BEFORE release
   if (!(await releaseReshared(ctx, ctx.newVersion))) return

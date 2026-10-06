@@ -11,7 +11,7 @@ import {
 import { parseProposalBlocks } from '../src/lib/portal/proposals'
 import { ensureReleaseMedia, validateNoMediaReason } from '../src/lib/portal/release-media-guard'
 import { buildReportNotificationCopy } from '../src/lib/portal/report-email'
-import { purgePreviewsAfterPublication } from '../src/lib/portal/review-preview-retention'
+import { drainReviewPreviewRemovals, purgePreviewsAfterPublication } from '../src/lib/portal/review-preview-retention'
 import {
   ffmpegTools, parseReviewPreviewPayload, uploadReviewPreview, type ReviewPreviewRequest,
 } from '../src/lib/portal/review-preview-upload'
@@ -58,7 +58,7 @@ const assertNoteGrammarSafe = (value: string | null, field: string) => {
 
 async function main() {
   const [command, inputPath, ...rest] = process.argv.slice(2)
-  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|report-notify|communication|proposal-draft|proposal-revise|proposal-submit|proposal-reply|external-decision|courtesy-release|applied-release|supersede|override-destination|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|visual-revision|visual-revision-ready|review-asset|plan-cycle|plan-cycle-stage|plan-cycle-close|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete|archive-draft|review-preview> <payload.json> [--dry-run] [--pack <path>]')
+  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|report-notify|communication|proposal-draft|proposal-revise|proposal-submit|proposal-reply|external-decision|courtesy-release|applied-release|supersede|override-destination|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|visual-revision|visual-revision-ready|review-asset|review-asset-remove|plan-cycle|plan-cycle-stage|plan-cycle-close|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete|archive-draft|review-preview> <payload.json> [--dry-run] [--pack <path>]')
   const dryRun = rest.includes('--dry-run')
   const packIndex = rest.indexOf('--pack')
   const packPath = packIndex >= 0 ? rest[packIndex + 1] ?? null : null
@@ -72,7 +72,10 @@ async function main() {
   // committed state. It invokes no writer, so a command receipt would be misleading.
   // review-preview is content-addressed: the same files always land on the same object prefix and
   // the database answers "unchanged", so a separate idempotency key would add nothing.
+  // review-asset-remove is idempotent by construction: a repeat finds nothing left and answers
+  // "unchanged" without writing.
   const idempotency = command === 'status-gates' || command === 'review-preview'
+    || command === 'review-asset-remove'
     ? '' : requiredText(payload.idempotencyKey, 'idempotencyKey', 200)
   let rpc: string; let args: Record<string, unknown>
   let externalContentId: string | null = null
@@ -102,6 +105,7 @@ async function main() {
   let statusGatesContentId: string | null = null
   let reviewPreview: ReviewPreviewRequest | null = null
   let publicationItemId: string | null = null
+  let drainRemovedPreviews = false
   if (command === 'recommendation') {
     const title = requiredText(payload.title, 'title', 300); const body = requiredText(payload.body, 'body', 8000)
     assertClientSafeAgencyText({ title, body })
@@ -421,6 +425,37 @@ async function main() {
       p_actor_key: actor,
       p_idempotency_key: idempotency,
     }
+  } else if (command === 'review-asset-remove') {
+    // Take review assets (and the portal previews of them, or previews named directly) off the
+    // current UNRELEASED working version (migration 0100). Refused on a version the client has seen,
+    // one with a decision, a publication-locked piece, or anything but the working version, and
+    // refused if it would leave the version with no media. Audited agency_internal: no client
+    // notification. To clean a released piece: open a new revision first (see the manual).
+    // Payload: { clientSlug, contentId, contentVersion, assetKeys: [...], previewKeys?: [...], reason }
+    const keyList = (value: unknown, field: string) => {
+      if (value == null) return []
+      if (!Array.isArray(value) || value.length > 40) throw new Error(`${field} must be an array of at most 40 keys`)
+      return value.map((key, index) => {
+        const text = requiredText(key, `${field}[${index}]`, 64)
+        if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(text)) throw new Error(`${field}[${index}] is not a review key`)
+        return text
+      })
+    }
+    const assetKeys = keyList(payload.assetKeys, 'assetKeys')
+    const previewKeys = keyList(payload.previewKeys, 'previewKeys')
+    if (assetKeys.length + previewKeys.length === 0) throw new Error('name at least one assetKeys or previewKeys entry')
+    const reason = requiredText(payload.reason, 'reason', 500)
+    if (reason.length < 10) throw new Error('reason must be at least 10 characters')
+    drainRemovedPreviews = true
+    rpc = 'agency_remove_review_assets'; args = {
+      p_client_id: null,
+      p_content_id: requiredText(payload.contentId, 'contentId', 200),
+      p_content_version: integer(payload.contentVersion, 'contentVersion', 1),
+      p_asset_keys: assetKeys,
+      p_preview_keys: previewKeys,
+      p_reason: reason,
+      p_actor_key: actor,
+    }
   } else if (command === 'review-preview') {
     // Portal-hosted preview of a final render for one exact version (migration 0092). Drive stays
     // the master: this uploads a temporary copy of the local file and never touches a Drive link.
@@ -739,7 +774,17 @@ async function main() {
   }
   const { data,error }=await admin.rpc(rpc,args)
   if(error) throw new Error(`${rpc}: ${error.message}`)
-  console.log(`OK ${command} ${String(data)}`)
+  console.log(`OK ${command} ${typeof data === 'object' && data !== null ? JSON.stringify(data) : String(data)}`)
+  if (drainRemovedPreviews) {
+    // The database queued the removed previews' Storage objects; delete them now. A failure here
+    // leaves them queued for the nightly retention run and never undoes the removal above.
+    try {
+      const drained = await drainReviewPreviewRemovals(admin)
+      if (drained.removed || drained.failed) console.log(`Preview storage: removed ${drained.removed}, failed ${drained.failed} (failures retry nightly)`)
+    } catch (drainError) {
+      console.error(`Preview storage cleanup deferred to the nightly run: ${(drainError as Error).message}`)
+    }
+  }
   if (publicationItemId) {
     // Spec 7: once every destination is confirmed live, the portal copy is deleted. Never fails
     // the confirmation above; the nightly cron retries anything left.

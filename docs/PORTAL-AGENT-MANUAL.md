@@ -215,6 +215,7 @@ Each file's top comment states its purpose. Summary:
 | `0094_piece_page_review_ticks` | n/a | Stores per-seat, per-version copy-tab ticks for the redesigned piece page (a seat reads only its own rows; the only write is `tick_review_tabs`, on the released version) and makes `record_content_decision` refuse an approval while the approving seat has unsent server drafts. Amended 2026-10-03: `content_review_playback_failures` logs failed review video plays through `report_review_playback_failure` (seat-scoped, released version, rate-limited; the first per preview per Toronto day emails the agency and raises a `review_playback_failed` inbox event, never the client). |
 | `0095_agency_ops_signals_and_feedback` | n/a | Feedback card answers in `portal_feedback_responses` (one per seat per prompt; seat reads its own row; `submit_portal_feedback` is the only writer, passes `portal_require_client_action` like every client writer, and raises a client activity that emails the agency, never the client, plus a `portal_feedback_submitted` inbox event). The activity row carries no rating and no comment, because every seat of the client can read `activity_log`; the answer lives only in the seat's own row and the agency inbox payload. Agency signal handling: `agency_inbox_resolutions` + `agency_resolve_inbox_event` (Done; refuses a `review_send_failed` event, which closes itself), `agency_open_client_signals` (My Tasks "From Maria": send failures until their rows resolve, carried drafts until kept or discarded, feedback and failed plays until Done), `agency_raise_unsent_draft_alert_events` (hourly cron, one `review_unsent_drafts_due` inbox event per seat, piece and Toronto day). `ack_portal_inbox` now also passes agency-resolved signals (send failures whose rows are resolved already pass since 0093). Amended 2026-10-03: `agency_release_media_alerts` lists pieces in front of Maria with no media (see section 18). |
 | `0096_review_preview_cut_duration` | n/a | Raises the review preview video cap from 240 s to 1200 s (20 minutes) so YouTube cuts of an episode play in the portal (the Ep3 cut runs 4:31): the `content_review_previews` duration CHECK and `agency_register_review_preview`. Full podcast episodes stay refused exactly as in 0092 (a podcast piece takes only a `teaser`, `trailer` or `cut` key), and `assert_review_preview_security` now pins that format test, the key pattern, the 1200 s cap and the table constraint. The 50 MiB per-file limit is unchanged. |
+| `0100_podcast_youtube_only_and_asset_removal` | n/a | A Kanset Talks episode is four pieces (2026-10-06): the YouTube episode (`format: podcast`), an Instagram + Facebook trailer (`format: reel`), a LinkedIn post and a website article. The podcast final-package rule (`portal_core_review_flow_record_content_decision`) now requires only `youtube-title`, `youtube-description`, `youtube-tags` and a `youtube-cover` asset; the IG/FB caption, `social-cover` and a verified `social-teaser` are required only when that version's own platforms list `instagram` or `facebook` (older combined pieces). Mirrored in `src/lib/portal/podcast-review.ts`. Adds `agency_remove_review_assets` (service role; `portal-write review-asset-remove`): removes named review assets and previews from the current unreleased working version only, refuses a seen, decided or publication-locked version and any removal that would leave the version with no media, queues the previews' Storage objects under the new removal reason `removed`, snapshots each asset into `content_review_asset_events`, and audits `review_asset_removed` (agency_internal, never notified). |
 
 **Full v1 architecture + phasing spec:** `~/Kanset/portal-integration-task.md`.
 **Gate-system spec:** `docs/superpowers/specs/2026-07-21-portal-gate-system-design.md`.
@@ -251,9 +252,12 @@ Each file's top comment states its purpose. Summary:
 (`add_comment`, `add_idea`, `request_content_reschedule`, `mark_notification_seen`, …) through the
 RLS-enforced server client. **Client code never touches the service-role client.**
 
-Podcast pieces add version-bound rows from `content_review_assets` to this same page. The episode
-piece shows the social cover, captioned teaser, and YouTube cover beside separately editable social
-caption, YouTube title, description, and tags blocks. The website companion stays a separate
+Podcast pieces add version-bound rows from `content_review_assets` to this same page. Since
+2026-10-06 the episode piece is YouTube-only: it shows the YouTube cover(s) and any YouTube cut
+beside separately editable YouTube title, description, and tags blocks. Its Instagram + Facebook
+trailer is a separate `reel` piece, and the LinkedIn post is a separate piece too. An older combined
+episode that still lists Instagram or Facebook also shows its social cover, captioned teaser and
+social caption. The website companion stays a separate
 `podcast_article` item with its own 1500x1000 cover, article block, and client decision.
 
 The piece page keeps draft copy and visual edits in one client-side review session. The final
@@ -413,10 +417,13 @@ is the human mirror of this; `renderStatusGatesBlock` generates it.
 - Every website article has its own `content_id` and `platforms: [squarespace]`. A podcast episode
   and its companion article are separate pieces with separate approval, schedule, and publication
   evidence.
-- New podcast episodes use `format: podcast`. Their final decision fails closed until
-  `social-cover`, `social-teaser`, and `youtube-cover` review assets are attached to the exact
-  released version, the teaser is marked `burned_in_verified`, and the social caption plus separate
-  YouTube title, description, and tags blocks exist. The companion article uses
+- Every Kanset Talks episode is four pieces (2026-10-06): the YouTube episode (`format: podcast`,
+  `platforms: [youtube]`), the Instagram + Facebook trailer (`format: reel`), the LinkedIn post and
+  the website article. The episode's final decision fails closed until a `youtube-cover` review
+  asset is attached to the exact released version and the YouTube title, description, and tags
+  blocks exist (migration `0100`). Only a version whose platforms still list `instagram` or
+  `facebook` (an older combined piece) also needs `social-cover`, a `social-teaser` marked
+  `burned_in_verified`, and the social caption. The companion article uses
   `format: podcast_article` and requires `article-body` plus `website-cover`.
 
 - `content_schedule_targets` (`0008`) — per-destination schedule intent. RPCs `confirm_schedule_target`,
@@ -735,6 +742,32 @@ link — the DB is the record.
 stable `assetKey`, channel, kind, Canva or Drive URL, pixel dimensions, and caption status. Use
 `burned_in_verified` only after the teaser captions were proofed. A generic item-level design link
 does not satisfy the podcast readiness contract.
+
+**Remove review media from a version (`0100`):** `portal-write review-asset-remove` with
+`{ clientSlug, contentId, contentVersion, assetKeys: [...], previewKeys?: [...], reason }`. It works
+only on the current working version while it is unreleased: refused on a version Maria has seen, one
+with a decision or courtesy release, a publication-locked piece, or any other version. It removes the
+named assets, every portal preview of them, and any preview named in `previewKeys`; the previews'
+Storage objects are queued and drained right after (a path the released version still uses is held
+back until that version's own preview is retired). It refuses to leave the version with no media.
+Audited as agency-internal `review_asset_removed` with the reason (read it with
+`agency_internal_activity`); nobody is notified. A repeat answers `unchanged` and writes nothing, so
+no `idempotencyKey` is needed.
+
+**Clean review media off an already-released piece** (for example dropping IG/FB parts that moved to
+their own piece). Media cannot be removed from a released version, so:
+1. In the pack, drop the copy block that moved (e.g. `ig-facebook-caption`); in the canonical file
+   set the frontmatter `platforms` to what the piece now covers (e.g. `[youtube]`) and commit it.
+   Do not touch an on-screen block, or the media will not carry forward.
+2. `npx tsx scripts/update-portal.ts <pack> --re-share --quiet --hold-release --change-note "…" --apply --confirm`
+   opens the revision and syncs the new working version, which carries every asset and preview
+   forward, then stops before releasing.
+3. `portal-write review-asset-remove` on that new version with the asset and preview keys that moved.
+4. Re-run step 2 without `--hold-release` to release. Use `--quiet` while Maria has not decided
+   (supersession, `0087`); if she has already decided, the release is `portal-write applied-release`
+   (her edits applied) or `courtesy-release` instead, never a re-ask. Schedule and publication
+   targets are created per version at the decision from that version's own platforms, so a cleaned
+   `[youtube]` version gets a YouTube target only.
 
 **What Maria sees on the new piece page (approved 2026-10-04; live for Maria since 2026-10-05, env `PORTAL_PIECE_PAGE_V2` = `toodokie@gmail.com,maria@kanset.com,info@thedotcreative.co`):** reels play inline with a still per on-screen frame; Ask Kanset reels and Kanset Talks cuts show a "Cover" tile at the front of the strip with its own "Suggest a change" (Kanset Talks episodes: the same tile labelled "YouTube thumbnail"); website articles keep their "Cover image" tab; LinkedIn PDFs show in a page viewer with per-page suggestions. She edits in place (full screen on a phone); edits autosave and stay unsent until she sends; after sending, each spot shows "Sent · being applied" with what she wrote until the next version; once her edits are applied and the piece is decided, the header shows "Updated after your feedback: <areas>" with the changes highlighted against her original text, and the bar says "Your edits are applied." then "Approved · posts <date>" (or "Scheduled · <date>, <time> <destinations>" once every destination time is confirmed). Approving or scheduling closes editing; while her sent edits only wait, she can still send more. Upload the approved cover as the preview poster and attach the cover file as a review asset (`reel-cover` or `youtube-cover`) so the Cover tile gets its "Suggest a change"; cover notes are saved against that asset key. Today the new page is live for the preview seat only (`PORTAL_PIECE_PAGE_V2` = `toodokie@gmail.com`) until Anastasia switches Maria; Maria still sees the old page.
 
