@@ -12,6 +12,7 @@ import { parseProposalBlocks } from '../src/lib/portal/proposals'
 import { ensureReleaseMedia, validateNoMediaReason } from '../src/lib/portal/release-media-guard'
 import { buildReportNotificationCopy } from '../src/lib/portal/report-email'
 import { purgePreviewsAfterPublication } from '../src/lib/portal/review-preview-retention'
+import { reviewAssetOptionArgs } from '../src/lib/portal/review-asset-options'
 import {
   ffmpegTools, parseReviewPreviewPayload, uploadReviewPreview, type ReviewPreviewRequest,
 } from '../src/lib/portal/review-preview-upload'
@@ -403,7 +404,9 @@ async function main() {
     }
     const label = requiredText(payload.label, 'label', 120)
     const reviewNote = optionalText(payload.reviewNote, 'reviewNote', 500)
-    assertClientSafeAgencyText({ label, reviewNote })
+    // 0098: alternatives Maria picks between share an optionGroup; optionLabel names the choice.
+    const options = reviewAssetOptionArgs(payload)
+    assertClientSafeAgencyText({ label, reviewNote, optionLabel: options.p_option_label ?? null })
     rpc = 'set_content_review_asset'; args = {
       p_client_id: null,
       p_content_id: requiredText(payload.contentId, 'contentId', 200),
@@ -420,6 +423,7 @@ async function main() {
       p_review_note: reviewNote,
       p_actor_key: actor,
       p_idempotency_key: idempotency,
+      ...options,
     }
   } else if (command === 'review-preview') {
     // Portal-hosted preview of a final render for one exact version (migration 0092). Drive stays
