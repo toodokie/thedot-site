@@ -804,6 +804,20 @@ report every 15 seconds. A reused idempotency key with different drafts is refus
 "Couldn't save this edit to the portal. It is still on this device." ("this phone" on mobile): the
 text is still in the browser buffer, so ask her to keep the page on that device and retry the send.
 
+**Video-only edit, applied quietly (since 0099):** when Maria's only binding edit is on a video or
+cover (`target_kind: asset`), never answer and close it and never swap the file on the released
+version. Run, from `~/thedot-site`, each with a fresh `idempotencyKey` and `clientSlug: "kanset"`:
+`portal-write visual-revision` (`requestIds`; cuts working v+1 and copies the assets), then
+`portal-write review-asset` with the new file on `contentVersion` v+1 (same `assetKey`, the Drive
+link Anastasia supplied), then `portal-write visual-revision-ready` (`requestIds`), then
+`portal-write applied-release` (`contentId`, `contentVersion` v+1, reason starting `Agency override
+authorized by Anastasia:`). The piece lands on Approved with the request applied, no `needs_review`
+and no client email. The database refuses to prepare or release while v+1 still carries the exact URL
+she flagged (`visual asset is unchanged`), refuses a publication-locked piece (`publication-locked`),
+and a retry with the same key returns the first result. A request already closed with a reply can
+still go through `visual-revision`, only while the piece sits back with The Dot under her
+`change_requested` decision and nothing newer exists; the result reports `reopened`.
+
 **Release media guard (since 0092):** every release refuses a version with no review asset, no
 portal preview and no design link: `portal-admin ready`, `update-portal --re-share` (with or
 without `--quiet`), `portal-write applied-release`, `courtesy-release` and `supersede`, and

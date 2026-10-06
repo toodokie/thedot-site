@@ -4324,6 +4324,213 @@ async function main(): Promise<void> {
         controlArmed.count === 1, `needs_review rows = ${controlArmed.count}`)
     }
 
+    // 0099: a video-only change Maria asked for lands on Approved quietly, exactly like applied
+    // copy edits. The dangerous failures: arming her review again, emailing her, approving a
+    // version that does not carry the new video, or moving a published version.
+    {
+      const VIDEO_V1 = 'https://drive.google.com/open?id=VARVIDEOV1'
+      const VIDEO_V2 = 'https://drive.google.com/open?id=VARVIDEOV2'
+      const VAR_REASON = 'Agency override authorized by Anastasia: the new cut applies the video '
+        + 'change she asked for, so the piece moves forward instead of returning to her.'
+      async function videoFixture(suffix: string): Promise<{ contentId: string; itemId: string; requestId: string }> {
+        const contentId = `rls-visual-applied-${suffix}-${RUN_ID}`
+        const [synced] = await sync([snapshot(bClientId!, contentId, 1, 'Visual applied v1',
+          'Reel caption that does not change.', 'social-caption', { producer: 'the_dot' })])
+        const asset = await rawAdmin.rpc('set_content_review_asset', {
+          p_client_id: bClientId, p_content_id: contentId, p_content_version: 1,
+          p_asset_key: 'reel-video', p_label: 'Reel, 20 seconds', p_channel: 'social', p_asset_kind: 'video',
+          p_url: VIDEO_V1, p_width_px: 1080, p_height_px: 1920, p_caption_status: 'burned_in_verified',
+          p_review_note: null, p_actor_key: 'thedot-admin', p_idempotency_key: `var-v1-${suffix}-${RUN_ID}`,
+        })
+        if (asset.error) throw new Error(`visual applied fixture ${suffix} asset: ${asset.error.message}`)
+        const ready = await rawAdmin.rpc('mark_content_ready', { p_content_id: synced.item_id, p_content_version: 1 })
+        if (ready.error) throw new Error(`visual applied fixture ${suffix} release: ${ready.error.message}`)
+        const bundle = await bClient.rpc('request_content_edit_bundle', {
+          p_content_id: synced.item_id, p_content_version: 1,
+          p_edits: [{ target_kind: 'asset', target_key: 'reel-video', target_label: 'Reel, 20 seconds',
+            proposed_text: 'FASTER', url_snapshot: VIDEO_V1 }],
+          p_note: null, p_idempotency_key: randomUUID(),
+        })
+        const requestId = (bundle.data as { request_ids?: string[] } | null)?.request_ids?.[0]
+        if (bundle.error || !requestId) throw new Error(`visual applied fixture ${suffix} request: ${bundle.error?.message ?? 'missing'}`)
+        return { contentId, itemId: synced.item_id, requestId }
+      }
+      const beginVisual = (requestId: string) => rawAdmin.rpc('begin_visual_request_revision', {
+        p_request_ids: [requestId], p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const readyVisual = (requestId: string) => rawAdmin.rpc('mark_visual_request_revision_prepared', {
+        p_request_ids: [requestId], p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const attachVideo = (contentId: string, url: string) => rawAdmin.rpc('set_content_review_asset', {
+        p_client_id: bClientId, p_content_id: contentId, p_content_version: 2,
+        p_asset_key: 'reel-video', p_label: 'Reel, 16 seconds', p_channel: 'social', p_asset_kind: 'video',
+        p_url: url, p_width_px: 1080, p_height_px: 1920, p_caption_status: 'burned_in_verified',
+        p_review_note: 'Pauses trimmed.', p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const appliedRelease = (itemId: string, version: number, key: string = randomUUID()) =>
+        rawAdmin.rpc('record_agency_applied_release', {
+          p_content_id: itemId, p_content_version: version, p_reason: VAR_REASON,
+          p_actor_key: 'thedot-admin', p_idempotency_key: key,
+        })
+
+      // Happy path: visual-revision -> new video on v2 -> visual-revision-ready -> applied-release.
+      const ok = await videoFixture('ok')
+      const okBegin = await beginVisual(ok.requestId)
+      const okAttach = await attachVideo(ok.contentId, VIDEO_V2)
+      const okReady = await readyVisual(ok.requestId)
+      const mailBefore = await rawAdmin.from('notification_outbox').select('id', { count: 'exact', head: true })
+        .eq('client_id', bClientId).eq('recipient_kind', 'client').eq('channel', 'email')
+      const okKey = randomUUID()
+      const okRelease = await appliedRelease(ok.itemId, 2, okKey)
+      const okRetry = await appliedRelease(ok.itemId, 2, okKey)
+      const mailAfter = await rawAdmin.from('notification_outbox').select('id', { count: 'exact', head: true })
+        .eq('client_id', bClientId).eq('recipient_kind', 'client').eq('channel', 'email')
+      // The in-app rows a release writes (request applied, courtesy release) are the same ones an
+      // applied copy edit writes; what must never appear is a client email or a review prompt.
+      const okInApp = await rawAdmin.from('notification_outbox').select('subject')
+        .eq('client_id', bClientId).eq('recipient_kind', 'client').eq('channel', 'in_app')
+        .ilike('subject', 'Needs review:%Visual applied%')
+      const okItem = await rawAdmin.from('content_items')
+        .select('status, working_version, client_visible_version, review_ready_at, revision_in_progress')
+        .eq('id', ok.itemId).single()
+      const okRequest = await rawAdmin.from('content_change_requests').select('status, canonical_version')
+        .eq('id', ok.requestId).single()
+      const okVideo = await rawAdmin.from('content_review_assets').select('url')
+        .eq('content_item_id', ok.itemId).eq('content_version', 2).eq('asset_key', 'reel-video').single()
+      const okArmed = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
+        .eq('content_id', ok.itemId).eq('content_version', 2).eq('event_type', 'needs_review')
+      const okState = await bClient.from('content_with_state').select('version, client_state')
+        .eq('id', ok.itemId).single()
+      check('VAR1: a video-only revision lands on approved with the new video, the request applied, no review armed',
+        !okBegin.error && !okAttach.error && !okReady.error && !okRelease.error && !okRetry.error
+          && okItem.data?.status === 'approved' && okItem.data?.client_visible_version === 2
+          && okItem.data?.working_version === 2 && okItem.data?.review_ready_at === null
+          && okItem.data?.revision_in_progress === false
+          && okRequest.data?.status === 'applied' && okRequest.data?.canonical_version === 2
+          && okVideo.data?.url === VIDEO_V2 && okArmed.count === 0
+          && okState.data?.client_state === 'approved',
+        okBegin.error?.message ?? okAttach.error?.message ?? okReady.error?.message
+          ?? okRelease.error?.message ?? okRetry.error?.message
+          ?? JSON.stringify({ item: okItem.data, request: okRequest.data, video: okVideo.data,
+            armed: okArmed.count, state: okState.data }))
+      check('VAR2: the video-only applied release writes no client email and no new review prompt',
+        mailBefore.count === mailAfter.count && okInApp.data?.length === 1,
+        `email before=${mailBefore.count} after=${mailAfter.count}; review prompts=${okInApp.data?.length}`)
+
+      // No new media: a revision whose video was never replaced cannot be prepared, and the
+      // applied release refuses while the request is still open.
+      const bare = await videoFixture('bare')
+      const bareBegin = await beginVisual(bare.requestId)
+      const bareReady = await readyVisual(bare.requestId)
+      const bareRelease = await appliedRelease(bare.itemId, 2)
+      const bareItem = await rawAdmin.from('content_items').select('status, client_visible_version')
+        .eq('id', bare.itemId).single()
+      check('VAR3: without a replaced video the revision cannot be prepared or released',
+        !bareBegin.error && !!bareReady.error && /replacement has not been recorded/.test(bareReady.error.message)
+          && !!bareRelease.error && /unresolved client edit request/.test(bareRelease.error.message)
+          && bareItem.data?.status === 'draft' && bareItem.data?.client_visible_version === 1,
+        bareReady.error?.message ?? bareRelease.error?.message ?? JSON.stringify(bareItem.data))
+
+      // Same URL re-attached: an event is recorded, but the version still carries the old video.
+      const same = await videoFixture('same')
+      const sameBegin = await beginVisual(same.requestId)
+      const sameAttach = await attachVideo(same.contentId, VIDEO_V1)
+      const sameReady = await readyVisual(same.requestId)
+      const sameRelease = await appliedRelease(same.itemId, 2)
+      check('VAR4: a visual revision that still carries the video she flagged is refused',
+        !sameBegin.error && !sameAttach.error
+          && ((!!sameReady.error && /unchanged/.test(sameReady.error.message))
+            || (!!sameRelease.error && /unchanged/.test(sameRelease.error.message))),
+        sameReady.error?.message ?? sameRelease.error?.message ?? 'NO ERROR')
+
+      // Stranded state seen in production 2026-10-06: the asset request was answered and closed
+      // (playbook section 7 used to say so) and the new video was attached to the released
+      // version in place. The closed request reopens into a new visual revision, and the piece
+      // lands on approved through the same quiet path.
+      const stranded = await videoFixture('stranded')
+      const inPlace = await rawAdmin.rpc('set_content_review_asset', {
+        p_client_id: bClientId, p_content_id: stranded.contentId, p_content_version: 1,
+        p_asset_key: 'reel-video', p_label: 'Reel, 16 seconds', p_channel: 'social', p_asset_kind: 'video',
+        p_url: VIDEO_V2, p_width_px: 1080, p_height_px: 1920, p_caption_status: 'burned_in_verified',
+        p_review_note: 'Pauses trimmed.', p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const closed = await rawAdmin.rpc('reply_to_content_request', {
+        p_request_id: stranded.requestId, p_body: 'Thanks, Maria. The faster cut is attached.',
+        p_close: true, p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const strandedCourtesy = await rawAdmin.rpc('record_content_courtesy_release', {
+        p_content_id: stranded.itemId, p_content_version: 1, p_reason: VAR_REASON,
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const strandedBegin = await beginVisual(stranded.requestId)
+      const strandedAttach = await attachVideo(stranded.contentId, VIDEO_V2)
+      const strandedReady = await readyVisual(stranded.requestId)
+      const strandedRelease = await appliedRelease(stranded.itemId, 2)
+      const strandedItem = await rawAdmin.from('content_items')
+        .select('status, client_visible_version, review_ready_at, revision_in_progress')
+        .eq('id', stranded.itemId).single()
+      const strandedRequest = await rawAdmin.from('content_change_requests').select('status, canonical_version')
+        .eq('id', stranded.requestId).single()
+      const strandedArmed = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
+        .eq('content_id', stranded.itemId).eq('event_type', 'needs_review').gt('content_version', 1)
+      check('VAR5: a closed video request reopens into a revision and lands on approved quietly',
+        !inPlace.error && !closed.error && !!strandedCourtesy.error
+          && !strandedBegin.error && (strandedBegin.data as { reopened?: number } | null)?.reopened === 1
+          && !strandedAttach.error && !strandedReady.error && !strandedRelease.error
+          && strandedItem.data?.status === 'approved' && strandedItem.data?.client_visible_version === 2
+          && strandedItem.data?.revision_in_progress === false
+          && strandedRequest.data?.status === 'applied' && strandedRequest.data?.canonical_version === 2
+          && strandedArmed.count === 0,
+        inPlace.error?.message ?? closed.error?.message ?? strandedBegin.error?.message
+          ?? strandedAttach.error?.message ?? strandedReady.error?.message ?? strandedRelease.error?.message
+          ?? JSON.stringify({ courtesy: strandedCourtesy.error?.message ?? 'ACCEPTED', begin: strandedBegin.data,
+            item: strandedItem.data, request: strandedRequest.data, armed: strandedArmed.count }))
+
+      // A closed request whose video never changed (a declined edit) can reopen, but cannot be
+      // prepared or released: there is no new file to approve.
+      const declined = await videoFixture('declined')
+      const declinedClose = await rawAdmin.rpc('reply_to_content_request', {
+        p_request_id: declined.requestId, p_body: 'Thanks, Maria. As discussed, no change here.',
+        p_close: true, p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const declinedBegin = await beginVisual(declined.requestId)
+      const declinedAttach = await attachVideo(declined.contentId, VIDEO_V1)
+      const declinedReady = await readyVisual(declined.requestId)
+      check('VAR7: a reopened request with the same video cannot be prepared',
+        !declinedClose.error && !declinedBegin.error && !declinedAttach.error
+          && !!declinedReady.error && /unchanged/.test(declinedReady.error.message),
+        declinedClose.error?.message ?? declinedBegin.error?.message ?? declinedAttach.error?.message
+          ?? declinedReady.error?.message ?? 'NO ERROR')
+
+      // A closed request on a piece that is not back with The Dot does not reopen.
+      const notStranded = await videoFixture('settled')
+      await rawAdmin.rpc('reply_to_content_request', {
+        p_request_id: notStranded.requestId, p_body: 'Thanks, Maria. No change needed.',
+        p_close: true, p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      const otherRevision = await rawAdmin.rpc('begin_content_revision', {
+        p_content_id: notStranded.itemId, p_content_version: 1,
+      })
+      const otherSync = await sync([snapshot(bClientId!, notStranded.contentId, 2, 'Visual applied v2',
+        'Reel caption with a copy change.', 'social-caption', { producer: 'the_dot' })])
+      const settledBegin = await beginVisual(notStranded.requestId)
+      check('VAR8: a closed request does not reopen once a newer working version exists',
+        !otherRevision.error && otherSync.length === 1 && !!settledBegin.error
+          && /inconsistent|incompatible/.test(settledBegin.error.message),
+        otherRevision.error?.message ?? settledBegin.error?.message ?? 'NO ERROR')
+
+      // Locked: a published version never moves.
+      const lockedItem = await rawAdmin.from('content_items').select('id, client_visible_version, publication_locked_version')
+        .eq('id', bItemId).single()
+      const lockedRelease = lockedItem.data
+        ? await appliedRelease(lockedItem.data.id, (lockedItem.data.client_visible_version ?? 1) + 1)
+        : { error: new Error('locked fixture missing') }
+      check('VAR6: applied-release refuses a publication-locked piece',
+        lockedItem.data?.publication_locked_version != null && !!lockedRelease.error
+          && /publication.locked|not eligible/.test(lockedRelease.error.message),
+        lockedRelease.error?.message ?? JSON.stringify(lockedItem.data))
+    }
+
     // 0087: record_agency_supersession. Replacing copy on a version the client has been shown but
     // has not decided on. The dangerous failures are notifying her a second time, and quietly
     // replacing something she HAS decided on.
