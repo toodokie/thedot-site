@@ -16,6 +16,7 @@ import { loadEnvConfig } from '@next/env'
 import { createClient } from '@supabase/supabase-js'
 import { readFile, realpath } from 'node:fs/promises'
 import path from 'node:path'
+import { getAgencyOptionChoices, optionChoiceLine } from '../src/lib/portal/agency-option-picks'
 
 loadEnvConfig(process.cwd())
 
@@ -141,6 +142,10 @@ async function main() {
 
   const planned = items.filter((item) => inRange(item.planned_date, from, to))
     .sort((a, b) => (b.planned_date ?? '').localeCompare(a.planned_date ?? ''))
+  // 0098: Maria's cover choices on the version she sees, so the post goes up with the cover she picked.
+  const access = await admin.rpc('list_portal_access')
+  const seatNames = new Map(((access.data ?? []) as Array<{ client_id: string; auth_user_id: string; name: string | null }>)
+    .filter((seat) => seat.client_id === client.id).map((seat) => [seat.auth_user_id, seat.name?.trim() || 'Client']))
   console.log(`PLANNED (${planned.length})`)
   for (const item of planned) {
     const version = item.working_version
@@ -149,6 +154,12 @@ async function main() {
     console.log(`${item.planned_date} | ${item.content_id} | ${titleFor(item)}`)
     console.log(`  provider schedule: ${summarizeTargets(itemSchedules, (target) => target.scheduled_at ? torontoTime(target.scheduled_at) : null)}`)
     console.log(`  publication: ${summarizeTargets(itemPublications, (target) => target.published_at ? `${torontoTime(target.published_at)}${target.live_url ? ` · ${target.live_url}` : ''}` : target.live_url)}`)
+    if (item.client_visible_version != null) {
+      const choices = await getAgencyOptionChoices(admin, {
+        clientId: client.id, contentItemId: item.id, contentVersion: item.client_visible_version, seatNames,
+      })
+      for (const choice of choices) console.log(`  cover option ${optionChoiceLine(choice)}`)
+    }
   }
 
   const providerScheduled = schedules

@@ -10,6 +10,7 @@ import { getMyReviewDrafts } from '@/lib/portal/review-drafts'
 import { getClientReviewPreviews } from '@/lib/portal/review-previews'
 import { getMyReviewTicks } from '@/lib/portal/piece-page/review-ticks'
 import { getMySeatRequestIds } from '@/lib/portal/piece-page/seat-requests'
+import { getMyReviewOptionPicks } from '@/lib/portal/piece-page/option-picks'
 import { usesPiecePageV2 } from '@/lib/portal/piece-page/piece-page-switch'
 import { PIECE_PAGE_INTRO_KEY, REVIEW_FLOW_ANNOUNCEMENT_KEY } from '@/lib/portal/review-flow-announcement'
 import { FEEDBACK_PROMPT_KEY } from '@/lib/portal/portal-feedback'
@@ -54,7 +55,7 @@ export default async function Piece({ params }: {
   )
 
   if (v2) {
-    const [previews, ticks, seatRequestIds, feedback] = await Promise.all([
+    const [previews, ticks, seatRequestIds, feedback, optionPicks] = await Promise.all([
       // A preview read failure falls back to the Drive buttons; it never fails the page.
       getClientReviewPreviews(session.clientId, item.id, item.version).catch((error: unknown) => {
         console.error('review previews unavailable', error)
@@ -66,6 +67,8 @@ export default async function Piece({ params }: {
       // RLS (0095) returns only this seat's own answer.
       supabase.from('portal_feedback_responses').select('created_at')
         .eq('client_id', session.clientId).eq('prompt_key', FEEDBACK_PROMPT_KEY).maybeSingle(),
+      // 0098: her cover picks on this version; a failed read shows no "Chosen" mark.
+      getMyReviewOptionPicks(item.id, item.version),
     ])
     // Plan 5 decisions 3 and 4: the card waits until the rollout note (the first-visit intro) is on
     // record, and stops once she answers. Either read failing hides the card rather than risk
@@ -91,6 +94,7 @@ export default async function Piece({ params }: {
       serverDrafts={serverDrafts}
       ticks={ticks}
       seatRequestIds={seatRequestIds}
+      optionPicks={optionPicks}
       feedback={showFeedback ? { contentItemId: item.id } : null}
     />
   }

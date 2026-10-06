@@ -8,6 +8,8 @@ import {
 import { getLatestFeedback, getPieceRequestContext, type FeedbackSummary } from '@/lib/portal/agency-ops'
 import { getAgencyReviewDrafts } from '@/lib/portal/review-drafts'
 import { getAgencyReviewPreviews } from '@/lib/portal/review-previews'
+import { getAgencyOptionChoices, type AgencyOptionChoice } from '@/lib/portal/agency-option-picks'
+import type { OptionPick } from '@/lib/portal/review-asset-options'
 import type { SignedReviewPreview } from '@/lib/portal/review-preview-core'
 import { deriveWorkspaceData } from '@/app/client/[slug]/piece/[contentId]/v2/derive'
 import { usesPiecePageV2 } from '@/lib/portal/piece-page/piece-page-switch'
@@ -60,6 +62,10 @@ export type AgencyPieceData = {
   mariaLayout: 'v1' | 'v2'
   // Maria's own server ticks (0094) on the version she sees, shown read-only in the agency view.
   mariaTicks: string[]
+  // 0098: her cover picks on the version she sees (the centre's "Chosen"), and every option group
+  // with its current pick for the panel. A failed read shows none rather than failing the page.
+  mariaOptionPicks: OptionPick[]
+  optionChoices: AgencyOptionChoice[]
   reviewTicks: TickCount | null
   mariaView: string
   barLine: string
@@ -170,6 +176,24 @@ export async function loadAgencyPieceData(
     }
   }
 
+  let optionChoices: AgencyOptionChoice[] = []
+  let mariaOptionPicks: OptionPick[] = []
+  if (shownVersion != null) {
+    try {
+      optionChoices = await getAgencyOptionChoices(admin, { clientId, contentItemId: item.id, contentVersion: shownVersion,
+        seatNames: new Map(((seats.data ?? []) as Array<{ client_id: string; auth_user_id: string; name: string | null }>)
+          .filter((seat) => seat.client_id === clientId).map((seat) => [seat.auth_user_id, seat.name?.trim() || 'Client'])) })
+      if (mariaPreview?.seatUserId) {
+        const rows = await admin.from('content_review_option_picks').select('option_group, asset_key')
+          .eq('client_id', clientId).eq('auth_user_id', mariaPreview.seatUserId)
+          .eq('content_item_id', item.id).eq('content_version', shownVersion)
+        if (!rows.error) mariaOptionPicks = (rows.data ?? []) as OptionPick[]
+      }
+    } catch (error) {
+      console.error('option picks unavailable', error)
+    }
+  }
+
   const overrideRow = shownVersion != null
     ? await admin.from('content_release_media_overrides').select('reason')
       .eq('client_id', clientId).eq('content_item_id', item.id).eq('content_version', shownVersion).maybeSingle()
@@ -227,6 +251,8 @@ export async function loadAgencyPieceData(
     mariaPreviewError,
     mariaLayout,
     mariaTicks,
+    mariaOptionPicks,
+    optionChoices,
     reviewTicks,
     mariaView,
     barLine: stateBarLine(mariaView, reviewTicks),

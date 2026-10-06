@@ -108,10 +108,35 @@ describe('the cover is reviewable on its own (Task 10b)', () => {
   it('labels a horizontal episode thumbnail "YouTube thumbnail"', () => {
     const trailer = { ...reelPreview, previewKey: 'trailer', reviewAssetKey: 'social-teaser', width: 1920, height: 1080 }
     show(data({ format: 'podcast', blocks: [{ key: 'social-caption', label: 'Caption', body: 'Caption.' }], previews: [trailer],
-      assets: [asset('social-teaser', 'video', 1080, 1920), asset('social-cover', 'cover', 1080, 1920), asset('youtube-cover', 'cover', 1280, 720)] }))
+      assets: [asset('social-teaser', 'video', 1080, 1920), asset('youtube-cover', 'cover', 1280, 720)] }))
     const tile = coverTile() as HTMLElement
     expect(within(tile).getByText('YouTube thumbnail')).toBeInTheDocument()
     expect(within(tile).getByRole('button', { name: 'Suggest a change to the YouTube thumbnail' })).toBeInTheDocument()
+  })
+
+  it('shows an episode with two covers by destination, both covers visible (2026-10-06)', () => {
+    const trailer = { ...reelPreview, previewKey: 'trailer', reviewAssetKey: 'social-teaser', width: 1920, height: 1080 }
+    show(data({ format: 'podcast', blocks: [{ key: 'social-caption', label: 'Caption', body: 'Caption.' }], previews: [trailer],
+      assets: [asset('social-teaser', 'video', 1080, 1920), asset('social-cover', 'cover', 1080, 1920), asset('youtube-cover', 'cover', 1280, 720)] }))
+    expect(coverTile()).toBeNull()
+    expect(screen.getByRole('region', { name: 'social-cover' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'youtube-cover' })).toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: 'youtube-cover' }))
+      .getByRole('button', { name: 'Suggest a change to youtube-cover' })).toBeInTheDocument()
+  })
+
+  it('saves a note on a grouped cover against that cover asset (2026-10-06)', async () => {
+    const trailer = { ...reelPreview, previewKey: 'trailer', reviewAssetKey: 'social-teaser', width: 1920, height: 1080 }
+    show(data({ format: 'podcast', blocks: [{ key: 'social-caption', label: 'Caption', body: 'Caption.' }], previews: [trailer],
+      assets: [asset('social-teaser', 'video', 1080, 1920), asset('social-cover', 'cover', 1080, 1920), asset('youtube-cover', 'cover', 1280, 720)] }))
+    fireEvent.click(screen.getByRole('button', { name: 'Suggest a change to youtube-cover' }))
+    const dialog = screen.getByRole('dialog', { name: 'youtube-cover · Suggest a change' })
+    fireEvent.change(within(dialog).getByLabelText('What should change?'), { target: { value: 'Bigger faces.' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }))
+    await waitFor(() => expect(saveReviewDraft).toHaveBeenCalledWith(expect.objectContaining({
+      targetKind: 'asset', targetKey: 'youtube-cover', anchor: '', targetLabel: 'youtube-cover',
+      urlSnapshot: 'https://drive.google.com/youtube-cover', body: 'Bigger faces.',
+    })))
   })
 
   it('shows no tile without a cover', () => {

@@ -12,6 +12,9 @@ export type ReviewAsset = {
   height_px: number
   caption_status: 'not_applicable' | 'burned_in_pending' | 'burned_in_verified'
   review_note: string | null
+  // 0098: alternatives Maria picks between share an option group; null on a fixed asset.
+  option_group?: string | null
+  option_label?: string | null
 }
 
 type ReviewAssetWithOwner = ReviewAsset & { content_item_id: string }
@@ -24,7 +27,7 @@ export async function getReviewAssets(
   const supabase = await createSupabaseServer()
   const { data, error } = await supabase
     .from('content_review_assets')
-    .select('id, content_version, asset_key, label, channel, asset_kind, url, width_px, height_px, caption_status, review_note')
+    .select('id, content_version, asset_key, label, channel, asset_kind, url, width_px, height_px, caption_status, review_note, option_group, option_label')
     .eq('client_id', clientId)
     .eq('content_item_id', contentItemId)
     .eq('content_version', contentVersion)
@@ -45,7 +48,7 @@ export async function getCurrentReviewAssetsByItem(
   const supabase = await createSupabaseServer()
   const { data, error } = await supabase
     .from('content_review_assets')
-    .select('content_item_id, id, content_version, asset_key, label, channel, asset_kind, url, width_px, height_px, caption_status, review_note')
+    .select('content_item_id, id, content_version, asset_key, label, channel, asset_kind, url, width_px, height_px, caption_status, review_note, option_group, option_label')
     .eq('client_id', clientId)
     .in('content_item_id', items.map((item) => item.id))
     .order('channel')

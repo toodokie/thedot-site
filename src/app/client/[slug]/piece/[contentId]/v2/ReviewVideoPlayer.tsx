@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, type SyntheticEvent } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type SyntheticEvent } from 'react'
 import type { SignedReviewPreview } from '@/lib/portal/review-preview-core'
 import { mediaErrorCode, STALL_TIMEOUT_MS, type PlaybackErrorCode } from '@/lib/portal/piece-page/playback-failure'
 import styles from './piece-page.module.css'
@@ -16,10 +16,12 @@ export type PlaybackReport = (input: {
 // fails, or waits 15 seconds after she pressed play, the player reports it once per page load and
 // shows a plain message with Retry, which always fetches fresh links. It never says "notified"
 // unless the report was accepted.
-export default function ReviewVideoPlayer({ preview, label, className, refresh, forceRefresh, report }: {
+export default function ReviewVideoPlayer({ preview, label, className, style, refresh, forceRefresh, report }: {
   preview: SignedReviewPreview
   label: string
   className: string
+  // Item 1: the media's own shape (media-size.ts), so a 4:5 video is not letterboxed in 9:16.
+  style?: CSSProperties
   refresh: () => Promise<boolean>
   forceRefresh: () => Promise<boolean>
   report: PlaybackReport | null
@@ -87,7 +89,7 @@ export default function ReviewVideoPlayer({ preview, label, className, refresh, 
       <button type="button" className={styles.ghostButton} onClick={() => void retry()}>Retry</button>
     </div>
   }
-  return <video ref={videoRef} key={attempt} className={className} src={preview.videoUrl ?? undefined}
+  return <video ref={videoRef} key={attempt} className={className} style={style} src={preview.videoUrl ?? undefined}
     poster={preview.posterUrl ?? undefined} controls playsInline preload="metadata" aria-label={label} tabIndex={0}
     onError={(event) => void onError(event)} onPlay={() => { playRequested.current = true }}
     onPause={() => { playRequested.current = false; clearStall() }}

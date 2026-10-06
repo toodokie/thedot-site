@@ -14,6 +14,8 @@ import type { PublicationTargetRow } from '@/lib/portal/publication'
 import { reReviewContext } from '@/lib/portal/re-review'
 import { contentRequestTarget, isUnresolvedContentRequest, type ContentRequestMessage, type ContentRequestRow } from '@/lib/portal/requests'
 import type { ReviewAsset } from '@/lib/portal/review-assets'
+import type { OptionPick } from '@/lib/portal/review-asset-options'
+import { groupMediaByDestination, usesDestinationGroups, type DestinationKey } from '@/lib/portal/piece-page/media-destinations'
 import type { SignedReviewPreview } from '@/lib/portal/review-preview-core'
 import type { ScheduleRequestRow, ScheduleTargetRow } from '@/lib/portal/schedule'
 import type { ClientState } from '@/lib/portal/state'
@@ -30,8 +32,28 @@ export type CoverTile = {
   imageUrl: string | null
   driveUrl: string | null
   wide: boolean
+  // Item 1: the cover's own size (the cover asset, else the preview the poster came from).
+  width?: number | null
+  height?: number | null
   target: { key: string; url: string } | null
 }
+// Media by destination (2026-10-06): one item per review asset, at its own size, in its
+// destination group. A video plays from the portal preview keyed to it, else opens on Drive.
+export type MediaItem = {
+  key: string
+  label: string
+  kind: ReviewAsset['asset_kind']
+  driveUrl: string | null
+  width: number
+  height: number
+  note: string | null
+  preview: SignedReviewPreview | null
+  refreshUrl: string | null
+  // A cover or document still from a portal preview keyed to this asset, if one was uploaded.
+  imageUrl: string | null
+  option: { group: string; label: string } | null
+}
+export type MediaGroup = { key: DestinationKey; label: string; items: MediaItem[] }
 export type VisualTarget = { kind: 'asset' | 'design_link'; key: string; label: string; url: string | null; anchors: boolean }
 
 export type WorkspaceData = {
@@ -61,6 +83,11 @@ export type WorkspaceData = {
   visualTarget: VisualTarget | null
   cover: CoverInfo | null
   coverTile: CoverTile | null
+  // Null keeps the single-video layout (a simple reel); otherwise every asset by destination.
+  mediaGroups: MediaGroup[] | null
+  // Her current pick per option group (0098), by group key.
+  chosenOptions: Record<string, string>
+  canPickOptions: boolean
   status: HeaderStatus
   approvedLabel: string
   postedLabel: string
@@ -112,6 +139,8 @@ export type DeriveInput = {
   // The ids of the requests the viewing seat sent (its review bundles). Sent markers show only
   // these; an empty list (including a failed read) shows none, never every seat's.
   seatRequestIds: string[]
+  // The viewing seat's cover option picks for this version (0098). Absent or empty: none chosen.
+  optionPicks?: OptionPick[]
 }
 
 const FORMAT_NAMES: Record<string, string> = {
@@ -181,8 +210,44 @@ function pickCoverTile(layout: PieceLayout, preview: SignedReviewPreview | null,
     imageUrl,
     driveUrl: asset && isHttps(asset.url) ? asset.url : null,
     wide,
+    width: asset?.width_px ?? preview?.width ?? null,
+    height: asset?.height_px ?? preview?.height ?? null,
     target: asset ? { key: asset.asset_key, url: asset.url } : null,
   }
+}
+
+function buildMediaGroups(
+  layout: PieceLayout, platforms: string[], assets: ReviewAsset[], previews: SignedReviewPreview[], refreshBase: string,
+): MediaGroup[] | null {
+  if (layout !== 'vertical' && layout !== 'horizontal' && layout !== 'pages') return null
+  const media = assets.filter((a) => a.asset_kind === 'video' || a.asset_kind === 'cover' || a.asset_kind === 'document')
+  if (!usesDestinationGroups(media)) return null
+  return groupMediaByDestination(media, platforms).map((group) => ({
+    key: group.key,
+    label: group.label,
+    items: group.assets.map((asset) => {
+      const keyed = previews.filter((p) => p.reviewAssetKey === asset.asset_key)
+      const video = asset.asset_kind === 'video' ? keyed.find((p) => p.mediaKind === 'video' && p.videoUrl) ?? null : null
+      const still = keyed.find((p) => p.mediaKind === 'pages' && p.frames.length > 0) ?? null
+      // A cover's image: a pages preview keyed to it, else the poster of a video keyed to it (the
+      // ep4 "cut" preview is keyed to youtube-cover and its poster is that cover).
+      const poster = asset.asset_kind !== 'video' ? keyed.find((p) => p.mediaKind === 'video' && p.posterUrl) ?? null : null
+      const source = video ?? still ?? poster
+      return {
+        key: asset.asset_key,
+        label: asset.label,
+        kind: asset.asset_kind,
+        driveUrl: isHttps(asset.url) ? asset.url : null,
+        width: video?.width ?? asset.width_px,
+        height: video?.height ?? asset.height_px,
+        note: asset.review_note,
+        preview: video,
+        refreshUrl: source ? `${refreshBase}/${source.id}` : null,
+        imageUrl: still?.frames[0]?.url ?? poster?.posterUrl ?? null,
+        option: asset.option_group && asset.option_label ? { group: asset.option_group, label: asset.option_label } : null,
+      }
+    }),
+  }))
 }
 
 const EPISODE_FORMATS = new Set(['podcast', 'podcast_article', 'episode'])
@@ -235,13 +300,21 @@ export function deriveWorkspaceData(input: DeriveInput): WorkspaceData {
     : null
 
   const visualTarget = pickVisualTarget(layout, preview, input.reviewAssets, designLinks)
-  const coverTile = pickCoverTile(layout, preview, input.reviewAssets)
+  const mediaGroups = buildMediaGroups(layout, item.platforms ?? [], input.reviewAssets, input.previews, input.previewRefreshBase)
+  // In the grouped view every cover is its own item, so there is no separate cover tile.
+  const coverTile = mediaGroups ? null : pickCoverTile(layout, preview, input.reviewAssets)
+  const groupedKeys = new Set((mediaGroups ?? []).flatMap((g) => g.items.map((i) => i.key)))
+  const optionKeys = new Set(input.reviewAssets.filter((a) => a.option_group).map((a) => `${a.option_group}\u0000${a.asset_key}`))
+  const chosenOptions = Object.fromEntries((input.optionPicks ?? [])
+    .filter((p) => optionKeys.has(`${p.option_group}\u0000${p.asset_key}`))
+    .map((p) => [p.option_group, p.asset_key]))
   // A whole-visual note has a place on the page only where the media area or the cover tab is.
   const visualSpot = expectsMedia || tabs.some((tab) => tab.kind === 'cover')
   const sentEdits = buildSentEditIndex({
     requests: input.requests, version: item.version, tabs,
     visualKey: visualSpot ? visualTarget?.key ?? null : null,
     coverKey: coverTile?.target?.key ?? null,
+    assetKeys: groupedKeys,
     frameCount: visualTarget?.anchors ? preview?.frames.length ?? 0 : 0,
     visualWord: layout === 'pages' ? 'page' : 'frame',
     seatRequestIds: new Set(input.seatRequestIds),
@@ -272,10 +345,15 @@ export function deriveWorkspaceData(input: DeriveInput): WorkspaceData {
     fallbackMedia,
     episodeDriveUrl: layout === 'horizontal' && episode && isHttps(item.drive_url) ? item.drive_url : null,
     episodeTrailer,
-    mediaPending: expectsMedia && !preview && fallbackMedia.length === 0,
+    mediaPending: expectsMedia && !preview && fallbackMedia.length === 0 && !mediaGroups,
     visualTarget,
     cover,
     coverTile,
+    mediaGroups,
+    chosenOptions,
+    // A choice between covers is part of her decision: the deciding seat, until she decides.
+    canPickOptions: capabilities.canDecide && EDITABLE_STATES.has(item.state) && !isPublished
+      && input.reviewAssets.some((a) => a.option_group),
     status,
     approvedLabel: status.kind === 'scheduled' ? scheduledLabel(status)
       : status.kind === 'unconfirmed'

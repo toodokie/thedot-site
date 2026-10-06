@@ -22,7 +22,8 @@ export type SentEditIndex = {
   // By the copy spot: '<block key>:whole', '<block key>:frame:<i>', ':page:<i>', ':section:<i>'
   // (i is the segment's position, as in the panels' edit slots).
   copy: Record<string, SentEntry[]>
-  // By the visual spot: 'whole', 'frame:<n>', 'page:<n>' (n counts from 1) or 'cover'.
+  // By the visual spot: 'whole', 'frame:<n>', 'page:<n>' (n counts from 1), 'cover', or
+  // 'asset:<key>' for another asset shown in the grouped media view.
   visual: Record<string, SentEntry[]>
   unmatched: SentEntry[]
 }
@@ -58,6 +59,8 @@ export function buildSentEditIndex(input: {
   coverKey: string | null
   frameCount: number
   visualWord: 'frame' | 'page'
+  // The other assets shown as their own items (the grouped media view): their notes sit there.
+  assetKeys?: ReadonlySet<string>
   // The ids of the requests this seat sent, when known: markers show only her own edits.
   seatRequestIds?: ReadonlySet<string> | null
 }): SentEditIndex {
@@ -114,6 +117,10 @@ export function buildSentEditIndex(input: {
     const parts = splitVisualNote(target.proposedText)
     if (input.coverKey && target.key === input.coverKey) {
       push(index.visual, 'cover', entry(target.label, { kind: 'note', text: target.proposedText }))
+      continue
+    }
+    if (input.assetKeys?.has(target.key) && target.key !== input.visualKey) {
+      push(index.visual, `asset:${target.key}`, entry(target.label, { kind: 'note', text: target.proposedText }))
       continue
     }
     for (const part of parts) {

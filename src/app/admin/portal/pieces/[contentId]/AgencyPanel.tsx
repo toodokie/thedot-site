@@ -7,7 +7,8 @@ import styles from './agency-panel.module.css'
 
 export type AgencyPanelModel = Pick<AgencyPieceData,
   'contentId' | 'stageLabel' | 'gates' | 'gatesSummary' | 'versions' | 'requestViews' | 'reviewAssets'
-  | 'workingAssets' | 'previews' | 'previewError' | 'mediaOverride' | 'design' | 'drafts' | 'feedback' | 'plannedDate' | 'todayIso' | 'nowIso'> & {
+  | 'workingAssets' | 'previews' | 'previewError' | 'mediaOverride' | 'design' | 'drafts' | 'feedback' | 'plannedDate' | 'todayIso' | 'nowIso'>
+  & Partial<Pick<AgencyPieceData, 'optionChoices'>> & {
   released: boolean
   // The piece's client, so links out of the page reach the same piece. Absent in older callers.
   clientSlug?: string
@@ -117,6 +118,20 @@ export default function AgencyPanel({ model }: { model: AgencyPanelModel }) {
             <a href={model.design.drive} target="_blank" rel="noreferrer" aria-label="Open Drive link">open</a></li>}
         </ul>
       </section>
+
+      {(model.optionChoices ?? []).length > 0 && <section aria-labelledby="agency-cover-choices">
+        <h2 className={styles.label} id="agency-cover-choices">Cover choices</h2>
+        <ul className={styles.rows}>
+          {(model.optionChoices ?? []).map((choice) => <li key={choice.group}>
+            <span>{choice.chosen
+              ? <><strong>{choice.chosen.label}</strong><span className={styles.assetMeta}>
+                Chosen by {(choice.pickedBy ?? 'Client').split(' ')[0]}{choice.pickedAt ? ` · ${shortDay(choice.pickedAt)}` : ''}</span></>
+              : <>{choice.options.map((option) => option.label).join(' or ')}<span className={styles.assetMeta}>Not chosen yet</span></>}
+            </span>
+            <span className={styles.when}>{choice.group}</span>
+          </li>)}
+        </ul>
+      </section>}
 
       {model.workingAssets && <section aria-labelledby="agency-working-assets">
         <h2 className={styles.label} id="agency-working-assets">Working copy, v{model.workingAssets.version}, not shared yet</h2>

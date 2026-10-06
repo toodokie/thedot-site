@@ -9,7 +9,8 @@ import ReviewDraftProvider, { useReviewDrafts, type ReviewDraft } from '../Revie
 import CarriedDraftNotice from './CarriedDraftNotice'
 import CopySwitcher, { tabDomId } from './CopySwitcher'
 import DecisionBar from './DecisionBar'
-import type { WorkspaceData, WorkspaceMode } from './derive'
+import type { MediaItem, WorkspaceData, WorkspaceMode } from './derive'
+import { frameVars } from './media-size'
 import { readOnlyWorkspace } from './read-only'
 import EditorHost, { useEditorHost } from './EditorHost'
 import FirstVisitIntro from './FirstVisitIntro'
@@ -198,6 +199,17 @@ function WorkspaceBody({ data, mode, bottomBar }: { data: WorkspaceData; mode: W
     </div>
   </section>
 
+  // 2026-10-06: a note on any asset in the grouped view targets that asset, labelled by it.
+  function suggestAsset(item: MediaItem) {
+    if (visual && item.key === visual.key) { suggest(null); return }
+    open({
+      kind: 'note',
+      target: { kind: 'asset', key: item.key, label: item.label, urlSnapshot: item.driveUrl, anchor: '', anchorLabel: null },
+      title: `${item.label} · Suggest a change`,
+      thumbUrl: item.imageUrl,
+    })
+  }
+
   const media = data.layout === 'vertical' || data.layout === 'horizontal' || data.layout === 'pages'
     ? <MediaArea layout={data.layout} title={data.title} preview={data.preview} refreshUrl={data.previewRefreshUrl}
       fallbackMedia={data.fallbackMedia} episodeDriveUrl={data.episodeDriveUrl} episodeTrailer={data.episodeTrailer} mediaPending={data.mediaPending}
@@ -205,10 +217,15 @@ function WorkspaceBody({ data, mode, bottomBar }: { data: WorkspaceData; mode: W
       onSuggestWhole={canSuggest ? () => suggest(null) : null}
       onSuggestAt={canSuggest && visual?.anchors ? (at) => suggest(at) : null}
       cover={coverTile} onSuggestCover={data.canEdit && coverTarget ? suggestCover : null}
-      playbackReport={mode === 'client' ? { slug: data.slug, contentId: data.contentId } : null} />
+      playbackReport={mode === 'client' ? { slug: data.slug, contentId: data.contentId } : null}
+      mediaGroups={data.mediaGroups} visualKey={visual?.kind === 'asset' ? visual.key : null} chosenOptions={data.chosenOptions}
+      optionPicker={mode === 'client' && data.canPickOptions ? { slug: data.slug, contentId: data.contentId, version: data.version } : null}
+      onSuggestAsset={data.canEdit ? suggestAsset : null} />
     : null
 
-  return <div className={styles.root} data-piece-page-v2="" data-layout={data.layout}>
+  // Item 1: frame stills across the page (strip, On-screen text rows, note sheet) take the video's shape.
+  return <div className={styles.root} data-piece-page-v2="" data-layout={data.layout}
+    style={frameVars(data.preview?.width, data.preview?.height)}>
     <PieceHeader title={data.title} formatLabel={data.formatLabel} backHref={data.backHref} backLabel={data.backLabel}
       status={data.status} updatedLine={data.updatedLine} questionsCount={data.comments.length}
       onOpenQuestions={() => setDrawer({ open: true, tab: 'conversation' })} removal={data.removal}

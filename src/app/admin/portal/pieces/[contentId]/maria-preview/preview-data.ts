@@ -90,7 +90,7 @@ export async function loadClientPiecePreview(
       .eq('client_id', clientId)
       .order('created_at', { ascending: true }).order('id', { ascending: true }),
     admin.from('content_review_assets')
-      .select('id, content_version, asset_key, label, channel, asset_kind, url, width_px, height_px, caption_status, review_note')
+      .select('id, content_version, asset_key, label, channel, asset_kind, url, width_px, height_px, caption_status, review_note, option_group, option_label')
       .eq('client_id', clientId).eq('content_item_id', item.id)
       .eq('content_version', item.version).order('channel').order('asset_key'),
   ])

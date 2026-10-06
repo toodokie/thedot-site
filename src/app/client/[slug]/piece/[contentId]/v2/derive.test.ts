@@ -240,10 +240,73 @@ describe('readOnlyWorkspace (plan 5 agency view)', () => {
     const view = readOnlyWorkspace(full)
     expect(view).toMatchObject({
       canEdit: false, canDecide: false, canComment: false, canSubmitRequests: false,
-      canRequestSchedule: false, removal: null, showIntro: false,
+      canRequestSchedule: false, removal: null, showIntro: false, canPickOptions: false,
     })
     expect(view.tabs).toEqual(full.tabs)
     expect(view.preview).toEqual(full.preview)
     expect(view.status).toEqual(full.status)
+  })
+})
+
+// Media by destination and the option picker (2026-10-06), on the real ep4 v2 package shape.
+describe('deriveWorkspaceData media groups', () => {
+  const ep4Asset = (asset_key: string, channel: ReviewAsset['channel'], asset_kind: ReviewAsset['asset_kind'], label: string,
+    width: number, height: number, option: [string, string] | null = null): ReviewAsset => ({
+    id: asset_key, content_version: 2, asset_key, label, channel, asset_kind, url: `https://drive.google.com/open?id=${asset_key}`,
+    width_px: width, height_px: height, caption_status: asset_kind === 'video' ? 'burned_in_verified' : 'not_applicable',
+    review_note: null, option_group: option?.[0] ?? null, option_label: option?.[1] ?? null,
+  })
+  const EP4_ASSETS = [
+    ep4Asset('social-cover', 'social', 'cover', 'Reel cover, option A: teal', 1080, 1920, ['social-cover', 'Teal']),
+    ep4Asset('social-cover-rust', 'social', 'cover', 'Reel cover, option B: rust', 1080, 1920, ['social-cover', 'Rust']),
+    ep4Asset('social-teaser', 'social', 'video', 'Instagram trailer, 24 seconds', 1080, 1920),
+    ep4Asset('social-teaser-fb', 'social', 'video', 'Facebook trailer, 24 seconds', 1080, 1920),
+    ep4Asset('youtube-cover', 'youtube', 'cover', 'Test cover 1: your usual style', 1280, 720),
+    ep4Asset('youtube-cover-test-2', 'youtube', 'cover', 'Test cover 2: both of you up close', 1280, 720),
+    ep4Asset('youtube-cover-test-3-rust', 'youtube', 'cover', 'Test cover 3, option A: rust', 1280, 720, ['youtube-test-3', 'Rust']),
+    ep4Asset('youtube-cover-test-3-teal', 'youtube', 'cover', 'Test cover 3, option B: teal', 1280, 720, ['youtube-test-3', 'Teal']),
+  ]
+  const trailer: SignedReviewPreview = { ...preview, id: 'p-trailer', previewKey: 'trailer', reviewAssetKey: 'social-teaser' }
+  const ep4 = () => input({
+    item: item({ format: 'podcast', platforms: ['youtube', 'instagram', 'facebook'], copy_blocks: [
+      { key: 'youtube-title', label: 'YouTube title', body: 'Life after PR' },
+      { key: 'ig-facebook-caption', label: 'Instagram + Facebook caption', body: 'Caption.' },
+    ] }),
+    reviewAssets: EP4_ASSETS, previews: [trailer],
+    optionPicks: [{ option_group: 'youtube-test-3', asset_key: 'youtube-cover-test-3-teal' }],
+  })
+
+  it('groups every asset by destination at its own size, nothing hidden, with the trailer playable', () => {
+    const data = deriveWorkspaceData(ep4())
+    expect(data.mediaGroups?.map((g) => [g.label, g.items.map((i) => i.key)])).toEqual([
+      ['YouTube', ['youtube-cover', 'youtube-cover-test-2', 'youtube-cover-test-3-rust', 'youtube-cover-test-3-teal']],
+      ['Instagram and Facebook', ['social-cover', 'social-cover-rust']],
+      ['Instagram', ['social-teaser']],
+      ['Facebook', ['social-teaser-fb']],
+    ])
+    const items = data.mediaGroups!.flatMap((g) => g.items)
+    const ig = items.find((i) => i.key === 'social-teaser')!
+    expect(ig.preview?.id).toBe('p-trailer')
+    expect(ig.refreshUrl).toBe('/api/client/kanset/review-previews/p-trailer')
+    expect([ig.width, ig.height]).toEqual([1080, 1920])
+    const fb = items.find((i) => i.key === 'social-teaser-fb')!
+    expect(fb.preview).toBeNull()
+    expect(fb.driveUrl).toBe('https://drive.google.com/open?id=social-teaser-fb')
+    const yt = items.find((i) => i.key === 'youtube-cover')!
+    expect([yt.width, yt.height, yt.option]).toEqual([1280, 720, null])
+    expect(items.find((i) => i.key === 'social-cover-rust')!.option).toEqual({ group: 'social-cover', label: 'Rust' })
+  })
+
+  it('marks her pick per group and lets the deciding seat choose until she decides', () => {
+    const data = deriveWorkspaceData(ep4())
+    expect(data.chosenOptions).toEqual({ 'youtube-test-3': 'youtube-cover-test-3-teal' })
+    expect(data.canPickOptions).toBe(true)
+    expect(deriveWorkspaceData({ ...ep4(), item: { ...ep4().item, state: 'approved' } }).canPickOptions).toBe(false)
+    expect(deriveWorkspaceData({ ...ep4(), capabilities: { ...ep4().capabilities, canDecide: false } }).canPickOptions).toBe(false)
+  })
+
+  it('keeps a simple reel with one video on the single-video layout', () => {
+    const data = deriveWorkspaceData(input())
+    expect(data.mediaGroups).toBeNull()
   })
 })

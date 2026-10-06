@@ -15,7 +15,7 @@ function text(value: unknown): string | null {
 
 // The extra set_content_review_asset arguments for a portal-write review-asset payload. Empty for a
 // fixed asset, so the call is the pre-0098 one.
-export function reviewAssetOptionArgs(payload: { optionGroup?: unknown; optionLabel?: unknown }):
+export function reviewAssetOptionArgs(payload: Record<string, unknown>):
   { p_option_group?: string; p_option_label?: string } {
   const group = text(payload.optionGroup)
   const label = text(payload.optionLabel)
