@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: () => {} }) }))
-import { MyTasksAdmin } from './GatesAdmin'
+import { MyTasksAdmin, stageDisplay } from './GatesAdmin'
 import type { CompletedOpsTask, OpsTaskRow, ProductionGateRow, StagePiece } from '@/lib/portal/gates'
 
 const gate = (gate_key: ProductionGateRow['gate_key'], state: ProductionGateRow['state']): ProductionGateRow => ({
@@ -90,5 +90,14 @@ describe('MyTasksAdmin', () => {
       }]} />)
     expect(screen.getByRole('heading', { level: 2, name: 'From Maria' })).toBeInTheDocument()
     expect(screen.getByText('Need you').nextElementSibling).toHaveTextContent('1')
+  })
+})
+
+describe('stageDisplay', () => {
+  it('shows a Maria change request as her changes with the open edit count', () => {
+    expect(stageDisplay('changes_requested', 'Maria asked for changes; 2 edits open'))
+      .toEqual({ label: 'Maria asked for changes', tone: 'open', detail: '2 edits open' })
+    expect(stageDisplay('changes_requested', 'Maria asked for changes'))
+      .toEqual({ label: 'Maria asked for changes', tone: 'open', detail: '' })
   })
 })

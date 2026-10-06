@@ -243,7 +243,7 @@ export function resolveNineGates(piece: StagePiece): ResolvedGate[] {
 
 export type ContentStage =
   | 'done' | 'posted_unverified' | 'scheduled' | 'scheduled_partial'
-  | 'approved' | 'courtesy_released' | 'direction_approved' | 'awaiting_decision' | 'awaiting_idea_approval' | 'in_production' | 'draft'
+  | 'approved' | 'courtesy_released' | 'direction_approved' | 'changes_requested' | 'awaiting_decision' | 'awaiting_idea_approval' | 'in_production' | 'draft'
   | 'idea' | 'archived' | 'legacy' | 'needs_platform_mapping'
 
 export type StageResult = { stage: ContentStage; label: string }
@@ -255,6 +255,18 @@ const listDests = (dests: string[]) => dests.join(', ')
 // still open blocks. na (with its mandatory reason) is a satisfied, non-blocking state.
 function gateBlocks(row: ProductionGateRow | null): boolean {
   return row !== null && row.state === 'open'
+}
+
+function planCycleOpen(piece: StagePiece): piece is StagePiece & { ideaApprovalSentAt: string } {
+  return piece.ideaApprovalSentAt !== null && piece.ideaDecision !== 'approved'
+    && piece.currentDecision !== 'approved' && piece.reviewMode !== 'courtesy'
+}
+// An undecided plan cycle only describes a piece that has not been released to the client.
+function planCyclePending(piece: StagePiece): piece is StagePiece & { ideaApprovalSentAt: string } {
+  return planCycleOpen(piece) && piece.released !== true
+}
+function planCycleSupersededByRelease(piece: StagePiece): piece is StagePiece & { ideaApprovalSentAt: string } {
+  return planCycleOpen(piece) && piece.released === true
 }
 
 export function deriveContentStage(piece: StagePiece): StageResult {
@@ -303,11 +315,27 @@ export function deriveContentStage(piece: StagePiece): StageResult {
     return { stage: 'scheduled_partial', label: `scheduled (${listDests(scheduled)}); ${listDests(pending)} pending` }
   }
 
+  // Maria's final-package change request (a change_requested decision and/or open binding
+  // edit requests) puts the piece back with The Dot. Her approval still wins, as before.
+  if (piece.currentDecision !== 'approved' && piece.reviewMode !== 'courtesy'
+      && ((piece.openClientEdits ?? 0) > 0 || piece.currentDecision === 'change_requested')) {
+    const edits = piece.openClientEdits ?? 0
+    return {
+      stage: 'changes_requested',
+      label: edits > 0 ? `Maria asked for changes; ${edits} edit${edits === 1 ? '' : 's'} open` : 'Maria asked for changes',
+    }
+  }
+
   // A submitted plan cycle is a separate client decision. It must be resolved
   // before the version-bound final approval can describe the piece as approved.
-  if (piece.ideaApprovalSentAt !== null && piece.ideaDecision !== 'approved'
-      && piece.currentDecision !== 'approved' && piece.reviewMode !== 'courtesy') {
+  // Since 2026-09-02 the plan is a heads-up that is never decided, so once a version is
+  // released to the client the plan cycle no longer describes where the piece is.
+  if (planCyclePending(piece)) {
     return { stage: 'awaiting_idea_approval', label: 'awaiting idea approval' }
+  }
+  if (planCycleSupersededByRelease(piece) && piece.currentDecision === null
+      && piece.visibleVersion === piece.workingVersion) {
+    return { stage: 'awaiting_decision', label: 'awaiting decision' }
   }
 
   const design = productionGate(piece, 'design_built')
@@ -453,8 +481,8 @@ export function deriveMyTasks(
     // A submitted plan cycle is a distinct first decision. It covers the week's
     // direction and any fact-checked copy that is already visible, never the later
     // version-bound final copy-plus-design approval.
-    if (piece.ideaApprovalSentAt !== null && piece.ideaDecision !== 'approved'
-        && piece.currentDecision !== 'approved' && piece.reviewMode !== 'courtesy') {
+    // Once released, the version-bound final review below owns the wait instead.
+    if (planCyclePending(piece)) {
       const days = businessDaysBetween(piece.ideaApprovalSentAt, todayIso)
       if (piece.ideaDecision === 'change_requested') {
         tasks.push({ kind: 'action', ...pieceTask, gate: 'review-plan-changes', dest: null,
@@ -471,6 +499,15 @@ export function deriveMyTasks(
     // resurrect as "Send to Maria" or "Post" in today's urgent work. Historical gaps are
     // evidence reconciliation, not production deadlines.
     const stage = deriveContentStage(piece)
+    // Released while the (never-decided, heads-up) plan cycle is still open: the wait is
+    // Maria's final review of the released package, counted from when it was sent.
+    if (stage.stage === 'awaiting_decision' && planCycleSupersededByRelease(piece)) {
+      const sentAt = productionGate(piece, 'approval_sent')?.occurred_at ?? piece.ideaApprovalSentAt
+      const days = businessDaysBetween(sentAt, todayIso)
+      tasks.push({ kind: 'waiting_maria', ...pieceTask, waitingFor: 'final_review',
+        daysWaiting: days, nudge: days >= 2 })
+      continue
+    }
     if (stage.stage === 'done') {
       const proofed = productionGate(piece, 'proofed')
       if (proofed?.state === 'open') {

@@ -138,6 +138,7 @@ export function stageDisplay(stage: string, label: string): { label: string; ton
     case 'approved': return { label: 'Approved', tone: 'done', detail: '' }
     case 'courtesy_released': return { label: 'Courtesy release', tone: 'done', detail: 'no client approval required' }
     case 'direction_approved': return { label: 'Direction approved', tone: 'done', detail: 'still in production' }
+    case 'changes_requested': return { label: 'Maria asked for changes', tone: 'open', detail: label.split('; ')[1] ?? '' }
     case 'awaiting_decision': return { label: 'Awaiting Maria', tone: 'open', detail: '' }
     case 'awaiting_idea_approval': return { label: 'Awaiting plan direction', tone: 'open', detail: '' }
     case 'legacy': return {
