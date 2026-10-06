@@ -5,6 +5,7 @@ import type { ScheduleRequestRow, ScheduleTargetRow } from '@/lib/portal/schedul
 import type { PublicationTargetRow } from '@/lib/portal/publication'
 import type { ContentRequestMessage, ContentRequestRow } from '@/lib/portal/requests'
 import type { ReviewAsset } from '@/lib/portal/review-assets'
+import type { OptionPick } from '@/lib/portal/review-asset-options'
 import type { PieceReviewCapabilities } from '@/app/client/[slug]/piece/[contentId]/PieceReviewScreen'
 import { seatRequestIdsFrom, type BundleReader } from '@/lib/portal/piece-page/seat-requests'
 import { pickPreviewSeat, type PreviewSeatRow } from '../piece-client'
@@ -37,6 +38,8 @@ export type ClientPiecePreviewData = {
   seatUserId: string | null
   // The request ids Maria's seat sent for this piece (its review bundles), for the sent markers.
   seatRequestIds: string[]
+  // Maria's cover picks (0098) on the version she sees, shown read-only as "Chosen".
+  optionPicks: OptionPick[]
   capabilities: PieceReviewCapabilities
 }
 
@@ -120,6 +123,13 @@ export async function loadClientPiecePreview(
   // Admin route only: the service-role read, filtered to the previewed seat. Fails closed to none.
   const seatRequestIds = await seatRequestIdsFrom(admin as unknown as BundleReader,
     { clientId, contentItemId: item.id, userId: maria.auth_user_id ?? null })
+  // Fails closed to no picks: the page then shows no "Chosen" mark rather than failing.
+  const picksResult = maria.auth_user_id
+    ? await admin.from('content_review_option_picks').select('option_group, asset_key')
+      .eq('client_id', clientId).eq('auth_user_id', maria.auth_user_id)
+      .eq('content_item_id', item.id).eq('content_version', item.version)
+    : { data: [], error: null }
+  const optionPicks = picksResult.error ? [] : (picksResult.data ?? []) as OptionPick[]
   const requestMessages = (requestMessagesResult.data ?? [])
     .filter((message) => requestIds.has(message.request_id)) as ContentRequestMessage[]
 
@@ -139,6 +149,7 @@ export async function loadClientPiecePreview(
     seatName: maria.name ?? 'Maria Guerts',
     seatUserId: maria.auth_user_id ?? null,
     seatRequestIds,
+    optionPicks,
     capabilities: {
       canDecide: maria.can_decide === true,
       canComment: maria.can_comment === true,

@@ -183,12 +183,7 @@ export async function loadAgencyPieceData(
       optionChoices = await getAgencyOptionChoices(admin, { clientId, contentItemId: item.id, contentVersion: shownVersion,
         seatNames: new Map(((seats.data ?? []) as Array<{ client_id: string; auth_user_id: string; name: string | null }>)
           .filter((seat) => seat.client_id === clientId).map((seat) => [seat.auth_user_id, seat.name?.trim() || 'Client'])) })
-      if (mariaPreview?.seatUserId) {
-        const rows = await admin.from('content_review_option_picks').select('option_group, asset_key')
-          .eq('client_id', clientId).eq('auth_user_id', mariaPreview.seatUserId)
-          .eq('content_item_id', item.id).eq('content_version', shownVersion)
-        if (!rows.error) mariaOptionPicks = (rows.data ?? []) as OptionPick[]
-      }
+      mariaOptionPicks = mariaPreview?.optionPicks ?? []
     } catch (error) {
       console.error('option picks unavailable', error)
     }

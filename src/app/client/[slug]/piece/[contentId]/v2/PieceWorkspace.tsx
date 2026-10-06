@@ -219,7 +219,8 @@ function WorkspaceBody({ data, mode, bottomBar }: { data: WorkspaceData; mode: W
       cover={coverTile} onSuggestCover={data.canEdit && coverTarget ? suggestCover : null}
       playbackReport={mode === 'client' ? { slug: data.slug, contentId: data.contentId } : null}
       mediaGroups={data.mediaGroups} visualKey={visual?.kind === 'asset' ? visual.key : null} chosenOptions={data.chosenOptions}
-      optionPicker={mode === 'client' && data.canPickOptions ? { slug: data.slug, contentId: data.contentId, version: data.version } : null}
+      optionPicker={mode !== 'agency' && data.canPickOptions
+        ? { slug: data.slug, contentId: data.contentId, version: data.version, persist: mode === 'client' } : null}
       onSuggestAsset={data.canEdit ? suggestAsset : null} />
     : null
 

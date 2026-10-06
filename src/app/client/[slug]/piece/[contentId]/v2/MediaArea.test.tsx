@@ -240,7 +240,7 @@ describe('MediaArea grouped by destination', () => {
   ]
   const grouped = { ...base, layout: 'horizontal' as const, preview: { ...reel, reviewAssetKey: 'social-teaser' }, mediaGroups: groups,
     visualKey: 'social-teaser', chosenOptions: { 'youtube-test-3': 'youtube-cover-test-3-rust' }, onSuggestAsset: vi.fn(),
-    optionPicker: { slug: 'kanset', contentId: 'piece', version: 2 } }
+    optionPicker: { slug: 'kanset', contentId: 'piece', version: 2, persist: true } }
 
   it('shows every item under its destination at its own size, the trailer playable and the other on Drive', () => {
     render(<MediaArea {...grouped} />)
@@ -272,6 +272,14 @@ describe('MediaArea grouped by destination', () => {
     await waitFor(() => expect(screen.getByRole('region', { name: 'Test cover 3, option B: teal' })).toHaveTextContent('Chosen'))
     expect(pickReviewOption).toHaveBeenCalledWith({ slug: 'kanset', contentId: 'piece', contentVersion: 2, assetKey: 'youtube-cover-test-3-teal' })
     expect(screen.getByRole('region', { name: 'Test cover 3, option A: rust' })).not.toHaveTextContent('Chosen')
+  })
+
+  it('in the read-only preview, choosing shows the flow but saves nothing', async () => {
+    pickReviewOption.mockClear()
+    render(<MediaArea {...grouped} optionPicker={{ ...grouped.optionPicker, persist: false }} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Choose Test cover 3, option B: teal' }))
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Test cover 3, option B: teal' })).toHaveTextContent('Chosen'))
+    expect(pickReviewOption).not.toHaveBeenCalled()
   })
 
   it('shows the pick read-only when she cannot choose', () => {

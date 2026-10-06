@@ -9,7 +9,8 @@ import ReviewVideoPlayer, { type PlaybackReport } from './ReviewVideoPlayer'
 import { SentVisualMarker } from './SentEdits'
 import styles from './piece-page.module.css'
 
-export type OptionPicker = { slug: string; contentId: string; version: number }
+// persist false: the read-only "View as Maria" preview, where choosing shows the flow but saves nothing.
+export type OptionPicker = { slug: string; contentId: string; version: number; persist: boolean }
 
 // Media by destination (2026-10-06): an episode package shows every review asset under the place
 // it posts (YouTube, Instagram and Facebook, Instagram, Facebook, LinkedIn, Website, Other files),
@@ -36,7 +37,9 @@ export default function MediaGroups({ title, groups, visualKey, chosen: initialC
     if (!picker || !item.option) return
     setPending(item.key)
     setError(null)
-    const result = await pickReviewOption({ slug: picker.slug, contentId: picker.contentId, contentVersion: picker.version, assetKey: item.key })
+    const result = picker.persist
+      ? await pickReviewOption({ slug: picker.slug, contentId: picker.contentId, contentVersion: picker.version, assetKey: item.key })
+      : { ok: true as const }
     setPending(null)
     if (result.ok) setChosen((current) => ({ ...current, [item.option!.group]: item.key }))
     else setError(item.key)
