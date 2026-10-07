@@ -1,5 +1,6 @@
 import matter from 'gray-matter'
 import { assertClientSafeContent } from './content-safety'
+import { podcastCarriesSocial } from './podcast-review'
 import { parsePrimarySourceUrl } from './primary-source-policy'
 
 const STATUS = ['idea', 'draft', 'approved', 'scheduled', 'posted']
@@ -137,12 +138,15 @@ function parseCopyBlocks(clientBody: string, source: string): { key: string; lab
 function validateSpecialPackBlocks(
   format: string | null,
   blocks: { key: string }[],
+  platforms: readonly string[],
   source: string,
 ): void {
   const keys = new Set(blocks.map((block) => block.key))
   if (format === 'podcast') {
     const missing = [
-      !['social-caption', 'ig-facebook-caption'].some((key) => keys.has(key))
+      // 0100: a YouTube-only episode carries no Instagram or Facebook caption.
+      podcastCarriesSocial(platforms)
+        && !['social-caption', 'ig-facebook-caption'].some((key) => keys.has(key))
         ? 'social-caption' : null,
       ...['youtube-title', 'youtube-description', 'youtube-tags']
         .filter((key) => !keys.has(key)),
@@ -352,7 +356,7 @@ export function parseContentFile(raw: string, sourcePath: string): ParsedContent
   const internal = content.slice(idx + matches[0][0].length)
   if (!rawClientBody.trim()) throw new Error(`Empty client body in ${sourcePath}`)
   const copy_blocks = parseCopyBlocks(rawClientBody, sourcePath)
-  validateSpecialPackBlocks(format, copy_blocks, sourcePath)
+  validateSpecialPackBlocks(format, copy_blocks, platforms, sourcePath)
   const client_body = rawClientBody
     .split('\n')
     .filter((line) => !/^\s*<!--\s*portal-block:[^>]+-->\s*$/.test(line))

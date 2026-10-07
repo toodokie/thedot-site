@@ -236,6 +236,29 @@ Kanset Talks, Canadian immigration`)
     )).toThrow(/youtube-tags/)
   })
 
+  it('needs a social caption only on a podcast that carries Instagram or Facebook (0100)', () => {
+    const youtubeOnly = document().replace('format: carousel', 'format: podcast')
+      .replace('platforms: [instagram, facebook]', 'platforms: [youtube]')
+      .replace(`<!-- portal-block:caption -->
+## Caption
+Client copy.`, `<!-- portal-block:youtube-title -->
+## YouTube title
+Episode title
+
+<!-- portal-block:youtube-description -->
+## YouTube description
+Episode description
+
+<!-- portal-block:youtube-tags -->
+## YouTube tags
+Kanset Talks, Canadian immigration`)
+    expect(parseContentFile(youtubeOnly, 'youtube-only.md').platforms).toEqual(['youtube'])
+    expect(() => parseContentFile(
+      youtubeOnly.replace('platforms: [youtube]', 'platforms: [youtube, instagram]'),
+      'social-podcast.md',
+    )).toThrow(/social-caption/)
+  })
+
   it('requires an article body for a podcast website companion', () => {
     const article = document().replace('format: carousel', 'format: podcast_article')
       .replace('portal-block:caption', 'portal-block:article-body')
