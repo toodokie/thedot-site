@@ -104,8 +104,9 @@
 .split { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--dot-space-6); align-items: start; }
 .split > *, .stack > *, .readw > * { min-width: 0; }
 .media { min-width: 0; }
-.stack { display: block; max-width: 1040px; margin: 0 auto; }
-.readw { max-width: 760px; margin: var(--dot-space-6) auto 0; }
+.stack { display: block; max-width: 1200px; margin: 0 auto; }
+/* Long-text pieces (articles, YouTube copy, LinkedIn) get the wide panel; body text keeps its own ~70ch measure. */
+.readw { max-width: 1200px; margin: var(--dot-space-6) auto 0; }
 .stack > .readw:first-child, .page > .readw:first-child { margin-top: 0; }
 @media (min-width: 1100px) {
   .split { grid-template-columns: var(--media-col) minmax(0, 1fr); gap: var(--dot-space-8); }
@@ -248,8 +249,8 @@ video.mbox { object-fit: contain; }
 .chapters time { font-variant-numeric: tabular-nums; color: var(--dot-graphite); }
 
 /* Article */
-.cover { aspect-ratio: 3 / 2; width: 100%; object-fit: cover; display: block; background: var(--dot-graphite); }
-.coverPlaceholder { aspect-ratio: 3 / 2; width: 100%; display: grid; place-items: end start; padding: var(--dot-space-6);
+.cover { aspect-ratio: 3 / 2; width: min(100%, calc(62vh * 1.5)); margin-inline: auto; object-fit: cover; display: block; background: var(--dot-graphite); }
+.coverPlaceholder { aspect-ratio: 3 / 2; width: min(100%, calc(62vh * 1.5)); margin-inline: auto; display: grid; place-items: end start; padding: var(--dot-space-6);
   background: radial-gradient(circle farthest-corner at 100% 0%, color-mix(in srgb, var(--dot-yellow) 22%, transparent), transparent 45%), linear-gradient(160deg, var(--dot-graphite), var(--dot-black));
   color: var(--dot-cream); font-family: var(--dot-font-display); letter-spacing: 0.2em; text-transform: uppercase; font-size: 0.8rem; font-weight: var(--dot-weight-demi); }
 .article { font-size: 1.125rem; line-height: 1.75; }
@@ -257,7 +258,8 @@ video.mbox { object-fit: contain; }
 .sec { padding: var(--dot-space-2) 0; }
 .secH { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--dot-space-4); margin: var(--dot-space-6) 0 var(--dot-space-3); }
 .secH h3 { font-family: var(--dot-font-text); font-weight: var(--dot-weight-book); font-size: 1.625rem; line-height: 1.3; margin: 0; }
-.article p, .article ul { max-width: 68ch; }
+.article { max-width: 76ch; margin-inline: auto; }
+.article p, .article ul { max-width: 72ch; }
 .serp { border: 1px solid var(--dot-hairline); background: var(--dot-white); padding: var(--dot-space-4); max-width: 600px; margin-bottom: var(--dot-space-6); }
 .serpUrl { font-size: 0.875rem; color: var(--dot-graphite); overflow-wrap: anywhere; }
 .serpTitle { font-size: 1.25rem; margin: 2px 0; }
