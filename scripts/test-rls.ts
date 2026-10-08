@@ -3169,6 +3169,17 @@ async function main(): Promise<void> {
         ['social-teaser', 'social', 'video', 1080, 1920, 'burned_in_verified'],
         ['social-teaser-fb', 'social', 'video', 1080, 1920, 'burned_in_verified'],
       ] as const) await setAsset(split.contentId, 1, key, channel, kind, w, h, caption)
+      // 0101: the two reel covers are a pick (0098); the copy to v2 must keep the group.
+      for (const [key, optionLabel] of [['social-cover', 'Teal'], ['social-cover-rust', 'Rust']] as const) {
+        const grouped = await rawAdmin.rpc('set_content_review_asset', {
+          p_client_id: bClientId, p_content_id: split.contentId, p_content_version: 1,
+          p_asset_key: key, p_label: `Fixture ${key}`, p_channel: 'social', p_asset_kind: 'cover',
+          p_url: `https://drive.google.com/open?id=${key.toUpperCase()}`, p_width_px: 1080, p_height_px: 1920,
+          p_caption_status: 'not_applicable', p_review_note: null, p_actor_key: 'thedot-admin',
+          p_idempotency_key: `rls-0101-${split.contentId}-${key}`, p_option_group: 'reel-cover', p_option_label: optionLabel,
+        })
+        if (grouped.error) throw new Error(`0101 option ${key}: ${grouped.error.message}`)
+      }
       const previewArgs = (version: number, key: string, assetKey: string | null, sha: string, w: number, h: number) => {
         const prefix = `${bClientId}/${split.itemId}/v${version}/${key}/${sha.slice(0, 16)}/`
         return {
@@ -3224,6 +3235,12 @@ async function main(): Promise<void> {
       check('RA5: a copy-only revision carries every asset and preview forward to v2',
         carried.data?.length === 5 && carriedPreviews.data?.length === 2,
         `assets=${carried.data?.length} previews=${carriedPreviews.data?.length}`)
+      const carriedGroups = await rawAdmin.from('content_review_assets').select('asset_key, option_group, option_label')
+        .eq('content_item_id', split.itemId).eq('content_version', 2).not('option_group', 'is', null)
+      check('OC1: the copy to v2 keeps the reel-cover option group and labels (0101)',
+        carriedGroups.data?.length === 2 && carriedGroups.data.every((row) => row.option_group === 'reel-cover')
+          && carriedGroups.data.map((row) => row.option_label).sort().join(',') === 'Rust,Teal',
+        JSON.stringify(carriedGroups.data ?? carriedGroups.error?.message))
 
       const outboxBefore = await rawAdmin.from('notification_outbox').select('id', { count: 'exact', head: true })
         .eq('client_id', bClientId)
