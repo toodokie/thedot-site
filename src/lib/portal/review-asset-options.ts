@@ -53,3 +53,23 @@ export function optionChoices(
     return { group, options: sorted, chosen: sorted.find((o) => o.assetKey === pick?.asset_key) ?? null }
   })
 }
+
+// A pick is stored against the version it was made on, but a later version that carries the same
+// options (a copy-only revision, an applied edit) keeps it. Given picks from the current version and
+// earlier ones, the newest version's pick wins per group, then the latest picked_at. optionChoices
+// still drops a pick whose asset is no longer an option of that group.
+export function carriedOptionPicks<T extends OptionPick & { content_version: number; picked_at?: string | null }>(
+  rows: T[],
+  currentVersion: number,
+): T[] {
+  const latest = new Map<string, T>()
+  for (const row of rows) {
+    if (row.content_version > currentVersion) continue
+    const held = latest.get(row.option_group)
+    if (!held || row.content_version > held.content_version
+      || (row.content_version === held.content_version && (row.picked_at ?? '') > (held.picked_at ?? ''))) {
+      latest.set(row.option_group, row)
+    }
+  }
+  return [...latest.values()]
+}

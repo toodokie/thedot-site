@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => {
   const ackQuery = {
     select: vi.fn(() => ackQuery),
     eq: vi.fn((column: string, value: unknown) => { ackEq(column, value); return ackQuery }),
+    lte: vi.fn(() => ackQuery),
     maybeSingle: vi.fn(async () => ({ data: null, error: null } as { data: unknown; error: unknown })),
   }
   const feedbackEq = vi.fn()

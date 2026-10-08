@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { optionChoices, reviewAssetOptionArgs } from './review-asset-options'
+import { carriedOptionPicks, optionChoices, reviewAssetOptionArgs } from './review-asset-options'
 
 // 0098: portal-write review-asset carries optionGroup + optionLabel to set_content_review_asset.
 describe('reviewAssetOptionArgs', () => {
@@ -48,5 +48,18 @@ describe('optionChoices', () => {
   it('ignores a pick whose asset is no longer an option in that group', () => {
     const choices = optionChoices(assets, [{ option_group: 'social-cover', asset_key: 'youtube-cover' }])
     expect(choices.find((c) => c.group === 'social-cover')?.chosen).toBeNull()
+  })
+})
+
+describe('carriedOptionPicks', () => {
+  it('keeps a v1 pick on v2 and lets a newer version or later pick win', () => {
+    const rows = [
+      { option_group: 'reel-cover', asset_key: 'social-cover', content_version: 1, picked_at: '2026-10-08T00:04:00Z' },
+      { option_group: 'yt-3', asset_key: 'rust', content_version: 1, picked_at: '2026-10-08T00:05:00Z' },
+      { option_group: 'yt-3', asset_key: 'teal', content_version: 2, picked_at: '2026-10-08T00:01:00Z' },
+      { option_group: 'later', asset_key: 'x', content_version: 3, picked_at: '2026-10-08T00:09:00Z' },
+    ]
+    const picks = carriedOptionPicks(rows, 2)
+    expect(picks.map((p) => `${p.option_group}=${p.asset_key}`).sort()).toEqual(['reel-cover=social-cover', 'yt-3=teal'])
   })
 })

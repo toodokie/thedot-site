@@ -5,7 +5,7 @@ import type { ScheduleRequestRow, ScheduleTargetRow } from '@/lib/portal/schedul
 import type { PublicationTargetRow } from '@/lib/portal/publication'
 import type { ContentRequestMessage, ContentRequestRow } from '@/lib/portal/requests'
 import type { ReviewAsset } from '@/lib/portal/review-assets'
-import type { OptionPick } from '@/lib/portal/review-asset-options'
+import { carriedOptionPicks, type OptionPick } from '@/lib/portal/review-asset-options'
 import type { PieceReviewCapabilities } from '@/app/client/[slug]/piece/[contentId]/PieceReviewScreen'
 import { seatRequestIdsFrom, type BundleReader } from '@/lib/portal/piece-page/seat-requests'
 import { pickPreviewSeat, type PreviewSeatRow } from '../piece-client'
@@ -125,11 +125,13 @@ export async function loadClientPiecePreview(
     { clientId, contentItemId: item.id, userId: maria.auth_user_id ?? null })
   // Fails closed to no picks: the page then shows no "Chosen" mark rather than failing.
   const picksResult = maria.auth_user_id
-    ? await admin.from('content_review_option_picks').select('option_group, asset_key')
+    ? await admin.from('content_review_option_picks').select('option_group, asset_key, content_version, picked_at')
       .eq('client_id', clientId).eq('auth_user_id', maria.auth_user_id)
-      .eq('content_item_id', item.id).eq('content_version', item.version)
+      .eq('content_item_id', item.id).lte('content_version', item.version)
     : { data: [], error: null }
-  const optionPicks = picksResult.error ? [] : (picksResult.data ?? []) as OptionPick[]
+  const optionPicks: OptionPick[] = picksResult.error ? [] : carriedOptionPicks(
+    (picksResult.data ?? []) as Array<OptionPick & { content_version: number; picked_at: string }>, item.version)
+    .map(({ option_group, asset_key }) => ({ option_group, asset_key }))
   const requestMessages = (requestMessagesResult.data ?? [])
     .filter((message) => requestIds.has(message.request_id)) as ContentRequestMessage[]
 

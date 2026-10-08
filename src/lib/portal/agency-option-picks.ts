@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { optionChoices, type OptionChoice } from './review-asset-options'
+import { carriedOptionPicks, optionChoices, type OptionChoice } from './review-asset-options'
 
 // The agency reader for cover option picks (migration 0098): every seat's current pick for one
 // version, with the options of each group. Service role only (the agency panel, portal-schedule).
@@ -14,16 +14,15 @@ export async function getAgencyOptionChoices(
     admin.from('content_review_assets').select('asset_key, label, option_group, option_label')
       .eq('client_id', input.clientId).eq('content_item_id', input.contentItemId)
       .eq('content_version', input.contentVersion).not('option_group', 'is', null),
-    admin.from('content_review_option_picks').select('auth_user_id, option_group, asset_key, picked_at')
+    admin.from('content_review_option_picks').select('auth_user_id, option_group, asset_key, picked_at, content_version')
       .eq('client_id', input.clientId).eq('content_item_id', input.contentItemId)
-      .eq('content_version', input.contentVersion).order('picked_at', { ascending: false }),
+      .lte('content_version', input.contentVersion).order('picked_at', { ascending: false }),
   ])
   if (assets.error) throw new Error(`option assets: ${assets.error.message}`)
   if (picks.error) throw new Error(`option picks: ${picks.error.message}`)
-  const rows = (picks.data ?? []) as AgencyOptionPick[]
-  // The latest pick per group wins when more than one seat picked.
-  const latest = new Map<string, AgencyOptionPick>()
-  for (const row of rows) if (!latest.has(row.option_group)) latest.set(row.option_group, row)
+  const rows = (picks.data ?? []) as Array<AgencyOptionPick & { content_version: number }>
+  // Per group: the newest version's pick, then the latest one when more than one seat picked.
+  const latest = new Map(carriedOptionPicks(rows, input.contentVersion).map((row) => [row.option_group, row]))
   return optionChoices((assets.data ?? []) as Array<{ asset_key: string; label: string; option_group: string; option_label: string }>,
     [...latest.values()]).map((choice) => {
     const pick = latest.get(choice.group)

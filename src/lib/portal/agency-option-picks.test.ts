@@ -5,7 +5,7 @@ function fakeAdmin(tables: Record<string, unknown[]>) {
   return {
     from(table: string) {
       const chain = {
-        select: () => chain, eq: () => chain, not: () => chain,
+        select: () => chain, eq: () => chain, lte: () => chain, not: () => chain,
         order: () => chain,
         then: (resolve: (value: unknown) => unknown) => resolve({ data: tables[table] ?? [], error: null }),
       }
