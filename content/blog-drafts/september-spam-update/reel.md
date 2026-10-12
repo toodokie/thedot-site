@@ -16,7 +16,7 @@ Every scene has the masthead `THE DOT · SEARCH NOTES · 0N`, footer `CHECK BEFO
 | 0:14–0:17.5 | 03 / FIRST RESPONSE / **CHECK THE DATA FIRST.** / Open Search Console. Compare periods. | Yellow Search Console action tab on charcoal. |
 | 0:17.5–0:21 | 04 / COMPARE / **FIND THE CHANGE.** / IMPRESSIONS / CLICKS / PAGES / QUERIES | Cream diagnostic sheet with four ruled rows and enough hold time to scan. |
 | 0:21–0:24.5 | **A DROP ISN'T A DIAGNOSIS.** / Check technical issues and manual actions too. | Giant yellow exclamation and an ink takeaway card. |
-| 0:24.5–0:28 | THE DOT CREATIVE AGENCY / SEARCH NOTES / 02 / **the dot** / ON POINT. BY DESIGN. / Full Search Console walkthrough on the blog · link in bio after publication. | Cream logo ticket on charcoal bulletin outro. |
+| 0:24.5–0:28 | THE DOT CREATIVE AGENCY / SEARCH NOTES / 02 / **the dot** / ON POINT. BY DESIGN. / Full Search Console walkthrough on the blog · link in bio after publication. | White The Dot logo directly on the charcoal bulletin outro. |
 
 **Source attribution:** [Google Search Status Dashboard](https://status.search.google.com/incidents/XhUDXP7A67iHCD2kmbVu) and [Search Central spam guidance](https://developers.google.com/search/docs/appearance/spam-updates). The article provides the complete Search Console process and distinction from manual actions.
 **Cover:** [cover.jpg](cover.jpg).
