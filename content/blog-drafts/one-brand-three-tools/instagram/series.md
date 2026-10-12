@@ -20,13 +20,11 @@ Each cover carries `THE DOT / FIELD NOTES`, the episode number and a persistent 
 
 **Caption:**
 
-Higgsfield's new Ads Studio can make up to 20 static ad variations in one run. Useful, if your brand inputs are good. More versions of a vague brand still look vague.
+Your next post gets easier when the current brand assets, voice and one approved format are already in place.
 
 This five-part series shows how to set up and use a brand system across tools you may already have. Start with the approved source. Then give ChatGPT, Claude Design and Canva distinct jobs.
 
 The full article includes the setup steps and one worked campaign. Link in bio.
-
-Source: Higgsfield Ads Studio, October 1, 2026. The Dot's three-tool process is a separate, hands-on workflow.
 
 #BrandDesign #DesignSystems #Canva #ChatGPT #ClaudeDesign
 

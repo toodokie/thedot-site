@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import Footer from './Footer';
+import BlogWorkflowSelector from './BlogWorkflowSelector';
 
 interface BlogPost {
   id: string;
@@ -30,6 +31,22 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
   const [relatedPosts, setRelatedPosts] = useState<BlogPost[]>([]);
   const [nextPost, setNextPost] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const selectorHeading = '<h2>Pick your starting point</h2>';
+  const setupHeading = '<h2>First setup: find and approve your brand pieces</h2>';
+  const selectorStart = post.content.indexOf(selectorHeading);
+  const setupStart = post.content.indexOf(setupHeading);
+  const hasWorkflowSelector = post.slug === 'make-on-brand-reels-faster' &&
+    selectorStart >= 0 && setupStart > selectorStart;
+  const guideIntro = hasWorkflowSelector
+    ? post.content.slice(0, selectorStart).replace(/^<h1>[^<]*<\/h1>\s*/, '')
+    : '';
+  const guideBody = hasWorkflowSelector
+    ? post.content.slice(setupStart)
+        .replace(/<h2>(Route 1:[^<]+)<\/h2>/, '<h2 id="route-canva" style="scroll-margin-top: 110px">$1</h2>')
+        .replace(/<h2>(Route 2:[^<]+)<\/h2>/, '<h2 id="route-chatgpt" style="scroll-margin-top: 110px">$1</h2>')
+        .replace(/<h2>(Route 3:[^<]+)<\/h2>/, '<h2 id="route-claude" style="scroll-margin-top: 110px">$1</h2>')
+    : '';
 
   // Generate Article structured data
   const articleStructuredData = {
@@ -705,7 +722,15 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
         )}
 
         {/* Post Content */}
-        <article className="post-content" dangerouslySetInnerHTML={{ __html: post.content }} />
+        {hasWorkflowSelector ? (
+          <article className="post-content">
+            <div dangerouslySetInnerHTML={{ __html: guideIntro }} />
+            <BlogWorkflowSelector />
+            <div dangerouslySetInnerHTML={{ __html: guideBody }} />
+          </article>
+        ) : (
+          <article className="post-content" dangerouslySetInnerHTML={{ __html: post.content }} />
+        )}
 
         {/* Tags */}
         {post.tags && post.tags.length > 0 && (

@@ -4,13 +4,15 @@ You run a business. You need to post again. The footage is on your phone, the of
 
 The fix is a small, reusable production system. Ask an AI assistant to help find and sort your brand material. You decide what is current and approved. Save one Reel format in the editor you use, and let your chosen assistant help with the next post. Then the path is short: choose the message, make a draft, add real footage, review it at phone size and publish.
 
-[Higgsfield Ads Studio](https://higgsfield.ai/blog/higgsfield-ads-studio) packages a similar idea for static ads: save brand and product information, generate variations, review them and export the ones you want. Its promise is speed through reusable context. You can use that principle for everyday social posts without adopting a new platform or generating twenty options at a time. The point is to make **one good, recognizable post** quickly.
+## Pick your starting point
 
-**Choose the tool you will actually reopen next week.** Canva keeps the Reel editable and the approved assets close. ChatGPT can hold the brief, voice and repeatable script in a Project, then use Canva's supported design actions. Claude Design can hold the visual direction and, on eligible plans, a reusable design system. You can build the video in your usual editor without connecting Claude to Canva.
+- **Already make posts in Canva?** Use its Brand Kit and save one Reel master. Start with Route 1 below.
+- **Write and plan in ChatGPT?** Keep the approved brand pack and voice rules in a Project, connect Canva for the design handoff, then finish there. Start with Route 2.
+- **Want Claude to shape the visual direction?** Use Claude Design for a storyboard and reusable visual rules, then finish the video in the editor you already know. Start with Route 3. Canva is optional here.
 
-Which route should you take? **Canva alone** is a simple start if you already make posts there. **ChatGPT plus Canva** fits if choosing an angle and writing a short script slows you down. **Claude Design plus your video editor** fits if you want to establish the look, storyboard and reusable visual rules in Claude. [Claude Design](https://support.claude.com/en/articles/14604416-get-started-with-claude-design) is available on Free, Pro, Max, Team and Enterprise. Its reusable [design systems](https://support.claude.com/en/articles/14604397-set-up-your-design-system-in-claude-design) are beta on Pro, Max, Team and Enterprise; an Enterprise owner must enable them. Use the route you can sustain each week.
+Each route uses the same approved brand pack and ends with a reusable 9:16 Reel master. Choose one route for your next post. You can change tools later without rebuilding the brand from memory.
 
-## First, ask your AI to find the brand pieces
+## First setup: find and approve your brand pieces
 
 Give your assistant access only to the places you choose: a selected folder, a connected file service, or your Canva account. A connected Canva assistant can search Canva designs and folders; it cannot automatically inspect an unrelated laptop folder or cloud account. For material outside Canva, upload selected files or connect that source separately. [ChatGPT Projects](https://help.openai.com/en/articles/10169521-projects-in-chatgpt) can use connected apps in project chats, and [Claude Design](https://support.claude.com/en/articles/14604397-set-up-your-design-system-in-claude-design) can build from connected apps and uploaded files, subject to account access.
 
@@ -34,23 +36,11 @@ Keep this pack short enough to check quickly. A logo alone cannot teach a tool w
 
 Next, save **one repeatable 9:16 Reel format**. For a simple ten-second post, that could be a strong opening line, two product or service shots, a short proof point and an end card with a clear action. Decide where the title sits, how captions look, how long each scene lasts and where the logo appears. Use a format you can actually maintain, with footage you can get regularly.
 
-The five-minute routine starts *after* this setup. It also assumes you already have the offer and usable footage. A new campaign shoot or a complicated edit will take longer.
-
-## Optional: keep the source in VS Code or Cursor
-
-If you already like working in [VS Code](https://code.visualstudio.com/docs/agents/reference/workspace-context) or [Cursor](https://docs.cursor.com/en/agent/tools), use it as a tidy home for your brand files. You do not need to write code. Open a dedicated brand folder as the workspace so its agent can search the relevant local files. Start with a read-only request:
-
-> Search this brand folder for likely current logos, colour values, font names and licence notes, brand guides, three strong social examples, and usable footage. Return the file paths and any conflicts. Do not rename, move, delete or upload files. Mark anything whose rights or approval status you cannot verify.
-
-After you approve the list, ask the agent to **copy only those files** into an `Approved` folder and write a short `brand-pack.md` with the exact colours, font roles, voice, current offer, three examples and links to the originals. Keep draft and old versions separate. The plain-text pack is easy to update and can be added to your ChatGPT Project or Claude design system. If you use Canva, add the approved visual assets there and check its Brand Kit yourself.
-
-Your editor does not gain access to Canva merely because it has an AI agent. A Canva design connection in an editor needs its own supported setup and authorization. Canva's [Dev MCP server](https://www.canva.dev/docs/apps/dev-mcp-server/) is for people developing Canva apps, not the everyday design connection in this guide. You can use the approved folder as a source for Canva or Claude Design without adding another connection.
-
-## If you connect an agent to Canva
-
-[Canva's AI Connector](https://www.canva.com/help/mcp-canva-usage/) lets a supported assistant request specific Canva actions. These include finding an approved design, copying or editing it, creating a new editable design, and generating a design with Canva's Magic Design where available. Some AI actions use Canva AI credits, and the action list varies by assistant and account. The documented connector is a set of design actions; it does not promise that your ChatGPT or Claude conversation becomes a Canva AI chat or that the two products share a memory. Keep your approved brand pack and Canva Brand Kit current in their respective places.
+The five-minute routine starts *after* this setup. It assumes you already have the offer and usable footage. A new campaign shoot or a complicated edit will take longer.
 
 ## Route 1: You want to work inside Canva
+
+**You will save:** one checked Brand Kit and one 9:16 Reel master.
 
 Make Canva your home base. In **Brand**, create or select the right [Brand Kit](https://www.canva.com/help/brand-kit/). Add the approved logos, exact colours and fonts you can use. Check that you are in the right account and kit if you manage more than one brand. Some brand features and shared templates depend on your Canva plan.
 
@@ -59,6 +49,8 @@ Create a vertical 9:16 Reel with the type, captions, logo and end card in the ri
 For the next Reel, duplicate the master, replace the footage, change one headline and one call to action, check timing and export. Canva's kit keeps the pieces close; the master keeps the composition consistent. If your plan includes [Canva AI's conversational editor](https://www.canva.com/help/using-canva-ai/), you can ask it to use your existing designs and apply your Brand Kit, then refine the result in the editor. Canva Free has a more limited AI feature set. This route does not require ChatGPT or Claude.
 
 ## Route 2: You use ChatGPT with Canva
+
+**You will save:** one ChatGPT Project for the words and one Canva Reel master for the video.
 
 Create a [ChatGPT Project](https://help.openai.com/en/articles/10169521-projects-in-chatgpt) for the brand. Use a connected file source or upload selected files to run the inventory prompt above. After you approve the pack, add it as Project files or sources. Put the rules that must persist in Project instructions: audience, offer, voice, exact product names, words to avoid and a rule to flag uncertain facts. Include the saved Reel format as an example. This gives each new chat the same starting point.
 
@@ -72,6 +64,8 @@ To wire the work into Canva, [connect your Canva account to ChatGPT](https://www
 
 ## Route 3: You use Claude Design and your video editor
 
+**You will save:** an approved visual direction, a four-scene storyboard and a Reel master in your usual video editor. Eligible paid plans can also save a Claude design system.
+
 Start in a Claude conversation with **Output → Design**, or choose the **Design** template in Artifacts. [Claude Design is available on Free, Pro, Max, Team and Enterprise](https://support.claude.com/en/articles/14604416-get-started-with-claude-design). On Enterprise, an owner can turn it on before its default enablement on October 15, 2026. Its work counts toward your regular Claude usage limit. The separate `claude.ai/design` site is scheduled to close on December 14, 2026, so use Design inside Claude for a new setup.
 
 Ask Claude to inventory files from only the selected connected sources or uploads first. After you approve the brand pack, use its guide, correct logo and visual examples as your design references. If you have Pro, Max, Team or Enterprise, you can create a [reusable design system](https://support.claude.com/en/articles/14604397-set-up-your-design-system-in-claude-design) from those sources. This beta feature is on by default for Pro, Max and Team; Enterprise needs an owner to enable it. Review Claude's extracted colours, fonts and layout patterns before using them. On Free, keep the approved pack and examples with each design brief rather than promising a saved design system.
@@ -80,7 +74,19 @@ Now ask for a **vertical four-scene storyboard, title treatment and end card** f
 
 You can also send a supported design from Claude Design to Canva, or [connect Canva in Claude](https://www.canva.com/help/connect-claude-to-canva/) through **Settings → Connectors** to find or copy a Canva design. These are optional handoffs. If you have Team or Enterprise, [Claude Motion](https://support.claude.com/en/articles/17454997-get-started-with-claude-motion) is a separate beta tool that exports short code-based animations as MP4. It does not generate realistic footage, so the real-footage Reel in this example still needs a video edit.
 
+## Can my AI assistant use Canva’s AI?
+
+[Canva's AI Connector](https://www.canva.com/help/mcp-canva-usage/) lets a supported assistant request specific Canva actions. These include finding an approved design, copying or editing it, creating a new editable design, and generating a design with Canva's Magic Design where available. Some AI actions use Canva AI credits, and the action list varies by assistant and account. The documented connector is a set of design actions; it does not promise that your ChatGPT or Claude conversation becomes a Canva AI chat or that the two products share a memory. Keep your approved brand pack and Canva Brand Kit current in their respective places.
+
 ## What a five-minute repeat looks like
+
+Before opening a tool, fill in these five lines for the next post:
+
+- **One message:** What should a viewer remember?
+- **One audience:** Who is this for today?
+- **Real material:** Which clip, photo or product shot will appear?
+- **Verified detail:** Which price, date, offer or claim has been checked?
+- **One action:** What should the viewer do next?
 
 Imagine a neighbourhood coffee shop with a saved ten-second Reel format and real footage of a bag, a pour and the pickup counter. This week's message is Friday pickup of its autumn blend. The offer and pickup details have already been checked.
 
@@ -102,9 +108,18 @@ Once a month, run a short test post. Look at it at phone size and ask: Is this o
 
 The practical sequence is **ask your agent to find, approve the real source, set up your chosen tool, reuse one format, review every post**. The series accompanying this article shows the Canva, ChatGPT and Claude Design paths step by step.
 
+## Optional: keep the source in VS Code or Cursor
+
+If you already like working in [VS Code](https://code.visualstudio.com/docs/agents/reference/workspace-context) or [Cursor](https://docs.cursor.com/en/agent/tools), use it as a tidy home for your brand files. You do not need to write code. Open a dedicated brand folder as the workspace so its agent can search the relevant local files. Start with a read-only request:
+
+> Search this brand folder for likely current logos, colour values, font names and licence notes, brand guides, three strong social examples, and usable footage. Return the file paths and any conflicts. Do not rename, move, delete or upload files. Mark anything whose rights or approval status you cannot verify.
+
+After you approve the list, ask the agent to **copy only those files** into an `Approved` folder and write a short `brand-pack.md` with the exact colours, font roles, voice, current offer, three examples and links to the originals. Keep draft and old versions separate. The plain-text pack is easy to update and can be added to your ChatGPT Project or Claude design system. If you use Canva, add the approved visual assets there and check its Brand Kit yourself.
+
+Your editor does not gain access to Canva merely because it has an AI agent. A Canva design connection in an editor needs its own supported setup and authorization. Canva's [Dev MCP server](https://www.canva.dev/docs/apps/dev-mcp-server/) is for people developing Canva apps, not the everyday design connection in this guide. You can use the approved folder as a source for Canva or Claude Design without adding another connection.
+
 ### Sources
 
-- [Higgsfield, “Introducing Higgsfield Ads Studio”](https://higgsfield.ai/blog/higgsfield-ads-studio)
 - [Google Fonts, licensing and commercial use](https://developers.google.com/fonts/)
 - [Canva, “Set up Brand Kits”](https://www.canva.com/help/brand-kit/)
 - [Canva, “Actions you can take in AI assistants connected to Canva”](https://www.canva.com/help/mcp-canva-usage/)

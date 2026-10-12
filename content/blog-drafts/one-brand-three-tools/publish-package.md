@@ -16,11 +16,12 @@
 | Article URL after publication | `https://www.thedotcreative.co/blog/make-on-brand-reels-faster` (proposed, not live) |
 | Notion draft | https://app.notion.com/p/3f7d0f0c254481319d56c9a758e09de8 · `In Review`, hidden from the website |
 
-Article: [article.md](article.md). Revised Reel script for review: [reel-script-for-review.md](instagram/reel-script-for-review.md). The article now teaches agent-assisted asset discovery, human approval, one reusable Reel format, and three practical paths: Canva, ChatGPT plus Canva, or Claude Design plus the reader's usual video editor. Canva is an optional handoff for the Claude route. The old carousel assets and cover are superseded and must be replaced before release. The current Notion row remains In Review, with the old cover attached until the new visual direction is approved.
+Article: [article.md](article.md). Revised Reel script for review: [reel-script-for-review.md](instagram/reel-script-for-review.md). The guide teaches agent-assisted asset discovery, human approval, one reusable Reel format, and three practical paths: Canva, ChatGPT plus Canva, or Claude Design plus the reader's usual video editor. The website adds an interactive route selector for this slug, while the Notion article retains a plain-text route map. The old carousel assets and cover are superseded and must be replaced before release. The current Notion row remains In Review, with the old cover attached until the new visual direction is approved.
 
 ## Review notes
 
-- Higgsfield Ads Studio launched October 1, 2026. Its batch output in the source is **static** ads, up to 20 per product in one run. The article does not claim that any of the three paths matches its batch generation.
+- The article is a practical guide. It names each tool only where the reader needs a setup step, account limit or handoff.
+- The website blog renderer skips Notion tables and image blocks, so the route selector is a site component shown only on this article. The Notion draft stays readable without it.
 - Canva Brand Kit and connector access can vary by account, plan and admin settings. The copy states those limits.
 - Canva's AI Connector can search Canva designs and folders, create folders, copy designs and move selected items. It cannot see unrelated sources without a separate connection, and its documentation does not promise Brand Kit population. The article keeps Brand Kit entry as a checked owner step.
 - VS Code and Cursor appear only as an optional way to inventory local brand files and maintain an approved text pack. The five Reels keep the general business-owner path. Canva's Dev MCP is explicitly distinguished from its everyday design connector.
@@ -32,7 +33,6 @@ Article: [article.md](article.md). Revised Reel script for review: [reel-script-
 
 ## Sources
 
-- https://higgsfield.ai/blog/higgsfield-ads-studio
 - https://developers.google.com/fonts/
 - https://www.canva.com/help/brand-kit/
 - https://www.canva.com/help/mcp-agent-setup/
