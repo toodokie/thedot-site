@@ -7,13 +7,14 @@
 | SEO title | September 2026 Google Spam Update: What Changed? |
 | Meta description | Google updated its spam detection between September 24 and October 8. Learn what that could mean for your search traffic and how to check your site. |
 | Excerpt | Google's spam detection changed, but it has not disclosed the exact signals. Here's how that might affect your search visits—and how to tell what happened to your site. |
-| Publication date | 2026-10-12 (proposed; set the actual date when approved) |
-| Category | Industry Insights (existing blog filter) |
-| Tags | SEO; Google Search; Search Console; Small Business |
-| Read time | 6–7 minutes |
+| Publication date | Wednesday, 2026-10-14 (America/Toronto) |
+| Notion draft | https://app.notion.com/p/3f7d0f0c25448170b8ebcb31bc3591a0 · `Ready to Publish` (hidden from the website) |
+| Category | SEO (existing blog filter) |
+| Tags | News; How-To (existing Notion options) |
+| Read time | 7 minutes |
 | Open Graph title | Google's Spam Update: What Changed for Your Traffic? |
 | Open Graph description | What Google confirmed, what remains unknown, and how to check whether your search visibility changed. |
-| Suggested sharing image | Charcoal search bulletin card: “A DROP ISN'T A DIAGNOSIS,” flat cream trend line, numbered data labels and one yellow marker. 1200 × 630. |
+| Featured and sharing image | [1200 × 630 charcoal search cover](../../../public/images/blog/september-2026-google-spam-update-traffic-impact/cover.png); production URL after the image change lands: `https://www.thedotcreative.co/images/blog/september-2026-google-spam-update-traffic-impact/cover.png`. |
 | Verified internal link | https://www.thedotcreative.co/blog/can-ai-find-your-business |
 | Reel destination | The proposed article URL after publication: `https://www.thedotcreative.co/blog/september-2026-google-spam-update-traffic-impact` (not live yet; do not use as a working link until published). |
 
@@ -39,4 +40,5 @@ Sources: Google Search Status Dashboard; Google Search Central spam-update and t
 - https://developers.google.com/search/docs/fundamentals/using-gen-ai-content
 - https://developers.google.com/search/docs/monitor-debug/debugging-search-traffic-drops
 - Reel is sound-off by design; no voiceover or licensed music is required.
-- Publish the article first, then set the bio link and post the Reel. Neither asset has been published.
+- Release on Wednesday, October 14: move the Notion article to `Published`; verify the public URL and cover; set and verify the Instagram bio link; then publish the companion Reel that same day. The Notion date does not publish the article automatically.
+- The article is staged in Notion but not live. The Reel MP4, cover and caption are staged locally; Meta Business Suite and Instagram were signed out on October 12, so the Reel is not scheduled there.

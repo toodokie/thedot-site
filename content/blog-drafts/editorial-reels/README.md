@@ -2,6 +2,8 @@
 
 The Dot's two October campaigns share [studio.html](studio.html), an editable HTML/CSS source and the site's palette, Adobe kit `gac6jnd`, Futura PT and FF Real Text Pro. Their feed identities differ: the AI Reel uses a cream editorial story and silver orb; the Google Reel uses a charcoal search bulletin, chart and numbered data sections. The 16 captured JPGs in `rendered/` are the exact 1080 × 1920 scene inputs. [render.sh](render.sh) assembles each eight-scene sequence at 30 fps as a 28-second silent H.264 MP4, with hard cuts and a slow camera push. The first scene doubles as each campaign's Instagram cover. [Adjacent cover preview](adjacent-covers.jpg) shows their feed crop side by side.
 
+[blog-covers.html](blog-covers.html) is the editable 1200 × 630 source for the two distinct article covers. Its exported PNGs are in `public/images/blog/<slug>/cover.png`; deploy those website assets before adding their production URLs to Notion's Featured Image and Social Image fields.
+
 ## Edit and re-export
 
 1. Edit scene copy or styling in `studio.html`; update the matching `reel.md` storyboard and caption when copy changes.

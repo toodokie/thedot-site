@@ -7,13 +7,14 @@
 | SEO title | Using an AI Agent at Work? Set These Boundaries First |
 | Meta description | Using an AI agent at work? Give it a clear job, limit its tools, review consequential actions and plan for mistakes before you turn it on. |
 | Excerpt | Before you connect an AI agent to your work tools, decide what it can finish alone and what needs your approval. Here are four boundaries to set and why they matter. |
-| Publication date | 2026-10-12 (proposed; set the actual date when approved) |
-| Category | Strategy (existing blog filter) |
-| Tags | AI Agents; Business Systems; Automation; AI Governance |
-| Read time | 5–6 minutes |
+| Publication date | Tuesday, 2026-10-13 (America/Toronto) |
+| Notion draft | https://app.notion.com/p/3f7d0f0c254481e19611ea60be5d190a · `Ready to Publish` (hidden from the website) |
+| Category | Technology (existing blog filter) |
+| Tags | Strategy; How-To (existing Notion options) |
+| Read time | 6 minutes |
 | Open Graph title | Using an AI Agent at Work? Set These Boundaries First |
 | Open Graph description | Give your agent a clear job, limited access and a real stopping point before it acts on your behalf. |
-| Suggested sharing image | Editorial cream cover: oversized “INSTRUCTIONS ≠ PERMISSIONS,” a small form card with its Submit control gated, one dot-grid and one yellow marker. 1200 × 630. |
+| Featured and sharing image | [1200 × 630 cream editorial cover](../../../public/images/blog/using-ai-agent-at-work-boundaries/cover.png); production URL after the image change lands: `https://www.thedotcreative.co/images/blog/using-ai-agent-at-work-boundaries/cover.png`. |
 | Reel destination | The proposed article URL after publication: `https://www.thedotcreative.co/blog/using-ai-agent-at-work-boundaries` (not live yet; do not use as a working link until published). |
 
 Body: [article.md](article.md). The source is linked inline and listed at the end.
@@ -34,4 +35,5 @@ Source: Anthropic, “Investigating unintended model actions in our evaluations 
 
 - Primary: https://www.anthropic.com/news/investigating-unintended-model-actions
 - Reel is sound-off by design; no voiceover or licensed music is required.
-- Publish the article first, then set the bio link and post the Reel. Neither asset has been published.
+- Release on Tuesday, October 13: move the Notion article to `Published`; verify the public URL and cover; set and verify the Instagram bio link; then publish the companion Reel that same day. The Notion date does not publish the article automatically.
+- The article is staged in Notion but not live. The Reel MP4, cover and caption are staged locally; Meta Business Suite and Instagram were signed out on October 12, so the Reel is not scheduled there.
