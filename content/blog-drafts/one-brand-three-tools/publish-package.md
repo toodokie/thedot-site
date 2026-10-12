@@ -22,6 +22,7 @@ Article: [article.md](article.md). Revised Reel script for review: [reel-script-
 
 - The article is a practical guide. It names each tool only where the reader needs a setup step, account limit or handoff.
 - The website blog renderer skips Notion tables and image blocks, so the route selector is a site component shown only on this article. The Notion draft stays readable without it.
+- The selector's three short answers live in `src/components/BlogWorkflowSelector.tsx`; check them against the Notion article whenever a route changes.
 - Canva Brand Kit and connector access can vary by account, plan and admin settings. The copy states those limits.
 - Canva's AI Connector can search Canva designs and folders, create folders, copy designs and move selected items. It cannot see unrelated sources without a separate connection, and its documentation does not promise Brand Kit population. The article keeps Brand Kit entry as a checked owner step.
 - VS Code and Cursor appear only as an optional way to inventory local brand files and maintain an approved text pack. The five Reels keep the general business-owner path. Canva's Dev MCP is explicitly distinguished from its everyday design connector.
