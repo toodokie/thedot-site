@@ -8,8 +8,8 @@
 | Meta description | Set up one brand system across Canva, ChatGPT and Claude Design, then use it to make a campaign. Specific setup steps, examples and update habits. |
 | Excerpt | Your brand rules should travel with the work. Here's how to set them up in Canva, ChatGPT and Claude Design, then make a campaign without losing the plot. |
 | Proposed publication date | Tuesday, October 20, 2026, before the first Instagram post at 2:00 p.m. Toronto time |
-| Category | Design (verify the exact current Notion option before staging) |
-| Tags | Branding; How-To; AI (verify existing options before staging) |
+| Category | Design |
+| Tags | Strategy; How-To |
 | Open Graph title | One Brand, Three Tools: Set Up Your System and Make a Campaign |
 | Open Graph description | Give your brand one source of truth across Canva, ChatGPT and Claude Design, then put it to work on your next campaign. |
 | Feature and social image | `public/images/blog/one-brand-three-tools-design-system/cover.png`; 1200 × 630 export complete |
