@@ -1,14 +1,14 @@
-# How to Make On-Brand Reels Faster with Canva and Your AI Agent
+# Your Brand, Your Tool: Make On-Brand Reels Faster
 
 You run a business. You need to post again. The footage is on your phone, the offer is clear in your head, but making the Reel still means hunting for the right logo, guessing the font, rewriting the caption and adjusting a layout that looked fine last week. An hour disappears before you have anything ready to review.
 
-The fix is a small, reusable production system. Ask an AI assistant to help find and sort your brand material. You decide what is current and approved. Put that source into Canva, save one Reel format, and let your chosen assistant help with the next post. Then the path is short: choose the message, make a draft, add real footage, review it at phone size and publish.
+The fix is a small, reusable production system. Ask an AI assistant to help find and sort your brand material. You decide what is current and approved. Save one Reel format in the editor you use, and let your chosen assistant help with the next post. Then the path is short: choose the message, make a draft, add real footage, review it at phone size and publish.
 
 [Higgsfield Ads Studio](https://higgsfield.ai/blog/higgsfield-ads-studio) packages a similar idea for static ads: save brand and product information, generate variations, review them and export the ones you want. Its promise is speed through reusable context. You can use that principle for everyday social posts without adopting a new platform or generating twenty options at a time. The point is to make **one good, recognizable post** quickly.
 
-For most owners already making social posts, **Canva is a useful finishing place** because the video remains editable, its Brand Kit keeps approved assets close, and a reusable design saves layout decisions. You can use Canva AI inside Canva where your plan supports it. Or connect the agent you prefer, **ChatGPT or Claude**, to Canva for supported design and file actions, including AI design generation where available. There is no need to use both agents. Canva's reputation is not the reason to choose it; this repeatable editing and handoff is.
+**Choose the tool you will actually reopen next week.** Canva keeps the Reel editable and the approved assets close. ChatGPT can hold the brief, voice and repeatable script in a Project, then use Canva's supported design actions. Claude Design can hold the visual direction and, on eligible plans, a reusable design system. You can build the video in your usual editor without connecting Claude to Canva.
 
-Which route should you take? **Canva alone** is the simplest start when you already make posts there. **ChatGPT plus Canva** fits if the hard part is choosing an angle and writing a short script. **Claude plus Canva** fits if you already work in Claude and want stronger visual exploration or a reusable design system. Canva's conversational AI has a fuller feature set on eligible paid plans; Claude's design systems are currently beta on eligible paid plans. Use the route you can sustain each week, not the one with the longest feature list.
+Which route should you take? **Canva alone** is a simple start if you already make posts there. **ChatGPT plus Canva** fits if choosing an angle and writing a short script slows you down. **Claude Design plus your video editor** fits if you want to establish the look, storyboard and reusable visual rules in Claude. [Claude Design](https://support.claude.com/en/articles/14604416-get-started-with-claude-design) is available on Free, Pro, Max, Team and Enterprise. Its reusable [design systems](https://support.claude.com/en/articles/14604397-set-up-your-design-system-in-claude-design) are beta on Pro, Max, Team and Enterprise; an Enterprise owner must enable them. Use the route you can sustain each week.
 
 ## First, ask your AI to find the brand pieces
 
@@ -30,7 +30,7 @@ Put these in one clearly dated folder:
 - Your audience, current offer and a few phrases that sound like you. Add words or claims you never want the tool to invent.
 - Real product or service footage and photos you have permission to use.
 
-Keep this pack short enough to check quickly. A logo alone cannot teach a tool what a polished post looks like for your business. Examples and a few specific decisions do much more work. Once you have approved the files, ask the connected agent to create an **Approved Brand** folder in Canva and organize only the designs you name. [Canva's AI Connector supports searching designs, creating folders, copying designs and moving selected items](https://www.canva.com/help/mcp-canva-usage/). Keep a link to each approved original. Add the official logos, colours and fonts to the Brand Kit yourself, since the connector documentation does not promise it can populate the kit for you.
+Keep this pack short enough to check quickly. A logo alone cannot teach a tool what a polished post looks like for your business. Examples and a few specific decisions do much more work. If Canva is your editor, ask a connected agent to create an **Approved Brand** folder there and organize only the designs you name. [Canva's AI Connector supports searching designs, creating folders, copying designs and moving selected items](https://www.canva.com/help/mcp-canva-usage/). Keep links to the approved originals. Add the official logos, colours and fonts to the Canva Brand Kit yourself, since the connector documentation does not promise it can populate the kit for you. If Claude Design is your route, use the approved pack as its source.
 
 Next, save **one repeatable 9:16 Reel format**. For a simple ten-second post, that could be a strong opening line, two product or service shots, a short proof point and an end card with a clear action. Decide where the title sits, how captions look, how long each scene lasts and where the logo appears. Use a format you can actually maintain, with footage you can get regularly.
 
@@ -42,11 +42,11 @@ If you already like working in [VS Code](https://code.visualstudio.com/docs/agen
 
 > Search this brand folder for likely current logos, colour values, font names and licence notes, brand guides, three strong social examples, and usable footage. Return the file paths and any conflicts. Do not rename, move, delete or upload files. Mark anything whose rights or approval status you cannot verify.
 
-After you approve the list, ask the agent to **copy only those files** into an `Approved` folder and write a short `brand-pack.md` with the exact colours, font roles, voice, current offer, three examples and links to the originals. Keep draft and old versions separate. The plain-text pack is easy to update and can be added to your ChatGPT Project or Claude design system. Add the approved visual assets to Canva and check its Brand Kit yourself.
+After you approve the list, ask the agent to **copy only those files** into an `Approved` folder and write a short `brand-pack.md` with the exact colours, font roles, voice, current offer, three examples and links to the originals. Keep draft and old versions separate. The plain-text pack is easy to update and can be added to your ChatGPT Project or Claude design system. If you use Canva, add the approved visual assets there and check its Brand Kit yourself.
 
-Your editor does not gain access to Canva merely because it has an AI agent. A Canva design connection in an editor needs its own supported setup and authorization. Canva's [Dev MCP server](https://www.canva.dev/docs/apps/dev-mcp-server/) is for people developing Canva apps, not the everyday design connection in this guide. The folder approach still works with a simple manual Canva handoff.
+Your editor does not gain access to Canva merely because it has an AI agent. A Canva design connection in an editor needs its own supported setup and authorization. Canva's [Dev MCP server](https://www.canva.dev/docs/apps/dev-mcp-server/) is for people developing Canva apps, not the everyday design connection in this guide. You can use the approved folder as a source for Canva or Claude Design without adding another connection.
 
-## What connecting an agent to Canva means
+## If you connect an agent to Canva
 
 [Canva's AI Connector](https://www.canva.com/help/mcp-canva-usage/) lets a supported assistant request specific Canva actions. These include finding an approved design, copying or editing it, creating a new editable design, and generating a design with Canva's Magic Design where available. Some AI actions use Canva AI credits, and the action list varies by assistant and account. The documented connector is a set of design actions; it does not promise that your ChatGPT or Claude conversation becomes a Canva AI chat or that the two products share a memory. Keep your approved brand pack and Canva Brand Kit current in their respective places.
 
@@ -70,13 +70,15 @@ Ask for two meaningfully different hooks if the first one is flat. Choose and ed
 
 To wire the work into Canva, [connect your Canva account to ChatGPT](https://www.canva.com/help/connect-chatgpt-to-canva/) through **Settings → Plugins** and authorize the correct account. Enable Canva in your Project chat. Ask Canva to **find the approved Reel design by name, copy it, and make a version with the approved headline and caption**. If the connected action cannot make the edit you need, open the copy in Canva and make it there. Place your real footage, set timing and check the brand details in the editor. ChatGPT can find and create supported Canva designs, but the connection does not make a draft automatically correct. Searching shared Brand Templates may require a paid Canva plan, and a team admin may need to allow the connection.
 
-## Route 3: You use Claude with Canva
+## Route 3: You use Claude Design and your video editor
 
-Ask Claude to inventory files from the selected connected sources or uploads first. After you approve the brand pack, create a [design system in Claude Design](https://support.claude.com/en/articles/14604397-set-up-your-design-system-in-claude-design) from that guide, the correct logo and visual examples. Review what it extracts. Correct the colours, fonts and layout patterns before you rely on the system. Design systems are currently a beta feature on eligible paid Claude plans, so check availability in your account. A system is only useful if it matches the source you approved.
+Start in a Claude conversation with **Output → Design**, or choose the **Design** template in Artifacts. [Claude Design is available on Free, Pro, Max, Team and Enterprise](https://support.claude.com/en/articles/14604416-get-started-with-claude-design). On Enterprise, an owner can turn it on before its default enablement on October 15, 2026. Its work counts toward your regular Claude usage limit. The separate `claude.ai/design` site is scheduled to close on December 14, 2026, so use Design inside Claude for a new setup.
 
-Use it for the part that often slows a post down: choosing a visual direction. Give Claude the real message and ask for two different vertical story treatments, each using the same brand rules and real product footage. For example, one could lead with a bold type treatment; the other could lead with the product close-up. Choose the idea that reads clearly on a phone. Then build and edit the video in your usual editor.
+Ask Claude to inventory files from only the selected connected sources or uploads first. After you approve the brand pack, use its guide, correct logo and visual examples as your design references. If you have Pro, Max, Team or Enterprise, you can create a [reusable design system](https://support.claude.com/en/articles/14604397-set-up-your-design-system-in-claude-design) from those sources. This beta feature is on by default for Pro, Max and Team; Enterprise needs an owner to enable it. Review Claude's extracted colours, fonts and layout patterns before using them. On Free, keep the approved pack and examples with each design brief rather than promising a saved design system.
 
-To connect the direction to the editable asset, open Claude **Settings → Connectors**, [connect Canva](https://www.canva.com/help/connect-claude-to-canva/), then enable it in the chat. Ask Claude to find the approved Canva design, copy it and use the chosen direction where the available Canva actions allow. Open the copy in Canva to place footage and finish timing. [Claude Design can also hand a supported design direction to Canva](https://support.claude.com/en/articles/14604416-get-started-with-claude-design). Actions vary by account and assistant, so check the result in Canva rather than assuming the handoff preserved every brand detail.
+Now ask for a **vertical four-scene storyboard, title treatment and end card** for the next Reel. Give it the real message and still frames from your approved footage. For example: “Use our approved coffee brand pack. Show two different 9:16 directions for a ten-second Friday pickup Reel. Use the attached stills from our real bag and counter footage as references. Keep the exact offer wording. Give me four short frames, type placement and an end card. Do not invent a price or product claim.” Choose one direction, then make and save the actual Reel master in the video editor you already use. Add the real clips, captions and timing there. Claude Design's artboards are a visual design workflow; [its documented exports](https://support.claude.com/en/articles/14604416-get-started-with-claude-design) do not make them a general-purpose Reel video export.
+
+You can also send a supported design from Claude Design to Canva, or [connect Canva in Claude](https://www.canva.com/help/connect-claude-to-canva/) through **Settings → Connectors** to find or copy a Canva design. These are optional handoffs. If you have Team or Enterprise, [Claude Motion](https://support.claude.com/en/articles/17454997-get-started-with-claude-motion) is a separate beta tool that exports short code-based animations as MP4. It does not generate realistic footage, so the real-footage Reel in this example still needs a video edit.
 
 ## What a five-minute repeat looks like
 
@@ -84,7 +86,7 @@ Imagine a neighbourhood coffee shop with a saved ten-second Reel format and real
 
 **Minute 1: choose one point.** The message is Friday pickup, not every reason to love the shop.
 
-**Minute 2: make the draft.** Duplicate the Canva master, or ask your connected ChatGPT or Claude assistant to find and copy it. Use one approved hook and one call to action.
+**Minute 2: make the draft.** Duplicate the approved Reel master in your video editor. If that editor is Canva, your connected ChatGPT assistant can help find and copy the design. Use one approved hook and one call to action. If you chose Claude Design, use the visual direction and storyboard you already approved.
 
 **Minutes 3 and 4: put in the real material.** Replace placeholders with the bag and pickup footage. Set the headline in the approved type, apply the right colours and check captions and timing.
 
@@ -94,11 +96,11 @@ This is a target for a simple post with the assets ready, not a promise that eve
 
 ## Keep it polished as the brand changes
 
-Give the brand pack one owner and a date. When the logo, offer, audience, type licence or approved example changes, update the pack first. Then update the Canva Brand Kit and master. If you use ChatGPT or Claude, update the active Project or design system too. Ask your agent to find old Canva versions before you reuse a design. Approve any moves or archiving before it reorganizes a shared workspace.
+Give the brand pack one owner and a date. When the logo, offer, audience, type licence or approved example changes, update the pack first. Then update the Reel master in your editor. Update the Canva Brand Kit if you use it, the ChatGPT Project if you use that, and the Claude design system if your plan has one. Ask your agent to find old versions before you reuse a design. Approve any moves or archiving before it reorganizes a shared workspace.
 
 Once a month, run a short test post. Look at it at phone size and ask: Is this our current logo? Are the font and colours right? Is the claim true? Is the offer current? Is the next action obvious? Fix the setup if the answer is no. Then the next post starts from a better place.
 
-The practical sequence is **ask your agent to find, approve the real source, connect it to Canva, reuse one format, review every post**. The series accompanying this article shows the Canva-only, ChatGPT and Claude paths step by step.
+The practical sequence is **ask your agent to find, approve the real source, set up your chosen tool, reuse one format, review every post**. The series accompanying this article shows the Canva, ChatGPT and Claude Design paths step by step.
 
 ### Sources
 
@@ -113,5 +115,6 @@ The practical sequence is **ask your agent to find, approve the real source, con
 - [Canva, “Connect your Canva account to ChatGPT”](https://www.canva.com/help/connect-chatgpt-to-canva/)
 - [OpenAI, “Projects in ChatGPT”](https://help.openai.com/en/articles/10169521-projects-in-chatgpt)
 - [Anthropic, “Set up your design system in Claude Design”](https://support.claude.com/en/articles/14604397-set-up-your-design-system-in-claude-design)
-- [Canva, “Connect your Canva account to Claude”](https://www.canva.com/help/connect-claude-to-canva/)
 - [Anthropic, “Get started with Claude Design”](https://support.claude.com/en/articles/14604416-get-started-with-claude-design)
+- [Anthropic, “Get started with Claude Motion”](https://support.claude.com/en/articles/17454997-get-started-with-claude-motion)
+- [Canva, “Connect your Canva account to Claude”](https://www.canva.com/help/connect-claude-to-canva/)

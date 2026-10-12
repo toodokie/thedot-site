@@ -1,13 +1,13 @@
 # Reel on-screen copy for review
 
-Five short Reels, four frames each. This is exact visible copy before visual proofs or animation. The article carries the detailed setup, prompts, connections and campaign example. Canva is the editable finishing place. The viewer can use Canva AI, ChatGPT or Claude as their assistant. A five-minute routine is the aim for a simple Reel after setup, with footage and offer already available.
+Five short Reels, four frames each. This is exact visible copy before visual proofs or animation. The article carries the detailed setup, prompts, connections and campaign example. The viewer chooses Canva, ChatGPT with Canva, or Claude Design with their usual video editor. A five-minute routine is the aim for a simple Reel after setup, with footage and offer already available.
 
 ## 01 / Find it, check it, use it
 
-1. **Make polished Reels for your business, without the weekly scramble.** Set up your brand once. Reuse it with your AI agent and Canva.
+1. **Make polished Reels for your business, without the weekly scramble.** Set up your brand once. Use the tool you already like.
 2. **Ask your AI to find the pieces.** Search only the files you give it: logo, colour codes, fonts, voice and three posts worth repeating.
 3. **You decide what is official.** Check the latest versions, font rights, real claims and private material. Then save the approved pack.
-4. **Connect your agent to Canva.** ChatGPT or Claude can find and copy an approved design. Or use Canva AI. Swap footage, review on your phone, post. Full setup in bio.
+4. **Choose your route.** Canva. ChatGPT with Canva. Or Claude Design with your video editor. Reuse a Reel format, review on your phone, post. Full setup in bio.
 
 ## 02 / ChatGPT
 
@@ -27,10 +27,10 @@ Use only non-identifying demo visuals until client permission is documented. No 
 
 ## 03 / Claude Design
 
-1. **Claude user? Show it what your brand looks like.**
-2. **Find the examples. Approve the right ones.** Build a Claude design system from the guide, logo and work you want to repeat.
-3. **Connect Canva in Settings → Connectors.** Ask Claude for one vertical story direction and a copy of your approved Canva design.
-4. **Finish in Canva.** Use real footage. Check the type, crop and offer. Full setup in the article.
+1. **Claude user? Give your Reels a recognizable look.**
+2. **Find the examples. Approve the right ones.** Use that pack in Claude Design. If your plan has design systems, save one from the guide, logo and work you want to repeat.
+3. **Ask for a 9:16 storyboard.** Four short scenes, a title treatment and an end card. Use your real offer and stills from your footage as references.
+4. **Finish in your usual video editor.** Save the Reel master. Check footage, type, crop and offer. Canva is optional. Full setup in the article.
 
 ## 04 / Canva
 
@@ -43,7 +43,7 @@ Use only non-identifying demo visuals until client permission is documented. No 
 
 1. **Your saved brand needs a current version.**
 2. **Ask your agent to find old assets.** You choose what to replace. Keep one dated, approved pack.
-3. **Update Canva first.** Brand Kit and Reel master. Then refresh your ChatGPT Project or Claude system if you use one.
+3. **Update the tool you use.** Canva Brand Kit, ChatGPT Project or Claude design system. Refresh your Reel master too.
 4. **Run a five-minute check each month.** Logo, type, offer, facts, crop. Then make the next post.
 
 Proposed order: article and 01 Tue Oct 20; 02 Wed Oct 21; anonymous case Thu Oct 22; 03 Fri Oct 23; 04 Mon Oct 26; 05 Tue Oct 27. Toronto time. Nothing is scheduled.
