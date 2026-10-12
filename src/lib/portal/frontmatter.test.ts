@@ -180,6 +180,33 @@ fact_check_ledger: []`)
     }
   })
 
+  it('accepts reviewed cultural sources only on exact hosts or real subdomains', () => {
+    const replaceUrl = (url: string) => document().replace(
+      'https://www.ontario.ca/page/oinp-employer-job-offer-streams',
+      url,
+    )
+    for (const url of [
+      'https://canadashistory.ca/explore/arts-culture-society/the-history-of-thanksgiving-in-canada',
+      'https://extension.umn.edu/vegetables/pumpkins-and-winter-squash',
+      'https://blog-fruit-vegetable-ipm.extension.umn.edu/2021/09/a-quick-guide-to-harvesting-and-storing.html',
+      'https://www.oktoberfest.ca/thanksgiving-day-parade/',
+    ]) {
+      expect(parseContentFile(replaceUrl(url), 'culture.md').fact_check_ledger[0].source_url)
+        .toBe(url)
+    }
+    for (const url of [
+      'https://evilcanadashistory.ca/thanksgiving',
+      'https://canadashistory.ca.evil.example/thanksgiving',
+      'https://evilextension.umn.edu/pumpkins',
+      'https://extension.umn.edu.evil.example/pumpkins',
+      'https://eviloktoberfest.ca/parade',
+      'https://oktoberfest.ca.evil.example/parade',
+    ]) {
+      expect(() => parseContentFile(replaceUrl(url), 'culture.md'))
+        .toThrow(/approved primary source/)
+    }
+  })
+
   it('rejects invalid, future, and unquoted checked dates', () => {
     expect(() => parseContentFile(document().replace('checked_at: "2026-07-18"', 'checked_at: "2026-02-31"'), 'p.md')).toThrow(/checked_at/)
     expect(() => parseContentFile(document().replace('checked_at: "2026-07-18"', 'checked_at: "2999-01-01"'), 'p.md')).toThrow(/future/)

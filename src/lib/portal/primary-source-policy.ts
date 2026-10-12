@@ -1,7 +1,7 @@
 // Version-controlled source hosts accepted in client-facing fact-check ledgers.
-// Official regulatory sources and reviewed original research publishers stay separate so adding a
-// ranking publisher does not weaken the immigration-policy boundary. The exported union remains in
-// parity with the database validator. Host matching is exact or a real subdomain boundary.
+// Official regulatory sources, reviewed original research publishers, and reviewed cultural
+// sources stay separate. The exported union remains in parity with the database validator.
+// Host matching is exact or a real subdomain boundary. Source relevance remains a fact-check gate.
 export const OFFICIAL_PRIMARY_SOURCE_HOSTS = [
   'canada.ca',
   'college-ic.ca',
@@ -18,9 +18,16 @@ export const REVIEWED_RESEARCH_SOURCE_HOSTS = [
   'worldbank.org',
 ] as const
 
+export const REVIEWED_CULTURAL_SOURCE_HOSTS = [
+  'canadashistory.ca',
+  'extension.umn.edu',
+  'oktoberfest.ca',
+] as const
+
 export const PRIMARY_SOURCE_HOSTS = [
   ...OFFICIAL_PRIMARY_SOURCE_HOSTS,
   ...REVIEWED_RESEARCH_SOURCE_HOSTS,
+  ...REVIEWED_CULTURAL_SOURCE_HOSTS,
 ] as const
 
 export function isAllowedPrimarySourceHostname(hostname: string): boolean {
