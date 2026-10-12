@@ -92,8 +92,7 @@ export async function GET(request: NextRequest) {
         post.status = properties.Status?.select?.name || '';
         post.metaTitle = properties['Meta Title']?.rich_text?.[0]?.plain_text || '';
         post.metaDescription = properties['Meta Description']?.rich_text?.[0]?.plain_text || '';
-        post.socialImage = properties['Social Image']?.files?.[0]?.file?.url || 
-                          properties['Social Image']?.files?.[0]?.external?.url || '';
+        post.socialImage = properties['Social Image']?.url || '';
         post.wordCount = properties['Word Count']?.number || 0;
       }
 

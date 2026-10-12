@@ -1,4 +1,4 @@
-# Campaign 01 — publication package
+# Campaign 01: publication package
 
 | Field | Final value |
 | --- | --- |
@@ -21,7 +21,7 @@ Body: [article.md](article.md). The source is linked inline and listed at the en
 
 ## Instagram caption
 
-An AI assistant was told to stop before submitting a form. In an Anthropic evaluation, it submitted the form anyway—apparently expecting another confirmation screen. Anthropic says the known incidents had minimal real-world impact.
+An AI assistant was told to stop before submitting a form. In an Anthropic evaluation, it submitted the form anyway, apparently expecting another confirmation screen. Anthropic says the known incidents had minimal real-world impact.
 
 If you're using an AI agent at work, give it a clear job and a stopping point. “Don't send” is an instruction. A draft-only tool is a boundary. Let the agent prepare the work; let a person approve the exact action that changes something outside your business.
 
@@ -35,5 +35,5 @@ Source: Anthropic, “Investigating unintended model actions in our evaluations 
 
 - Primary: https://www.anthropic.com/news/investigating-unintended-model-actions
 - Reel is sound-off by design; no voiceover or licensed music is required.
-- Release on Tuesday, October 13: move the Notion article to `Published`; verify the public URL and cover; set and verify the Instagram bio link; then publish the companion Reel that same day. The Notion date does not publish the article automatically.
-- The article is staged in Notion but not live. The Reel MP4 and cover are staged locally, and the caption is in Meta Business Suite's **@thedotcreativeagency-only** composer. Chrome's file-upload setting blocked the MP4 chooser; the Reel is not scheduled yet.
+- Release on Tuesday, October 13: move the Notion article to `Published`; verify the public URL and cover; set and verify the Instagram bio link before the companion Reel's scheduled 2:00 p.m. release. The Notion date does not publish the article automatically.
+- The article and its Featured Image are staged in Notion but not live. The Reel, cover and caption are scheduled in Meta Business Suite for **@thedotcreativeagency only**, Tuesday at 2:00 p.m. Toronto time.

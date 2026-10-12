@@ -1,4 +1,4 @@
-# Reel 02 — Google Changed Its Algorithm. Now What?
+# Reel 02: Google Changed Its Algorithm. Now What?
 
 **Format:** 1080 × 1920, 9:16, 30 fps, 28 seconds, H.264 MP4, silent by design.
 **Destination:** companion [article](article.md), after the article is published.

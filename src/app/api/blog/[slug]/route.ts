@@ -142,8 +142,7 @@ export async function GET(
                     properties['Featured Image']?.files?.[0]?.external?.url || '',
       metaTitle: properties['Meta Title']?.rich_text?.[0]?.plain_text || '',
       metaDescription: properties['Meta Description']?.rich_text?.[0]?.plain_text || '',
-      socialImage: properties['Social Image']?.files?.[0]?.file?.url || 
-                  properties['Social Image']?.files?.[0]?.external?.url || '',
+      socialImage: properties['Social Image']?.url || '',
       wordCount: properties['Word Count']?.number || 0,
       createdTime: page.created_time,
       lastEditedTime: page.last_edited_time

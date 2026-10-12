@@ -1,4 +1,4 @@
-# Reel 01 — The AI Was Told to Stop
+# Reel 01: The AI Was Told to Stop
 
 **Format:** 1080 × 1920, 9:16, 30 fps, 28 seconds, H.264 MP4, silent by design.
 **Destination:** companion [article](article.md), after the article is published.
