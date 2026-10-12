@@ -2,30 +2,30 @@
 
 | Field | Final value |
 | --- | --- |
-| H1 | Your Google Rankings Changed. Don't Rewrite Your Website Yet. |
-| Slug | `september-2026-google-spam-update-what-to-check` |
-| SEO title | September 2026 Google Spam Update: What to Check First |
-| Meta description | Google's September spam update ended October 8. Use Search Console to check clicks, impressions, pages and queries before changing your website. |
-| Excerpt | A ranking drop during an update is a clue, not a diagnosis. Here's the Search Console check to run before rewriting a page. |
+| H1 | Google's September 2026 Spam Update: What Changed for Your Traffic? |
+| Slug | `september-2026-google-spam-update-traffic-impact` |
+| SEO title | September 2026 Google Spam Update: What Changed? |
+| Meta description | Google updated its spam detection between September 24 and October 8. Learn what that could mean for your search traffic and how to check your site. |
+| Excerpt | Google's spam detection changed, but it has not disclosed the exact signals. Here's how that might affect your search visits—and how to tell what happened to your site. |
 | Publication date | 2026-10-12 (proposed; set the actual date when approved) |
 | Category | Industry Insights (existing blog filter) |
 | Tags | SEO; Google Search; Search Console; Small Business |
-| Read time | 4–5 minutes |
-| Open Graph title | Google Updated Its Spam Systems. Check the Data First. |
-| Open Graph description | A practical Search Console walkthrough for business owners after the September 2026 rollout. |
+| Read time | 6–7 minutes |
+| Open Graph title | Google's Spam Update: What Changed for Your Traffic? |
+| Open Graph description | What Google confirmed, what remains unknown, and how to check whether your search visibility changed. |
 | Suggested sharing image | Charcoal search bulletin card: “A DROP ISN'T A DIAGNOSIS,” flat cream trend line, numbered data labels and one yellow marker. 1200 × 630. |
 | Verified internal link | https://www.thedotcreative.co/blog/can-ai-find-your-business |
-| Reel destination | The proposed article URL after publication: `https://www.thedotcreative.co/blog/september-2026-google-spam-update-what-to-check` (not live yet; do not use as a working link until published). |
+| Reel destination | The proposed article URL after publication: `https://www.thedotcreative.co/blog/september-2026-google-spam-update-traffic-impact` (not live yet; do not use as a working link until published). |
 
-Body: [article.md](article.md). Google's status, spam, traffic-drop, Performance and manual-action pages are linked inline and listed at the end.
+Body: [article.md](article.md). Google's status, spam, AI-content, traffic-drop, Performance and manual-action pages are linked inline and listed at the end.
 
 ## Instagram caption
 
-Google's September spam update finished on October 8. If your rankings changed, take a breath before you rewrite the site.
+What changed in Google's September spam update? Its automated systems for detecting search spam improved. The rollout ran September 24–October 8, worldwide. Google has not disclosed the exact detection changes or said it targeted AI-written content in particular.
 
-Open Search Console. Compare clicks and impressions across the rollout dates, then inspect the pages and queries that changed. Check for manual actions and technical issues. A decline that happened during an update is not proof the update caused it—and Google did not say this rollout specifically targeted AI-written content.
+That could change how often your pages appear in Search and how many people click through. But a drop during the rollout is not proof the update caused it. Check Search Console: compare clicks and impressions, find the pages and queries that moved, then rule out technical issues and manual actions.
 
-The step-by-step check is in the full article. Link in bio once it is published.
+The plain-English explanation and step-by-step check are in the full article. Link in bio once it is published.
 
 Sources: Google Search Status Dashboard; Google Search Central spam-update and traffic-drop guidance.
 
@@ -35,6 +35,8 @@ Sources: Google Search Status Dashboard; Google Search Central spam-update and t
 
 - https://status.search.google.com/incidents/XhUDXP7A67iHCD2kmbVu
 - https://developers.google.com/search/docs/appearance/spam-updates
+- https://developers.google.com/search/docs/essentials/spam-policies
+- https://developers.google.com/search/docs/fundamentals/using-gen-ai-content
 - https://developers.google.com/search/docs/monitor-debug/debugging-search-traffic-drops
 - Reel is sound-off by design; no voiceover or licensed music is required.
 - Publish the article first, then set the bio link and post the Reel. Neither asset has been published.
