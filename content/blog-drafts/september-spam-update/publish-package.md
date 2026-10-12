@@ -7,7 +7,7 @@
 | SEO title | September 2026 Google Spam Update: What Changed? |
 | Meta description | Google updated its spam detection between September 24 and October 8. Learn what that could mean for your search traffic and how to check your site. |
 | Excerpt | Google's spam detection changed, but it has not disclosed the exact signals. Here's how that might affect your search visits and how to tell what happened to your site. |
-| Publication date | Wednesday, 2026-10-14 (America/Toronto) |
+| Publication date | Thursday, 2026-10-15 (America/Toronto) |
 | Notion draft | https://app.notion.com/p/3f7d0f0c25448170b8ebcb31bc3591a0 · `Ready to Publish` (hidden from the website) |
 | Category | SEO (existing blog filter) |
 | Tags | News; How-To (existing Notion options) |
@@ -40,5 +40,5 @@ Sources: Google Search Status Dashboard; Google Search Central spam-update and t
 - https://developers.google.com/search/docs/fundamentals/using-gen-ai-content
 - https://developers.google.com/search/docs/monitor-debug/debugging-search-traffic-drops
 - Reel is sound-off by design; no voiceover or licensed music is required.
-- Release on Wednesday, October 14: move the Notion article to `Published`; verify the public URL and cover; set and verify the Instagram bio link before the companion Reel's scheduled 2:00 p.m. release. The Notion date does not publish the article automatically.
-- The article and its Featured Image are staged in Notion but not live. The Reel, cover and caption are scheduled in Meta Business Suite for **@thedotcreativeagency only**, Wednesday at 2:00 p.m. Toronto time.
+- Release on Thursday, October 15: move the Notion article to `Published`; verify the public URL and cover; set and verify the Instagram bio link before the companion Reel's scheduled 2:00 p.m. release. The Notion date does not publish the article automatically.
+- The article and its Featured Image are staged in Notion but not live. The Reel, cover and caption are scheduled in Meta Business Suite for **@thedotcreativeagency only**, Thursday at 2:00 p.m. Toronto time.
