@@ -27,10 +27,10 @@ Use only non-identifying demo visuals until client permission is documented. No 
 
 ## 03 / Claude Design
 
-1. **Claude user? Give your Reels a recognizable look.**
-2. **Find the examples. Approve the right ones.** Use that pack in Claude Design. If your plan has design systems, save one from the guide, logo and work you want to repeat.
-3. **Ask for a 9:16 storyboard.** Four short scenes, a title treatment and an end card. Use your real offer and stills from your footage as references.
-4. **Finish in your usual video editor.** Save the Reel master. Check footage, type, crop and offer. Canva is optional. Full setup in the article.
+1. **Claude Design? Give your Reels a recognizable look.**
+2. **Give it the approved brand pack.** Logo, colours, fonts and three examples. Save a design system if your plan allows.
+3. **Ask for a 9:16 storyboard.** Four scenes, title style and end card. Use stills from your real footage.
+4. **Finish in your video editor.** Add real clips. Check the offer and phone crop. Canva is optional. Full guide in bio.
 
 ## 04 / Canva
 
