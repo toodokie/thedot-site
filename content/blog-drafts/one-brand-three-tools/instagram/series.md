@@ -1,4 +1,8 @@
-# One Brand, Three Tools | Instagram series
+# Superseded carousel concept | Do not schedule
+
+This file and its 20 rendered slides are retained only as visual history. The founder chose five short Reels and revised the editorial concept to a practical, repeatable social posting routine. The current on-screen copy is [reel-script-for-review.md](reel-script-for-review.md). No visual proofs have been generated from that script.
+
+# One Brand, Three Tools | Old Instagram carousel concept
 
 Five numbered **1080 × 1350 carousels**, each four slides. Publish from **@thedotcreativeagency only**. Proposed rhythm: article and episode 01 on Tuesday, October 20, then one episode each weekday through Monday, October 26, at 2:00 p.m. Toronto time. The article must be public and its bio link verified before episode 01 goes out. The remaining captions can point to the same article. Do not queue or publish until the full package is approved.
 
