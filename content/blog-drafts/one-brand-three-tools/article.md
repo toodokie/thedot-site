@@ -36,6 +36,16 @@ Next, save **one repeatable 9:16 Reel format**. For a simple ten-second post, th
 
 The five-minute routine starts *after* this setup. It also assumes you already have the offer and usable footage. A new campaign shoot or a complicated edit will take longer.
 
+## Optional: keep the source in VS Code or Cursor
+
+If you already like working in [VS Code](https://code.visualstudio.com/docs/agents/reference/workspace-context) or [Cursor](https://docs.cursor.com/en/agent/tools), use it as a tidy home for your brand files. You do not need to write code. Open a dedicated brand folder as the workspace so its agent can search the relevant local files. Start with a read-only request:
+
+> Search this brand folder for likely current logos, colour values, font names and licence notes, brand guides, three strong social examples, and usable footage. Return the file paths and any conflicts. Do not rename, move, delete or upload files. Mark anything whose rights or approval status you cannot verify.
+
+After you approve the list, ask the agent to **copy only those files** into an `Approved` folder and write a short `brand-pack.md` with the exact colours, font roles, voice, current offer, three examples and links to the originals. Keep draft and old versions separate. The plain-text pack is easy to update and can be added to your ChatGPT Project or Claude design system. Add the approved visual assets to Canva and check its Brand Kit yourself.
+
+Your editor does not gain access to Canva merely because it has an AI agent. A Canva design connection in an editor needs its own supported setup and authorization. Canva's [Dev MCP server](https://www.canva.dev/docs/apps/dev-mcp-server/) is for people developing Canva apps, not the everyday design connection in this guide. The folder approach still works with a simple manual Canva handoff.
+
 ## Route 1: You want to work inside Canva
 
 Make Canva your home base. In **Brand**, create or select the right [Brand Kit](https://www.canva.com/help/brand-kit/). Add the approved logos, exact colours and fonts you can use. Check that you are in the right account and kit if you manage more than one brand. Some brand features and shared templates depend on your Canva plan.
@@ -93,6 +103,9 @@ The practical sequence is **ask your agent to find, approve the real source, con
 - [Canva, “Set up Brand Kits”](https://www.canva.com/help/brand-kit/)
 - [Canva, “Actions you can take in AI assistants connected to Canva”](https://www.canva.com/help/mcp-canva-usage/)
 - [Canva, “Get started with Canva AI”](https://www.canva.com/help/using-canva-ai/)
+- [VS Code, “How Copilot understands your workspace”](https://code.visualstudio.com/docs/agents/reference/workspace-context)
+- [Cursor, “Tools”](https://docs.cursor.com/en/agent/tools)
+- [Canva Developers, “Dev MCP server”](https://www.canva.dev/docs/apps/dev-mcp-server/)
 - [Canva, “Connect your Canva account to ChatGPT”](https://www.canva.com/help/connect-chatgpt-to-canva/)
 - [OpenAI, “Projects in ChatGPT”](https://help.openai.com/en/articles/10169521-projects-in-chatgpt)
 - [Anthropic, “Set up your design system in Claude Design”](https://support.claude.com/en/articles/14604397-set-up-your-design-system-in-claude-design)

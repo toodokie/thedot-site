@@ -23,6 +23,7 @@ Article: [article.md](article.md). Revised Reel script for review: [reel-script-
 - Higgsfield Ads Studio launched October 1, 2026. Its batch output in the source is **static** ads, up to 20 per product in one run. The article does not claim that any of the three paths matches its batch generation.
 - Canva Brand Kit and connector access can vary by account, plan and admin settings. The copy states those limits.
 - Canva's AI Connector can search Canva designs and folders, create folders, copy designs and move selected items. It cannot see unrelated sources without a separate connection, and its documentation does not promise Brand Kit population. The article keeps Brand Kit entry as a checked owner step.
+- VS Code and Cursor appear only as an optional way to inventory local brand files and maintain an approved text pack. The five Reels keep the general business-owner path. Canva's Dev MCP is explicitly distinguished from its everyday design connector.
 - Claude Design's design systems and Canva handoff depend on supported account/workspace settings. The copy offers an export or manual handoff path.
 - The coffee campaign is an illustrative creative example. Product details and results are not represented as facts about a client.
 - `Design`, `Strategy`, and `How-To` are existing Notion options. Once the new static cover is approved and deployed, replace the Notion Featured Image and set the `Social Image` property to its production URL. Confirm the site image and Instagram bio link resolve before release.
@@ -42,3 +43,6 @@ Article: [article.md](article.md). Revised Reel script for review: [reel-script-
 - https://www.canva.com/help/connect-claude-to-canva/
 - https://support.claude.com/en/articles/14604416-get-started-with-claude-design
 - https://www.canva.com/help/using-brand-templates/
+- https://code.visualstudio.com/docs/agents/reference/workspace-context
+- https://docs.cursor.com/en/agent/tools
+- https://www.canva.dev/docs/apps/dev-mcp-server/
