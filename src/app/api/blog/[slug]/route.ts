@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Client } from '@notionhq/client';
+import { getEditorialBlogCover } from '@/lib/editorial-blog-covers';
 
 const notion = new Client({
   auth: process.env.NOTION_BLOG_TOKEN,
@@ -138,7 +139,8 @@ export async function GET(
       status: properties.Status?.select?.name || '',
       featured: properties.Featured?.checkbox || false,
       readTime: properties['Read Time']?.number || 0,
-      featuredImage: properties['Featured Image']?.files?.[0]?.file?.url || 
+      featuredImage: getEditorialBlogCover(slug) ||
+                    properties['Featured Image']?.files?.[0]?.file?.url ||
                     properties['Featured Image']?.files?.[0]?.external?.url || '',
       metaTitle: properties['Meta Title']?.rich_text?.[0]?.plain_text || '',
       metaDescription: properties['Meta Description']?.rich_text?.[0]?.plain_text || '',
