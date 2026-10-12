@@ -6,7 +6,7 @@ The fix is a small, reusable production system. Ask an AI assistant to help find
 
 [Higgsfield Ads Studio](https://higgsfield.ai/blog/higgsfield-ads-studio) packages a similar idea for static ads: save brand and product information, generate variations, review them and export the ones you want. Its promise is speed through reusable context. You can use that principle for everyday social posts without adopting a new platform or generating twenty options at a time. The point is to make **one good, recognizable post** quickly.
 
-For most owners already making social posts, **Canva is a useful finishing place** because the video remains editable, its Brand Kit keeps approved assets close, and a reusable design saves layout decisions. You can use Canva AI inside Canva where your plan supports it. Or connect the agent you prefer, **ChatGPT or Claude**, to Canva for supported design and file actions. There is no need to use both agents. Canva's reputation is not the reason to choose it; this repeatable editing and handoff is.
+For most owners already making social posts, **Canva is a useful finishing place** because the video remains editable, its Brand Kit keeps approved assets close, and a reusable design saves layout decisions. You can use Canva AI inside Canva where your plan supports it. Or connect the agent you prefer, **ChatGPT or Claude**, to Canva for supported design and file actions, including AI design generation where available. There is no need to use both agents. Canva's reputation is not the reason to choose it; this repeatable editing and handoff is.
 
 Which route should you take? **Canva alone** is the simplest start when you already make posts there. **ChatGPT plus Canva** fits if the hard part is choosing an angle and writing a short script. **Claude plus Canva** fits if you already work in Claude and want stronger visual exploration or a reusable design system. Canva's conversational AI has a fuller feature set on eligible paid plans; Claude's design systems are currently beta on eligible paid plans. Use the route you can sustain each week, not the one with the longest feature list.
 
@@ -45,6 +45,10 @@ If you already like working in [VS Code](https://code.visualstudio.com/docs/agen
 After you approve the list, ask the agent to **copy only those files** into an `Approved` folder and write a short `brand-pack.md` with the exact colours, font roles, voice, current offer, three examples and links to the originals. Keep draft and old versions separate. The plain-text pack is easy to update and can be added to your ChatGPT Project or Claude design system. Add the approved visual assets to Canva and check its Brand Kit yourself.
 
 Your editor does not gain access to Canva merely because it has an AI agent. A Canva design connection in an editor needs its own supported setup and authorization. Canva's [Dev MCP server](https://www.canva.dev/docs/apps/dev-mcp-server/) is for people developing Canva apps, not the everyday design connection in this guide. The folder approach still works with a simple manual Canva handoff.
+
+## What connecting an agent to Canva means
+
+[Canva's AI Connector](https://www.canva.com/help/mcp-canva-usage/) lets a supported assistant request specific Canva actions. These include finding an approved design, copying or editing it, creating a new editable design, and generating a design with Canva's Magic Design where available. Some AI actions use Canva AI credits, and the action list varies by assistant and account. The documented connector is a set of design actions; it does not promise that your ChatGPT or Claude conversation becomes a Canva AI chat or that the two products share a memory. Keep your approved brand pack and Canva Brand Kit current in their respective places.
 
 ## Route 1: You want to work inside Canva
 
