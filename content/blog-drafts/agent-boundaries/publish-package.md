@@ -36,4 +36,4 @@ Source: Anthropic, “Investigating unintended model actions in our evaluations 
 - Primary: https://www.anthropic.com/news/investigating-unintended-model-actions
 - Reel is sound-off by design; no voiceover or licensed music is required.
 - Release on Tuesday, October 13: move the Notion article to `Published`; verify the public URL and cover; set and verify the Instagram bio link; then publish the companion Reel that same day. The Notion date does not publish the article automatically.
-- The article is staged in Notion but not live. The Reel MP4, cover and caption are staged locally; Meta Business Suite and Instagram were signed out on October 12, so the Reel is not scheduled there.
+- The article is staged in Notion but not live. The Reel MP4 and cover are staged locally, and the caption is in Meta Business Suite's **@thedotcreativeagency-only** composer. Chrome's file-upload setting blocked the MP4 chooser; the Reel is not scheduled yet.

@@ -41,4 +41,4 @@ Sources: Google Search Status Dashboard; Google Search Central spam-update and t
 - https://developers.google.com/search/docs/monitor-debug/debugging-search-traffic-drops
 - Reel is sound-off by design; no voiceover or licensed music is required.
 - Release on Wednesday, October 14: move the Notion article to `Published`; verify the public URL and cover; set and verify the Instagram bio link; then publish the companion Reel that same day. The Notion date does not publish the article automatically.
-- The article is staged in Notion but not live. The Reel MP4, cover and caption are staged locally; Meta Business Suite and Instagram were signed out on October 12, so the Reel is not scheduled there.
+- The article is staged in Notion but not live. The Reel MP4, cover and caption are staged locally. Meta Business Suite is signed in to The Dot account, but Chrome's file-upload setting blocked the first Reel upload; this Reel is not scheduled yet. Post to **@thedotcreativeagency only**.
