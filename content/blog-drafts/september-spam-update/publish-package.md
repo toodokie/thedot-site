@@ -13,7 +13,7 @@
 | Read time | 4–5 minutes |
 | Open Graph title | Google Updated Its Spam Systems. Check the Data First. |
 | Open Graph description | A practical Search Console walkthrough for business owners after the September 2026 rollout. |
-| Suggested sharing image | Cream editorial chart card: “A DROP ISN'T A DIAGNOSIS,” sparse black trend line, four small data labels, one yellow marker and The Dot masthead. 1200 × 630. |
+| Suggested sharing image | Charcoal search bulletin card: “A DROP ISN'T A DIAGNOSIS,” flat cream trend line, numbered data labels and one yellow marker. 1200 × 630. |
 | Verified internal link | https://www.thedotcreative.co/blog/can-ai-find-your-business |
 | Reel destination | The proposed article URL after publication: `https://www.thedotcreative.co/blog/september-2026-google-spam-update-what-to-check` (not live yet; do not use as a working link until published). |
 

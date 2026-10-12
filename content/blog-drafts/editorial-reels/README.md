@@ -1,6 +1,6 @@
 # October 2026 editorial Reel source
 
-The Dot's two October campaigns share [studio.html](studio.html), an editable HTML/CSS composition built around the site's palette, Adobe kit `gac6jnd`, Futura PT, FF Real Text Pro, sharp structure and dot device. The 16 captured JPGs in `rendered/` are the exact 1080 × 1920 scene inputs. [render.sh](render.sh) assembles each eight-scene sequence at 30 fps as a 28-second silent H.264 MP4, with hard cuts and a slow camera push. The first scene doubles as each campaign's Instagram cover.
+The Dot's two October campaigns share [studio.html](studio.html), an editable HTML/CSS source and the site's palette, Adobe kit `gac6jnd`, Futura PT and FF Real Text Pro. Their feed identities differ: the AI Reel uses a cream editorial story and silver orb; the Google Reel uses a charcoal search bulletin, chart and numbered data sections. The 16 captured JPGs in `rendered/` are the exact 1080 × 1920 scene inputs. [render.sh](render.sh) assembles each eight-scene sequence at 30 fps as a 28-second silent H.264 MP4, with hard cuts and a slow camera push. The first scene doubles as each campaign's Instagram cover. [Adjacent cover preview](adjacent-covers.jpg) shows their feed crop side by side.
 
 ## Edit and re-export
 
