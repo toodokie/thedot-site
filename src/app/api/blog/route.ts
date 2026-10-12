@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Client } from '@notionhq/client';
+import { getEditorialBlogCover } from '@/lib/editorial-blog-covers';
 
 const notion = new Client({
   auth: process.env.NOTION_BLOG_TOKEN,
@@ -79,7 +80,8 @@ export async function GET(request: NextRequest) {
         date: properties.Date?.date?.start || '',
         featured: properties.Featured?.checkbox || false,
         readTime: properties['Read Time']?.number || 0,
-        featuredImage: properties['Featured Image']?.files?.[0]?.file?.url || 
+        featuredImage: getEditorialBlogCover(properties.Slug?.rich_text?.[0]?.plain_text || '') ||
+                       properties['Featured Image']?.files?.[0]?.file?.url ||
                       properties['Featured Image']?.files?.[0]?.external?.url || '',
         createdTime: page.created_time,
         lastEditedTime: page.last_edited_time
@@ -92,8 +94,7 @@ export async function GET(request: NextRequest) {
         post.status = properties.Status?.select?.name || '';
         post.metaTitle = properties['Meta Title']?.rich_text?.[0]?.plain_text || '';
         post.metaDescription = properties['Meta Description']?.rich_text?.[0]?.plain_text || '';
-        post.socialImage = properties['Social Image']?.files?.[0]?.file?.url || 
-                          properties['Social Image']?.files?.[0]?.external?.url || '';
+        post.socialImage = properties['Social Image']?.url || '';
         post.wordCount = properties['Word Count']?.number || 0;
       }
 

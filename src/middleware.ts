@@ -63,8 +63,8 @@ export function middleware(request: NextRequest) {
     );
   }
   
-  // Redirect non-www to www (consolidate to single domain)
-  if (process.env.NODE_ENV === 'production' && !hostname.startsWith('www.') && !hostname.includes('localhost')) {
+  // Redirect only the bare production domain; preview hosts must remain reachable.
+  if (process.env.NODE_ENV === 'production' && hostname === 'thedotcreative.co') {
     return NextResponse.redirect(
       `https://www.${hostname}${pathname}${request.nextUrl.search}`,
       301
