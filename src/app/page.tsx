@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import HomePage from '@/components/HomePage';
 
 export const metadata: Metadata = {
-  title: "The Dot Creative Agency | Business Systems Integration + Web Design | Ontario",
+  title: "Business Systems Integration + Web Design, Ontario | The Dot",
   description: "Ontario web design agency that connects your business systems. Save 10-20 hours monthly through strategic website design and automation. Serving GTA businesses.",
   keywords: "business systems integration Ontario, web design agency GTA, website automation Toronto, connected business solutions, AODA compliant websites Ontario",
   

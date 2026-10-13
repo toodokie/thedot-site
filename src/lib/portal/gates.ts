@@ -1,0 +1,702 @@
+// Agency-side gate engine (gate-system spec phase 1, 2026-07-21).
+// Pure derivations over live rows: the nine-gate resolver, the per-piece stage
+// (spec section 4.1), the my_tasks union (section 4.2), and the STATUS GATES block
+// renderer (the my-tasks spec section 5 grammar). No stored state, no client surface:
+// everything here renders on the ADMIN side only. The client shell never imports this.
+
+export type ProductionGateKey = 'source_in_hand' | 'design_built' | 'proofed' | 'approval_sent'
+export type GateState = 'open' | 'done' | 'na'
+
+export type ProductionGateRow = {
+  content_version?: number
+  gate_key: ProductionGateKey
+  state: GateState
+  owner_label: 'anastasia' | 'studio' | 'agent'
+  occurred_at: string | null
+  note: string | null
+  na_reason: string | null
+}
+
+export type DestState = {
+  destination: string
+  required?: boolean
+  scheduleStatus: string | null // content_schedule_targets vocabulary
+  publicationStatus: string | null // pending | live | removed | unavailable | failed
+  verified: boolean // link-confirmed: first_verified_at present
+  scheduledAt: string | null
+  liveUrl: string | null
+}
+
+export type StagePiece = {
+  // content_id is unique only PER TENANT, so the tenant identity rides every piece
+  // (Codex round-3 fix 2): composite keys downstream stop cross-tenant collisions when a
+  // second client exists.
+  clientId: string
+  clientName: string
+  // Internal row identity. Admin-only joins such as unresolved edit requests use this;
+  // client-facing routes continue to use the durable contentId below.
+  internalContentId?: string
+  contentId: string
+  title: string
+  format?: string | null
+  pillar?: string | null
+  producer?: 'the_dot' | 'studio' | null
+  calendarNote?: string | null
+  // Calendar date for drafts/ideas, and the latest confirmed publication date for
+  // pieces that have gone live. These are display-only ordering fields.
+  plannedDate?: string | null
+  latestPublishedAt?: string | null
+  // NULL is a selected idea with a durable content_id but no authored snapshot yet.
+  workingVersion?: number | null
+  visibleVersion?: number | null
+  released?: boolean
+  status: string // idea | draft | approved | scheduled | posted
+  factCheck: string | null // confirmed | needs-confirm | flagged
+  factCheckExempt: boolean
+  factCheckValid?: boolean
+  currentDecision: 'approved' | 'change_requested' | null
+  // Open binding edit requests are a separate workflow plane from the package-level
+  // approval decision. A client can request edits without changing currentDecision.
+  openClientEdits?: number
+  // This is an agency-only, version-bound workflow policy. It is never a fabricated
+  // client decision: `courtesy` means the agency has explicitly made client approval
+  // non-blocking for this released snapshot (for example a studio-owned live cut).
+  reviewMode?: 'required' | 'courtesy'
+  // Versionless ideas have a separate decision plane. A plan-cycle approval is the
+  // batch decision; a piece decision overrides it for that cycle revision.
+  ideaDecision: 'approved' | 'change_requested' | null
+  ideaDecisionSource: 'batch' | 'piece' | null
+  ideaDecisionNote: string | null
+  // The current plan-cycle submission timestamp. This is separate from the
+  // version-bound approval_sent gate: it is the first approval cycle for the
+  // idea + initial copy direction.
+  ideaApprovalSentAt: string | null
+  approvalSentAt: string | null // derived from the approval_sent gate row when done
+  // platforms are CANONICAL schedule destinations (portal_schedule_destination mapping),
+  // not raw frontmatter, so they match content_schedule_targets / content_publication_
+  // targets which store the canonicalized destination (Codex round-3 blocker).
+  platforms: string[]
+  archived: boolean
+  exceptions?: Array<{ kind: string; destination?: string; stage?: string; note?: string }>
+  legacy?: { classification: 'legacy_verified' | 'legacy_unverified' } | null
+  gates: ProductionGateRow[]
+  dests: DestState[]
+}
+
+// TypeScript mirror of the SQL portal_schedule_destination() (0008): the loader must
+// canonicalize a piece's raw frontmatter platforms to the SAME destination vocabulary
+// the schedule/publication targets are stored under, or a complete youtube_shorts /
+// website / blog destination reads as unscheduled. An UNKNOWN platform returns NULL
+// exactly as the SQL does (Codex round-4 blocker): a passthrough would invent a phantom
+// destination (e.g. tiktok) with perpetual gate tasks that the SQL never schedules. A
+// released piece can never carry an unmapped platform (portal_ensure_schedule_targets
+// raises on one); a draft's unmapped platform simply has no target lane and is dropped.
+// Keep this in lockstep with 0008.
+const SCHEDULE_DESTINATION_MAP: Record<string, string> = {
+  instagram: 'instagram',
+  facebook: 'facebook',
+  youtube: 'youtube',
+  'youtube shorts': 'youtube',
+  youtube_shorts: 'youtube',
+  'youtube-shorts': 'youtube',
+  linkedin: 'linkedin',
+  'linked in': 'linkedin',
+  squarespace: 'squarespace',
+  website: 'squarespace',
+  blog: 'squarespace',
+  other: 'other',
+}
+
+export function canonicalScheduleDestination(platform: string): string | null {
+  const normalized = platform.trim().toLowerCase()
+  return SCHEDULE_DESTINATION_MAP[normalized] ?? null
+}
+
+// The current decision on a version, selected with the SAME tie-break the canonical
+// content_with_state view uses: created_at DESC, then id DESC (Codex round-3 fix 1). On
+// equal timestamps the loader and the view therefore pick the same row, so the admin
+// stage can never disagree with client-facing portal state.
+export type DecisionRow = { id: string; state: string; created_at: string }
+export function selectCurrentDecision(rows: DecisionRow[]): 'approved' | 'change_requested' | null {
+  const top = [...rows].sort((a, b) =>
+    a.created_at !== b.created_at
+      ? (a.created_at < b.created_at ? 1 : -1)
+      : (a.id < b.id ? 1 : -1))[0]?.state
+  return top === 'approved' ? 'approved' : top === 'change_requested' ? 'change_requested' : null
+}
+
+// Canonicalize a raw platform list to distinct SUPPORTED destinations, preserving
+// first-seen order (matches the SQL DISTINCT collapse: two platforms mapping to the same
+// destination become one). Unknown platforms canonicalize to null and are DROPPED (Codex
+// round-4 blocker): they have no schedule/publication target lane, so they must not
+// become phantom per-destination gates.
+export function canonicalDestinations(platforms: string[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const platform of platforms) {
+    const dest = canonicalScheduleDestination(platform)
+    if (dest !== null && !seen.has(dest)) { seen.add(dest); out.push(dest) }
+  }
+  return out
+}
+
+// Canonical order (my-tasks spec section 4, locked vocabulary).
+export const GATE_ORDER = [
+  'fact-check', 'source-in-hand', 'design-built', 'proofed', 'approval-sent',
+  'copy-approved', 'scheduled', 'posted', 'link-confirmed',
+] as const
+export type GateKey = (typeof GATE_ORDER)[number]
+
+const PRODUCTION_KEY_MAP: Record<ProductionGateKey, GateKey> = {
+  source_in_hand: 'source-in-hand',
+  design_built: 'design-built',
+  proofed: 'proofed',
+  approval_sent: 'approval-sent',
+}
+
+export type ResolvedGate = {
+  key: GateKey
+  dest: string | null
+  state: GateState
+  owner: string
+  date: string | null
+  note: string | null
+  // present = the portal actually stores this gate for this piece; production gates
+  // with no row (podcast lane, pre-backfill pieces) resolve absent and never generate
+  // tasks or block the stage (spec 12.7)
+  present: boolean
+}
+
+const day = (iso: string | null | undefined): string | null => (iso ? iso.slice(0, 10) : null)
+
+function productionGate(piece: StagePiece, key: ProductionGateKey): ProductionGateRow | null {
+  return piece.gates.find((gate) => gate.gate_key === key) ?? null
+}
+
+// The full nine-gate resolution for one piece, canonical order, per-destination lines
+// for gates 7-9 (split the moment destinations diverge; a bare line never vouches for
+// all platforms). Gates 1 and 6-9 resolve from their REAL storage (fact-check ledger,
+// approvals, schedule/publication targets); 2-5 from content_production_gates.
+export function resolveNineGates(piece: StagePiece): ResolvedGate[] {
+  const rows: ResolvedGate[] = []
+
+  rows.push({
+    key: 'fact-check', dest: null, present: true,
+    state: piece.factCheckExempt ? 'na' : (piece.factCheckValid ?? piece.factCheck === 'confirmed') ? 'done' : 'open',
+    owner: 'anastasia', date: null,
+    note: piece.factCheckExempt ? 'exempt (no regulated claim)' : piece.factCheck,
+  })
+
+  for (const key of ['source_in_hand', 'design_built', 'proofed', 'approval_sent'] as const) {
+    const row = productionGate(piece, key)
+    rows.push(row
+      ? { key: PRODUCTION_KEY_MAP[key], dest: null, present: true, state: row.state,
+          owner: row.owner_label, date: day(row.occurred_at),
+          note: row.state === 'na' ? row.na_reason : row.note }
+      : { key: PRODUCTION_KEY_MAP[key], dest: null, present: false, state: 'open',
+          owner: key === 'source_in_hand' ? 'studio' : 'anastasia', date: null, note: null })
+  }
+
+  rows.push({
+    key: 'copy-approved', dest: null, present: true,
+    state: piece.reviewMode === 'courtesy' ? 'na' : piece.currentDecision === 'approved' ? 'done' : 'open',
+    owner: piece.reviewMode === 'courtesy' ? 'agency' : 'maria', date: null,
+    note: piece.reviewMode === 'courtesy'
+      ? 'courtesy release, no client approval required'
+      : piece.currentDecision === 'change_requested' ? 'change requested; re-arms on the new version' : null,
+  })
+
+  for (const platform of piece.platforms) {
+    const dest = piece.dests.find((d) => d.destination === platform)
+    // A live destination must not create a stale "schedule this" action, but live proof
+    // is not provider-schedule proof. Render the schedule step as non-blocking `na` when
+    // the item was published without an audited schedule confirmation, instead of
+    // inventing a scheduled timestamp/state in the pack projection.
+    const liveWithoutSchedule = dest?.publicationStatus === 'live' && dest.scheduleStatus !== 'scheduled'
+    rows.push({
+      key: 'scheduled', dest: platform, present: true,
+      state: dest?.scheduleStatus === 'scheduled' ? 'done' : liveWithoutSchedule ? 'na' : 'open',
+      owner: 'anastasia', date: day(dest?.scheduledAt),
+      note: liveWithoutSchedule ? 'live confirmed; no provider schedule record' : null,
+    })
+  }
+  for (const platform of piece.platforms) {
+    const dest = piece.dests.find((d) => d.destination === platform)
+    rows.push({
+      key: 'posted', dest: platform, present: true,
+      state: dest?.publicationStatus === 'live' ? 'done' : 'open',
+      owner: 'anastasia', date: null, note: null,
+    })
+  }
+  for (const platform of piece.platforms) {
+    const dest = piece.dests.find((d) => d.destination === platform)
+    rows.push({
+      key: 'link-confirmed', dest: platform, present: true,
+      state: dest?.publicationStatus === 'live' && dest.verified ? 'done' : 'open',
+      owner: 'anastasia', date: null, note: dest?.liveUrl ?? null,
+    })
+  }
+  return rows
+}
+
+// ---- per-piece stage (spec 4.1, priority-ordered, 8 branches) ----------------
+
+export type ContentStage =
+  | 'done' | 'posted_unverified' | 'scheduled' | 'scheduled_partial'
+  | 'approved' | 'courtesy_released' | 'direction_approved' | 'changes_requested' | 'awaiting_decision' | 'awaiting_idea_approval' | 'in_production' | 'draft'
+  | 'idea' | 'archived' | 'legacy' | 'needs_platform_mapping'
+
+export type StageResult = { stage: ContentStage; label: string }
+
+const listDests = (dests: string[]) => dests.join(', ')
+
+// An ABSENT gate row (podcast lane, partial backfill) is NOT a blocker: it is an
+// unknown, not an unmet obligation (Codex round-2 fix A). Only a PRESENT gate that is
+// still open blocks. na (with its mandatory reason) is a satisfied, non-blocking state.
+function gateBlocks(row: ProductionGateRow | null): boolean {
+  return row !== null && row.state === 'open'
+}
+
+function planCycleOpen(piece: StagePiece): piece is StagePiece & { ideaApprovalSentAt: string } {
+  return piece.ideaApprovalSentAt !== null && piece.ideaDecision !== 'approved'
+    && piece.currentDecision !== 'approved' && piece.reviewMode !== 'courtesy'
+}
+// An undecided plan cycle only describes a piece that has not been released to the client.
+function planCyclePending(piece: StagePiece): piece is StagePiece & { ideaApprovalSentAt: string } {
+  return planCycleOpen(piece) && piece.released !== true
+}
+function planCycleSupersededByRelease(piece: StagePiece): piece is StagePiece & { ideaApprovalSentAt: string } {
+  return planCycleOpen(piece) && piece.released === true
+}
+
+export function deriveContentStage(piece: StagePiece): StageResult {
+  if (piece.archived) return { stage: 'archived', label: 'archived' }
+  if (piece.legacy?.classification === 'legacy_verified') {
+    return { stage: 'legacy', label: 'posted (legacy, verified)' }
+  }
+  if (piece.legacy?.classification === 'legacy_unverified') {
+    return { stage: 'legacy', label: 'posted (legacy, not portal-verified)' }
+  }
+  if (piece.exceptions?.some((exception) =>
+    exception.kind === 'unsupported_destination' || exception.kind === 'needs_platform_mapping')) {
+    return { stage: 'needs_platform_mapping', label: 'needs platform mapping' }
+  }
+  if (piece.workingVersion === null) return { stage: 'idea', label: 'idea' }
+  const required = piece.platforms.filter((platform) =>
+    piece.dests.find((dest) => dest.destination === platform)?.required !== false)
+  const destOf = (p: string) => piece.dests.find((d) => d.destination === p)
+
+  const liveVerified = required.filter((p) => {
+    const d = destOf(p); return d?.publicationStatus === 'live' && d.verified
+  })
+  const liveAny = required.filter((p) => destOf(p)?.publicationStatus === 'live')
+  const scheduled = required.filter((p) => destOf(p)?.scheduleStatus === 'scheduled')
+
+  // 1. done: every required destination link-confirmed
+  if (required.length > 0 && liveVerified.length === required.length) {
+    return { stage: 'done', label: 'done (all destinations link-confirmed)' }
+  }
+  // 2. posted without link confirmation anywhere
+  if (liveAny.length > 0) {
+    const unverified = liveAny.filter((p) => !liveVerified.includes(p))
+    return {
+      stage: 'posted_unverified',
+      label: unverified.length > 0
+        ? `posted, link-confirm pending (${listDests(unverified)})`
+        : `posted (${listDests(liveAny)}); ${listDests(required.filter((p) => !liveAny.includes(p)))} pending`,
+    }
+  }
+  // 3. scheduled for all / some destinations
+  if (required.length > 0 && scheduled.length === required.length) {
+    return { stage: 'scheduled', label: `scheduled (${listDests(scheduled)})` }
+  }
+  if (scheduled.length > 0) {
+    const pending = required.filter((p) => !scheduled.includes(p))
+    return { stage: 'scheduled_partial', label: `scheduled (${listDests(scheduled)}); ${listDests(pending)} pending` }
+  }
+
+  // Maria's final-package change request (a change_requested decision and/or open binding
+  // edit requests) puts the piece back with The Dot. Her approval still wins, as before.
+  if (piece.currentDecision !== 'approved' && piece.reviewMode !== 'courtesy'
+      && ((piece.openClientEdits ?? 0) > 0 || piece.currentDecision === 'change_requested')) {
+    const edits = piece.openClientEdits ?? 0
+    return {
+      stage: 'changes_requested',
+      label: edits > 0 ? `Maria asked for changes; ${edits} edit${edits === 1 ? '' : 's'} open` : 'Maria asked for changes',
+    }
+  }
+
+  // A submitted plan cycle is a separate client decision. It must be resolved
+  // before the version-bound final approval can describe the piece as approved.
+  // Since 2026-09-02 the plan is a heads-up that is never decided, so once a version is
+  // released to the client the plan cycle no longer describes where the piece is.
+  if (planCyclePending(piece)) {
+    return { stage: 'awaiting_idea_approval', label: 'awaiting idea approval' }
+  }
+  if (planCycleSupersededByRelease(piece) && piece.currentDecision === null
+      && piece.visibleVersion === piece.workingVersion) {
+    return { stage: 'awaiting_decision', label: 'awaiting decision' }
+  }
+
+  const design = productionGate(piece, 'design_built')
+  const proofed = productionGate(piece, 'proofed')
+  const approvalSent = productionGate(piece, 'approval_sent')
+  const hasGateRows = piece.gates.length > 0
+
+  if (piece.currentDecision === 'approved' || piece.reviewMode === 'courtesy') {
+    // 4/5. approved vs direction_approved (the H&C shape): a decision recorded while any
+    // PRESENT production gate is still open claims less than "approved". Codex round-2
+    // fix A: an ABSENT design_built/proofed/approval_sent row never forces
+    // direction_approved (that was the bug: a partial gate set with a done proofed but
+    // no design row wrongly derived direction_approved), and an open approval_sent row
+    // (present and open) DOES, which the old design/proofed-only check missed. Pieces
+    // with no gate rows at all derive approved from the decision alone (spec 12.7).
+    if (gateBlocks(design) || gateBlocks(proofed) || gateBlocks(approvalSent)) {
+      return piece.reviewMode === 'courtesy'
+        ? { stage: 'courtesy_released', label: 'courtesy release (production gates open)' }
+        : { stage: 'direction_approved', label: 'direction approved (production gates open)' }
+    }
+    if (piece.reviewMode === 'courtesy') {
+      return { stage: 'courtesy_released', label: 'courtesy release (no client approval required)' }
+    }
+    return { stage: 'approved', label: 'approved' }
+  }
+  // 6. the ask is out, no decision yet
+  if (approvalSent?.state === 'done') {
+    return { stage: 'awaiting_decision', label: 'awaiting decision' }
+  }
+  // 7. in production, subdivided by the first open production gate
+  if (hasGateRows && piece.gates.some((gate) => gate.state === 'open')) {
+    const source = productionGate(piece, 'source_in_hand')
+    if (source?.state === 'open' && source.owner_label === 'studio') {
+      return { stage: 'in_production', label: 'waiting on studio' }
+    }
+    if (source?.state === 'open') return { stage: 'in_production', label: 'needs source' }
+    if (design?.state === 'open') return { stage: 'in_production', label: 'needs design' }
+    if (proofed?.state === 'open') return { stage: 'in_production', label: 'needs proof' }
+    return { stage: 'in_production', label: 'needs the ask sent' }
+  }
+  // 8. nothing above
+  return { stage: 'draft', label: 'draft' }
+}
+
+// ---- my_tasks (spec 4.2, agency-only) ----------------------------------------
+
+// Piece-derived tasks carry the tenant (clientId + clientName) so the admin can key +
+// label them across tenants (Codex round-3 fix 2); ops tasks are keyed by their own uuid.
+// Every task carries a resolved clientName so the admin can label it across tenants
+// (Codex round-4 fix 2). An ops task with a null client_id is agency-global: its
+// clientName is 'Agency'. Piece-derived tasks also carry clientId for composite keys.
+type PieceTaskBase = {
+  clientId: string
+  clientName: string
+  contentId: string
+  title: string
+  plannedDate: string | null
+}
+
+export type MyTask =
+  | (PieceTaskBase & { kind: 'action'; gate: GateKey | 'review-client-changes' | 'review-plan-changes'; dest: string | null; moreOpen: number; postPublishProofRecord: boolean; clientEditCount?: number })
+  // posted everywhere required, only link-confirmation outstanding: bookkeeping, not
+  // production work, so it renders in a quiet "link-confirm pending" group instead of
+  // flooding Actions (many imported/legacy pieces sit here honestly unverified).
+  | (PieceTaskBase & { kind: 'link_pending'; dest: string | null; moreOpen: number })
+  // A scheduled or partly-published historical piece is not today's production work.
+  // It needs evidence reconciliation: verify provider reality and record the public
+  // permalink or the missing proof record. Keep this out of the urgent action count.
+  | (PieceTaskBase & { kind: 'reconciliation'; issue: 'publication' | 'proof'; dest: string | null; moreOpen: number })
+  | (PieceTaskBase & { kind: 'waiting_maria'; waitingFor: 'plan_direction' | 'final_review'; daysWaiting: number; nudge: boolean })
+  | (PieceTaskBase & { kind: 'waiting_studio'; note: string | null })
+  | { kind: 'ops'; id: string; clientName: string; title: string; category: string; bucket: 'overdue' | 'today' | 'this_week' | 'upcoming' | 'watch'; dueDate: string | null; triggerNote: string | null; occurrences: number }
+
+// A recently-completed ops task, for the admin's "Recently completed" reader: it shows
+// BOTH the original trigger_note (immutable) and the completion_note (fix B), proving a
+// completion never overwrites the trigger provenance.
+export type CompletedOpsTask = {
+  id: string
+  clientName: string // 'Agency' for a null-client global task
+  title: string
+  category: string
+  status: string
+  triggerNote: string | null
+  completionNote: string | null
+  completedAt: string | null
+}
+
+// clientId is nullable: an ops task may be agency-global (Codex round-4 fix 2 threads it
+// through so the admin can resolve + display the client name). clientName is the resolved
+// label ('Agency' when clientId is null).
+export type OpsTaskRow = {
+  id: string
+  clientId: string | null
+  clientName: string
+  title: string
+  category: string
+  due_date: string | null
+  trigger_note: string | null
+  status: string
+}
+
+export function businessDaysBetween(fromIso: string, toIso: string): number {
+  const from = new Date(fromIso.slice(0, 10) + 'T00:00:00Z')
+  const to = new Date(toIso.slice(0, 10) + 'T00:00:00Z')
+  let days = 0
+  const cursor = new Date(from)
+  while (cursor < to) {
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+    const dow = cursor.getUTCDay()
+    if (dow !== 0 && dow !== 6) days += 1
+  }
+  return days
+}
+
+export function deriveMyTasks(
+  pieces: StagePiece[],
+  opsTasks: OpsTaskRow[],
+  todayIso: string,
+): MyTask[] {
+  const tasks: MyTask[] = []
+
+  for (const piece of pieces) {
+    if (piece.archived || piece.legacy) continue
+    // A selected idea is visible in the calendar and Pieces table, but authoring has
+    // not started. It must not manufacture a fact-check or production task before v1.
+    if (piece.workingVersion === null) continue
+    const pieceTask = {
+      clientId: piece.clientId,
+      clientName: piece.clientName,
+      contentId: piece.contentId,
+      title: piece.title,
+      plannedDate: day(piece.plannedDate),
+    }
+    // A binding final-package change request is the agency's next move. It must win over
+    // an older plan cycle, otherwise the precise client request is replaced by the generic
+    // "plan direction" label and disappears from the top of My Tasks.
+    if ((piece.openClientEdits ?? 0) > 0 || piece.currentDecision === 'change_requested') {
+      tasks.push({ kind: 'action', ...pieceTask, gate: 'review-client-changes', dest: null,
+        moreOpen: 0, postPublishProofRecord: false,
+        clientEditCount: piece.openClientEdits && piece.openClientEdits > 0 ? piece.openClientEdits : undefined })
+      continue
+    }
+    // A submitted plan cycle is a distinct first decision. It covers the week's
+    // direction and any fact-checked copy that is already visible, never the later
+    // version-bound final copy-plus-design approval.
+    // Once released, the version-bound final review below owns the wait instead.
+    if (planCyclePending(piece)) {
+      const days = businessDaysBetween(piece.ideaApprovalSentAt, todayIso)
+      if (piece.ideaDecision === 'change_requested') {
+        tasks.push({ kind: 'action', ...pieceTask, gate: 'review-plan-changes', dest: null,
+          moreOpen: 0, postPublishProofRecord: false })
+      } else {
+        tasks.push({ kind: 'waiting_maria', ...pieceTask, waitingFor: 'plan_direction',
+          daysWaiting: days, nudge: days >= 2 })
+      }
+      continue
+    }
+
+    // Provider state wins over stale production-gate rows. Scheduled and published pieces
+    // can retain historical source/design/approval rows forever, but those rows must never
+    // resurrect as "Send to Maria" or "Post" in today's urgent work. Historical gaps are
+    // evidence reconciliation, not production deadlines.
+    const stage = deriveContentStage(piece)
+    // Released while the (never-decided, heads-up) plan cycle is still open: the wait is
+    // Maria's final review of the released package, counted from when it was sent.
+    if (stage.stage === 'awaiting_decision' && planCycleSupersededByRelease(piece)) {
+      const sentAt = productionGate(piece, 'approval_sent')?.occurred_at ?? piece.ideaApprovalSentAt
+      const days = businessDaysBetween(sentAt, todayIso)
+      tasks.push({ kind: 'waiting_maria', ...pieceTask, waitingFor: 'final_review',
+        daysWaiting: days, nudge: days >= 2 })
+      continue
+    }
+    if (stage.stage === 'done') {
+      const proofed = productionGate(piece, 'proofed')
+      if (proofed?.state === 'open') {
+        tasks.push({ kind: 'reconciliation', ...pieceTask,
+          issue: 'proof', dest: null, moreOpen: 0 })
+      }
+      continue
+    }
+
+    const requiredDestinations = piece.platforms.filter((platform) =>
+      piece.dests.find((dest) => dest.destination === platform)?.required !== false)
+    const pendingSchedule = requiredDestinations.filter((platform) => {
+      const dest = piece.dests.find((row) => row.destination === platform)
+      return dest?.scheduleStatus !== 'scheduled' && dest?.publicationStatus !== 'live'
+    })
+    const pendingPublication = requiredDestinations.filter((platform) =>
+      piece.dests.find((dest) => dest.destination === platform)?.publicationStatus !== 'live')
+    const plannedBeforeToday = pieceTask.plannedDate !== null && pieceTask.plannedDate < todayIso.slice(0, 10)
+
+    if (stage.stage === 'scheduled') {
+      // A provider commitment is already recorded. On or before its planned day the
+      // calendar is the useful surface; after that day, missing live evidence becomes a
+      // quiet reconciliation check instead of an instruction to publish again.
+      if (plannedBeforeToday && pendingPublication.length > 0) {
+        tasks.push({ kind: 'reconciliation', ...pieceTask, issue: 'publication',
+          dest: pendingPublication[0], moreOpen: pendingPublication.length - 1 })
+      }
+      continue
+    }
+
+    if (stage.stage === 'scheduled_partial') {
+      if (plannedBeforeToday) {
+        tasks.push({ kind: 'reconciliation', ...pieceTask, issue: 'publication',
+          dest: pendingPublication[0] ?? null, moreOpen: Math.max(0, pendingPublication.length - 1) })
+      } else if (pendingSchedule.length > 0) {
+        tasks.push({ kind: 'action', ...pieceTask, gate: 'scheduled',
+          dest: pendingSchedule[0], moreOpen: pendingSchedule.length - 1,
+          postPublishProofRecord: false })
+      }
+      continue
+    }
+
+    if (stage.stage === 'posted_unverified') {
+      if (pendingPublication.length > 0) {
+        tasks.push({ kind: 'reconciliation', ...pieceTask, issue: 'publication',
+          dest: pendingPublication[0], moreOpen: pendingPublication.length - 1 })
+      } else {
+        const unverified = requiredDestinations.filter((platform) => {
+          const dest = piece.dests.find((row) => row.destination === platform)
+          return dest?.publicationStatus === 'live' && !dest.verified
+        })
+        tasks.push({ kind: 'link_pending', ...pieceTask,
+          dest: unverified[0] ?? null, moreOpen: Math.max(0, unverified.length - 1) })
+      }
+      continue
+    }
+
+    const resolved = resolveNineGates(piece)
+    // only gates the portal actually stores generate tasks (absent rows are unknowns,
+    // not obligations: a podcast episode must not show "needs source" forever)
+    const open = resolved.filter((gate) => gate.present && gate.state === 'open')
+    if (open.length === 0) continue
+    const first = open[0]
+    if (first.key === 'copy-approved') {
+      const approvalSent = productionGate(piece, 'approval_sent')
+      // A current decision cannot be requested until the exact released package has been
+      // sent. Unshared v1 stubs used to fall through here and falsely told Ops that Maria
+      // owed final approval, even though there was no client-visible copy or design.
+      if (piece.released === false || approvalSent?.state !== 'done') continue
+      if (approvalSent?.state === 'done' && approvalSent.occurred_at) {
+        const days = businessDaysBetween(approvalSent.occurred_at, todayIso)
+        // call 4: at 2 business days the row flags nudge?; a draft is OFFERED, nothing
+        // ever auto-sends
+        tasks.push({ kind: 'waiting_maria', ...pieceTask, waitingFor: 'final_review',
+          daysWaiting: days, nudge: days >= 2 })
+        continue
+      }
+    }
+    if (first.key === 'source-in-hand' && first.owner === 'studio') {
+      tasks.push({ kind: 'waiting_studio', ...pieceTask, note: first.note })
+      continue
+    }
+    // Only link-confirmation left (the piece is posted): quiet bookkeeping, not an action.
+    if (first.key === 'link-confirmed') {
+      tasks.push({ kind: 'link_pending', ...pieceTask, dest: first.dest, moreOpen: open.length - 1 })
+      continue
+    }
+    tasks.push({ kind: 'action', ...pieceTask,
+      // The OTHER destinations still open on THIS gate, not the count of every open gate left on
+      // the piece. Gates are emitted one per platform, so a three-platform reel carries nine open
+      // gates and the old count said 8, which is why nothing rendered it: it was meaningless.
+      // What the reader needs from "Schedule: instagram" is that Facebook and YouTube are waiting
+      // too, so the row reads as three actions rather than one.
+      gate: first.key, dest: first.dest,
+      moreOpen: open.filter((gate) => gate.key === first.key).length - 1,
+      // A publication record proves a live destination, not that the required pre-publish
+      // proof happened. Keep the missing audit record visible, but name it honestly.
+      postPublishProofRecord: first.key === 'proofed'
+        && piece.dests.some((dest) => dest.publicationStatus === 'live') })
+  }
+
+  const weekAhead = new Date(todayIso.slice(0, 10) + 'T00:00:00Z')
+  weekAhead.setUTCDate(weekAhead.getUTCDate() + 7)
+  const weekIso = weekAhead.toISOString().slice(0, 10)
+  // A monitor that runs daily raises the same alert daily until someone acts on it, so the task
+  // list fills with identical rows and the real work is buried. The panel promises these are
+  // "grouped into one incident", and they were: for ONE alert, matched by a regex on its title.
+  // Every monitor added since repeated in full. On 2026-09-25 the count read 12, which was one
+  // grouped notification alert plus TEN copies of the same "Portal record is behind the work"
+  // sentence, one per day since the 16th, plus one real task.
+  //
+  // Group on what actually makes two rows the same incident: same client, same category, same
+  // title. Keep the newest, count the rest. Nothing is hidden, the repeats just stop shouting.
+  const collapsedOps: Array<{ task: OpsTaskRow; occurrences: number }> = []
+  const incidentIndex = new Map<string, number>()
+  // Two rows are the same incident when they say the same thing. Title is that test, with one
+  // exception: the notification-volume monitor was reworded once ("Review Maria notification
+  // volume baseline" became "Review client notification volume"), and a rewording should not
+  // split an incident that is still the same one. Named families absorb that; everything else
+  // groups on its own title, so a NEW monitor is covered the day it is written.
+  const incidentKey = (title: string): string =>
+    /notification volume/i.test(title) ? 'family:notification-volume' : title.trim().toLowerCase()
+  for (const task of opsTasks) {
+    if (task.status !== 'open') continue
+    const key = `${task.clientId ?? 'agency'}:${task.category}:${incidentKey(task.title)}`
+    const existingIndex = incidentIndex.get(key)
+    if (existingIndex === undefined) {
+      incidentIndex.set(key, collapsedOps.length)
+      collapsedOps.push({ task, occurrences: 1 })
+      continue
+    }
+    const existing = collapsedOps[existingIndex]
+    const existingDate = existing.task.due_date ?? ''
+    const incomingDate = task.due_date ?? ''
+    collapsedOps[existingIndex] = {
+      // Show the newest occurrence: its note carries the current numbers, not August's.
+      task: incomingDate >= existingDate ? task : existing.task,
+      occurrences: existing.occurrences + 1,
+    }
+  }
+
+  for (const { task, occurrences } of collapsedOps) {
+    const bucket = task.trigger_note && !task.due_date ? 'watch'
+      : !task.due_date ? 'upcoming'
+      : task.due_date < todayIso ? 'overdue'
+      : task.due_date === todayIso ? 'today'
+      : task.due_date <= weekIso ? 'this_week'
+      : 'upcoming'
+    tasks.push({ kind: 'ops', id: task.id, clientName: task.clientName,
+      title: task.title,
+      category: task.category, bucket, dueDate: task.due_date, triggerNote: task.trigger_note,
+      occurrences })
+  }
+
+  const kindRank = (task: MyTask): number => {
+    if (task.kind === 'action') return task.gate === 'review-client-changes' ? 0
+      : task.gate === 'review-plan-changes' ? 1 : 2
+    if (task.kind === 'ops') return task.bucket === 'overdue' || task.bucket === 'today' ? 3 : 7
+    if (task.kind === 'waiting_maria') return 4
+    if (task.kind === 'waiting_studio') return 5
+    if (task.kind === 'reconciliation') return 6
+    return 7
+  }
+  const taskDate = (task: MyTask): string => task.kind === 'ops'
+    ? task.dueDate ?? '9999-12-31'
+    : task.plannedDate ?? '9999-12-31'
+  return tasks.sort((a, b) => kindRank(a) - kindRank(b)
+    || taskDate(a).localeCompare(taskDate(b))
+    || a.title.localeCompare(b.title))
+}
+
+// ---- STATUS GATES block renderer (my-tasks spec section 5 grammar) -----------
+// `- [state] gate-key[:dest] @owner [date] | note`. States: [ ] open, [x] done,
+// [~] na (reason mandatory, rendered as the note). The block merges TWO sources
+// (production gates from 0022; fact-check/decision/schedule/publication from their
+// real homes); a hand-edited 7-9 line in a pack is NOT an emission (spec 12.9).
+
+const stateMark: Record<GateState, string> = { open: ' ', done: 'x', na: '~' }
+
+export function renderStatusGatesBlock(piece: StagePiece, dateIso: string): string {
+  const lines = [
+    '## STATUS GATES',
+    `<!-- gates: id=${piece.contentId} date=${dateIso.slice(0, 10)} -->`,
+  ]
+  for (const gate of resolveNineGates(piece)) {
+    const key = gate.dest ? `${gate.key}:${gate.dest}` : gate.key
+    const date = gate.date ? ` ${gate.date}` : ''
+    const note = gate.note ? ` | ${gate.note}` : ''
+    lines.push(`- [${stateMark[gate.state]}] ${key} @${gate.owner}${date}${note}`)
+  }
+  return lines.join('\n')
+}

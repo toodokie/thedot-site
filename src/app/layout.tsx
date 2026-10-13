@@ -1,6 +1,7 @@
 // app/layout.tsx
 import type { Metadata } from "next";
 import ConditionalHeader from '@/components/ConditionalHeader';
+import StyledJsxRegistry from './StyledJsxRegistry';
 import GoogleAnalytics from '@/components/GoogleAnalytics';
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
@@ -14,6 +15,9 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/',
   },
+  // Emit the manifest via metadata (not a hardcoded <link>) so the /client and /admin portal
+  // layouts can override it with their own installable-app manifests (child metadata wins).
+  manifest: '/site.webmanifest',
   icons: {
     icon: [
       { url: '/favicon.ico?v=5', type: 'image/x-icon' },
@@ -95,78 +99,83 @@ export const viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const structuredData = {
     "@context": "https://schema.org",
-    "@type": "LocalBusiness",
-    "@id": "https://thedotcreative.co",
+    "@type": "ProfessionalService",
+    "@id": "https://www.thedotcreative.co/#organization",
     "name": "The Dot Creative Agency",
     "alternateName": "The Dot Creative",
-    "description": "Professional web design and development agency serving the Greater Toronto Area with international design expertise.",
-    "url": "https://thedotcreative.co",
+    "description": "Web design and development, business systems integration, workflow automation, AODA accessibility, and AI-visibility services for growing businesses across Ontario and Canada.",
+    "url": "https://www.thedotcreative.co",
+    "telephone": "+1-647-402-4420",
     "email": "info@thedotcreative.co",
     "address": {
       "@type": "PostalAddress",
-      "addressLocality": "Ontario", 
+      "addressLocality": "Newmarket",
       "addressRegion": "ON",
       "addressCountry": "CA"
     },
     "geo": {
       "@type": "GeoCoordinates",
-      "latitude": "43.7",
-      "longitude": "-79.4"
+      "latitude": "44.056",
+      "longitude": "-79.461"
     },
-    "areaServed": {
-      "@type": "State",
-      "name": "Ontario"
-    },
-    "serviceArea": {
-      "@type": "GeoCircle",
-      "geoMidpoint": {
-        "@type": "GeoCoordinates",
-        "latitude": "43.7",
-        "longitude": "-79.4"
+    "areaServed": [
+      {
+        "@type": "AdministrativeArea",
+        "name": "Ontario"
       },
-      "geoRadius": "100000"
-    },
-    "priceRange": "$",
-    "image": "https://thedotcreative.co/images/logo.png",
-    "logo": "https://thedotcreative.co/images/logo.png",
+      {
+        "@type": "Country",
+        "name": "Canada"
+      }
+    ],
+    "image": "https://www.thedotcreative.co/images/logo.png",
+    "logo": "https://www.thedotcreative.co/images/logo.png",
     "sameAs": [
       "https://www.instagram.com/thedotcreativeagency/",
       "https://www.linkedin.com/in/anna-volk-75b354373/"
     ],
     "hasOfferCatalog": {
       "@type": "OfferCatalog",
-      "name": "Web Design Services",
+      "name": "Web, Systems & AI-Visibility Services",
       "itemListElement": [
         {
           "@type": "Offer",
           "itemOffered": {
             "@type": "Service",
-            "name": "Custom Website Design",
-            "description": "Bespoke website design with international design standards"
+            "name": "Web Design & Development",
+            "description": "Custom, accessible websites built to convert for Ontario service businesses."
           }
         },
         {
-          "@type": "Offer", 
+          "@type": "Offer",
           "itemOffered": {
             "@type": "Service",
-            "name": "Web Development",
-            "description": "Professional web development with modern technologies"
+            "name": "Business Systems Integration",
+            "description": "Connecting websites with CRM, accounting, scheduling and intake tools."
           }
         },
         {
-          "@type": "Offer", 
+          "@type": "Offer",
           "itemOffered": {
             "@type": "Service",
-            "name": "Graphic Design",
-            "description": "Professional graphic design and branding services"
+            "name": "Workflow Automation",
+            "description": "Automating manual client and admin workflows to save time."
           }
         },
         {
-          "@type": "Offer", 
+          "@type": "Offer",
           "itemOffered": {
             "@type": "Service",
-            "name": "Photo & Video Production",
-            "description": "Professional photography and video production services"
+            "name": "AODA Accessibility Compliance",
+            "description": "Accessible web design and audits aligned with Ontario AODA requirements."
+          }
+        },
+        {
+          "@type": "Offer",
+          "itemOffered": {
+            "@type": "Service",
+            "name": "AI Visibility (Generative Engine Optimization)",
+            "description": "Helping businesses get found and recommended by AI search engines."
           }
         }
       ]
@@ -235,7 +244,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="The Dot Creative" />
-        <link rel="manifest" href="/site.webmanifest" />
         
         {/* Structured Data for Local Business */}
         <script
@@ -249,8 +257,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <GoogleAnalytics />
         <SpeedInsights />
         <Analytics />
-        <ConditionalHeader />
-        {children}
+        <StyledJsxRegistry>
+          <ConditionalHeader />
+          {children}
+        </StyledJsxRegistry>
       </body>
     </html>
   );

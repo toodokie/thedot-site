@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Start Your Project with The Dot Creative",
     description: "Share your project details and get a customized brief. Web design, branding, and business integration services for Ontario SMBs.",
-    url: "https://thedotcreative.co/brief",
+    url: "https://www.thedotcreative.co/brief",
     siteName: "The Dot Creative Agency",
     locale: "en_CA",
     type: "website",
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   },
   
   alternates: {
-    canonical: "https://thedotcreative.co/brief"
+    canonical: "/brief"
   }
 };
 

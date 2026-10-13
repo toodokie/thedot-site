@@ -1,0 +1,257 @@
+<title>AI Visibility Self-Check</title>
+<!--
+  The Dot Creative — "Can AI find your business?" self-check widget (standalone HTML)
+  Brand-native: warm off-white + ink + acid-yellow (#daff00) used as a glow; the button DNA
+  and card elevation match the homepage quiz (.services-cta-button): canvas button with a
+  yellow-glow shadow that inverts on hover, rounded elevated cards, soft shadows.
+  Self-contained. No external requests. Safe to paste into any HTML embed or iframe.
+
+  NOTE: The canonical version for thedotcreative.co is the React component
+  src/components/AiVisibilitySelfCheck.tsx. This HTML is the shareable/iframe fallback + preview.
+
+  TO CUSTOMISE: change BOOKING_URL in the <script>. If you load Adobe Typekit
+  (futura-pt / ff-real-text-pro) on the host page, this picks it up; else it falls back to Futura.
+-->
+<style>
+  #dot-aivc{
+    --bg:#faf9f6; --ink:#35332f; --yellow:#daff00; --pale:#eefb9d; --card:#fffefc;
+    --hairline:#ebebe7; --grey:#47453f; --grey2:#7a776f; --antique:#dac9bb;
+    --display:"futura-pt","Futura","Avenir Next","Century Gothic",system-ui,sans-serif;
+    --body:"ff-real-text-pro","Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+    --ease:cubic-bezier(.23,1,.32,1);
+    box-sizing:border-box; max-width:660px; margin:0 auto; padding:4px;
+    color:var(--ink); background:var(--bg); font-family:var(--body);
+    font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  #dot-aivc *,#dot-aivc *::before,#dot-aivc *::after{box-sizing:border-box;}
+  #dot-aivc [hidden]{display:none !important;}
+
+  #dot-aivc .aivc-eyebrow{display:flex; align-items:center; gap:.55em; font-family:var(--display); font-size:.72rem; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:var(--grey2); margin:0 0 1em;}
+  #dot-aivc .aivc-dot{width:.5em; height:.5em; border-radius:100%; flex:0 0 auto; background:radial-gradient(circle farthest-corner at 35% 30%,#ffffff,var(--yellow)); border:1px solid var(--ink);}
+  #dot-aivc h2.aivc-title{font-family:var(--display); font-weight:300; font-size:clamp(1.9rem,5.5vw,2.75rem); line-height:1.08; letter-spacing:-.01em; margin:0 0 .4em; text-wrap:balance;}
+  #dot-aivc .aivc-sub{color:var(--grey); margin:0 0 1.7em; max-width:52ch;}
+
+  #dot-aivc .aivc-panel{background:var(--card); border:1px solid var(--ink); border-radius:16px; box-shadow:0 4px 20px rgba(0,0,0,.10); padding:clamp(20px,4vw,30px);}
+  #dot-aivc .aivc-field{display:flex; flex-direction:column; gap:.4em; margin-bottom:1.05em;}
+  #dot-aivc .aivc-field:last-of-type{margin-bottom:1.4em;}
+  #dot-aivc label{font-family:var(--display); font-weight:600; font-size:.82rem; letter-spacing:.03em; text-transform:uppercase;}
+  #dot-aivc .aivc-optional{font-weight:500; font-size:.62rem; letter-spacing:.08em; color:var(--grey2); border:1px solid var(--hairline); padding:.15em .5em; margin-left:.35em; vertical-align:middle;}
+  #dot-aivc .aivc-hint{color:var(--grey); font-size:.82rem; font-weight:400; line-height:1.45; text-transform:none; letter-spacing:0;}
+  #dot-aivc input[type="text"]{font-family:var(--body); font-size:1rem; color:var(--ink); background:var(--bg); border:1px solid var(--hairline); border-radius:0; padding:.72em .85em; width:100%; transition:border-color .2s ease, box-shadow .2s ease;}
+  #dot-aivc input[type="text"]::placeholder{color:var(--grey2); opacity:.75;}
+  #dot-aivc input[type="text"]:focus{outline:none; border-color:var(--ink); box-shadow:0 2px 8px 0 rgba(218,255,0,.55);}
+
+  #dot-aivc .aivc-btn{font-family:var(--display); cursor:pointer; border-radius:0; transition:all .4s var(--ease);}
+  #dot-aivc .aivc-btn-primary{font-weight:400; font-size:.95rem; letter-spacing:.09em; text-transform:uppercase; background:var(--bg); color:var(--ink); border:1px solid var(--ink); box-shadow:0 2px 5px 0 var(--yellow); padding:1em 1.2em; width:100%;}
+  #dot-aivc .aivc-btn-primary:hover{background:var(--ink); color:var(--bg); box-shadow:2px 9px 20px 2px var(--yellow); transform:translateY(-1px);}
+  #dot-aivc .aivc-btn-primary:active{transform:translateY(0) scale(.995);}
+  #dot-aivc .aivc-btn-primary:focus-visible{outline:2px solid var(--ink); outline-offset:3px;}
+
+  #dot-aivc .aivc-results{margin-top:1.9em;}
+  #dot-aivc .aivc-lede{color:var(--grey); font-size:.95rem; margin:0 0 1.4em;}
+
+  #dot-aivc .aivc-check{border:1px solid var(--hairline); background:var(--card); border-radius:14px; box-shadow:0 4px 18px rgba(0,0,0,.07); padding:clamp(16px,3.5vw,22px); margin-bottom:1.15em;}
+  #dot-aivc .aivc-check--fail{border-color:var(--ink); background:radial-gradient(circle farthest-corner at 100% 0%,rgba(218,255,0,.38),rgba(238,251,157,.25) 38%,var(--card) 70%); box-shadow:0 6px 24px rgba(218,255,0,.28);}
+  #dot-aivc .aivc-check-head{display:flex; align-items:baseline; justify-content:space-between; gap:.8em; flex-wrap:wrap;}
+  #dot-aivc .aivc-check-title{font-family:var(--display); font-weight:500; font-size:1.1rem; letter-spacing:-.005em; margin:0;}
+  #dot-aivc .aivc-tag{font-family:var(--display); font-size:.64rem; font-weight:600; letter-spacing:.12em; text-transform:uppercase; white-space:nowrap; padding:.35em .65em; border:1px solid var(--grey); color:var(--grey);}
+  #dot-aivc .aivc-tag--fail{background:var(--ink); color:var(--bg); border-color:var(--ink);}
+  #dot-aivc .aivc-check-note{color:var(--grey); font-size:.9rem; margin:.35em 0 1em;}
+
+  #dot-aivc .aivc-prompt{border:1px solid var(--hairline); background:var(--bg); border-radius:10px; overflow:hidden; margin-top:.7em;}
+  #dot-aivc .aivc-prompt-text{font-family:var(--mono); font-size:.86rem; line-height:1.55; padding:.85em 1em; margin:0; white-space:pre-wrap; word-break:break-word; color:var(--ink);}
+  #dot-aivc .aivc-prompt-actions{display:flex; flex-wrap:wrap; gap:.5em; align-items:center; padding:.6em 1em; border-top:1px solid var(--hairline); background:var(--card);}
+  #dot-aivc .aivc-copy{font-family:var(--display); font-size:.7rem; font-weight:600; letter-spacing:.09em; text-transform:uppercase; cursor:pointer; background:var(--bg); color:var(--ink); border:1px solid var(--ink); border-radius:0; padding:.5em .95em; box-shadow:0 1px 5px 0 rgba(218,255,0,.85); transition:all .3s var(--ease);}
+  #dot-aivc .aivc-copy:hover{background:linear-gradient(135deg,rgba(218,255,0,.5) 0%,var(--bg) 100%); transform:translateY(-1px); box-shadow:0 3px 11px rgba(0,0,0,.08);}
+  #dot-aivc .aivc-copy.is-copied{background:var(--yellow); color:var(--ink);}
+  #dot-aivc .aivc-copy:focus-visible{outline:2px solid var(--ink); outline-offset:2px;}
+  #dot-aivc .aivc-open-label{font-family:var(--display); font-size:.68rem; letter-spacing:.1em; text-transform:uppercase; color:var(--grey2);}
+  #dot-aivc .aivc-open{font-family:var(--display); font-size:.7rem; font-weight:600; letter-spacing:.05em; text-transform:uppercase; text-decoration:none; color:var(--grey); border:1px solid var(--hairline); border-radius:0; padding:.45em .7em; background:var(--bg); transition:all .3s var(--ease);}
+  #dot-aivc .aivc-open:hover{background:linear-gradient(135deg,rgba(218,255,0,.32) 0%,var(--bg) 100%); color:var(--ink); border-color:var(--ink); transform:translateY(-1px);}
+  #dot-aivc .aivc-open:focus-visible{outline:2px solid var(--ink); outline-offset:2px;}
+
+  #dot-aivc .aivc-tip{border:1px dashed var(--antique); border-radius:12px; padding:16px 18px; margin-bottom:1.15em;}
+  #dot-aivc .aivc-tip h4{font-family:var(--display); font-weight:600; font-size:.82rem; letter-spacing:.08em; text-transform:uppercase; margin:0 0 .4em;}
+  #dot-aivc .aivc-tip p{margin:0; color:var(--grey); font-size:.9rem;}
+
+  #dot-aivc .aivc-hubspot{display:block; text-align:center; text-decoration:none; border:1px solid var(--hairline); border-radius:12px; padding:.9em 1em; margin-bottom:1em; color:var(--ink); font-family:var(--display); font-weight:600; font-size:.78rem; letter-spacing:.06em; text-transform:uppercase; background:var(--card); box-shadow:0 2px 12px rgba(0,0,0,.05); transition:all .3s var(--ease);}
+  #dot-aivc .aivc-hubspot:hover{border-color:var(--ink); background:linear-gradient(135deg,rgba(218,255,0,.32) 0%,var(--card) 100%); transform:translateY(-1px); box-shadow:0 5px 16px rgba(0,0,0,.08);}
+  #dot-aivc .aivc-hubspot span{color:var(--grey2); font-weight:500; text-transform:none; letter-spacing:0;}
+
+  #dot-aivc .aivc-cta{background:var(--ink); color:var(--bg); border-radius:16px; box-shadow:0 8px 28px rgba(0,0,0,.16); padding:clamp(20px,4vw,30px);}
+  #dot-aivc .aivc-cta h3{font-family:var(--display); font-weight:400; font-size:1.25rem; margin:0 0 .45em; text-wrap:balance;}
+  #dot-aivc .aivc-cta p{margin:0 0 1.2em; opacity:.85; font-size:.94rem;}
+  #dot-aivc .aivc-cta a{display:inline-block; text-decoration:none; font-family:var(--display); font-weight:600; font-size:.82rem; letter-spacing:.09em; text-transform:uppercase; background:var(--bg); color:var(--ink); border:1px solid var(--bg); border-radius:0; box-shadow:0 2px 8px 0 rgba(218,255,0,.7); padding:.85em 1.35em; transition:all .4s var(--ease);}
+  #dot-aivc .aivc-cta a:hover{background:linear-gradient(96deg,#faf9f6,#daff00); color:var(--ink); box-shadow:2px 9px 22px 2px rgba(218,255,0,.55); transform:translateY(-1px);}
+  #dot-aivc .aivc-cta a:focus-visible{outline:2px solid var(--yellow); outline-offset:3px;}
+
+  #dot-aivc .aivc-restart{display:block; margin:1.3em auto 0; background:none; border:none; cursor:pointer; color:var(--grey2); font-family:var(--body); font-size:.85rem; text-decoration:underline; text-underline-offset:3px;}
+  #dot-aivc .aivc-restart:hover{color:var(--ink);}
+
+  #dot-aivc .aivc-foot{display:flex; align-items:center; gap:.5em; justify-content:center; margin-top:1.9em; padding-top:1.2em; border-top:1px solid var(--hairline); color:var(--grey2); font-family:var(--display); font-size:.72rem; letter-spacing:.08em; text-transform:uppercase;}
+
+  @media (prefers-reduced-motion:no-preference){
+    #dot-aivc .aivc-results:not([hidden]){animation:aivc-in .4s ease;}
+    @keyframes aivc-in{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;}}
+  }
+  @media (prefers-reduced-motion:reduce){
+    #dot-aivc .aivc-btn,#dot-aivc .aivc-cta a,#dot-aivc .aivc-hubspot,#dot-aivc .aivc-copy,#dot-aivc .aivc-open{transition:none;}
+  }
+</style>
+
+<section id="dot-aivc" aria-label="AI visibility self-check">
+  <div class="aivc-eyebrow"><span class="aivc-dot" aria-hidden="true"></span>Free tool · The Dot Creative</div>
+  <h2 class="aivc-title">Can AI find your business?</h2>
+  <p class="aivc-sub">When someone asks ChatGPT, Gemini, or Perplexity for a recommendation, does it name you? Fill in your details and this builds the exact prompts to test it yourself, in about five minutes.</p>
+
+  <form class="aivc-panel" id="aivc-form" novalidate>
+    <div class="aivc-field">
+      <label for="aivc-biz">Your business name</label>
+      <span class="aivc-hint">Exactly as it appears online.</span>
+      <input type="text" id="aivc-biz" autocomplete="organization" placeholder="e.g. Maple Leaf Dental">
+    </div>
+    <div class="aivc-field">
+      <label for="aivc-city">City or area you serve</label>
+      <input type="text" id="aivc-city" autocomplete="address-level2" placeholder="e.g. North York, Toronto">
+    </div>
+    <div class="aivc-field">
+      <label for="aivc-service">What you do, in a customer's words</label>
+      <span class="aivc-hint">Plain language, not your official title. What would a stranger call it?</span>
+      <input type="text" id="aivc-service" placeholder="e.g. family dentistry">
+    </div>
+    <div class="aivc-field">
+      <label for="aivc-need">A customer and the problem they bring you</label>
+      <span class="aivc-hint">One real situation someone comes to you with.</span>
+      <input type="text" id="aivc-need" placeholder="e.g. a nervous patient who needs an emergency root canal">
+    </div>
+    <div class="aivc-field">
+      <label for="aivc-site">Your website <span class="aivc-optional">optional</span></label>
+      <span class="aivc-hint">Only used for the bonus "can AI read your site?" check. Leave blank to skip it, the first two checks are more honest without it.</span>
+      <input type="text" id="aivc-site" inputmode="url" autocomplete="url" placeholder="e.g. yourbusiness.ca">
+    </div>
+    <button type="submit" class="aivc-btn aivc-btn-primary">Build my self-check</button>
+  </form>
+
+  <div class="aivc-results" id="aivc-results" tabindex="-1" hidden>
+    <p class="aivc-lede">Run each prompt in a fresh chat (a quick test needs no login). Two checks matter, and the gap between them is the whole point.</p>
+
+    <div class="aivc-check" id="aivc-check1">
+      <div class="aivc-check-head">
+        <h3 class="aivc-check-title">Check 1 — Can it find you by name?</h3>
+        <span class="aivc-tag">Most pass</span>
+      </div>
+      <p class="aivc-check-note">Direct search. Reassuring, but it only reaches people who already know you exist.</p>
+    </div>
+
+    <div class="aivc-check aivc-check--fail" id="aivc-check2">
+      <div class="aivc-check-head">
+        <h3 class="aivc-check-title">Check 2 — Can it find you by need?</h3>
+        <span class="aivc-tag aivc-tag--fail">Most fail</span>
+      </div>
+      <p class="aivc-check-note">This is where new clients actually discover you: by describing a problem, not a name. Miss here and you are invisible at the exact moment someone is choosing who to call.</p>
+    </div>
+
+    <div class="aivc-check" id="aivc-checkbonus" hidden>
+      <div class="aivc-check-head">
+        <h3 class="aivc-check-title">Bonus — Can it read your site?</h3>
+        <span class="aivc-tag">Readability</span>
+      </div>
+      <p class="aivc-check-note">Point the AI at your own page and see if it understands you. Use a tool that can open links (Perplexity always does; in ChatGPT, turn on search). If the summary comes back vague or wrong, that is a structure problem, not a you problem, and it is the fixable kind.</p>
+    </div>
+
+    <div class="aivc-tip">
+      <h4>One more move</h4>
+      <p>After any answer, ask the AI a follow-up: <em>"What sources are you basing that on?"</em> It reveals which pages it is actually reading. If it cites your competitors and not you, that is your gap, in one line.</p>
+      <div class="aivc-prompt" id="aivc-source-prompt"></div>
+    </div>
+
+    <a class="aivc-hubspot" href="https://www.hubspot.com/aeo-grader" target="_blank" rel="noopener nofollow">
+      Prefer an instant score too? Try HubSpot's free AI grader → <span>(no login needed)</span>
+    </a>
+
+    <div class="aivc-cta">
+      <h3>Passed Check 1 but failed Check 2?</h3>
+      <p>That is the common story, and it is fixable. We run the full version of this test against your real competitors, then turn "you're invisible" into a specific plan to change it.</p>
+      <a id="aivc-cta-link" href="https://www.thedotcreative.co/contacts">Book an AI-visibility audit →</a>
+    </div>
+
+    <button type="button" class="aivc-restart" id="aivc-restart">Start over</button>
+  </div>
+
+  <div class="aivc-foot"><span class="aivc-dot" aria-hidden="true"></span>A free tool by The Dot Creative Agency</div>
+</section>
+
+<script>
+(function(){
+  var BOOKING_URL = "https://www.thedotcreative.co/contacts";
+  var root = document.getElementById("dot-aivc");
+  if(!root) return;
+  var form = root.querySelector("#aivc-form");
+  var results = root.querySelector("#aivc-results");
+  root.querySelector("#aivc-cta-link").setAttribute("href", BOOKING_URL);
+
+  function val(id, fallback){ var el = root.querySelector(id); var v = el ? el.value.trim() : ""; return v || fallback; }
+
+  function promptCard(text){
+    var wrap = document.createElement("div"); wrap.className = "aivc-prompt";
+    var p = document.createElement("p"); p.className = "aivc-prompt-text"; p.textContent = text;
+    var actions = document.createElement("div"); actions.className = "aivc-prompt-actions";
+    var copy = document.createElement("button"); copy.type = "button"; copy.className = "aivc-copy"; copy.textContent = "Copy";
+    copy.addEventListener("click", function(){ doCopy(text, copy); });
+    var lbl = document.createElement("span"); lbl.className = "aivc-open-label"; lbl.textContent = "open in";
+    var gpt = document.createElement("a"); gpt.className = "aivc-open"; gpt.textContent = "ChatGPT"; gpt.target = "_blank"; gpt.rel = "noopener"; gpt.href = "https://chatgpt.com/?q=" + encodeURIComponent(text);
+    var plx = document.createElement("a"); plx.className = "aivc-open"; plx.textContent = "Perplexity"; plx.target = "_blank"; plx.rel = "noopener"; plx.href = "https://www.perplexity.ai/search?q=" + encodeURIComponent(text);
+    actions.appendChild(copy); actions.appendChild(lbl); actions.appendChild(gpt); actions.appendChild(plx);
+    wrap.appendChild(p); wrap.appendChild(actions); return wrap;
+  }
+  function doCopy(text, btn){
+    var done = function(){ btn.classList.add("is-copied"); btn.textContent = "Copied"; setTimeout(function(){ btn.classList.remove("is-copied"); btn.textContent = "Copy"; }, 1600); };
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done, function(){ fallbackCopy(text, done); }); }
+    else { fallbackCopy(text, done); }
+  }
+  function fallbackCopy(text, done){
+    try{ var ta = document.createElement("textarea"); ta.value = text; ta.setAttribute("readonly",""); ta.style.position="absolute"; ta.style.left="-9999px"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); done(); }catch(e){}
+  }
+  function addPrompts(containerId, prompts){
+    var c = root.querySelector(containerId);
+    var old = c.querySelectorAll(".aivc-prompt"); for(var i=0;i<old.length;i++){ old[i].remove(); }
+    prompts.forEach(function(t){ c.appendChild(promptCard(t)); });
+  }
+
+  form.addEventListener("submit", function(e){
+    e.preventDefault();
+    var biz = val("#aivc-biz", "[your business]");
+    var city = val("#aivc-city", "[your city]");
+    var service = val("#aivc-service", "[your service]");
+    var need = val("#aivc-need", "[your typical customer and their problem]");
+    addPrompts("#aivc-check1", [
+      "What do you know about " + biz + " in " + city + "? Would you recommend them, and what would make you recommend them more strongly?"
+    ]);
+    addPrompts("#aivc-check2", [
+      "I'm " + need + ". Who are the best " + service + " providers in " + city + " I should contact, and why?",
+      "What are the best " + service + " providers in " + city + " in 2026, and who would you recommend first?",
+      "Who are the most trusted " + service + " businesses near " + city + ", and what makes each one stand out?"
+    ]);
+    var siteRaw = val("#aivc-site", "");
+    var bonus = root.querySelector("#aivc-checkbonus");
+    if(siteRaw){
+      var site = /^https?:\/\//i.test(siteRaw) ? siteRaw : "https://" + siteRaw;
+      addPrompts("#aivc-checkbonus", [
+        "Read this page: " + site + " . In two or three sentences, who is this business for, what do they do best, and where are they based? Then list anything important that is unclear or missing."
+      ]);
+      bonus.hidden = false;
+    } else {
+      var oldb = bonus.querySelectorAll(".aivc-prompt"); for(var b=0;b<oldb.length;b++){ oldb[b].remove(); }
+      bonus.hidden = true;
+    }
+    var src = root.querySelector("#aivc-source-prompt"); src.innerHTML = ""; src.appendChild(promptCard("What sources are you basing that on?"));
+    results.hidden = false; results.focus();
+    results.scrollIntoView({behavior:(matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto":"smooth"), block:"start"});
+  });
+  root.querySelector("#aivc-restart").addEventListener("click", function(){
+    results.hidden = true; form.querySelector("#aivc-biz").focus();
+    form.scrollIntoView({behavior:(matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto":"smooth"), block:"start"});
+  });
+})();
+</script>

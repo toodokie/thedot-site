@@ -3,7 +3,7 @@ import { Client } from '@notionhq/client';
 
 // Initialize Notion client
 const notion = new Client({
-  auth: process.env.NOTION_TOKEN || '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',
+  auth: process.env.NOTION_TOKEN,
 });
 
 // Database ID for Calculator Leads (you'll need to create this in Notion)

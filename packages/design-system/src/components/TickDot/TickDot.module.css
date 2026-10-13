@@ -1,0 +1,6 @@
+.tick { display: inline-block; flex: none; width: 14px; height: 14px; border-radius: var(--dot-radius-circle);
+  border: 1px solid var(--dot-grey-light); background: var(--dot-white); vertical-align: middle; }
+.checked { border-color: var(--dot-black); background: var(--dot-grad-fill); }
+@media (prefers-reduced-motion: no-preference) {
+  .tick { transition: border-color .2s ease; }
+}

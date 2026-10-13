@@ -1,0 +1,32 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--dot-cream);
+  color: var(--dot-black);
+}
+
+.spinner {
+  width: 30px;
+  height: 30px;
+  border: 2px solid var(--dot-hairline);
+  border-top-color: var(--dot-black);
+  border-radius: 50%;
+  animation: portal-loading-spin 1.2s linear infinite;
+}
+
+.text {
+  color: var(--dot-grey);
+  font-family: var(--dot-font-text);
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+@keyframes portal-loading-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }

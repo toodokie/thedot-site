@@ -1,0 +1,4 @@
+.dot { display: inline-block; border-radius: var(--dot-radius-circle); }
+.silver { background: var(--dot-grad-silver); }
+.black { background: var(--dot-black); }
+.yellow { background: radial-gradient(circle at 48% 42%, #daff00, #eefb9d 48%, #faf9f6 92%); }

@@ -1,11 +1,31 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, FormEvent } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-export default function AdminLogin() {
+// Why the guard sent you here. Without this the page is a bare password box, so a session that
+// simply ran out is indistinguishable from a bug, and the pages already open in the browser keep
+// rendering from its cache, which makes it look like one page broke rather than the session.
+const NOTICES: Record<string, string> = {
+  expired: 'Your admin session ran out. Sign in again and you will land back where you were.',
+  invalid: 'That admin session could not be read. Sign in again to get a fresh one.',
+};
+
+// Only ever an /admin path on this site, so a crafted link cannot bounce you elsewhere after a
+// real sign-in.
+function safeAdminNext(raw: string | null): string {
+  if (!raw || !raw.startsWith('/admin/') || raw.startsWith('//') || raw.includes('\\')) {
+    return '/admin/dashboard';
+  }
+  return raw.startsWith('/admin/login') ? '/admin/dashboard' : raw;
+}
+
+function AdminLoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const notice = NOTICES[searchParams.get('error') ?? ''];
+  const next = safeAdminNext(searchParams.get('next'));
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -25,7 +45,7 @@ export default function AdminLogin() {
       const data = await response.json();
 
       if (response.ok) {
-        router.push('/admin/dashboard');
+        router.push(next);
       } else {
         setError(data.error || 'Authentication failed');
       }
@@ -98,6 +118,14 @@ export default function AdminLogin() {
               The Dot Creative
             </p>
           </div>
+
+          {notice && !error && (
+            <div role="status" style={{
+              background: '#fdf6e3', border: '1px solid #ecd9a0', color: '#7a5c00',
+              padding: '0.75rem 1rem', borderRadius: '0.5rem', fontSize: '0.875rem',
+              marginBottom: '1.5rem', fontFamily: 'futura-pt, Arial, sans-serif',
+            }}>{notice}</div>
+          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit}>
@@ -256,4 +284,9 @@ export default function AdminLogin() {
       </div>
     </div>
   );
+}
+
+// useSearchParams needs a Suspense boundary or the build refuses to prerender this page.
+export default function AdminLogin() {
+  return <Suspense fallback={null}><AdminLoginForm /></Suspense>;
 }

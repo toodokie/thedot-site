@@ -1,0 +1,168 @@
+/* Kanset workspace overview, on @thedot/design-system tokens.
+   Every section is the SAME panel: hairline border, sharp corners, filled with the page cream
+   (not white) so the boxes stay airy. One consistent Eyebrow heading + hairline-divided rows. */
+
+.wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 56px 40px 88px;
+  font-family: var(--dot-font-text);
+  color: var(--dot-black);
+}
+
+.logo { display: block; margin: 0 0 32px; }
+
+.eyebrow { margin: 0 0 20px; }
+.greeting { margin: 0 0 16px; }
+.status { margin: 0 0 44px; }
+
+.reportCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  margin: 8px 0 32px;
+  padding: 24px 26px;
+  border: 1px solid var(--dot-hairline);
+  border-left: 6px solid var(--dot-yellow);
+  background: var(--dot-cream);
+}
+.reportCardCopy { max-width: 64ch; }
+.reportCardCopy h3 { margin-bottom: 7px; }
+.reportKicker {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--dot-grey);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.statusCount {
+  color: var(--dot-black);
+  font-weight: var(--dot-weight-medium);
+  /* the one bold pop: a yellow highlighter under the number */
+  background: linear-gradient(transparent 58%, var(--dot-yellow) 58%);
+  padding: 0 3px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+/* the shared section box: page-cream fill, hairline border, sharp corners */
+.panel {
+  border: 1px solid var(--dot-hairline);
+  background: var(--dot-cream);
+  padding: 20px 22px;
+  margin-bottom: 24px;
+}
+.panelHead { margin: 0 0 2px; }
+
+/* small clarifying line under a panel label (whose action a bucket waits on) */
+.panelNote {
+  margin: 2px 0 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--dot-grey);
+  max-width: 48ch;
+}
+
+/* hairline-divided rows, consistent across every section */
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  text-decoration: none;
+  color: var(--dot-black);
+  border-top: 1px solid var(--dot-hairline);
+  padding: 15px 2px;
+  transition: padding-left 140ms ease;
+}
+a.row:hover { padding-left: 6px; }
+.rowMain { flex: 1 1 auto; min-width: 0; }
+.marker { flex: none; margin-top: 7px; line-height: 0; }
+.plannedDay {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--dot-graphite);
+  font-size: 12px;
+  font-weight: var(--dot-weight-demi);
+  letter-spacing: 0.06em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+.emptyRow {
+  border-top: 1px solid var(--dot-hairline);
+  padding: 15px 2px;
+}
+
+/* quiet metadata chips (overriding the design-system Tag, which was too bold) */
+.chipRow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.chip {
+  display: inline-block;
+  font-family: var(--dot-font-text);
+  font-size: 12px;
+  color: var(--dot-graphite);
+  border: 1px solid var(--dot-hairline);
+  background: transparent;
+  padding: 2px 8px;
+  text-transform: capitalize;
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+}
+.chipStage {
+  color: var(--dot-black);
+  background: var(--dot-yellow-pale);
+  border-color: transparent;
+  /* action phrases ("ready to approve") read as sentences, not Title Case */
+  text-transform: none;
+}
+
+/* activity hierarchy: quiet actor label, primary (black) title, secondary (graphite) summary, quiet date */
+.actMeta { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+.actActor {
+  font-size: 12px;
+  font-weight: var(--dot-weight-medium);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--dot-graphite);
+}
+
+.activityDate {
+  display: block;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--dot-graphite);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+}
+
+.signout { margin-top: 28px; }
+
+/* "new since your last visit" marker on activity/communication rows */
+.newBadge {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 1px 6px;
+  background: var(--dot-yellow);
+  color: var(--dot-black);
+  font-size: 11px;
+  font-weight: var(--dot-weight-demi);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+@media (max-width: 760px) {
+  .wrap { padding: 40px 20px 64px; }
+  .reportCard { align-items: flex-start; flex-direction: column; gap: 18px; }
+  .grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  a.row { transition: none; }
+}

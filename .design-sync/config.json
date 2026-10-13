@@ -1,0 +1,11 @@
+{
+  "projectId": "f8eb02cc-da01-439d-827d-079f872681d5",
+  "shape": "storybook",
+  "pkg": "@thedot/design-system",
+  "storybookConfigDir": "packages/design-system/.storybook",
+  "storybookStatic": ".design-sync/sb-reference",
+  "buildCmd": "npm run build --workspace @thedot/design-system",
+  "cssEntry": "dist/index.css",
+  "titleMap": { "Assets": null },
+  "readmeHeader": ".design-sync/conventions.md"
+}

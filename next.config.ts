@@ -1,10 +1,12 @@
 import type { NextConfig } from "next";
+import bundleAnalyzer from '@next/bundle-analyzer';
 
-const withBundleAnalyzer = require('@next/bundle-analyzer')({
+const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
 });
 
 const nextConfig: NextConfig = {
+  outputFileTracingRoot: process.cwd(),
   // Allow production builds to complete even if there are TypeScript errors
   typescript: {
     ignoreBuildErrors: true,
@@ -54,8 +56,10 @@ const nextConfig: NextConfig = {
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' *.typekit.net use.typekit.net https://www.googletagmanager.com https://www.google-analytics.com https://challenges.cloudflare.com https://apis.google.com va.vercel-scripts.com",
               "style-src 'self' 'unsafe-inline' *.typekit.net use.typekit.net fonts.googleapis.com",
               "font-src 'self' *.typekit.net use.typekit.net fonts.gstatic.com data:",
-              "img-src 'self' data: blob: *.typekit.net prod-files-secure.s3.us-west-2.amazonaws.com https://www.google-analytics.com https://www.googletagmanager.com",
-              "connect-src 'self' *.typekit.net *.adobe.com https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://challenges.cloudflare.com vitals.vercel-insights.com",
+              "img-src 'self' data: blob: *.typekit.net prod-files-secure.s3.us-west-2.amazonaws.com https://www.google-analytics.com https://www.googletagmanager.com https://ltotkkpytvtcgelrgdkg.supabase.co",
+              // Portal review previews: signed Supabase Storage links for the reel video (plan 2).
+              "media-src 'self' blob: https://ltotkkpytvtcgelrgdkg.supabase.co",
+              "connect-src 'self' *.typekit.net *.adobe.com https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://challenges.cloudflare.com vitals.vercel-insights.com https://ltotkkpytvtcgelrgdkg.supabase.co wss://ltotkkpytvtcgelrgdkg.supabase.co",
               "frame-src 'self' https://calendar.google.com https://player.vimeo.com https://vimeo.com https://www.youtube.com https://youtube.com https://challenges.cloudflare.com",
               "worker-src 'self' blob:",
               "object-src 'none'",
@@ -81,6 +85,18 @@ const nextConfig: NextConfig = {
         hostname: 'prod-files-secure.s3.us-west-2.amazonaws.com',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.thedotcreative.co',
+        port: '',
+        pathname: '/images/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'thedotcreative.co',
+        port: '',
+        pathname: '/images/**',
       },
     ],
   },

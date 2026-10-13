@@ -182,28 +182,28 @@ export function generateProjectStructuredData(project: Project) {
     "@graph": [
       {
         "@type": "CreativeWork",
-        "@id": `https://thedotcreative.co/projects/${project.slug}#creativework`,
+        "@id": `https://www.thedotcreative.co/projects/${project.slug}#creativework`,
         "name": project.title,
         "description": project.description,
         "dateCreated": project.year,
         "creator": {
           "@type": "Organization",
-          "@id": "https://thedotcreative.co/#organization"
+          "@id": "https://www.thedotcreative.co/#organization"
         },
         "image": project.heroImage || project.images?.[0],
         "keywords": project.tools?.join(', '),
         "genre": "Web Design",
         "inLanguage": "en-CA",
-        "url": `https://thedotcreative.co/projects/${project.slug}`,
+        "url": `https://www.thedotcreative.co/projects/${project.slug}`,
         "mainEntityOfPage": {
           "@type": "WebPage",
-          "@id": `https://thedotcreative.co/projects/${project.slug}`
+          "@id": `https://www.thedotcreative.co/projects/${project.slug}`
         }
       },
       {
         "@type": "WebPage",
-        "@id": `https://thedotcreative.co/projects/${project.slug}`,
-        "url": `https://thedotcreative.co/projects/${project.slug}`,
+        "@id": `https://www.thedotcreative.co/projects/${project.slug}`,
+        "url": `https://www.thedotcreative.co/projects/${project.slug}`,
         "name": `${project.title} | The Dot Creative Portfolio`,
         "description": project.shortDescription || project.description,
         "datePublished": project.year,
@@ -211,11 +211,11 @@ export function generateProjectStructuredData(project: Project) {
         "inLanguage": "en-CA",
         "isPartOf": {
           "@type": "WebSite",
-          "@id": "https://thedotcreative.co/#website"
+          "@id": "https://www.thedotcreative.co/#website"
         },
         "about": {
           "@type": "CreativeWork",
-          "@id": `https://thedotcreative.co/projects/${project.slug}#creativework`
+          "@id": `https://www.thedotcreative.co/projects/${project.slug}#creativework`
         },
         "primaryImageOfPage": {
           "@type": "ImageObject",
@@ -228,31 +228,31 @@ export function generateProjectStructuredData(project: Project) {
               "@type": "ListItem",
               "position": 1,
               "name": "Home",
-              "item": "https://thedotcreative.co/"
+              "item": "https://www.thedotcreative.co/"
             },
             {
               "@type": "ListItem",
               "position": 2,
               "name": "Portfolio",
-              "item": "https://thedotcreative.co/#portfolio"
+              "item": "https://www.thedotcreative.co/#portfolio"
             },
             {
               "@type": "ListItem",
               "position": 3,
               "name": project.title,
-              "item": `https://thedotcreative.co/projects/${project.slug}`
+              "item": `https://www.thedotcreative.co/projects/${project.slug}`
             }
           ]
         }
       },
       {
         "@type": "Organization",
-        "@id": "https://thedotcreative.co/#organization",
+        "@id": "https://www.thedotcreative.co/#organization",
         "name": "The Dot Creative Agency",
-        "url": "https://thedotcreative.co/",
+        "url": "https://www.thedotcreative.co/",
         "logo": {
           "@type": "ImageObject",
-          "url": "https://thedotcreative.co/images/logo.png"
+          "url": "https://www.thedotcreative.co/images/logo.png"
         },
         "address": {
           "@type": "PostalAddress",
@@ -266,7 +266,7 @@ export function generateProjectStructuredData(project: Project) {
           "availableLanguage": ["English"]
         },
         "sameAs": [
-          "https://thedotcreative.co/"
+          "https://www.thedotcreative.co/"
         ]
       }
     ]

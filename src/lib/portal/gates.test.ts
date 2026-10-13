@@ -1,0 +1,786 @@
+import { describe, expect, it } from 'vitest'
+import {
+  deriveContentStage, deriveMyTasks, renderStatusGatesBlock, resolveNineGates,
+  businessDaysBetween, canonicalScheduleDestination, canonicalDestinations,
+  selectCurrentDecision, type StagePiece, type ProductionGateRow,
+} from './gates'
+
+const gate = (
+  key: ProductionGateRow['gate_key'],
+  state: ProductionGateRow['state'],
+  overrides: Partial<ProductionGateRow> = {},
+): ProductionGateRow => ({
+  gate_key: key, state, owner_label: 'anastasia',
+  occurred_at: state === 'done' ? '2026-07-20T12:00:00Z' : null,
+  note: null, na_reason: state === 'na' ? 'not applicable' : null, ...overrides,
+})
+
+const piece = (overrides: Partial<StagePiece> = {}): StagePiece => ({
+  clientId: 'client-kanset', clientName: 'Kanset',
+  contentId: 'kanset-2026-07-test-piece', title: 'Test piece', status: 'draft',
+  factCheck: 'confirmed', factCheckExempt: false, currentDecision: null,
+  ideaDecision: null, ideaDecisionSource: null, ideaDecisionNote: null,
+  approvalSentAt: null, ideaApprovalSentAt: null, platforms: ['instagram', 'facebook'], archived: false,
+  gates: [], dests: [], workingVersion: 1, ...overrides,
+})
+
+const dest = (destination: string, overrides: Partial<StagePiece['dests'][number]> = {}) => ({
+  destination, scheduleStatus: null, publicationStatus: null, verified: false,
+  scheduledAt: null, liveUrl: null, ...overrides,
+})
+
+// Every branch of the spec 4.1 priority derivation.
+describe('deriveContentStage', () => {
+  it('keeps a hydrated submitted idea in the idea-approval stage', () => {
+    expect(deriveContentStage(piece({
+      ideaApprovalSentAt: '2026-07-26T12:00:00Z', factCheckValid: true,
+      currentDecision: null,
+    }))).toEqual({ stage: 'awaiting_idea_approval', label: 'awaiting idea approval' })
+  })
+  // Since 2026-09-02 the plan is a heads-up, never decided. Once a version is released to
+  // Maria, an undecided plan cycle must not mask her final-package decision or edits.
+  it('a released piece with Maria change request reads as her changes, not plan direction', () => {
+    const result = deriveContentStage(piece({
+      ideaApprovalSentAt: '2026-10-01T12:00:00Z', released: true, visibleVersion: 1,
+      currentDecision: 'change_requested', openClientEdits: 2,
+      gates: [gate('approval_sent', 'done')],
+    }))
+    expect(result).toEqual({ stage: 'changes_requested', label: 'Maria asked for changes; 2 edits open' })
+  })
+  it('counts one edit in the singular and accepts open edits without a change_requested decision', () => {
+    expect(deriveContentStage(piece({
+      released: true, visibleVersion: 1, openClientEdits: 1,
+    }))).toEqual({ stage: 'changes_requested', label: 'Maria asked for changes; 1 edit open' })
+  })
+  it('a change_requested decision with no open edit rows still reads as changes', () => {
+    expect(deriveContentStage(piece({
+      released: true, visibleVersion: 1, currentDecision: 'change_requested', openClientEdits: 0,
+    }))).toEqual({ stage: 'changes_requested', label: 'Maria asked for changes' })
+  })
+  it('a released piece with an undecided plan cycle and no decision is awaiting Maria, not plan direction', () => {
+    expect(deriveContentStage(piece({
+      ideaApprovalSentAt: '2026-10-01T12:00:00Z', released: true, visibleVersion: 1,
+    })).stage).toBe('awaiting_decision')
+  })
+  it('an unreleased piece in an undecided plan cycle still awaits plan direction', () => {
+    expect(deriveContentStage(piece({
+      ideaApprovalSentAt: '2026-10-01T12:00:00Z', released: false, visibleVersion: null,
+    })).stage).toBe('awaiting_idea_approval')
+  })
+  it('an approval still wins over open edits, and provider state wins over changes', () => {
+    expect(deriveContentStage(piece({
+      released: true, visibleVersion: 1, currentDecision: 'approved', openClientEdits: 1,
+    })).stage).toBe('approved')
+    expect(deriveContentStage(piece({
+      released: true, visibleVersion: 1, currentDecision: 'change_requested',
+      dests: [dest('instagram', { scheduleStatus: 'scheduled' }), dest('facebook', { scheduleStatus: 'scheduled' })],
+    })).stage).toBe('scheduled')
+  })
+  it('0: a durable identity without version 1 is an idea', () => {
+    expect(deriveContentStage(piece({ workingVersion: null, status: 'idea' }))).toEqual({
+      stage: 'idea',
+      label: 'idea',
+    })
+  })
+  it('1: done when every required destination is link-confirmed', () => {
+    const result = deriveContentStage(piece({
+      dests: [dest('instagram', { publicationStatus: 'live', verified: true }),
+        dest('facebook', { publicationStatus: 'live', verified: true })],
+    }))
+    expect(result.stage).toBe('done')
+  })
+
+  it('2: posted_unverified when any destination is live without confirmation', () => {
+    const result = deriveContentStage(piece({
+      dests: [dest('instagram', { publicationStatus: 'live', verified: true }),
+        dest('facebook', { publicationStatus: 'live', verified: false })],
+    }))
+    expect(result.stage).toBe('posted_unverified')
+    expect(result.label).toContain('facebook')
+  })
+
+  it('3: scheduled vs scheduled_partial, with divergent destinations in the label', () => {
+    const full = deriveContentStage(piece({
+      dests: [dest('instagram', { scheduleStatus: 'scheduled' }),
+        dest('facebook', { scheduleStatus: 'scheduled' })],
+    }))
+    expect(full.stage).toBe('scheduled')
+    const partial = deriveContentStage(piece({
+      platforms: ['instagram', 'facebook', 'youtube'],
+      dests: [dest('instagram', { scheduleStatus: 'scheduled' }),
+        dest('facebook', { scheduleStatus: 'scheduled' })],
+    }))
+    expect(partial.stage).toBe('scheduled_partial')
+    expect(partial.label).toContain('instagram, facebook')
+    expect(partial.label).toContain('youtube pending')
+  })
+
+  it('4: approved requires the decision AND design_built + proofed satisfied', () => {
+    const result = deriveContentStage(piece({
+      currentDecision: 'approved',
+      gates: [gate('source_in_hand', 'na'), gate('design_built', 'done'),
+        gate('proofed', 'done'), gate('approval_sent', 'done')],
+    }))
+    expect(result.stage).toBe('approved')
+  })
+
+  it('5: the H&C shape: a decision with open production gates is direction_approved', () => {
+    const result = deriveContentStage(piece({
+      currentDecision: 'approved',
+      gates: [gate('source_in_hand', 'na'), gate('design_built', 'open'),
+        gate('proofed', 'open'), gate('approval_sent', 'open')],
+    }))
+    expect(result.stage).toBe('direction_approved')
+  })
+
+  it('5b: a piece with NO gate rows derives approved from the decision alone (podcast lane)', () => {
+    const result = deriveContentStage(piece({ currentDecision: 'approved' }))
+    expect(result.stage).toBe('approved')
+  })
+
+  it('treats a courtesy release as an agency policy, never as a client approval or a Maria task', () => {
+    const courtesy = piece({
+      reviewMode: 'courtesy',
+      ideaApprovalSentAt: '2026-07-26T12:00:00Z',
+      ideaDecision: null,
+      gates: [gate('source_in_hand', 'na'), gate('design_built', 'done'),
+        gate('proofed', 'done'), gate('approval_sent', 'done')],
+    })
+    expect(deriveContentStage(courtesy)).toEqual({
+      stage: 'courtesy_released', label: 'courtesy release (no client approval required)',
+    })
+    const approvalGate = resolveNineGates(courtesy).find((row) => row.key === 'copy-approved')
+    expect(approvalGate).toMatchObject({ state: 'na', owner: 'agency' })
+    expect(deriveMyTasks([courtesy], [], '2026-07-30')).toEqual([
+      expect.objectContaining({ kind: 'action', gate: 'scheduled', dest: 'instagram' }),
+    ])
+  })
+
+  it('lets a final approval outrank an older undecided plan in the calendar stage', () => {
+    const approved = piece({
+      currentDecision: 'approved',
+      ideaApprovalSentAt: '2026-07-26T12:00:00Z',
+      ideaDecision: null,
+      gates: [gate('source_in_hand', 'na'), gate('design_built', 'done'),
+        gate('proofed', 'done'), gate('approval_sent', 'done')],
+    })
+    expect(deriveContentStage(approved)).toEqual({ stage: 'approved', label: 'approved' })
+    expect(deriveMyTasks([approved], [], '2026-07-30')).toEqual([
+      expect.objectContaining({ kind: 'action', gate: 'scheduled', dest: 'instagram' }),
+    ])
+  })
+
+  // Codex round-2 fix A: absent gate rows must NOT force direction_approved; only a
+  // PRESENT-and-open design_built/proofed/approval_sent does.
+  it('5c: approved decision + only a PARTIAL gate set (proofed done, no design row) -> approved', () => {
+    const result = deriveContentStage(piece({
+      currentDecision: 'approved',
+      gates: [gate('source_in_hand', 'na'), gate('proofed', 'done')],
+    }))
+    expect(result.stage).toBe('approved') // design_built absent is non-blocking, not unsatisfied
+  })
+
+  it('5d: approved decision + a present-open proofed row -> direction_approved', () => {
+    const result = deriveContentStage(piece({
+      currentDecision: 'approved',
+      gates: [gate('design_built', 'done'), gate('proofed', 'open')],
+    }))
+    expect(result.stage).toBe('direction_approved')
+  })
+
+  it('5e: approved decision + an open approval_sent row -> direction_approved (old check missed this)', () => {
+    const result = deriveContentStage(piece({
+      currentDecision: 'approved',
+      gates: [gate('design_built', 'done'), gate('proofed', 'done'), gate('approval_sent', 'open')],
+    }))
+    expect(result.stage).toBe('direction_approved')
+  })
+
+  it('6: awaiting_decision when the ask is out and no decision exists', () => {
+    const result = deriveContentStage(piece({
+      gates: [gate('design_built', 'done'), gate('proofed', 'done'), gate('approval_sent', 'done')],
+    }))
+    expect(result.stage).toBe('awaiting_decision')
+  })
+
+  it('7: in_production subdivides by the first open gate, incl. waiting on studio', () => {
+    const studio = deriveContentStage(piece({
+      gates: [gate('source_in_hand', 'open', { owner_label: 'studio' })],
+    }))
+    expect(studio.stage).toBe('in_production')
+    expect(studio.label).toBe('waiting on studio')
+    const design = deriveContentStage(piece({
+      gates: [gate('source_in_hand', 'na'), gate('design_built', 'open')],
+    }))
+    expect(design.label).toBe('needs design')
+    const proof = deriveContentStage(piece({
+      gates: [gate('design_built', 'done'), gate('proofed', 'open')],
+    }))
+    expect(proof.label).toBe('needs proof')
+  })
+
+  it('8: draft when nothing else applies', () => {
+    expect(deriveContentStage(piece()).stage).toBe('draft')
+  })
+
+  it('uses explicit terminal states instead of presenting archived or legacy pieces as done', () => {
+    expect(deriveContentStage(piece({ archived: true })).stage).toBe('archived')
+    expect(deriveContentStage(piece({ legacy: { classification: 'legacy_unverified' } })).stage).toBe('legacy')
+    expect(deriveContentStage(piece({ legacy: { classification: 'legacy_verified' } })).label)
+      .toBe('posted (legacy, verified)')
+  })
+
+  it('surfaces unsupported platform mappings instead of silently stalling', () => {
+    expect(deriveContentStage(piece({ platforms: [], exceptions: [{ kind: 'unsupported_destination', note: 'tiktok' }] })).stage)
+      .toBe('needs_platform_mapping')
+  })
+})
+
+describe('deriveMyTasks', () => {
+  it('does not manufacture production tasks for a versionless idea', () => {
+    expect(deriveMyTasks([piece({ workingVersion: null, status: 'idea' })], [], '2026-07-21')).toEqual([])
+  })
+  it('keeps a submitted plan with no decision in Waiting on Maria, not agency actions', () => {
+    const tasks = deriveMyTasks([piece({
+      ideaApprovalSentAt: '2026-07-26T12:00:00Z',
+      gates: [gate('source_in_hand', 'done'), gate('design_built', 'done'), gate('proofed', 'done'), gate('approval_sent', 'done')],
+    })], [], '2026-07-28')
+    expect(tasks).toHaveLength(1)
+    expect(tasks[0]).toMatchObject({
+      kind: 'waiting_maria', waitingFor: 'plan_direction', daysWaiting: 2, nudge: true,
+    })
+  })
+
+  it('a released piece in an undecided plan cycle waits on Maria final review, not plan direction', () => {
+    const tasks = deriveMyTasks([piece({
+      ideaApprovalSentAt: '2026-09-28T12:00:00Z', released: true, visibleVersion: 1,
+      gates: [gate('approval_sent', 'done', { occurred_at: '2026-10-02T12:00:00Z' })],
+    })], [], '2026-10-06')
+    expect(tasks).toHaveLength(1)
+    expect(tasks[0]).toMatchObject({ kind: 'waiting_maria', waitingFor: 'final_review', daysWaiting: 2 })
+  })
+  it('routes Maria plan changes back to the agency as a specific action', () => {
+    const tasks = deriveMyTasks([piece({
+      ideaApprovalSentAt: '2026-07-26T12:00:00Z',
+      ideaDecision: 'change_requested',
+    })], [], '2026-07-28')
+    expect(tasks).toHaveLength(1)
+    expect(tasks[0]).toMatchObject({ kind: 'action', gate: 'review-plan-changes' })
+  })
+
+  it('puts Maria final-package changes ahead of a stale plan decision', () => {
+    const tasks = deriveMyTasks([piece({
+      plannedDate: '2026-08-24',
+      ideaApprovalSentAt: '2026-07-26T12:00:00Z',
+      ideaDecision: null,
+      currentDecision: 'change_requested',
+      gates: [gate('source_in_hand', 'done'), gate('design_built', 'done'),
+        gate('proofed', 'done'), gate('approval_sent', 'done')],
+    })], [], '2026-08-24')
+    expect(tasks).toHaveLength(1)
+    expect(tasks[0]).toMatchObject({
+      kind: 'action', gate: 'review-client-changes', plannedDate: '2026-08-24',
+    })
+  })
+  it('surfaces open binding edits even when the package decision has not changed', () => {
+    const tasks = deriveMyTasks([piece({
+      openClientEdits: 2,
+      currentDecision: null,
+      ideaDecision: null,
+      ideaApprovalSentAt: '2026-08-20T12:00:00Z',
+    })], [], '2026-08-24')
+    expect(tasks).toEqual([expect.objectContaining({
+      kind: 'action', gate: 'review-client-changes', clientEditCount: 2,
+    })])
+  })
+  it('surfaces the first open gate in canonical order', () => {
+    // platforms empty so gates 7-9 add no lines: open = design/proofed/approval + copy
+    const tasks = deriveMyTasks([piece({
+      platforms: [],
+      gates: [gate('source_in_hand', 'na'), gate('design_built', 'open'),
+        gate('proofed', 'open'), gate('approval_sent', 'open')],
+    })], [], '2026-07-21')
+    expect(tasks).toHaveLength(1)
+    // moreOpen counts the other destinations waiting on THIS gate, and there are no platforms
+    // here. It used to count every later gate on the piece, which is why "+3 more" beside
+    // "Design" was never rendered: next to a destination-shaped label it reads as 3 more designs.
+    expect(tasks[0]).toMatchObject({ kind: 'action', gate: 'design-built', moreOpen: 0 })
+  })
+
+  // "Schedule: instagram" on a three-platform reel is three separate actions. The panel showed
+  // one label and no count, so two pieces on 2026-09-26 each read as a single scheduling job
+  // when six were waiting.
+  it('counts the other destinations still open on the same gate', () => {
+    const tasks = deriveMyTasks([piece({
+      platforms: ['instagram', 'facebook', 'youtube'],
+      reviewMode: 'courtesy',
+      ideaApprovalSentAt: '2026-07-26T12:00:00Z',
+      gates: [gate('source_in_hand', 'na'), gate('design_built', 'done'),
+        gate('proofed', 'done'), gate('approval_sent', 'done')],
+      dests: [dest('instagram'), dest('facebook'), dest('youtube')],
+    })], [], '2026-07-30').filter((task) => task.kind === 'action')
+
+    expect(tasks[0]).toMatchObject({ gate: 'scheduled', dest: 'instagram', moreOpen: 2 })
+  })
+
+  it('routes an out-for-approval piece to Waiting-on-Maria and flags nudge at 2 business days', () => {
+    const base = piece({
+      gates: [gate('source_in_hand', 'na'), gate('design_built', 'done'),
+        gate('proofed', 'done'),
+        gate('approval_sent', 'done', { occurred_at: '2026-07-16T12:00:00Z' })],
+    })
+    // Thu Jul 16 -> Tue Jul 21 = 3 business days
+    const stale = deriveMyTasks([base], [], '2026-07-21')
+    expect(stale[0]).toMatchObject({ kind: 'waiting_maria', daysWaiting: 3, nudge: true })
+    // Thu Jul 16 -> Fri Jul 17 = 1 business day: no nudge yet
+    const fresh = deriveMyTasks([base], [], '2026-07-17')
+    expect(fresh[0]).toMatchObject({ kind: 'waiting_maria', daysWaiting: 1, nudge: false })
+  })
+
+  it('routes an open studio source gate to Waiting-on-studio', () => {
+    const tasks = deriveMyTasks([piece({
+      gates: [gate('source_in_hand', 'open', { owner_label: 'studio', note: 'ep3 cut' })],
+    })], [], '2026-07-21')
+    expect(tasks[0]).toMatchObject({ kind: 'waiting_studio', note: 'ep3 cut' })
+  })
+
+  it('skips archived pieces and pieces with no tracked open gates', () => {
+    const archived = piece({ archived: true, gates: [gate('design_built', 'open')] })
+    const untracked = piece({ currentDecision: 'approved', factCheckExempt: true,
+      platforms: [], gates: [] })
+    expect(deriveMyTasks([archived, untracked], [], '2026-07-21')).toHaveLength(0)
+  })
+
+  it('buckets ops tasks: overdue, today, this week, upcoming, watch', () => {
+    const ops = (over: Partial<import('./gates').OpsTaskRow>): import('./gates').OpsTaskRow => ({
+      id: 'x', clientId: 'client-kanset', clientName: 'Kanset', title: 't', category: 'admin',
+      due_date: null, trigger_note: null, status: 'open', ...over,
+    })
+    const tasks = deriveMyTasks([], [
+      ops({ id: '1', title: 'Chase invoice', category: 'invoice', due_date: '2026-07-20' }),
+      ops({ id: '2', title: 'Send plan', category: 'plan', due_date: '2026-07-21' }),
+      ops({ id: '3', title: 'Podcast revisit', category: 'revisit', due_date: '2026-07-24' }),
+      ops({ id: '4', title: 'Next month kickoff', category: 'plan', due_date: '2026-09-01' }),
+      ops({ id: '5', title: '500 reviews watch', category: 'watch', trigger_note: 'fires at 500' }),
+      ops({ id: '6', title: 'Done thing', status: 'done' }),
+    ], '2026-07-21')
+    const buckets = tasks.map((task) => (task.kind === 'ops' ? task.bucket : null))
+    expect(buckets).toEqual(['overdue', 'today', 'this_week', 'upcoming', 'watch'])
+  })
+
+  // A daily monitor raises its alert daily. Before 2026-09-25 only the notification-volume alert
+  // was grouped, by a regex on its title, so every monitor written after it repeated in full: the
+  // task count read 12, of which ten were the same "Portal record is behind the work" sentence.
+  it('groups ANY repeated alert, not only the one that was hard-coded', () => {
+    const ops = (over: Partial<import('./gates').OpsTaskRow>): import('./gates').OpsTaskRow => ({
+      id: 'x', clientId: 'client-kanset', clientName: 'Kanset', title: 't', category: 'portal',
+      due_date: null, trigger_note: null, status: 'open', ...over,
+    })
+    const tasks = deriveMyTasks([], [
+      ops({ id: 'a', title: 'Portal record is behind the work', due_date: '2026-09-16', trigger_note: 'Monday' }),
+      ops({ id: 'b', title: 'Portal record is behind the work', due_date: '2026-09-20', trigger_note: 'Friday' }),
+      ops({ id: 'c', title: 'Portal record is behind the work', due_date: '2026-09-25', trigger_note: 'Today, current numbers' }),
+    ], '2026-09-25').filter((task) => task.kind === 'ops')
+
+    expect(tasks).toHaveLength(1)
+    expect(tasks[0]).toMatchObject({
+      title: 'Portal record is behind the work', occurrences: 3,
+      // The newest occurrence wins, so the note carries today's numbers rather than last week's.
+      dueDate: '2026-09-25', triggerNote: 'Today, current numbers',
+    })
+  })
+
+  it('keeps genuinely different alerts apart', () => {
+    const ops = (over: Partial<import('./gates').OpsTaskRow>): import('./gates').OpsTaskRow => ({
+      id: 'x', clientId: 'client-kanset', clientName: 'Kanset', title: 't', category: 'portal',
+      due_date: null, trigger_note: null, status: 'open', ...over,
+    })
+    const tasks = deriveMyTasks([], [
+      ops({ id: 'a', title: 'Portal record is behind the work', due_date: '2026-09-25' }),
+      ops({ id: 'b', title: 'Review YouTube transcript', due_date: '2026-09-25' }),
+    ], '2026-09-25').filter((task) => task.kind === 'ops')
+
+    expect(tasks).toHaveLength(2)
+  })
+
+  it('groups repeated notification-volume alerts into one current incident', () => {
+    const ops = (over: Partial<import('./gates').OpsTaskRow>): import('./gates').OpsTaskRow => ({
+      id: 'x', clientId: 'client-kanset', clientName: 'Kanset', title: 't', category: 'portal',
+      due_date: null, trigger_note: null, status: 'open', ...over,
+    })
+    const tasks = deriveMyTasks([], [
+      ops({ id: 'old', title: 'Review Maria notification volume baseline', due_date: '2026-08-03', trigger_note: 'First alert' }),
+      ops({ id: 'new', title: 'Review client notification volume', due_date: '2026-08-22', trigger_note: 'Latest alert' }),
+      ops({ id: 'transcript', title: 'Review YouTube transcript', due_date: '2026-08-23' }),
+    ], '2026-08-24').filter((task) => task.kind === 'ops')
+
+    expect(tasks).toHaveLength(2)
+    expect(tasks[0]).toMatchObject({
+      kind: 'ops', title: 'Review client notification volume', dueDate: '2026-08-22',
+      triggerNote: 'Latest alert', occurrences: 2,
+    })
+  })
+
+  it('orders agency actions by client changes, then planned date', () => {
+    const tasks = deriveMyTasks([
+      piece({ contentId: 'later', title: 'Later design', plannedDate: '2026-08-26',
+        gates: [gate('design_built', 'open')] }),
+      piece({ contentId: 'today', title: 'Today design', plannedDate: '2026-08-24',
+        gates: [gate('design_built', 'open')] }),
+      piece({ contentId: 'changes', title: 'Maria changes', plannedDate: '2026-08-27',
+        currentDecision: 'change_requested',
+        gates: [gate('design_built', 'done'), gate('proofed', 'done'), gate('approval_sent', 'done')] }),
+    ], [], '2026-08-24').filter((task) => task.kind === 'action')
+
+    expect(tasks.map((task) => task.contentId)).toEqual(['changes', 'today', 'later'])
+  })
+
+  it("an agency-global ops task (null client) is labelled 'Agency' in its derived row", () => {
+    // the admin resolves clientName='Agency' for a null client_id before deriveMyTasks;
+    // this asserts the label rides through the derivation to the render
+    const tasks = deriveMyTasks([], [
+      { id: 'g', clientId: null, clientName: 'Agency', title: 'Renew domain',
+        category: 'admin', due_date: '2026-07-21', trigger_note: null, status: 'open' },
+    ], '2026-07-21')
+    expect(tasks[0]).toMatchObject({ kind: 'ops', clientName: 'Agency' })
+  })
+
+  it('a fully-posted but unverified piece is link-confirm bookkeeping, not an action', () => {
+    // posted on every platform, none verified -> only link-confirmed is open; it must NOT
+    // read as an action (that flooded My Tasks with posted history) but as link_pending.
+    const posted = piece({
+      currentDecision: 'approved', factCheckExempt: true,
+      gates: [gate('source_in_hand', 'na'), gate('design_built', 'done'),
+        gate('proofed', 'done'), gate('approval_sent', 'done')],
+      platforms: ['instagram', 'facebook'],
+      dests: [dest('instagram', { publicationStatus: 'live', verified: false }),
+        dest('facebook', { publicationStatus: 'live', verified: false })],
+    })
+    const tasks = deriveMyTasks([posted], [], '2026-07-21')
+    expect(tasks).toHaveLength(1)
+    expect(tasks[0]).toMatchObject({ kind: 'link_pending', dest: 'instagram' })
+  })
+
+  it('never resurrects a completed post as waiting on studio because of a stale source gate', () => {
+    const completed = piece({
+      currentDecision: 'approved', factCheckExempt: true,
+      gates: [gate('source_in_hand', 'open', { owner_label: 'studio' }),
+        gate('design_built', 'done'), gate('proofed', 'done'), gate('approval_sent', 'done')],
+      platforms: ['instagram'],
+      dests: [dest('instagram', { publicationStatus: 'live', verified: true })],
+    })
+    expect(deriveMyTasks([completed], [], '2026-07-31')).toEqual([])
+  })
+
+  it('does not ask Maria for final approval of an unshared stub package', () => {
+    const stub = piece({
+      released: false, visibleVersion: null, factCheckExempt: true,
+      gates: [], platforms: [], currentDecision: null,
+    })
+    expect(deriveMyTasks([stub], [], '2026-07-31')).toEqual([])
+  })
+
+  it('a live destination without a provider schedule never surfaces a stale schedule action or a fabricated schedule record', () => {
+    const live = piece({ platforms: ['instagram'],
+      dests: [dest('instagram', { publicationStatus: 'live', verified: false })] })
+    const scheduled = resolveNineGates(live).find((g) => g.key === 'scheduled' && g.dest === 'instagram')
+    expect(scheduled?.state).toBe('na')
+    expect(scheduled?.note).toBe('live confirmed; no provider schedule record')
+    // and My Tasks never emits a scheduled:instagram action for it
+    const tasks = deriveMyTasks([live], [], '2026-07-21')
+    expect(tasks.some((t) => t.kind === 'action' && t.gate === 'scheduled')).toBe(false)
+  })
+
+  it('keeps a missing proof record in evidence cleanup, not the urgent production queue', () => {
+    const afterPublication = piece({
+      gates: [gate('source_in_hand', 'done'), gate('design_built', 'done'), gate('proofed', 'open')],
+      platforms: ['instagram'],
+      dests: [dest('instagram', { publicationStatus: 'live', verified: true })],
+    })
+    expect(deriveMyTasks([afterPublication], [], '2026-07-31')[0]).toMatchObject({
+      kind: 'reconciliation', issue: 'proof',
+    })
+  })
+
+  it('does not replay stale approval or post gates for a scheduled piece', () => {
+    const scheduled = piece({
+      plannedDate: '2026-08-12',
+      gates: [gate('source_in_hand', 'done'), gate('design_built', 'done'),
+        gate('proofed', 'done'), gate('approval_sent', 'open')],
+      platforms: ['instagram', 'facebook'],
+      dests: [dest('instagram', { scheduleStatus: 'scheduled', scheduledAt: '2026-08-12T23:00:00Z' }),
+        dest('facebook', { scheduleStatus: 'scheduled', scheduledAt: '2026-08-12T23:00:00Z' })],
+    })
+    expect(deriveMyTasks([scheduled], [], '2026-08-26')).toEqual([
+      expect.objectContaining({ kind: 'reconciliation', issue: 'publication',
+        dest: 'instagram', moreOpen: 1 }),
+    ])
+  })
+
+  it('keeps a scheduled piece out of My Tasks on its planned day', () => {
+    const scheduledToday = piece({
+      plannedDate: '2026-08-26', currentDecision: 'approved',
+      platforms: ['linkedin'],
+      dests: [dest('linkedin', { scheduleStatus: 'scheduled', scheduledAt: '2026-08-26T20:00:00Z' })],
+    })
+    expect(deriveMyTasks([scheduledToday], [], '2026-08-26')).toEqual([])
+  })
+
+  it('keeps an unscheduled destination actionable on a partly-scheduled current piece', () => {
+    const partialToday = piece({
+      plannedDate: '2026-08-26', currentDecision: 'approved',
+      platforms: ['instagram', 'facebook'],
+      dests: [dest('instagram', { scheduleStatus: 'scheduled', scheduledAt: '2026-08-26T23:00:00Z' }),
+        dest('facebook')],
+    })
+    expect(deriveMyTasks([partialToday], [], '2026-08-26')).toEqual([
+      expect.objectContaining({ kind: 'action', gate: 'scheduled', dest: 'facebook' }),
+    ])
+  })
+
+  it('routes a partly-published historical piece to evidence cleanup for missing destinations', () => {
+    const partial = piece({
+      plannedDate: '2026-08-18',
+      platforms: ['instagram', 'facebook', 'youtube'],
+      dests: [dest('instagram', { publicationStatus: 'live', verified: true }),
+        dest('facebook'), dest('youtube', { publicationStatus: 'live', verified: true })],
+    })
+    expect(deriveMyTasks([partial], [], '2026-08-26')).toEqual([
+      expect.objectContaining({ kind: 'reconciliation', issue: 'publication',
+        dest: 'facebook', moreOpen: 0 }),
+    ])
+  })
+})
+
+describe('businessDaysBetween', () => {
+  it('counts weekdays only', () => {
+    expect(businessDaysBetween('2026-07-16', '2026-07-21')).toBe(3) // Thu->Tue skips the weekend
+    expect(businessDaysBetween('2026-07-20', '2026-07-21')).toBe(1)
+    expect(businessDaysBetween('2026-07-21', '2026-07-21')).toBe(0)
+  })
+})
+
+describe('renderStatusGatesBlock (my-tasks spec section 5 grammar)', () => {
+  const sample = piece({
+    contentId: 'kanset-2026-07-askkanset-ep3-move-provinces',
+    platforms: ['instagram', 'facebook', 'youtube'],
+    gates: [
+      gate('source_in_hand', 'done', { owner_label: 'studio', occurred_at: '2026-07-15T12:00:00Z', note: 'Set 1 Clip 3 + brief (Drive)' }),
+      gate('design_built', 'open', { note: 'Canva cover from cover-brief-askkanset-ep3.md' }),
+      gate('proofed', 'open'),
+      gate('approval_sent', 'open'),
+    ],
+    dests: [dest('instagram'), dest('facebook'), dest('youtube')],
+  })
+
+  it('renders the exact line grammar with per-destination 7-9 lines', () => {
+    const block = renderStatusGatesBlock(sample, '2026-07-21T10:00:00Z')
+    const lines = block.split('\n')
+    expect(lines[0]).toBe('## STATUS GATES')
+    expect(lines[1]).toBe('<!-- gates: id=kanset-2026-07-askkanset-ep3-move-provinces date=2026-07-21 -->')
+    expect(lines[2]).toBe('- [x] fact-check @anastasia | confirmed')
+    expect(lines[3]).toBe('- [x] source-in-hand @studio 2026-07-15 | Set 1 Clip 3 + brief (Drive)')
+    expect(lines[4]).toBe('- [ ] design-built @anastasia | Canva cover from cover-brief-askkanset-ep3.md')
+    expect(block).toContain('- [ ] scheduled:instagram @anastasia')
+    expect(block).toContain('- [ ] scheduled:facebook @anastasia')
+    expect(block).toContain('- [ ] link-confirmed:youtube @anastasia')
+  })
+
+  it('renders [~] with the reason as the note', () => {
+    const naPiece = piece({ platforms: [], gates: [
+      gate('source_in_hand', 'na', { na_reason: 'not studio-sourced' }),
+    ] })
+    expect(renderStatusGatesBlock(naPiece, '2026-07-21'))
+      .toContain('- [~] source-in-hand @anastasia | not studio-sourced')
+  })
+
+  it('splits diverged destinations rather than letting one line vouch for all', () => {
+    const diverged = piece({
+      dests: [dest('instagram', { scheduleStatus: 'scheduled', scheduledAt: '2026-07-22T23:00:00Z' }),
+        dest('facebook')],
+    })
+    const block = renderStatusGatesBlock(diverged, '2026-07-21')
+    expect(block).toContain('- [x] scheduled:instagram @anastasia 2026-07-22')
+    expect(block).toContain('- [ ] scheduled:facebook @anastasia')
+  })
+})
+
+describe('resolveNineGates', () => {
+  it('marks untracked production gates absent instead of inventing obligations', () => {
+    const resolved = resolveNineGates(piece({ platforms: [] }))
+    const source = resolved.find((row) => row.key === 'source-in-hand')
+    expect(source?.present).toBe(false)
+    expect(source?.state).toBe('open')
+  })
+})
+
+// Contract test for the admin loader input shape (Codex ruling 2): a StagePiece with
+// exactly the fields loadAgencyStagePieces produces (working-version title/platforms,
+// latest decision, gate rows, dest states) flows through all three derivations without
+// throwing. Guards against a loader/engine drift where the admin feeds a shape the
+// derivations do not accept.
+describe('admin input-shape contract', () => {
+  const loaderShaped: StagePiece = {
+    clientId: 'client-kanset', clientName: 'Kanset',
+    contentId: 'kanset-2026-07-askkanset-ep3-move-provinces',
+    title: 'Ask Kanset: moving provinces',
+    status: 'draft', // unreleased piece: the loader still stages it (BLOCKER 1)
+    factCheck: 'confirmed', factCheckExempt: false,
+    currentDecision: null, ideaDecision: null, ideaDecisionSource: null,
+    ideaDecisionNote: null, ideaApprovalSentAt: null, approvalSentAt: null,
+    platforms: ['instagram', 'facebook', 'youtube'], archived: false,
+    gates: [
+      gate('source_in_hand', 'done', { owner_label: 'studio', occurred_at: '2026-07-15T16:00:00Z', note: 'Set 1 Clip 3' }),
+      gate('design_built', 'open', { note: 'cover to build' }),
+      gate('proofed', 'open'),
+      gate('approval_sent', 'open'),
+    ],
+    dests: [dest('instagram'), dest('facebook'), dest('youtube')],
+  }
+
+  it('an unreleased loader-shaped piece derives, stages, tasks, and renders without throwing', () => {
+    expect(() => deriveContentStage(loaderShaped)).not.toThrow()
+    expect(deriveContentStage(loaderShaped).stage).toBe('in_production')
+    const tasks = deriveMyTasks([loaderShaped], [], '2026-07-21')
+    expect(tasks[0]).toMatchObject({ kind: 'action', gate: 'design-built' })
+    expect(renderStatusGatesBlock(loaderShaped, '2026-07-21')).toContain('## STATUS GATES')
+  })
+})
+
+// Codex round-3 blocker: the loader must canonicalize raw frontmatter platforms to the
+// SAME destination vocabulary the schedule/publication targets are stored under
+// (portal_schedule_destination in 0008), or a complete youtube_shorts / website / blog
+// destination reads as unscheduled.
+describe('canonicalScheduleDestination (mirror of the SQL mapping)', () => {
+  it('maps every alias Codex named, and passes instagram/facebook through', () => {
+    const cases: Array<[string, string]> = [
+      ['instagram', 'instagram'],
+      ['facebook', 'facebook'],
+      ['youtube', 'youtube'],
+      ['youtube_shorts', 'youtube'],
+      ['youtube-shorts', 'youtube'],
+      ['youtube shorts', 'youtube'],
+      ['YouTube Shorts', 'youtube'], // case + trim insensitive, like lower(btrim())
+      ['  facebook  ', 'facebook'],
+      ['linkedin', 'linkedin'],
+      ['Linked In', 'linkedin'],
+      ['website', 'squarespace'],
+      ['blog', 'squarespace'],
+      ['squarespace', 'squarespace'],
+      ['other', 'other'],
+    ]
+    for (const [raw, expected] of cases) {
+      expect(canonicalScheduleDestination(raw)).toBe(expected)
+    }
+  })
+
+  it('collapses aliases that map to the same destination, preserving order', () => {
+    expect(canonicalDestinations(['instagram', 'facebook', 'youtube_shorts']))
+      .toEqual(['instagram', 'facebook', 'youtube'])
+    // youtube + youtube_shorts collapse to a single youtube destination (SQL DISTINCT)
+    expect(canonicalDestinations(['youtube', 'youtube-shorts'])).toEqual(['youtube'])
+    expect(canonicalDestinations(['website', 'blog'])).toEqual(['squarespace'])
+  })
+
+  it('a youtube_shorts piece matches a stored youtube target (the blocker, end to end)', () => {
+    // BEFORE the fix this piece read as scheduled-partial: platforms=[youtube_shorts]
+    // never matched the youtube schedule target. Now platforms canonicalize to youtube.
+    const p = piece({
+      platforms: canonicalDestinations(['instagram', 'youtube_shorts']),
+      dests: [dest('instagram', { scheduleStatus: 'scheduled' }),
+        dest('youtube', { scheduleStatus: 'scheduled' })],
+    })
+    expect(p.platforms).toEqual(['instagram', 'youtube'])
+    expect(deriveContentStage(p).stage).toBe('scheduled')
+  })
+
+  // Codex round-4 blocker: an UNKNOWN platform returns null (like the SQL), never a
+  // passthrough, so it can never invent a phantom destination the SQL would not schedule.
+  it('an unsupported platform canonicalizes to null, not a passthrough', () => {
+    expect(canonicalScheduleDestination('tiktok')).toBeNull()
+    expect(canonicalScheduleDestination('!!garbage!!')).toBeNull()
+    expect(canonicalScheduleDestination('')).toBeNull()
+  })
+
+  it('canonicalDestinations drops unknown platforms (zero phantom destinations)', () => {
+    expect(canonicalDestinations(['tiktok'])).toEqual([])
+    expect(canonicalDestinations(['!!garbage!!', 'nowhere'])).toEqual([])
+    // supported survive, unsupported drop, order + distinctness preserved
+    expect(canonicalDestinations(['instagram', 'tiktok', 'youtube_shorts', 'linkedin']))
+      .toEqual(['instagram', 'youtube', 'linkedin'])
+  })
+
+  it('a piece whose platforms canonicalize to an empty set derives + tasks without crashing', () => {
+    // tiktok-only piece: no supported destinations, so no per-destination gates 7-9. The
+    // stage derives from decision/production gates alone; My Tasks surfaces the open
+    // production gate, never a phantom "scheduled:tiktok".
+    const p = piece({
+      platforms: canonicalDestinations(['tiktok']),
+      gates: [gate('design_built', 'open')],
+    })
+    expect(p.platforms).toEqual([])
+    expect(() => deriveContentStage(p)).not.toThrow()
+    expect(deriveContentStage(p).stage).toBe('in_production')
+    const tasks = deriveMyTasks([p], [], '2026-07-21')
+    expect(tasks).toHaveLength(1)
+    expect(tasks[0]).toMatchObject({ kind: 'action', gate: 'design-built' })
+    // no scheduled/posted/link-confirmed lines exist for a destinationless piece
+    const nine = resolveNineGates(p)
+    expect(nine.some((g) => g.dest !== null)).toBe(false)
+  })
+})
+
+// Codex round-3 fix 2: piece-derived tasks carry the tenant so composite keys never
+// collide across clients that share a content_id.
+describe('my_tasks carry tenant identity', () => {
+  it('action / waiting_maria / waiting_studio all carry clientId + clientName', () => {
+    const action = deriveMyTasks([piece({ platforms: [],
+      gates: [gate('design_built', 'open')] })], [], '2026-07-21')[0]
+    expect(action).toMatchObject({ kind: 'action', clientId: 'client-kanset', clientName: 'Kanset' })
+
+    const maria = deriveMyTasks([piece({ platforms: [],
+      gates: [gate('design_built', 'done'), gate('proofed', 'done'),
+        gate('approval_sent', 'done', { occurred_at: '2026-07-16T12:00:00Z' })] })], [], '2026-07-21')[0]
+    expect(maria).toMatchObject({ kind: 'waiting_maria', clientId: 'client-kanset', clientName: 'Kanset' })
+
+    const studio = deriveMyTasks([piece({
+      gates: [gate('source_in_hand', 'open', { owner_label: 'studio' })] })], [], '2026-07-21')[0]
+    expect(studio).toMatchObject({ kind: 'waiting_studio', clientId: 'client-kanset', clientName: 'Kanset' })
+  })
+
+  it('two tenants sharing a content_id produce distinct composite keys', () => {
+    const a = piece({ clientId: 'client-a', clientName: 'A', contentId: 'shared-id',
+      platforms: [], gates: [gate('design_built', 'open')] })
+    const b = piece({ clientId: 'client-b', clientName: 'B', contentId: 'shared-id',
+      platforms: [], gates: [gate('design_built', 'open')] })
+    const tasks = deriveMyTasks([a, b], [], '2026-07-21')
+    const keys = tasks.map((t) => t.kind === 'ops' ? t.id : `${t.clientId}:${t.contentId}:${t.kind}`)
+    expect(new Set(keys).size).toBe(keys.length) // no collision
+  })
+})
+
+// Codex round-3 fix 1: the loader selects the current decision with the SAME tie-break
+// as the canonical content_with_state view (created_at DESC, id DESC), so on equal
+// timestamps the admin stage cannot disagree with client-facing portal state.
+describe('selectCurrentDecision tie-break', () => {
+  it('picks the latest created_at', () => {
+    expect(selectCurrentDecision([
+      { id: 'a', state: 'change_requested', created_at: '2026-07-20T10:00:00Z' },
+      { id: 'b', state: 'approved', created_at: '2026-07-21T10:00:00Z' },
+    ])).toBe('approved')
+  })
+
+  it('on equal created_at, the larger id wins (matches created_at DESC, id DESC)', () => {
+    const rows = [
+      { id: 'id-0001', state: 'change_requested', created_at: '2026-07-21T10:00:00Z' },
+      { id: 'id-0002', state: 'approved', created_at: '2026-07-21T10:00:00Z' },
+    ]
+    expect(selectCurrentDecision(rows)).toBe('approved') // id-0002 > id-0001
+    // order-independent: the tie-break, not array order, decides
+    expect(selectCurrentDecision([...rows].reverse())).toBe('approved')
+  })
+
+  it('no decisions -> null', () => {
+    expect(selectCurrentDecision([])).toBeNull()
+  })
+})

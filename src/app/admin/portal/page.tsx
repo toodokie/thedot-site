@@ -1,0 +1,17 @@
+import { redirect } from 'next/navigation'
+import { verifySession } from '@/lib/auth'
+import { MyTasksAdmin } from './GatesAdmin'
+import { loadMyTasksData } from './data'
+
+// Default surface of the ops portal: My tasks. The shell (layout.tsx) owns the nav + frame.
+export const dynamic = 'force-dynamic'
+
+export default async function PortalAdminMyTasksPage() {
+  const session = await verifySession()
+  if (!session || session.role !== 'admin') redirect('/admin/login')
+  const data = await loadMyTasksData()
+  return <MyTasksAdmin pieces={data.pieces} opsTasks={data.opsTasks} completedOps={data.completedOps}
+    openComments={data.openComments} openProposals={data.openProposals} todayIso={data.todayIso}
+    clientSignals={data.clientSignals} unsentDraftAlerts={data.unsentDraftAlerts}
+    releaseMediaAlerts={data.releaseMediaAlerts} signalsError={data.signalsError} nowIso={data.nowIso} />
+}

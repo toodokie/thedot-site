@@ -33,7 +33,7 @@ GMAIL_APP_PASSWORD=your_app_specific_password
 
 #### Notion Integration (Optional but recommended)
 ```env
-NOTION_TOKEN=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
+NOTION_TOKEN=<REDACTED, rotate this Notion token>
 NOTION_CALCULATOR_LEADS_DB_ID=your_database_id
 ```
 

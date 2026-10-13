@@ -1,0 +1,52 @@
+.button { display: inline-block; min-height: 44px; font-family: var(--dot-font-display); font-weight: var(--dot-weight-demi);
+  text-transform: uppercase; letter-spacing: 0.1em; border-radius: var(--dot-radius); border: 2px solid var(--dot-black);
+  cursor: pointer; text-decoration: none; line-height: 1; transition: background .2s, color .2s; }
+.button:focus-visible { outline: 3px solid var(--dot-black); outline-offset: 3px; }
+.md { font-size: 0.8rem; padding: 14px 30px; }
+.sm { font-size: 0.72rem; padding: 10px 20px; }
+.black,
+.black:link,
+.black:visited,
+.black:focus,
+.black:active {
+  background: var(--dot-black);
+  color: var(--dot-cream);
+  text-decoration: none;
+}
+.black:hover { background: var(--dot-graphite); color: var(--dot-cream); text-decoration: none; }
+.yellow,
+.yellow:link,
+.yellow:visited,
+.yellow:focus,
+.yellow:active {
+  background: var(--dot-yellow);
+  color: var(--dot-black);
+  border-color: var(--dot-black);
+  text-decoration: none;
+}
+/* Yellow is light: the one flat yellow is the primary action, and it glows on hover and keyboard
+   focus (piece page redesign, spec 10a). Placed after the state list above so it wins at equal
+   specificity over .yellow:focus. */
+.yellow:hover:not(:disabled):not([aria-disabled='true']),
+.yellow:focus-visible:not(:disabled):not([aria-disabled='true']) {
+  background: var(--dot-grad-glow);
+  color: var(--dot-black);
+  text-decoration: none;
+}
+.yellow:disabled,
+.yellow[aria-disabled='true'] {
+  background: var(--dot-hairline);
+  color: var(--dot-grey-accessible);
+  border-color: var(--dot-grey-light);
+  cursor: not-allowed;
+}
+.ghost,
+.ghost:link,
+.ghost:visited,
+.ghost:focus,
+.ghost:active {
+  background: transparent;
+  color: var(--dot-black);
+  text-decoration: none;
+}
+.ghost:hover { background: var(--dot-black); color: var(--dot-cream); text-decoration: none; }

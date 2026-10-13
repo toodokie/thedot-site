@@ -1,0 +1,123 @@
+import { NextResponse } from 'next/server'
+import { randomUUID } from 'node:crypto'
+import { assertSameOriginRequest, requireAdminSession } from '@/lib/admin-security'
+import { createSupabaseAdmin } from '@/lib/supabase/admin'
+
+export async function POST(request: Request) {
+  try {
+    await requireAdminSession()
+    assertSameOriginRequest(request)
+    const body = await request.json() as {
+      action?: 'resolve' | 'reply' | 'proposal-reply' | 'save-candidate' | 'approve-candidate' | 'prepare-visual' | 'visual-ready'
+      requestId?: string; status?: string; reason?: string; body?: string; close?: boolean; idempotencyKey?: string
+      candidateText?: string; changeSummary?: string; expectedRevision?: number
+    }
+    if (body.action === 'prepare-visual') {
+      if (!body.requestId?.match(/^[0-9a-f-]{36}$/i)
+          || !body.idempotencyKey?.match(/^[0-9a-f-]{36}$/i)) {
+        return NextResponse.json({ error: 'Invalid visual revision request.' }, { status: 400 })
+      }
+      const admin = createSupabaseAdmin()
+      const { data, error } = await admin.rpc('begin_visual_request_revision', {
+        p_request_ids: [body.requestId], p_actor_key: 'thedot-admin',
+        p_idempotency_key: body.idempotencyKey,
+      })
+      if (error) throw new Error(error.message)
+      return NextResponse.json({ result: data }, { headers: { 'Cache-Control': 'private, no-store' } })
+    }
+    if (body.action === 'visual-ready') {
+      if (!body.requestId?.match(/^[0-9a-f-]{36}$/i)
+          || !body.idempotencyKey?.match(/^[0-9a-f-]{36}$/i)) {
+        return NextResponse.json({ error: 'Invalid visual ready request.' }, { status: 400 })
+      }
+      const admin = createSupabaseAdmin()
+      const { data, error } = await admin.rpc('mark_visual_request_revision_prepared', {
+        p_request_ids: [body.requestId], p_actor_key: 'thedot-admin',
+        p_idempotency_key: body.idempotencyKey,
+      })
+      if (error) throw new Error(error.message)
+      return NextResponse.json({ result: data }, { headers: { 'Cache-Control': 'private, no-store' } })
+    }
+    if (body.action === 'save-candidate') {
+      const candidateText = body.candidateText?.trim()
+      const changeSummary = body.changeSummary?.trim()
+      if (!body.requestId?.match(/^[0-9a-f-]{36}$/i)
+          || !candidateText || candidateText.length > 8000
+          || !changeSummary || changeSummary.length < 3 || changeSummary.length > 4000
+          || !body.idempotencyKey?.match(/^[0-9a-f-]{36}$/i)) {
+        return NextResponse.json({ error: 'Invalid safe-merge candidate.' }, { status: 400 })
+      }
+      const admin = createSupabaseAdmin()
+      const { data, error } = await admin.rpc('upsert_content_request_review_candidate', {
+        p_request_id: body.requestId, p_candidate_text: candidateText,
+        p_change_summary: changeSummary, p_actor_key: 'thedot-admin',
+        p_idempotency_key: body.idempotencyKey,
+      })
+      if (error) throw new Error(error.message)
+      return NextResponse.json({ result: data }, { headers: { 'Cache-Control': 'private, no-store' } })
+    }
+    if (body.action === 'approve-candidate') {
+      if (!body.requestId?.match(/^[0-9a-f-]{36}$/i)
+          || !Number.isInteger(body.expectedRevision) || (body.expectedRevision ?? 0) < 1
+          || !body.idempotencyKey?.match(/^[0-9a-f-]{36}$/i)) {
+        return NextResponse.json({ error: 'Invalid safe-merge approval.' }, { status: 400 })
+      }
+      const admin = createSupabaseAdmin()
+      const { data, error } = await admin.rpc('approve_content_request_review_candidate', {
+        p_request_id: body.requestId, p_expected_revision: body.expectedRevision,
+        p_actor_key: 'thedot-admin', p_idempotency_key: body.idempotencyKey,
+      })
+      if (error) throw new Error(error.message)
+      return NextResponse.json({ result: data }, { headers: { 'Cache-Control': 'private, no-store' } })
+    }
+    if (body.action === 'proposal-reply') {
+      const reply = body.body?.trim()
+      if (!body.requestId?.match(/^[0-9a-f-]{36}$/i) || !reply || reply.length > 4000
+          || !body.idempotencyKey?.match(/^[0-9a-f-]{36}$/i)) return NextResponse.json({ error: 'Invalid proposal reply.' }, { status: 400 })
+      const admin = createSupabaseAdmin()
+      const { data, error } = await admin.rpc('reply_to_client_proposal', {
+        p_proposal_id: body.requestId, p_body: reply, p_actor_key: 'thedot-admin', p_idempotency_key: body.idempotencyKey,
+      })
+      if (error) throw new Error(error.message)
+      return NextResponse.json({ result: data }, { headers: { 'Cache-Control': 'private, no-store' } })
+    }
+    if (body.action === 'reply') {
+      const reply = body.body?.trim()
+      if (!body.requestId?.match(/^[0-9a-f-]{36}$/i)
+          || !reply || reply.length > 4000 || typeof body.close !== 'boolean'
+          || !body.idempotencyKey?.match(/^[0-9a-f-]{36}$/i)) {
+        return NextResponse.json({ error: 'Invalid request reply.' }, { status: 400 })
+      }
+      const admin = createSupabaseAdmin()
+      const { data, error } = await admin.rpc('reply_to_content_request', {
+        p_request_id: body.requestId,
+        p_body: reply,
+        p_close: body.close,
+        p_actor_key: 'thedot-admin',
+        p_idempotency_key: body.idempotencyKey,
+      })
+      if (error) throw new Error(error.message)
+      return NextResponse.json({ result: data }, { headers: { 'Cache-Control': 'private, no-store' } })
+    }
+    if (!body.requestId?.match(/^[0-9a-f-]{36}$/i)
+        || !['rejected', 'conflicted'].includes(body.status ?? '')
+        || !body.reason || body.reason.trim().length < 3 || body.reason.trim().length > 2000
+        || !body.idempotencyKey?.match(/^[0-9a-f-]{36}$/i)) {
+      return NextResponse.json({ error: 'Invalid request resolution.' }, { status: 400 })
+    }
+    const admin = createSupabaseAdmin()
+    const { data, error } = await admin.rpc('resolve_content_request', {
+      p_request_id: body.requestId,
+      p_status: body.status,
+      p_reason: body.reason.trim(),
+      p_actor_key: 'thedot-admin',
+      p_idempotency_key: body.idempotencyKey ?? randomUUID(),
+    })
+    if (error) throw new Error(error.message)
+    return NextResponse.json({ result: data })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Request resolution failed'
+    const status = message === 'ADMIN_AUTH_REQUIRED' ? 401 : message === 'INVALID_ORIGIN' ? 403 : 400
+    return NextResponse.json({ error: status === 400 ? message : 'Unauthorized' }, { status })
+  }
+}

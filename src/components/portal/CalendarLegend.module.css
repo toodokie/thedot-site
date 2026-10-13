@@ -1,0 +1,29 @@
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin: 0 0 22px;
+}
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--dot-font-text);
+  font-size: 12px;
+  color: var(--dot-graphite);
+  letter-spacing: 0.01em;
+}
+.swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  flex: none;
+}
+/* Four states, and the palette carries one chromatic value, so the accent the client acts on
+   takes it. The remaining three sit as far apart in lightness as the ground allows: black,
+   mid grey, and a grey tint light enough to recede without disappearing on cream. The two
+   greys measure 2.49:1, which is the weakest pair in the set. */
+.swatch_with_dot { background: var(--dot-black); }
+.swatch_awaiting_review { background: var(--dot-yellow); }
+.swatch_committed { background: var(--dot-grey); }
+.swatch_published { background: var(--dot-grey-light); }

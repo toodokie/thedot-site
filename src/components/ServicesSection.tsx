@@ -43,8 +43,8 @@ export default function ServicesSection() {
       id: 5,
       title: "Connected Business System",
       price: "$5,500-$7,500",
-      description: "Your complete digital transformation. We design exceptional websites then connect them to your existing business tools, creating one intelligent system that saves 10+ hours weekly.",
-      hoverDescription: "• Typically reduces admin time by 25-40%\n• Strategic website design\n• Business systems integration\n• Workflow automation setup\n• Team training & documentation\n• 90-day optimization period",
+      description: "Your complete digital transformation. We design exceptional websites then connect them to your existing business tools, creating one intelligent system that saves you 10–20 hours a month.",
+      hoverDescription: "• Typically saves 10–20 hours a month\n• Strategic website design\n• Business systems integration\n• Workflow automation setup\n• Team training & documentation\n• 90-day optimization period",
       slug: "conversion-growth-studio",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="100" height="100" viewBox="0,0,256,256">

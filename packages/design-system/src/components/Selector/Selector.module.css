@@ -1,0 +1,5 @@
+.selector { border-radius: var(--dot-radius-circle); border: 1px solid var(--dot-grey); background: var(--dot-white);
+  color: var(--dot-black); font-family: var(--dot-font-text); font-weight: var(--dot-weight-book); font-size: 0.85rem;
+  display: flex; align-items: center; justify-content: center; text-align: center; cursor: pointer; transition: all .35s; }
+.selector:hover { background: var(--dot-grad-fill); }
+.selected { background: var(--dot-grad-fill); border-color: var(--dot-black); }

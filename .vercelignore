@@ -1,0 +1,6 @@
+# Not used at runtime — keeps deploy uploads small (helps on slow networks)
+content/
+brand-kit/
+docs/
+*.log
+.DS_Store

@@ -1,0 +1,162 @@
+/* Full nine-step progress bar (spec 5). Dot brand: cream ground, hairline borders,
+   charcoal + yellow, sharp corners, no shadows. The only coloured accent beyond the
+   palette is a rust warning tone for exceptions, which the brand already uses. */
+
+.wrap {
+  margin: 4px 0 8px;
+}
+
+.bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 8px 0 4px;
+  overflow-x: auto;
+}
+
+.step {
+  flex: 1 1 0;
+  min-width: 74px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.track {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.line {
+  flex: 1 1 auto;
+  height: 2px;
+  background: var(--dot-hairline);
+}
+.lineSolid { background: var(--dot-black); }
+.lineHidden { visibility: hidden; }
+
+.dot {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--dot-font-text);
+  font-size: 12px;
+  line-height: 1;
+  background: var(--dot-cream);
+  border: 1.5px solid var(--dot-hairline);
+  color: var(--dot-graphite);
+}
+.dot[data-state='done'] {
+  background: var(--dot-black);
+  border-color: var(--dot-black);
+  color: var(--dot-cream);
+}
+.dot[data-state='current'] {
+  background: var(--dot-yellow);
+  border-color: var(--dot-black);
+  color: var(--dot-black);
+}
+.dot[data-state='upcoming'] {
+  background: transparent;
+  border-color: var(--dot-hairline);
+}
+.dot[data-state='na'] {
+  background: var(--dot-cream);
+  border-color: var(--dot-hairline);
+  color: var(--dot-grey);
+}
+.dot[data-exception='true'] {
+  border-color: #a8501f;
+  color: #a8501f;
+  box-shadow: 0 0 0 3px rgba(168, 80, 31, 0.16);
+}
+
+.label {
+  margin-top: 8px;
+  font-family: var(--dot-font-text);
+  font-size: 11px;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  color: var(--dot-graphite);
+  max-width: 84px;
+}
+.step[data-state='current'] .label {
+  color: var(--dot-black);
+  font-weight: var(--dot-weight-demi, 600);
+}
+.step[data-state='na'] .label { color: var(--dot-grey); }
+
+.sub {
+  margin-top: 5px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  justify-content: center;
+}
+.platform {
+  font-family: var(--dot-font-text);
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--dot-grey);
+  border: 1px solid var(--dot-hairline);
+  padding: 0 5px;
+  white-space: nowrap;
+}
+.platform[data-done='true'] {
+  color: var(--dot-black);
+  border-color: transparent;
+  background: var(--dot-yellow-pale);
+}
+
+.exceptions {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.exceptionLine {
+  font-family: var(--dot-font-text);
+  font-size: 12px;
+  line-height: 1.45;
+  color: #a8501f;
+}
+
+/* Terminal treatment (archived / legacy), spec 5.2 / 5.5: never a "current" node. */
+.terminal {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 8px;
+  padding: 6px 12px;
+  font-family: var(--dot-font-text);
+  font-size: 13px;
+  border: 1px solid var(--dot-hairline);
+  background: var(--dot-cream);
+  color: var(--dot-graphite);
+}
+.terminalDot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  background: var(--dot-black);
+  color: var(--dot-cream);
+}
+.terminal[data-kind='legacy_verified'] { border-color: var(--dot-black); color: var(--dot-black); }
+.terminal[data-kind='legacy_unverified'] { color: #a8501f; }
+.terminal[data-kind='legacy_unverified'] .terminalDot { background: #a8501f; }
+.terminal[data-kind='archived'] { color: var(--dot-grey); }
+.terminal[data-kind='archived'] .terminalDot { background: var(--dot-grey); }

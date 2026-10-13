@@ -1,0 +1,12 @@
+.row { display: inline-flex; align-items: center; gap: var(--dot-space-2); vertical-align: middle; }
+.dot { display: block; flex: none; width: 22px; height: 22px; border-radius: var(--dot-radius-circle);
+  border: 1px solid var(--dot-grey-light); background: var(--dot-white); }
+.on { border-color: var(--dot-black); background: var(--dot-grad-fill); }
+.sm { gap: 6px; }
+.sm .dot { width: 14px; height: 14px; }
+@media (max-width: 600px) {
+  .md .dot { width: 18px; height: 18px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .dot { transition: border-color .2s ease; }
+}

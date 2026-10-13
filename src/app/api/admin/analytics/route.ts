@@ -2,14 +2,16 @@ import { NextResponse } from 'next/server';
 import { BetaAnalyticsDataClient } from '@google-analytics/data';
 import { verifySession } from '@/lib/auth';
 
-// Initialize the Analytics Data API client
-let analyticsDataClient: BetaAnalyticsDataClient | null = null;
+// This route must always run dynamically and never cache the GA responses.
+// cache-bust 2026-07-20: force a fresh compile of the runReport tuple unwrap below.
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
 
+// Build a FRESH client per request. A module-level cached singleton returned
+// empty/stale results on Vercel's serverless runtime (dashboard showed all 0s
+// while an identical fresh-client query returned real data).
 function getAnalyticsClient() {
-  if (analyticsDataClient) {
-    return analyticsDataClient;
-  }
-
   const credentials = process.env.GA_SERVICE_ACCOUNT_CREDENTIALS;
 
   if (!credentials) {
@@ -18,10 +20,9 @@ function getAnalyticsClient() {
 
   try {
     const parsedCredentials = JSON.parse(credentials);
-    analyticsDataClient = new BetaAnalyticsDataClient({
+    return new BetaAnalyticsDataClient({
       credentials: parsedCredentials,
     });
-    return analyticsDataClient;
   } catch (error) {
     throw new Error('Invalid GA_SERVICE_ACCOUNT_CREDENTIALS format');
   }
@@ -73,7 +74,7 @@ export async function GET() {
       eventsResponse,
       conversionResponse,
       trafficSourcesResponse,
-    ] = await Promise.all([
+    ] = (await Promise.all([
       // Overview metrics (30 days)
       client.runReport({
         property: `properties/${propertyId}`,
@@ -248,7 +249,9 @@ export async function GET() {
         ],
         limit: 10,
       }),
-    ]);
+    ])).map((r: any) => r[0]);
+    // NOTE: client.runReport() resolves to a [response, request, options] tuple;
+    // .map(r => r[0]) unwraps each to the response object so .rows is accessible.
 
     // Parse overview metrics (30 days)
     const overviewMetrics = overviewResponse.rows?.[0]?.metricValues || [];

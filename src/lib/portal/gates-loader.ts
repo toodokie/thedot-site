@@ -1,0 +1,336 @@
+// Agency-only loader for the gate system (Codex round-2 BLOCKER 1). Builds StagePiece
+// rows over content_items + the WORKING content_item_versions row (NOT the released
+// content_with_state view), so gates written on a still-unreleased draft/idea piece are
+// visible in My Tasks + the Pieces table and its STATUS GATES block regenerates.
+// set_production_gate never requires release; this loader is why an unreleased piece is
+// no longer invisible.
+//
+// Takes any service-role Supabase client (the Next admin client OR the script's
+// createClient), so the admin page and portal-write share one code path. Service-role
+// only by construction: production gates have zero client grants.
+import type { StagePiece, ProductionGateRow, DestState } from './gates'
+import { canonicalDestinations, canonicalScheduleDestination, selectCurrentDecision } from './gates'
+
+// Server-only guard (Codex round-3 fix 3): this loader runs service-role queries and
+// must never reach a client bundle. A browser-context check is used instead of the
+// `server-only` package because the loader is ALSO imported by the node CLI tooling
+// (portal-write, the backfill driver, test-rls), where a bare `server-only` import
+// throws under plain node. This guard is inert in every server/node context and trips
+// only if the module is ever bundled into and executed in the browser.
+if (typeof window !== 'undefined') {
+  throw new Error('gates-loader is server-only: it issues service-role queries and must not be imported into a client component')
+}
+
+// The two supabase-js clients differ in generics but share the from().select().eq()/in()
+// query-builder shape; typing it precisely here buys nothing, so accept a loose client.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Client = any
+
+type ItemRow = {
+  id: string; client_id: string; content_id: string; status: string
+  working_version: number | null; client_visible_version: number | null; archived_at: string | null
+  planned_date?: string | null; title: string; format?: string | null; pillar?: string | null
+  platforms: string[] | null
+}
+type VersionRow = {
+  content_item_id: string; version: number; title: string; format?: string | null; pillar?: string | null; platforms: string[] | null
+  fact_check: string | null; fact_check_scope?: string | null; fact_check_ledger?: unknown
+  fact_check_exemption: string | null; producer?: 'the_dot' | 'studio' | null
+  calendar_note?: string | null
+}
+type ApprovalRow = { id: string; content_id: string; content_version: number; state: string; created_at: string }
+type ClientRow = { id: string; name: string }
+type GateRow = ProductionGateRow & { content_item_id: string }
+type ScheduleRow = { content_id: string; content_version: number; destination: string; required: boolean; status: string; scheduled_at: string | null }
+type PublicationRow = { id: string; content_id: string; content_version: number; destination: string; required: boolean; status: string; live_url: string | null; published_at: string | null; first_verified_at: string | null }
+type HistoricalRow = { client_id: string; publication_target_id: string; provenance: string }
+type CourtesyReleaseRow = { content_id: string; client_id: string; content_version: number }
+type LegacyClassification = 'legacy_verified' | 'legacy_unverified'
+type PlanCycleRow = { id: string; client_id: string; revision: number; status: string; approved_revision: number | null; submitted_at: string; updated_at: string }
+type PlanCycleItemRow = { plan_cycle_id: string; client_id: string; content_item_id: string }
+type PlanCycleDecisionRow = { plan_cycle_id: string; client_id: string; revision: number; decision: string; note: string | null; created_at: string }
+type IdeaDecisionRow = { content_item_id: string; client_id: string; plan_cycle_id: string; plan_cycle_revision: number; decision: string; note: string | null; created_at: string }
+
+async function run<T>(query: { data: unknown; error: { message: string } | null } | PromiseLike<{ data: unknown; error: { message: string } | null }>, label: string): Promise<T[]> {
+  const result = await query
+  if (result.error) throw new Error(`gate loader (${label}): ${result.error.message}`)
+  return (result.data ?? []) as T[]
+}
+
+function buildPieces(
+  items: ItemRow[], versions: VersionRow[], approvals: ApprovalRow[],
+  gates: GateRow[], schedules: ScheduleRow[], publications: PublicationRow[],
+  clientNames: Map<string, string>, factCheckValid: Map<string, boolean>,
+  ideaDecisions: Map<string, { decision: 'approved' | 'change_requested' | null; source: 'batch' | 'piece' | null; note: string | null; sentAt: string | null }>,
+  legacyItems: Map<string, LegacyClassification>,
+  courtesyReleases: Set<string>,
+): StagePiece[] {
+  const versionByItem = new Map<string, VersionRow>()
+  for (const version of versions) {
+    const item = items.find((i) => i.id === version.content_item_id)
+    if (item && item.working_version !== null && version.version === item.working_version) {
+      versionByItem.set(item.id, version)
+    }
+  }
+  return items.flatMap((item) => {
+    const version = versionByItem.get(item.id)
+    const workingVersion = item.working_version
+    if (!version && workingVersion !== null) return [] // corrupt pointer, fail closed
+    const title = version?.title ?? item.title
+    const format = version?.format ?? item.format ?? null
+    const pillar = version?.pillar ?? item.pillar ?? null
+    // CANONICALIZE to the schedule/publication destination vocabulary (Codex round-3
+    // blocker): raw frontmatter youtube_shorts/website/blog must match the youtube/
+    // squarespace targets or a complete destination reads as unscheduled.
+    const rawPlatforms = Array.isArray(version?.platforms)
+      ? version.platforms
+      : Array.isArray(item.platforms) ? item.platforms : []
+    // Audited override destinations can reflect provider reality that was omitted
+    // from the immutable released frontmatter. Treat required schedule/publication
+    // targets for this exact version as authoritative destinations too.
+    const targetPlatforms = workingVersion === null ? [] : [
+      ...schedules.filter((target) => target.content_id === item.id
+        && target.content_version === workingVersion && target.required).map((target) => target.destination),
+      ...publications.filter((target) => target.content_id === item.id
+        && target.content_version === workingVersion && target.required).map((target) => target.destination),
+    ]
+    const platforms = canonicalDestinations([...rawPlatforms, ...targetPlatforms])
+    const exceptions = rawPlatforms
+      .filter((raw) => canonicalScheduleDestination(raw) === null)
+      .map((raw) => ({ kind: 'unsupported_destination', note: raw }))
+
+    // latest decision on the WORKING version (never the released one); tie-break matches
+    // the canonical view (created_at DESC, id DESC) so the admin can't disagree on equal
+    // timestamps (Codex round-3 fix 1).
+    const currentDecision = selectCurrentDecision(
+      workingVersion === null ? [] : approvals.filter(
+        (a) => a.content_id === item.id && a.content_version === workingVersion))
+
+    const pieceGates: ProductionGateRow[] = gates
+      .filter((g) => g.content_item_id === item.id
+        && workingVersion !== null
+        && (g.content_version == null || g.content_version === workingVersion))
+      .map((g) => ({ gate_key: g.gate_key, state: g.state, owner_label: g.owner_label,
+        occurred_at: g.occurred_at, note: g.note, na_reason: g.na_reason,
+        content_version: g.content_version }))
+
+    // targets are keyed by canonical destination; canonicalize the target's own
+    // destination too (defensive: it is already canonical from the SQL, but this makes
+    // the match total).
+    const dests: DestState[] = platforms.map((destination) => {
+      const schedule = schedules.find((s) => s.content_id === item.id
+        && workingVersion !== null && s.content_version === workingVersion
+        && canonicalScheduleDestination(s.destination) === destination)
+      const publication = publications.find((p) => p.content_id === item.id
+        && workingVersion !== null && p.content_version === workingVersion
+        && canonicalScheduleDestination(p.destination) === destination)
+      return { destination, required: schedule?.required ?? publication?.required ?? true,
+        scheduleStatus: schedule?.status ?? null,
+        publicationStatus: publication?.status ?? null,
+        verified: Boolean(publication?.first_verified_at),
+        scheduledAt: schedule?.scheduled_at ?? null, liveUrl: publication?.live_url ?? null }
+    })
+
+    const approvalSent = pieceGates.find((g) => g.gate_key === 'approval_sent')
+    return [{
+      clientId: item.client_id, clientName: clientNames.get(item.client_id) ?? item.client_id,
+      internalContentId: item.id,
+      contentId: item.content_id, title, format, pillar, status: item.status,
+      factCheck: version?.fact_check ?? null, factCheckExempt: version?.fact_check_scope === 'not_applicable',
+      factCheckValid: factCheckValid.get(item.id) ?? false,
+      currentDecision,
+      reviewMode: workingVersion !== null && courtesyReleases.has(`${item.id}:${workingVersion}`)
+        ? 'courtesy' : 'required',
+      ideaDecision: ideaDecisions.get(item.id)?.decision ?? null,
+      ideaDecisionSource: ideaDecisions.get(item.id)?.source ?? null,
+      ideaDecisionNote: ideaDecisions.get(item.id)?.note ?? null,
+      ideaApprovalSentAt: ideaDecisions.get(item.id)?.sentAt ?? null,
+      approvalSentAt: approvalSent?.state === 'done' ? approvalSent.occurred_at : null,
+      platforms, archived: Boolean(item.archived_at), gates: pieceGates, dests,
+      producer: version?.producer ?? null, calendarNote: version?.calendar_note ?? null,
+      workingVersion, visibleVersion: item.client_visible_version, released: item.client_visible_version != null,
+      plannedDate: item.planned_date ?? null,
+      latestPublishedAt: publications
+        .filter((publication) => publication.content_id === item.id
+          && workingVersion !== null && publication.content_version === workingVersion
+          && publication.status === 'live' && publication.published_at)
+        .map((publication) => publication.published_at as string)
+        .sort((a, b) => b.localeCompare(a))[0] ?? null,
+      exceptions, legacy: legacyItems.has(item.id) ? { classification: legacyItems.get(item.id)! } : null,
+    }]
+  })
+}
+
+const ITEM_COLS = 'id, client_id, content_id, title, format, pillar, platforms, status, working_version, client_visible_version, archived_at, planned_date'
+const VERSION_COLS = 'content_item_id, version, title, format, pillar, platforms, fact_check, fact_check_scope, fact_check_ledger, fact_check_exemption, producer, calendar_note'
+const APPROVAL_COLS = 'id, content_id, content_version, state, created_at'
+const GATE_COLS = 'content_item_id, content_version, gate_key, state, owner_label, occurred_at, note, na_reason'
+const SCHEDULE_COLS = 'content_id, content_version, destination, required, status, scheduled_at'
+const PUBLICATION_COLS = 'id, content_id, content_version, destination, required, status, live_url, published_at, first_verified_at'
+
+async function loadDependents(
+  admin: Client,
+  items: ItemRow[],
+  itemIds: string[],
+  clientIds: string[],
+  workingVersions: Map<string, number | null>,
+) {
+  const [versions, approvals, gates, schedules, publications, clients, historical, courtesyReleases] = await Promise.all([
+    run<VersionRow>(admin.from('content_item_versions').select(VERSION_COLS).in('content_item_id', itemIds), 'content_item_versions'),
+    run<ApprovalRow>(admin.from('approvals').select(APPROVAL_COLS).in('content_id', itemIds), 'approvals'),
+    run<GateRow>(admin.from('content_production_gates').select(GATE_COLS).in('content_item_id', itemIds), 'content_production_gates'),
+    run<ScheduleRow>(admin.from('content_schedule_targets').select(SCHEDULE_COLS).in('content_id', itemIds), 'content_schedule_targets'),
+    run<PublicationRow>(admin.from('content_publication_targets').select(PUBLICATION_COLS).in('content_id', itemIds), 'content_publication_targets'),
+    run<ClientRow>(admin.from('clients').select('id, name').in('id', clientIds), 'clients'),
+    run<HistoricalRow>(admin.from('historical_publication_import_entries')
+      .select('client_id, publication_target_id, provenance').in('client_id', clientIds),
+      'historical_publication_import_entries'),
+    run<CourtesyReleaseRow>(admin.from('content_courtesy_releases')
+      .select('content_id,client_id,content_version').in('content_id', itemIds),
+      'content_courtesy_releases'),
+  ])
+  const factCheckValid = new Map<string, boolean>()
+  await Promise.all(versions.filter((version) =>
+    workingVersions.get(version.content_item_id) === version.version).map(async (version) => {
+    const result = await admin.rpc('portal_piece_fact_check_release_valid', {
+      p_fact_check: version.fact_check,
+      p_fact_check_scope: version.fact_check_scope,
+      p_fact_check_exemption: version.fact_check_exemption,
+      p_fact_check_ledger: version.fact_check_ledger ?? [],
+    })
+    if (result.error) throw new Error(`gate loader (fact-check): ${result.error.message}`)
+    factCheckValid.set(version.content_item_id, result.data === true)
+  }))
+  const publicationItemById = new Map(publications.map((publication) => [publication.id, publication.content_id]))
+  const legacyItems = new Map<string, LegacyClassification>()
+  for (const entry of historical) {
+    if (!['yt_check', 'public_url', 'legacy_unverified'].includes(entry.provenance)) continue
+    const itemId = publicationItemById.get(entry.publication_target_id)
+    if (!itemId) continue
+    const classification: LegacyClassification = entry.provenance === 'legacy_unverified'
+      ? 'legacy_unverified' : 'legacy_verified'
+    // If destinations disagree, preserve the conservative unverified state.
+    if (legacyItems.get(itemId) !== 'legacy_unverified') legacyItems.set(itemId, classification)
+  }
+  const [cycles, cycleItems, cycleDecisions, pieceDecisions] = await Promise.all([
+    run<PlanCycleRow>(admin.from('plan_cycles').select('id,client_id,revision,status,approved_revision,submitted_at,updated_at').in('client_id', clientIds), 'plan_cycles'),
+    run<PlanCycleItemRow>(admin.from('plan_cycle_items').select('plan_cycle_id,client_id,content_item_id').in('content_item_id', itemIds), 'plan_cycle_items'),
+    run<PlanCycleDecisionRow>(admin.from('plan_cycle_decisions').select('plan_cycle_id,client_id,revision,decision,note,created_at').in('client_id', clientIds), 'plan_cycle_decisions'),
+    run<IdeaDecisionRow>(admin.from('content_idea_decisions').select('content_item_id,client_id,plan_cycle_id,plan_cycle_revision,decision,note,created_at').in('content_item_id', itemIds), 'content_idea_decisions'),
+  ])
+  const cyclesById = new Map(cycles.map((cycle) => [cycle.id, cycle]))
+  const currentCycleForItem = new Map<string, PlanCycleRow>()
+  for (const item of cycleItems) {
+    const cycle = cyclesById.get(item.plan_cycle_id)
+    if (!cycle) continue
+    const previous = currentCycleForItem.get(item.content_item_id)
+    if (!previous || cycle.updated_at > previous.updated_at) currentCycleForItem.set(item.content_item_id, cycle)
+  }
+  const ideaDecisions = new Map<string, { decision: 'approved' | 'change_requested' | null; source: 'batch' | 'piece' | null; note: string | null; sentAt: string | null }>()
+  for (const item of items) {
+    const cycle = currentCycleForItem.get(item.id)
+    if (!cycle) continue
+    const sentAt = cycle.submitted_at ?? null
+    const piece = pieceDecisions
+      .filter((decision) => decision.content_item_id === item.id
+        && decision.plan_cycle_id === cycle.id
+        && decision.plan_cycle_revision === cycle.revision)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
+    if (piece && (piece.decision === 'approved' || piece.decision === 'change_requested')) {
+      ideaDecisions.set(item.id, { decision: piece.decision, source: 'piece', note: piece.note, sentAt })
+      continue
+    }
+    const batch = cycleDecisions.find((decision) => decision.plan_cycle_id === cycle.id
+      && decision.revision === cycle.revision)
+    if (batch && (batch.decision === 'approved' || batch.decision === 'change_requested')) {
+      ideaDecisions.set(item.id, { decision: batch.decision, source: 'batch', note: batch.note, sentAt })
+    } else if (cycle.status === 'approved' && cycle.approved_revision === cycle.revision) {
+      ideaDecisions.set(item.id, { decision: 'approved', source: 'batch', note: null, sentAt })
+    } else {
+      // A submitted cycle with no decision still needs to be represented so the
+      // agency bar can show “Idea sent” and keep “Idea approved” open.
+      ideaDecisions.set(item.id, { decision: null, source: null, note: null, sentAt })
+    }
+  }
+  return [
+    versions, approvals, gates, schedules, publications, clients, factCheckValid, ideaDecisions,
+    legacyItems, new Set(courtesyReleases.map((release) => `${release.content_id}:${release.content_version}`)),
+  ] as const
+}
+
+// Open binding edit requests per content item (the same unresolved statuses the My Tasks
+// loader has always counted). Every agency surface that derives a stage needs the count, or
+// "Maria asked for changes" loses its "N edits open" detail on the Pieces table and calendar.
+const OPEN_EDIT_STATUSES = ['pending', 'applying', 'prepared', 'conflicted']
+async function loadOpenEditCounts(admin: Client, itemIds: string[]): Promise<Map<string, number>> {
+  const wanted = new Set(itemIds)
+  const rows = await run<{ content_id: string; request_type: string }>(
+    admin.from('content_change_requests').select('content_id,request_type').in('status', OPEN_EDIT_STATUSES),
+    'content_change_requests')
+  const counts = new Map<string, number>()
+  for (const row of rows) {
+    if (row.request_type !== 'edit' || !wanted.has(row.content_id)) continue
+    counts.set(row.content_id, (counts.get(row.content_id) ?? 0) + 1)
+  }
+  return counts
+}
+const withOpenEdits = (pieces: StagePiece[], counts: Map<string, number>): StagePiece[] =>
+  pieces.map((piece) => ({ ...piece, openClientEdits: piece.internalContentId ? counts.get(piece.internalContentId) ?? 0 : 0 }))
+
+// All pieces for a client (or every client when clientId is omitted), unreleased included.
+export async function loadAgencyStagePieces(admin: Client, clientId?: string): Promise<StagePiece[]> {
+  let query = admin.from('content_items').select(ITEM_COLS)
+  if (clientId) query = query.eq('client_id', clientId)
+  const items = await run<ItemRow>(query, 'content_items')
+  if (items.length === 0) return []
+  const clientIds = [...new Set(items.map((i) => i.client_id))]
+  const [versions, approvals, gates, schedules, publications, clients, factCheckValid, ideaDecisions, legacyItems, courtesyReleases] =
+    await loadDependents(admin, items, items.map((i) => i.id), clientIds,
+      new Map(items.map((item) => [item.id, item.working_version])))
+  const clientNames = new Map(clients.map((c) => [c.id, c.name]))
+  const openEdits = await loadOpenEditCounts(admin, items.map((i) => i.id))
+  return withOpenEdits(buildPieces(items, versions, approvals, gates, schedules, publications, clientNames, factCheckValid, ideaDecisions, legacyItems, courtesyReleases), openEdits)
+}
+
+// One piece by content_id (for STATUS GATES block regeneration), unreleased included;
+// A versionless selected idea is returned with workingVersion = null.
+export async function loadAgencyStagePiece(admin: Client, clientId: string, contentId: string): Promise<StagePiece | null> {
+  const items = await run<ItemRow>(
+    admin.from('content_items').select(ITEM_COLS).eq('client_id', clientId).eq('content_id', contentId),
+    'content_items')
+  if (items.length === 0) return null
+  const [versions, approvals, gates, schedules, publications, clients, factCheckValid, ideaDecisions, legacyItems, courtesyReleases] =
+    await loadDependents(admin, [items[0]], [items[0].id], [items[0].client_id],
+      new Map([[items[0].id, items[0].working_version]]))
+  const clientNames = new Map(clients.map((c) => [c.id, c.name]))
+  const openEdits = await loadOpenEditCounts(admin, [items[0].id])
+  return withOpenEdits(buildPieces([items[0]], versions, approvals, gates, schedules, publications, clientNames, factCheckValid, ideaDecisions, legacyItems, courtesyReleases), openEdits)[0] ?? null
+}
+
+export type AgencyPieceCalendarRow = StagePiece & {
+  clientSlug: string
+  plannedDate: string | null
+  notShared: boolean
+}
+
+// Broader agency calendar read. This deliberately starts from content_items and
+// the working snapshot, never from content_with_state, so ideas/drafts remain
+// visible to The Dot while unreleased content stays outside every client path.
+export async function loadAgencyPieceCalendar(admin: Client, clientId?: string): Promise<AgencyPieceCalendarRow[]> {
+  let query = admin.from('content_items').select(ITEM_COLS)
+  if (clientId) query = query.eq('client_id', clientId)
+  const items = await run<ItemRow>(query, 'content_items calendar')
+  if (items.length === 0) return []
+  const stages = await loadAgencyStagePieces(admin, clientId)
+  const clients = await run<{ id: string; slug: string }>(
+    admin.from('clients').select('id, slug').in('id', [...new Set(items.map((item) => item.client_id))]),
+    'clients calendar')
+  const clientSlugs = new Map(clients.map((client) => [client.id, client.slug]))
+  const itemByKey = new Map(items.map((item) => [`${item.client_id}:${item.content_id}`, item]))
+  return stages.flatMap((stage) => {
+    const item = itemByKey.get(`${stage.clientId}:${stage.contentId}`)
+    const clientSlug = clientSlugs.get(stage.clientId)
+    if (!item || !clientSlug) return []
+    return [{ ...stage, clientSlug, plannedDate: item.planned_date ?? null, notShared: !stage.released }]
+  })
+}

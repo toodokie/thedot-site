@@ -4,6 +4,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import Footer from './Footer';
+import AiVisibilitySelfCheck from './AiVisibilitySelfCheck';
+import AiCheckCta from './AiCheckCta';
 
 interface BlogPost {
   id: string;
@@ -26,10 +28,40 @@ interface BlogPostPageProps {
   post: BlogPost;
 }
 
+// Build FAQPage structured data from a post's FAQ section (h2 "Frequently asked
+// questions" followed by h3/p question-answer pairs). Returns null if none.
+function buildFaqSchema(content: string) {
+  if (!content) return null;
+  const idx = content.search(/<h2>[^<]*(?:frequently asked questions|faq)[^<]*<\/h2>/i);
+  if (idx === -1) return null;
+  const afterH2 = idx + content.slice(idx).indexOf('</h2>') + '</h2>'.length;
+  const rest = content.slice(afterH2);
+  const nextH2 = rest.search(/<h2>/i);
+  const nextHr = rest.search(/<hr\s*\/?>/i);
+  let end = rest.length;
+  if (nextH2 !== -1) end = Math.min(end, nextH2);
+  if (nextHr !== -1) end = Math.min(end, nextHr);
+  const body = rest.slice(0, end);
+  const pairs = [...body.matchAll(/<h3>(.*?)<\/h3>\s*<p>(.*?)<\/p>/gis)];
+  if (!pairs.length) return null;
+  const strip = (s: string) =>
+    s.replace(/<[^>]+>/g, '')
+      .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: pairs.map((m) => ({
+      '@type': 'Question',
+      name: strip(m[1]),
+      acceptedAnswer: { '@type': 'Answer', text: strip(m[2]) },
+    })),
+  };
+}
+
 export default function BlogPostPage({ post }: BlogPostPageProps) {
   const [relatedPosts, setRelatedPosts] = useState<BlogPost[]>([]);
   const [nextPost, setNextPost] = useState<BlogPost | null>(null);
-  const [loading, setLoading] = useState(true);
 
   // Generate Article structured data
   const articleStructuredData = {
@@ -70,6 +102,8 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
     }
   };
 
+  const faqStructuredData = buildFaqSchema(post.content);
+
   useEffect(() => {
     const fetchRelatedAndNextPosts = async () => {
       try {
@@ -106,21 +140,16 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
       } catch (error) {
         console.error('Error fetching related posts:', error);
         setRelatedPosts([]);
-      } finally {
-        setLoading(false);
       }
     };
-    
+
     fetchRelatedAndNextPosts();
   }, [post.category, post.id]);
 
-  if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner">Loading...</div>
-      </div>
-    );
-  }
+  // NOTE: the article renders immediately from the server-provided `post` prop.
+  // Related/next posts (the only data the effect above fetches) populate the
+  // bottom sections after hydration; they must NOT gate the article body, or
+  // non-JS crawlers receive an empty loading shell instead of the article.
 
   if (!post) {
     return (
@@ -142,6 +171,16 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
           __html: JSON.stringify(articleStructuredData)
         }}
       />
+
+      {/* FAQ Structured Data (only when the post has an FAQ section) */}
+      {faqStructuredData && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(faqStructuredData)
+          }}
+        />
+      )}
       
       <style jsx>{`
         .post-container {
@@ -283,6 +322,19 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
           font-style: italic;
           font-size: 1.15rem;
           text-align: center;
+        }
+
+        /* Tech aside: left-aligned callout, same grey + yellow DNA as blockquote */
+        .post-content .tech-note {
+          background: #f8f9fa;
+          border-left: 4px solid var(--yellow);
+          padding: 25px 30px;
+          margin: 40px 0;
+          text-align: left;
+        }
+
+        .post-content .tech-note p {
+          margin: 0;
         }
         
         .post-content ul, .post-content ol {
@@ -704,8 +756,38 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
           </div>
         )}
 
-        {/* Post Content */}
-        <article className="post-content" dangerouslySetInnerHTML={{ __html: post.content }} />
+        {/* Post Content: embeds an AI-visibility widget wherever the content contains
+            a marker (each optionally wrapped in <p> by the CMS):
+              [[ai-visibility-tool]] → the full interactive self-check
+              [[ai-visibility-cta]]  → a lightweight end-of-post CTA (links ?src=blog)
+            Posts without any marker render exactly as before. */}
+        {(() => {
+          const MARKER_RE = /(?:<p>\s*)?\[\[(ai-visibility-tool|ai-visibility-cta)\]\](?:\s*<\/p>)?/;
+          if (!MARKER_RE.test(post.content)) {
+            return <article className="post-content" dangerouslySetInnerHTML={{ __html: post.content }} />;
+          }
+          // split() with a capturing group interleaves the matched marker name into
+          // the array: [html, markerName, html, markerName, html, ...]. Odd indices
+          // are markers, even indices are HTML chunks.
+          const parts = post.content.split(MARKER_RE);
+          return (
+            <>
+              {parts.map((seg, i) => {
+                if (i % 2 === 1) {
+                  const Widget = seg === 'ai-visibility-cta' ? AiCheckCta : AiVisibilitySelfCheck;
+                  return (
+                    <div key={i} className="post-content" style={{ margin: '3.5rem auto' }}>
+                      <Widget />
+                    </div>
+                  );
+                }
+                return seg ? (
+                  <article key={i} className="post-content" dangerouslySetInnerHTML={{ __html: seg }} />
+                ) : null;
+              })}
+            </>
+          );
+        })()}
 
         {/* Tags */}
         {post.tags && post.tags.length > 0 && (

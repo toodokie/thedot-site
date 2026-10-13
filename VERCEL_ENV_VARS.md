@@ -58,7 +58,7 @@ Add these environment variables in your Vercel project settings:
     - SMTP password or app-specific password
     - For Gmail: App-specific password (not your regular password)
     - How to get Gmail app password: https://support.google.com/accounts/answer/185833
-    - Current value (generated 2025): `zaco tpqc khmh ydrf` (remove spaces when adding to Vercel: `zacotpqckhmhydrf`)
+    - Value REMOVED (it was committed and is now burned). Rotate the Gmail app password and set the new one only in Vercel env, never in this file.
 
 11. **FROM_EMAIL**
     - Email address that appears in the "From" field
@@ -120,6 +120,18 @@ Add these environment variables in your Vercel project settings:
         - Remove all line breaks and spaces to create a single-line JSON string
         - Example: `{"type":"service_account","project_id":"...","private_key_id":"...","private_key":"...","client_email":"...","client_id":"...","auth_uri":"...","token_uri":"...","auth_provider_x509_cert_url":"...","client_x509_cert_url":"..."}`
    - Required for: Fetching traffic metrics from Google Analytics for admin dashboard
+
+### Client Portal (Supabase)
+
+These power the `/client` portal. **Names only — never paste key values into this file (it is committed).**
+
+16. **NEXT_PUBLIC_SUPABASE_URL** — Supabase project URL (public). Add to **all** environments (Production, Preview, Development).
+17. **NEXT_PUBLIC_SUPABASE_ANON_KEY** — Supabase anon/publishable key (public, RLS-guarded). Add to **all** environments.
+18. **SUPABASE_SERVICE_ROLE_KEY** — service-role key (SECRET). Used **only** by the local/CI `sync-content` script, never by runtime app code. Add **only** to the environment(s) that run the sync (local `.env.local` + CI), **not** to the app's Vercel runtime env.
+19. **PORTAL_CONTENT_DIR** — exact path to the dedicated private canonical-content Git checkout. The broad Kanset workspace and `thedot-site/content/portal` fixtures are forbidden production roots. Local/CI only, not app runtime.
+20. **PORTAL_CONTENT_EXPECTED_REMOTE** — expected private Git remote identity for the canonical checkout (for example, an HTTPS or SSH GitHub owner/repository URL; no embedded credentials). Required for production apply, local/CI only.
+
+> The portal's browser + server runtime needs only the two `NEXT_PUBLIC_*` values. The service-role key, canonical checkout path, and expected remote belong to content-sync tooling, so keeping them out of the app runtime env limits blast radius.
 
 ## Setup Steps in Vercel
 

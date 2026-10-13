@@ -11,25 +11,25 @@ Could not find database with ID: xxx-xxx-xxx. Make sure the relevant pages and d
 The application uses **TWO different Notion integrations** with separate API tokens:
 
 ### Integration 1: Website Portfolio
-- **Token**: `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`
+- **Token**: `<REDACTED, rotate this Notion token>`
 - **Access**: Portfolio database only
 - **Used by**: Portfolio sync scripts
 
 ### Integration 2: Website Calculator Integration  
-- **Token**: `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`
+- **Token**: `<REDACTED, rotate this Notion token>`
 - **Access**: Calculator Leads, Project Briefs, and one other database
 - **Used by**: Calculator forms, project briefs
 
 ## Environment Variables Setup
 ```env
 # Calculator/Brief integration (main token for forms/briefs)
-NOTION_TOKEN=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
+NOTION_TOKEN=<REDACTED, rotate this Notion token>
 
 # Portfolio integration (for portfolio sync)
-NOTION_TOKEN_PORTFOLIO=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
+NOTION_TOKEN_PORTFOLIO=<REDACTED, rotate this Notion token>
 
 # Legacy calculator token (same as NOTION_TOKEN, kept for compatibility)
-NOTION_CALCULATOR_TOKEN=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
+NOTION_CALCULATOR_TOKEN=<REDACTED, rotate this Notion token>
 
 # Database IDs
 NOTION_PORTFOLIO_DB_ID=224d0f0c2544806aba32c82f0d08f463

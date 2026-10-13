@@ -1,0 +1,961 @@
+# Kanset Portal — Agent Build Manual
+
+**Audience:** any agent (or engineer) taking over the Kanset client portal. This is the "how it's
+actually built" reference: architecture, code map, data/security model, the content flow, the
+design system, the deploy discipline, and the hard-won lessons. Read this top to bottom once;
+after that use the table of contents.
+
+**Last verified against the codebase and production:** 2026-08-16 (migrations `0001` through `0081`).
+
+> This manual documents the **code** (the `~/thedot-site` repo). The **business/engagement**
+> context (client, pricing, content strategy, cadence, brand voice) lives in the `~/Kanset`
+> workspace — start there with [`~/Kanset/START-HERE.md`](../../Kanset/START-HERE.md) and
+> `~/Kanset/CLAUDE.md`. The two are complementary: this = how the machine is built, that = what
+> we're using it for.
+
+---
+
+## 0. Table of contents
+
+1. Orientation — the two portals, one repo
+2. Repo map
+3. Tech stack
+4. Data & security model (Supabase) — the part to respect most
+5. The migration ledger (`0001` through `0081`)
+6. The client portal (`/client/[slug]`)
+7. The admin ops portal (`/admin/portal`)
+8. The content lifecycle — canonical repo → portal
+9. The gate / "My tasks" system
+10. Publication, evidence & the historical importer
+11. Calendar sync, invoices, notifications, projections
+12. The Client Work Assistant (OpenAI)
+13. **Design & UI** — the design system, the shell, the rules
+14. Ownership model & the frozen-hash review
+15. Deploy discipline + the launch gate
+16. Environment & config
+17. Testing
+18. Common recipes (add a surface, a migration, an approval, a deploy)
+19. Hard-won lessons (read before you touch prod)
+
+---
+
+## 1. Orientation — the two portals, one repo
+
+The portal is **two surfaces built from one Next.js app and one Supabase database**:
+
+- **Client portal** — `/client/[slug]` (Maria's side). Magic-link login, read-mostly, shows her
+  content pipeline, calendar, ideas, reports, strategy, library, billing, and lets her comment /
+  approve / request changes. **This is the official approve/comment/reschedule channel** once
+  launched.
+- **Admin ops portal** — `/admin/portal` (The Dot's side, "Agency ops"). Password login, agency-only,
+  **never visible to a client**. Shows what needs doing (My tasks), where every piece stands
+  (Pieces + gates), the real posting record (Publication), calendar health, invoices, and Maria's
+  change requests.
+
+**Supabase is the system of record** for workflow / approvals / schedule / activity. Notion,
+Google Calendar, and the `~/Kanset` markdown docs are **one-way projections**, not inputs. The
+portal is the source of truth; everything else mirrors it.
+
+**Live status (2026-08-16):** production has migrations `0001` through `0081` applied. LinkedIn is a
+first-class destination, while weekly LinkedIn adaptations and website articles remain independent
+content identities. Unresolved client edits immediately project their released pieces as `with_dot`.
+Client edit intake and legacy bundle reconciliation now share canonical line-ending and invisible
+line-end whitespace normalization, while canonical Git writes keep `git diff --check` strict.
+Piece review now presents copy, visual assets, comments, and the final decision as one guided flow.
+Binding copy and visual changes submit as one atomic review bundle, while comments remain
+nonbinding. An authenticated reviewer sees the short review-flow explanation once per seat.
+Maria's live seat is active at `maria@kanset.com`; `toodokie@gmail.com` remains
+a separate preview seat. The client and admin portals are live, with Supabase holding workflow,
+report, notification, and per-seat view state.
+Agency notifications now group one client's same-piece editing session into a linked digest after
+a five-minute quiet window. The worker checks every minute, and the notification audit includes
+both client and agency rows.
+
+---
+
+## 2. Repo map
+
+```
+~/thedot-site/
+├── src/
+│   ├── app/
+│   │   ├── client/[slug]/          # CLIENT portal (surfaces + shell + server actions)
+│   │   ├── admin/portal/           # ADMIN ops portal (this manual's §7)
+│   │   ├── admin/{login,dashboard} # admin auth + the non-portal marketing dashboard
+│   │   └── api/
+│   │       ├── client/[slug]/…     # client-side API (assistant, auth request-link)
+│   │       ├── admin/portal/…      # agency write endpoints (operation, evidence, billing, …)
+│   │       └── cron/portal-*        # scheduled workers (assistant, calendar)
+│   ├── lib/
+│   │   ├── portal/                 # ALL portal domain logic (pure-ish TS) — §6–§12
+│   │   ├── supabase/               # admin.ts / server.ts / client.ts / middleware.ts
+│   │   └── auth.ts                 # admin JWT session (verifySession / createSession)
+│   └── data/portfolio/…            # marketing-site content (NOT portal; do not touch for portal work)
+├── packages/design-system/         # @thedot/design-system — tokens + components (§13)
+├── supabase/migrations/00NN_*.sql  # the ONLY way schema/security changes (§4–§5)
+├── scripts/                        # portal tooling (sync, write, inbox, import, test-rls) (§18)
+├── docs/                           # runbooks, specs, THIS manual
+│   └── superpowers/specs/          # signed design specs (design FROM these, not from memory)
+└── next.config.ts                  # note: ignoreBuildErrors + ignoreDuringBuilds = TRUE
+```
+
+`~/Kanset/portal-content/` (separate private repo, remote `toodokie/kanset-portal-content`) is the
+**canonical authored-copy repo** — client-safe content only, synced into Supabase. The broad
+`~/Kanset/content/` holds emails/invoices/PII and is **never** a sync root (the PII wall, §19).
+
+---
+
+## 3. Tech stack
+
+- **Next.js 15** App Router, **React 19**, **TypeScript**. Server Components by default; `'use client'`
+  only where there's interactivity (forms, nav active-state).
+- **Plain CSS Modules** (`*.module.css`). **No Tailwind.** Everything themes through the
+  `@thedot/design-system` `--dot-*` custom properties (§13).
+- **Supabase** (Postgres + RLS + Storage + Auth). Access via three clients in `src/lib/supabase/`:
+  - `admin.ts` → `createSupabaseAdmin()` — **service-role**, bypasses RLS. Server-only. Used by the
+    admin portal + scripts. Never expose to the browser.
+  - `server.ts` → `createSupabaseServer()` — anon key + the client's cookie session, **RLS-enforced**.
+    Used by the client portal.
+  - `client.ts` → `createSupabaseBrowser()` — browser anon client (only for signed-URL storage
+    uploads in the publication evidence flow).
+- **Vercel** hosting. Project link lives in `.vercel/`.
+- **Vitest** unit tests; a real-JWT two-tenant RLS suite (`scripts/test-rls.ts`).
+- **jose** (admin JWT) + **bcryptjs** (admin password hash) for `/admin` auth.
+
+`next.config.ts` sets `typescript.ignoreBuildErrors` and `eslint.ignoreDuringBuilds` to `true`.
+The repo has **pre-existing** TS errors in unrelated marketing routes; the build tolerates them.
+**This does not license sloppy types in portal code** — run `npx tsc --noEmit` and confirm *your*
+files are clean (grep the output for your paths).
+
+---
+
+## 4. Data & security model (Supabase) — the part to respect most
+
+This is where mistakes are expensive. The portal holds one tenant today (Kanset) but is built
+multi-tenant, and the security model is defended in-migration.
+
+**Principles:**
+
+1. **All schema/security change goes through a numbered migration** in `supabase/migrations/`.
+   Never hand-edit prod. Migrations are append-only and apply in order.
+2. **RLS on every table.** Clients see only their own rows, enforced by policies that call
+   `my_client_ids()` (the set of client_ids the current auth user is a member of).
+3. **Writes go through `SECURITY DEFINER` RPCs**, never direct table DML from the client. Every
+   such function pins `set search_path = ''` (schema-qualify everything) to prevent search-path
+   hijacking. Client callable functions validate their inputs and re-check membership.
+4. **Column-scoped grants.** The client role gets `SELECT` on specific columns of specific views,
+   not `SELECT *`. New tables start with `REVOKE ALL` then explicit grants (see the poisoned-defaults
+   lesson, §19).
+5. **In-migration security assertions.** Each slice defines an `assert_portal_*_security()` function
+   and calls it at the end of the migration (16 assertion functions exist). They fail the migration
+   if a grant/policy/column is wrong. There is a cumulative `assert_portal_security()` fold. **A
+   migration that changes access must extend the assertions.**
+6. **The launch/mutation feature switches** (`portal_feature_switches`, migration `0013`) are
+   **fail-closed**. `client_portal_launch` must be enabled at **both** the global scope
+   (`client_id IS NULL`) and the tenant scope, or `portal_client_session` resolves to an empty
+   membership and the client bounces to login. `client_mutations` / `agency_mutations` gate writes.
+   Set via `set_portal_feature_switch(...)`. **If login "loops," it is almost always this switch,
+   not auth** (see [[portal-launch-switch-gates-login]] in `~/Kanset` memory).
+
+**Verification bar for any DB change (non-negotiable):**
+- Fresh `0001`→N replay passes + upgrade replay passes.
+- The migration's in-migration assertions pass.
+- `npm run test:rls` (two-tenant, real-JWT) proves tenant A cannot see tenant B and cannot call a
+  write RPC for B.
+- Exact grant + column assertions match intent.
+- **An agent code review of the frozen migration hash passes BEFORE it is applied to prod** (§14).
+
+---
+
+## 5. The migration ledger (`0001` through `0081`)
+
+Each file's top comment states its purpose. Summary:
+
+| File | Slice | What it establishes |
+|---|---|---|
+| `0001_portal` | foundation | Tables, RLS, the decision RPC, the derived content view, seed. |
+| `0002_content_id_per_tenant` | — | `content_id` unique **per client**, not globally. |
+| `0003_copy_blocks_and_comments` | — | Copy blocks + client/agency comments. |
+| `0004_surfaces` | — | Recommendations, links, report snapshots, ideas (surface tables). |
+| `0005_polish` | — | Cleanup/constraints. |
+| `0006_versioned_content` | 1 | Immutable authored snapshots + explicit client release pointer. |
+| `0007_release_quality` | 2 | Deterministic fact-check evidence + a release-quality boundary. |
+| `0008_scheduling` | 3 | Destination-level schedule intent + durable reschedule requests. |
+| `0009_publication_evidence` | 4 | Evidence-backed provider truth + immutable publication observations. |
+| `0010_google_calendar_sync` | 5 | Two-way Google Calendar coordination. |
+| `0011_agency_writes` | 6 | Atomic agency-owned surface writes + durable agency inbox. |
+| `0012_invoices` | 7 | Client-safe invoices + billing administration. |
+| `0013_access_control` | — | Fail-closed launch/mutation switches, membership, primary-decider transfer. |
+| `0014_content_requests` | — | Client edit/create/archive requests + local-reconciliation boundary. |
+| `0015_notifications` | — | Durable client/agency alerts; `activity_log` is the single mutation funnel. |
+| `0016_projection_consumer` | — | Notion projection consumer (drains `projection_outbox`). |
+| `0017_assistant` | — | Assistant usage plane (first build, Claude). |
+| `0018_assistant_openai` | — | Assistant rebuilt on OpenAI (spec §5.6 + 3.18). |
+| `0019_assistant_ops` | — | Assistant ops round (Codex blockers + launch orders). |
+| `0020_design_links` | — | Item-level design links. |
+| `0021_design_link_index` | — | Design links become the 13th assistant-indexed source. |
+| `0022_production_gates` | — | Production gates + ops tasks (gate-system phase 1). |
+| `0067_report_view_receipts` | — | Per-seat durable report views for overview prompts; authenticated RPC-only writes. |
+| `0068_linkedin_destination` | — | LinkedIn destination constraints, mapping, provider URLs, requests, reports, and guarded agency tooling. |
+| `0069_open_edit_client_state` | n/a | Pending, applying, and prepared client edits project the released piece as `with_dot` while preserving its released snapshot and design-link overlay. |
+| `0070_client_copy_whitespace_normalization` | n/a | Canonicalizes browser line endings and invisible line-end whitespace at edit intake and legacy bundle reconciliation without relaxing Git whitespace checks. |
+| `0071_content_request_base_copy_reader` | n/a | Gives an authenticated client a narrow tenant-scoped read of the exact historical copy block referenced by their own edit request, without opening historical version rows generally. |
+| `0072_client_visible_canada_sources` | n/a | Permits reviewed `canada.ca` and subdomain citations in client-visible canonical copy while preserving dot-boundary rejection of lookalike hosts. |
+| `0073_podcast_review_packs` | n/a | Adds version-bound multi-asset review packs, fail-closed podcast and podcast-article readiness, exact asset comments, and automatic YouTube transcript-review tasks. |
+| `0074_reviewed_research_source_hosts` | n/a | Extends reviewed primary-source hosts used by the client-safe fact ledger. |
+| `0075_plan_date_placeholder_audit` | n/a | Audits agency plan-date changes, including versionless plan placeholders. |
+| `0076_abandon_unrequested_aug9_review_emails` | n/a | Abandons narrowly identified unrequested client email rows while preserving portal history. |
+| `0077_abandon_unrequested_askkanset_v2_email` | n/a | Abandons the exact pending Ask Kanset v2 client email that was not authorized. |
+| `0078_agency_piece_edit_digests` | n/a | Groups same-piece client edits and comments into one linked agency digest after a five-minute quiet window, and exposes service-only agency notification audit rows. |
+| `0079_agency_edit_review_candidates` | n/a | Adds agency-only safe-merge drafts and internal approvals for client copy requests. Candidates stay invisible to the client and do not advance a request, canonical copy or release. |
+| `0080_reviewed_bundle_reconciliation` | n/a | Makes an approved complete safe-merge candidate the exact audited copy boundary for bundled edit reconciliation while preserving Maria's original proposal and the legacy exact-block path. |
+| `0081_unified_piece_review_bundles` | n/a | Unifies copy and visual edits into one atomic client review bundle, aligns unresolved-state guards, adds visual revision lifecycle controls, and records the one-time per-seat review-flow acknowledgment. |
+| `0092_review_media_previews` | n/a | Private `portal-review-previews` bucket (no client storage policy), `content_review_previews` readable only by the owning seat for the released version, signed links served by the app, a removal queue drained through the Storage API, retention on live-everywhere, superseded, archived and planned date + 7 days, and `review_preview_uploaded` / `review_preview_deleted` activity (flagged `activity_event_types.agency_internal`, so `portal_activity_notify` queues no notification for them and the client seat cannot read them). Copy-only revisions carry the previous version's review assets and previews forward (2026-10-04); a revision that adds, removes or changes an on-screen block (`reel-script`, `on-screen-copy`, `carousel-copy` and the rest of the on-screen key set) carries nothing and needs fresh media before release. Full podcast episodes and videos over 240 s are refused (the cap is 1200 s since 0096). |
+| `0093_durable_review_drafts` | n/a | Client review drafts autosave to `content_review_drafts` (one unsent draft per seat, piece, target and frame or page; seat-only RLS; RPC-only writes; agency read-only). `send_review_drafts` composes them into the 0081 bundle in one transaction and marks them sent; it refuses a reused idempotency key with different drafts (`idempotency key reused with different request`, shown to Maria as reason `drafts_changed`). A release carries unsent drafts forward (`review_drafts_carried_over` activity + inbox event); a refused send writes `client_request_failures` (new reasons `drafts_changed`, `network_unreachable`), a `review_send_failed` activity (agency email) and inbox event, and marks the drafts failed; a later send resolves it (`review_send_retry_succeeded`). `ack_portal_inbox` lets the cursor past a `review_send_failed` event once its failure rows are resolved. Carry-over and retry success are `activity_event_types.agency_internal` (shared with 0092), so they queue no notification, and client seats cannot read them; the service role reads those rows through `agency_internal_activity(...)`. The migration sets `lock_timeout` to 5s. `agency_unsent_review_draft_alerts` lists unsent drafts older than 24 hours on unposted pieces due within 3 days. |
+| `0094_piece_page_review_ticks` | n/a | Stores per-seat, per-version copy-tab ticks for the redesigned piece page (a seat reads only its own rows; the only write is `tick_review_tabs`, on the released version) and makes `record_content_decision` refuse an approval while the approving seat has unsent server drafts. Amended 2026-10-03: `content_review_playback_failures` logs failed review video plays through `report_review_playback_failure` (seat-scoped, released version, rate-limited; the first per preview per Toronto day emails the agency and raises a `review_playback_failed` inbox event, never the client). |
+| `0095_agency_ops_signals_and_feedback` | n/a | Feedback card answers in `portal_feedback_responses` (one per seat per prompt; seat reads its own row; `submit_portal_feedback` is the only writer, passes `portal_require_client_action` like every client writer, and raises a client activity that emails the agency, never the client, plus a `portal_feedback_submitted` inbox event). The activity row carries no rating and no comment, because every seat of the client can read `activity_log`; the answer lives only in the seat's own row and the agency inbox payload. Agency signal handling: `agency_inbox_resolutions` + `agency_resolve_inbox_event` (Done; refuses a `review_send_failed` event, which closes itself), `agency_open_client_signals` (My Tasks "From Maria": send failures until their rows resolve, carried drafts until kept or discarded, feedback and failed plays until Done), `agency_raise_unsent_draft_alert_events` (hourly cron, one `review_unsent_drafts_due` inbox event per seat, piece and Toronto day). `ack_portal_inbox` now also passes agency-resolved signals (send failures whose rows are resolved already pass since 0093). Amended 2026-10-03: `agency_release_media_alerts` lists pieces in front of Maria with no media (see section 18). |
+| `0096_review_preview_cut_duration` | n/a | Raises the review preview video cap from 240 s to 1200 s (20 minutes) so YouTube cuts of an episode play in the portal (the Ep3 cut runs 4:31): the `content_review_previews` duration CHECK and `agency_register_review_preview`. Full podcast episodes stay refused exactly as in 0092 (a podcast piece takes only a `teaser`, `trailer` or `cut` key), and `assert_review_preview_security` now pins that format test, the key pattern, the 1200 s cap and the table constraint. The 50 MiB per-file limit is unchanged. |
+| `0100_podcast_youtube_only_and_asset_removal` | n/a | A Kanset Talks episode is four pieces (2026-10-06): the YouTube episode (`format: podcast`), an Instagram + Facebook trailer (`format: reel`), a LinkedIn post and a website article. The podcast final-package rule (`portal_core_review_flow_record_content_decision`) now requires only `youtube-title`, `youtube-description`, `youtube-tags` and a `youtube-cover` asset; the IG/FB caption, `social-cover` and a verified `social-teaser` are required only when that version's own platforms list `instagram` or `facebook` (older combined pieces). Mirrored in `src/lib/portal/podcast-review.ts`. Adds `agency_remove_review_assets` (service role; `portal-write review-asset-remove`): removes named review assets and previews from the current unreleased working version only, refuses a seen, decided or publication-locked version and any removal that would leave the version with no media, queues the previews' Storage objects under the new removal reason `removed`, snapshots each asset into `content_review_asset_events`, and audits `review_asset_removed` (agency_internal, never notified). |
+
+**Full v1 architecture + phasing spec:** `~/Kanset/portal-integration-task.md`.
+**Gate-system spec:** `docs/superpowers/specs/2026-07-21-portal-gate-system-design.md`.
+
+---
+
+## 6. The client portal (`/client/[slug]`)
+
+**Auth:** magic link. `POST /api/client/auth/request-link` emails a link; `getClientSession(slug)`
+(`src/lib/portal/auth.ts`) resolves the cookie → membership via the `portal_client_session` RPC.
+`null` = logged out **or** not a member → redirect to `/client/login`.
+
+**Shell:** `src/app/client/[slug]/layout.tsx` renders `PortalNav` + a topbar + `<main>`, styled by
+`portal-shell.module.css`. Left sidebar on desktop, fixed bottom tab bar on mobile (§13).
+
+**Surfaces (each its own routed folder):**
+
+| Route | File | Shows |
+|---|---|---|
+| `` (overview) | `page.tsx` | Landing: buckets by state (needs review / with Dot / approved / scheduled / published / in progress) + activity + communication feed. |
+| `calendar` | `calendar/` | Month grid of scheduled/planned content. |
+| `plan` | `plan/` | The plan-direction approval + schedule. |
+| `ideas` | `ideas/` | Shared idea board (client can add). |
+| `reports` | `reports/` | Report snapshots (metrics). |
+| `requests` | `requests/` | Change requests she has raised, with the edited area named in client language and a high-contrast before/requested comparison bound to the exact base and applied versions. |
+| `strategy` | `strategy/` | Recommendations. |
+| `library` | `library/` | Brand + video links. |
+| `billing` | `billing/` | Invoices (Date / Amount / Status / Document). |
+| `piece/[id]` | `piece/` | One guided review surface for the complete piece: copy, visual assets, comments, final decision, versions, fact-check evidence, and publication state. |
+| `assistant` | `assistant/` | The Client Work Assistant (gated; §12). |
+
+**Client server actions** live beside the pages (`*-actions.ts`: `comment-actions`,
+`idea-actions`, `request-actions`, `schedule-actions`, `seen-actions`). They call the guarded RPCs
+(`add_comment`, `add_idea`, `request_content_reschedule`, `mark_notification_seen`, …) through the
+RLS-enforced server client. **Client code never touches the service-role client.**
+
+Podcast pieces add version-bound rows from `content_review_assets` to this same page. Since
+2026-10-06 the episode piece is YouTube-only: it shows the YouTube cover(s) and any YouTube cut
+beside separately editable YouTube title, description, and tags blocks. Its Instagram + Facebook
+trailer is a separate `reel` piece, and the LinkedIn post is a separate piece too. An older combined
+episode that still lists Instagram or Facebook also shows its social cover, captioned teaser and
+social caption. The website companion stays a separate
+`podcast_article` item with its own 1500x1000 cover, article block, and client decision.
+
+The piece page keeps draft copy and visual edits in one client-side review session. The final
+resolver offers one action: approve when no binding edits exist, or submit all requested changes
+when they do. `request_content_edit_bundle` validates and records the complete set atomically.
+General comments are intentionally separate and do not block approval. Once a visual request moves
+into agency production, the client cannot silently replace it; the agency uses the explicit visual
+revision lifecycle instead.
+
+**Domain logic** for the client read paths is in `src/lib/portal/`: `data.ts` (content + activity
+fetch), `state.ts` (`clientStateLabel`, state machine), `seen.ts` (last-seen tracking),
+`comments.ts`, `ideas.ts`, `reports.ts`, `recommendations.ts`, `links.ts`, `invoices.ts`,
+`requests.ts`.
+
+---
+
+## 7. The admin ops portal (`/admin/portal`)
+
+**Rebuilt 2026-07-21 to mirror the client portal's structure** (was one long-scroll page). Same
+shell shape as the client (sidebar desktop / bottom bar mobile), split into organized routed pages.
+
+**Auth:** `verifySession()` (`src/lib/auth.ts`) — admin JWT in a cookie, `role === 'admin'`.
+The `layout.tsx` guards once; **each page re-guards before it fetches** (defense in depth, and
+because a page's data fetch runs concurrently with the layout).
+
+**Shell:** `layout.tsx` + `AdminNav.tsx` + `admin-shell.module.css` (a faithful copy of the client's
+`portal-shell.module.css`). `admin-shell.module.css`'s `.main` also **hosts the `--admin-*` design
+tokens**, so every routed page's cards inherit them (§13).
+
+**Nav / routed pages** (`AdminNav.tsx` `ITEMS`):
+
+| Nav item | Route | Component | Loader (`data.ts`) |
+|---|---|---|---|
+| My tasks | `/admin/portal` | `MyTasksAdmin` | `loadMyTasksData()` |
+| Pieces | `/admin/portal/pieces` | `PiecesAdmin` | `loadPieces()` |
+| Publication | `/admin/portal/publication` | `PublicationAdmin` | `loadPublicationTargets()` |
+| Calendar | `/admin/portal/calendar` | `CalendarAdmin` | `loadCalendarData()` |
+| Billing | `/admin/portal/billing` | `BillingAdmin` | `loadInvoices()` |
+| Requests | `/admin/portal/requests` | `RequestAdmin` | `loadRequests()` with a three-way released/requested/safe-merge comparison and internal candidate approval. |
+
+Plus a quiet **Dashboard** link out to `/admin/dashboard`.
+
+**Data split:** the old monolithic page did one giant `Promise.all`. Now `src/app/admin/portal/data.ts`
+exposes **one loader per surface** — each page fetches only its own slice via `createSupabaseAdmin()`.
+The transforms were lifted **verbatim** from the old page (behaviour-preserving); only the split is new.
+When you edit a loader, keep the transform identical unless you intend a behavior change.
+
+**`GatesAdmin.tsx`** exports two components sharing module-level helpers:
+- `MyTasksAdmin` — the hero card. Renders `deriveMyTasks(...)` grouped into Actions / Waiting on Maria
+  / Waiting on studio / Ops buckets / "Posted · link-confirm pending" + recently-completed ops.
+- `PiecesAdmin` — every piece as a table with a **9-gate strip** (done / open / n/a / not-tracked
+  squares) + a stage pill. `multiClient` hides the client column when there's only one tenant.
+
+**The admin components' forms are behavior-locked:** field `name`s + endpoint URLs must not change
+without intent — they map to the API routes in `src/app/api/admin/portal/*`. `PublicationAdmin`
+self-wraps in `.card`; `Calendar/Billing/Request` are wrapped in `<section className={styles.card}>`
+by their page.
+
+**Agency write endpoints** (`src/app/api/admin/portal/`): `operation` (confirm/correct publication),
+`evidence` + `evidence/upload` + `evidence/finalize` + `evidence/[id]` (the evidence store),
+`billing`, `requests`, `calendar/*`. These call the audited agency RPCs.
+
+---
+
+## 8. The content lifecycle — canonical repo → portal
+
+The canonical model (from `~/Kanset/CLAUDE.md` "content-to-portal flow"):
+
+**Lifecycle amendment, approved 2026-07-25:** read
+`~/Kanset/docs/superpowers/specs/2026-07-25-content-id-lifecycle.md` before changing this
+flow. A selected piece now receives its permanent `content_id` as a versionless idea-stage
+`content_item`, before a canonical file exists. The first canonical sync attaches version 1
+to that same identity. The authoring sequence below begins after selection and no longer
+defines when the piece identity is created.
+
+1. **Author** client-safe copy in `~/Kanset/portal-content/` (the private repo). The broad
+   `~/Kanset/content/` pack is **never** the portal file — it's translated into a clean
+   `portal-content/` file so email/invoice/PII regions stay out (the D3 classification gate reuses
+   `~/Kanset/portal-allowlists.md` + the `<!-- portal-block:KEY -->` / `<!-- internal -->` convention).
+2. **Sync** into Supabase: `npm run sync-content` (`scripts/sync-content-to-supabase.ts`). Always
+   `--dry-run` first (zero writes) — the content-safety gate (`src/lib/portal/content-safety.ts`)
+   blocks any file carrying email/phone/dollar-invoice/intake patterns outside the billing surface.
+   Sync creates or updates an agency working snapshot only. The client-facing view cannot read
+   that snapshot, so do not describe it as ready for Maria or ask her to approve it yet.
+3. **Release** a confirmed piece: `mark_content_ready` (only when the fact-check ledger is
+   release-valid — `portal_fact_check_ledger_release_valid`). Versions are immutable snapshots;
+   the **first verified-live version is permanently frozen** — corrections are a new linked version,
+   never a rewrite (`portal_enforce_publication_lock`).
+   This is the visibility boundary: Maria sees the copy only after this command succeeds and
+   advances `client_visible_version`. For a brand-only piece with no factual claim, close the
+   gate explicitly with `fact_check: confirmed`, `fact_check_scope: not_applicable`, a short
+   `fact_check_exemption`, and `fact_check_ledger: []`; it still needs the same release command.
+   `portal-inbox apply-edit`, `apply-edit-batch`, `resume-edit`, and `apply-create` reconcile from
+   a temporary clean checkout of the latest canonical remote. Active unrelated drafts in the
+   authoring checkout remain untouched. The worker validates the expected private remote, commits
+   only the reviewed target, and rejects a remote-head race before its non-forced push.
+4. **Two approval gates, both in the portal:** (a) the **plan direction**, then (b) **each post**.
+   Until launch, approvals are recorded from Maria's documented email decisions via
+   `record_external_decision(...)` (evidence ledger:
+   `~/Kanset/content/portal-external-approvals-ledger-2026-07-20.md`). Post-launch she clicks
+   Approve and it calls `record_content_decision`.
+5. **Fact-check standard:** MG-authored (RCIC) content is `agency_attested`, owner-attested and NOT
+   re-verified against a government URL. **Agent-asserted IRCC facts still need an official
+   `primary_source` URL** from canada.ca, ontario.ca, gazette.gc.ca, or college-ic.ca. Reviewed
+   original research and ranking claims may use the separately governed Henley, U.S. News, World
+   Bank, WHO, or Transparency International host list. General news, blogs, and aggregators remain
+   excluded (`portal-allowlists.md §4`; `primary-source-policy.ts`; migration 0074).
+
+**One command for the day-to-day:** "update portal" reconciles new/changed/planned content
+per-change (not weekly), wired into the `kanset-production-workflow` skill. New post links enter via
+the agency confirm/import tooling (§10), **not** by editing repo files.
+
+**Client edit pre-apply review (`0079` through `0081`):** Agency Ops stores a private complete safe-merge candidate and change map beside each pending edit. Saving creates a draft. Internal approval records the exact candidate revision but does not touch the request status, canonical repository, released copy, activity or client notifications. The internal `~/Kanset/content/*.md` package mirrors the same complete current/requested/candidate comparison. When `portal-inbox` applies an explicit package candidate, every block must match its approved Agency Ops candidate exactly. Bundled reconciliation then verifies the synced immutable version against those approved candidates while preserving Maria's original proposal as request history. Visual requests expose separate start-revision and mark-prepared controls so their working lifecycle remains auditable.
+
+---
+
+## 9. The gate / "My tasks" system
+
+**Todos are a VIEW, not a document.** Per-piece state is derived, never hand-maintained. Two data
+sources, one derivation layer:
+
+- **Tables** (`0022`): `content_production_gates` (current gate state per piece/destination),
+  `production_gate_events` (append-only history), `ops_tasks` (non-content todos). Writes:
+  `set_production_gate`, `add_ops_task` / `complete_ops_task` (via `scripts/portal-write.ts`).
+- **Pure derivations** in `src/lib/portal/gates.ts` (fully unit-tested in `gates.test.ts`):
+  - `resolveNineGates(piece)` — the 9-gate strip state.
+  - `deriveContentStage(piece)` — the human stage label (Draft / In production / Awaiting Maria /
+    Approved / Scheduled / Posted / Live / Done / Issue). Handles `direction_approved` for H&C-style
+    "direction approved, still in production."
+  - `deriveMyTasks(pieces, opsTasks, todayIso)` — the admin My-tasks list (Actions / waiting_maria /
+    waiting_studio / reconciliation / link_pending / ops buckets). Provider state outranks stale
+    production gates: a scheduled piece never resurfaces as "Send to Maria" or "Post." On its
+    planned day it stays in the calendar; after that day, missing publication evidence moves to
+    **Evidence cleanup**, outside the urgent action count. Post-publish proof gaps use the same
+    quiet reconciliation bucket.
+  - `canonicalScheduleDestination` / `canonicalDestinations` / `selectCurrentDecision` /
+    `businessDaysBetween` / `renderStatusGatesBlock`.
+- **The loader** `src/lib/portal/gates-loader.ts` → `loadAgencyStagePieces(admin, clientId?)` runs
+  the service-role queries over `content_items` + the working version and returns `StagePiece[]`
+  (with `clientName`). Used by both admin gate surfaces.
+
+**The 9 gates (locked grammar):** fact-check → source-in-hand → design-built → proofed →
+approval-sent → copy-approved → scheduled → posted → link-confirmed. Owner + date + provenance per
+line. Maria gates close only on her explicit decision. `done` = every destination link-confirmed
+(incl. the portal confirm-in). The publish pack's `STATUS GATES` block in `~/Kanset` content packs
+is the human mirror of this; `renderStatusGatesBlock` generates it.
+
+---
+
+## 10. Publication, evidence & the historical importer
+
+**A scheduled time is not proof.** The publication model separates intent from truth:
+
+- Instagram, Facebook, YouTube, LinkedIn, and Squarespace are independent destination records.
+- A weekly LinkedIn adaptation always has its own `content_id`. Do not add LinkedIn to the
+  Instagram/Facebook/YouTube piece, even when its topic or creative is adapted from that piece.
+- Every website article has its own `content_id` and `platforms: [squarespace]`. A podcast episode
+  and its companion article are separate pieces with separate approval, schedule, and publication
+  evidence.
+- Every Kanset Talks episode is four pieces (2026-10-06): the YouTube episode (`format: podcast`,
+  `platforms: [youtube]`), the Instagram + Facebook trailer (`format: reel`), the LinkedIn post and
+  the website article. The episode's final decision fails closed until a `youtube-cover` review
+  asset is attached to the exact released version and the YouTube title, description, and tags
+  blocks exist (migration `0100`). Only a version whose platforms still list `instagram` or
+  `facebook` (an older combined piece) also needs `social-cover`, a `social-teaser` marked
+  `burned_in_verified`, and the social caption. The companion article uses
+  `format: podcast_article` and requires `article-body` plus `website-cover`.
+
+- `content_schedule_targets` (`0008`) — per-destination schedule intent. RPCs `confirm_schedule_target`,
+  `request_content_reschedule`, `mark_schedule_target_failed`, `portal_ensure_schedule_targets`,
+  `portal_resolve_schedule_time`.
+- `content_publication_targets` + append-only `content_publication_observations` (`0009`) — the real
+  posting record, platform by platform. Confirming a post **registers evidence first**, then records
+  an observation. Corrections **add a new observation** rather than overwriting. RPCs:
+  `record_publication_observation`, `register_publication_evidence`, `portal_sync_publication_target`,
+  `preview_publication_observation`.
+- **Evidence store:** admin-only signed Supabase Storage (`portal-publication-evidence` bucket).
+  Upload flow: `evidence/upload` (signed URL) → browser `uploadToSignedUrl` → `evidence/finalize`.
+- **Admin UI:** `PublicationAdmin.tsx` — per-destination "Confirm / correct" form (confirm scheduled,
+  confirm live, mark failed/unavailable/removed) with proof upload or reviewed link.
+- **Podcast transcript follow-up (`0073`):** when a `podcast` YouTube target is first confirmed
+  scheduled, or first confirmed live when it skipped scheduling, a deterministic open Ops task asks
+  the agent to review and correct YouTube automatic captions. The task is idempotent across both
+  triggers and remains agency-only.
+
+**Historical importer** (`scripts/import-portal-history.ts` + `src/lib/portal/history-import.ts`):
+brings the pre-portal timeline in with **honest provenance** (D1): YouTube rows get real
+`yt-check` evidence + the verified label; IG/FB rows land as `source_type='imported'`,
+`reconciliation_status='legacy_unverified'` — never labeled "manually verified." Dry-run
+(`preview_historical_publication_batch`) → Anastasia reviews → apply (`apply_historical_publication_batch`).
+The 22-post history is already imported.
+
+---
+
+## 11. Calendar sync, invoices, notifications, projections
+
+- **Google Calendar (`0010`, Slice 5):** `calendar_integrations`, event mappings, `calendar_sync_state`,
+  conflicts, unmapped events. OAuth for the durable The Dot owner of the "Kanset Social" calendar;
+  Maria as calendar manager (`owner` ACL role, **Make changes and manage sharing**). Etag-guarded
+  outbound, watch/incremental inbound, conflict resolution. Worker:
+  `src/lib/portal/google-calendar-worker.ts`, cron at `/api/cron/portal-calendar`, webhook at
+  `/api/portal/google-calendar/webhook`. Admin UI: `CalendarAdmin.tsx`. Runbook:
+  `docs/portal-google-calendar-runbook.md`. **A calendar change can nudge a planned date but never
+  approves copy or confirms a post.**
+- **Invoices (`0012`, Slice 7):** `invoices` table (client-safe fields only: number, dates, amount,
+  currency, status paid|unpaid|void, `document_url`). RPCs `attach_invoice_document`, set-status.
+  Client sees Date/Amount/Status/Document; **no hours, no rates, no fee math** (D2 / the
+  client-pricing-dollars-only rule). Admin UI: `BillingAdmin.tsx`. Invoice #0137 is seeded.
+- **Notifications (`0015`, decision inbox `0034`):** `activity_log` is the **single mutation funnel**
+  — the only RPC that writes activity; alerts derive from it. `record_content_idea_decision` and
+  plan-cycle decisions also emit durable `portal_inbox_events`, including a migration backfill for
+  decisions recorded before `0034`, so `npm run portal-inbox -- list kanset` cannot miss an idea or
+  batch-plan approval. Idea inbox promotion (`set_idea_status(..., 'became_piece', ...)`) emits an
+  `idea_promoted` agency inbox event after `0035`; agents should consume it with
+  `npm run portal-inbox -- list kanset`, inspect it with `show`, and acknowledge it after locating
+  or authoring the canonical Markdown pack. Email is drained by `scripts/portal-notification-consumer.ts` or the
+  `/api/cron/portal-notifications` route, which runs every minute. Client edits and piece comments
+  keep their immediate event-level portal notifications, but their agency email is grouped by piece
+  and sent after a five-minute quiet window. Production needs `AGENCY_EMAIL`, SMTP settings, and
+  `CRON_SECRET`; missing `AGENCY_EMAIL` returns a failing health response and leaves rows pending.
+  `pnpm portal-notification-audit -- <slug> --days 7` reads both client and agency delivery rows.
+  Agency digest rows include counts, due time, attempts, status, and the exact Ops piece link.
+  A completed standalone monthly report uses `npm run portal-write -- report-notify <payload.json>`
+  after the report page is live. This writes one idempotent `monthly_report_ready` activity and one
+  dedicated client email with a direct report link. Individual `report` snapshot writes remain
+  portal-only and never trigger client email.
+- **Projections (`0016`):** `projection_outbox` drains to Notion via
+  `scripts/portal-projection-consumer.ts` + `src/lib/portal/notion-projection*.ts`. **No dual writes:**
+  integrations call one shared surface (`portal-write` / `portal-inbox`), never independent
+  Supabase + Notion calls.
+
+---
+
+## 12. The Client Work Assistant (OpenAI)
+
+Built on **OpenAI, not Claude** (Anastasia's decision — see [[design-from-signed-specs]]). Spec:
+`~/Kanset/portal-integration-task.md §5.6 + §3.18`. Migrations `0017` (usage plane) → `0018` (OpenAI
+rebuild) → `0019` (ops). A per-tenant usage ledger (`assistant_usage`), reservation/settle RPCs
+(`portal_assistant_reserve_run` / `settle_run` / `report_answer`), a budget check
+(`portal_assistant_check_budget`), and a **retrieval index over ~13 sources** (content, reports,
+recs, ideas, links, design links — the 13th, `0021`) via `portal_assistant_search` /
+`portal_assistant_reindex`. Endpoint: `/api/client/[slug]/assistant`; cron
+`/api/cron/portal-assistant`. Guardrails: `src/lib/portal/assistant-guardrails.ts` (tested).
+
+**Live status, verified 2026-07-30:** Bird, the OpenAI Client Work Assistant, is enabled globally
+and for Kanset. Maria, Anastasia, and the `Maria (preview)` seat hold `can_use_assistant`.
+The nav entry and floating widget appear only when the member holds that capability **and** the
+`assistant` switch is on (`portal_assistant_gate`). Production therefore requires
+`OPENAI_PORTAL_API_KEY` + `PORTAL_ASSISTANT_HMAC_SECRET` in Vercel. Do not disable the live
+assistant without Anastasia's explicit approval. Reporting-API automation (Meta/YouTube/GA4
+metrics) remains **v2 / manual in v1** (`~/Kanset/portal-v2-deferred.md`).
+
+---
+
+## 13. Design & UI — the design system, the shell, the rules
+
+This portal is deliberately, consistently designed. **Do not hand-roll a bespoke look for a new
+surface** — reuse the language below. (This is a scar: the admin portal was once built with an
+ad-hoc design instead of the client's proven one, and had to be redone.)
+
+### 13.1 The design system package — `@thedot/design-system`
+
+Lives in `packages/design-system/`. Import components + tokens from `@thedot/design-system`.
+`pnpm --filter @thedot/design-system build` builds it before the Next app. The root package must
+declare `@thedot/design-system: workspace:*`; do not rely on a warm install to make an undeclared
+workspace import resolve.
+
+- **Tokens** (`src/tokens/tokens.css` + `tokens.ts`) — the `--dot-*` custom properties. **Everything
+  themes through these; never raw hex in a component.** Errors use `--dot-danger` (#9f241b); the
+  admin `--admin-danger` is an alias of it (the old #b4502f rust and the #c0392b form red were
+  retired 2026-10-03, guarded by `src/app/danger-token.test.ts`). Key tokens:
+  - Color: `--dot-cream` (ground), `--dot-white`, `--dot-black`, `--dot-charcoal`/`--dot-graphite`
+    (ink), `--dot-grey` (muted), `--dot-hairline` (borders), `--dot-yellow` (the one accent),
+    `--dot-yellow-pale` (soft accent). Portal shells remap muted text to
+    `--dot-grey-accessible`; the lighter brand grey does not meet normal-text AA contrast on cream.
+  - Type: `--dot-font-display`, `--dot-font-text`; weights `--dot-weight-light/book/regular/medium/demi`;
+    sizes `--dot-text-hero/h1/h2/h3/h4/section/body/eyebrow`.
+  - Space: `--dot-space-1..8`. Radius: `--dot-radius` (used sparingly — the portal is mostly sharp).
+  - Panels and light: `--dot-off-white` (#fffefc, lifted panel ground), `--dot-grad-fill` (the
+    core dot fill), `--dot-grad-glow` (the yellow primary button's hover and focus glow),
+    `--dot-grad-highlight` (added text) and `--dot-grad-highlight-soft` (updated passages). Yellow
+    is light, never a flat pale fill, except the one yellow primary Button.
+- **Components** (`src/components/`): `Heading`, `Text`, `Eyebrow`, `Button`, `Card`, `Tag`,
+  `ReadMore`, `Input`, `Textarea`, `Selector`, `Dot`, `DotGrid`, `TickDot` (a hairline dot that
+  fills when checked: tab ticks, gates), `ReviewDots` (n dots, first k filled: review progress,
+  ratings), `Stripe`, `Arrow`, `Logo`. Use
+  these for typography and form primitives. `Heading variant="display"` is the big greeting size —
+  **don't shrink it**; sub-page titles use `Heading level={2}`.
+
+### 13.2 The visual language (the "Dot" look)
+
+- **Cream-filled panels** (`--dot-cream`) with a **1px hairline border**, **sharp corners**, **no
+  shadows, no rounding**. Elevation is communicated by the border, not a drop shadow.
+- **Quiet chips**: capitalized, hairline-bordered, transparent fill. Exactly **one accent** —
+  `--dot-yellow-pale` for the single actionable/highlighted chip; `--dot-yellow` for the
+  count "highlighter" pop and the active-nav marker. Color is never the only signal (glyph/label too).
+- **Type hierarchy** (anchored by Anastasia, 2026-07-21): section **heading 24px display demi** >
+  description **16px grey** > group **kicker 13px uppercase graphite** > **body/reading text 20px** >
+  chips/meta **15–16px**. Reading text sits at **20px**. The hierarchy must never invert (a heading
+  smaller than body is the specific bug that got flagged — headings dominate).
+- **Copy is plain English, never engineer jargon.** "Build design," not "design-built +12";
+  "where each piece went live," not "provider-truth records." Write labels a non-technical person
+  reads correctly on the first pass.
+- **Interactive controls have a 44px minimum target** and a visible keyboard focus ring. This
+  includes compact buttons, navigation links, section jumps, and source links.
+- **Toronto schedule forms never ask the client to choose EDT or EST.** Derive the offset from the
+  requested local date and time, and reject skipped or repeated clock-change times with a plain
+  explanation.
+- **Brand voice hard rule (applies to UI copy too):** **no em dashes** anywhere. Use commas, colons,
+  periods, or parentheses.
+
+### 13.3 The shell (client and admin mirror each other)
+
+Two near-identical CSS modules implement the responsive frame:
+`src/app/client/[slug]/portal-shell.module.css` (client) and
+`src/app/admin/portal/admin-shell.module.css` (admin, a faithful copy).
+
+- **Mobile-first:** a top header (`.topbar`, logo + seat label) + a **fixed bottom nav bar**
+  (`.nav`) with **scrolling-shadow** edges (the `background-attachment: local/scroll` pair) that hint
+  at off-screen items.
+- **Desktop (`@media min-width: 768px`):** `.shell` becomes `display:flex; flex-direction:row`;
+  `.topbar` hides; `.nav` becomes a **sticky 216px left sidebar** (`flex: 0 0 216px`) with the logo +
+  seat in `.brand`; `.item` is left-aligned; `.active` gets a **yellow left-border + white fill**;
+  `.main` is `padding: 40px 48px; max-width: 1120px`.
+- **Nav components:** client `PortalNav.tsx`, admin `AdminNav.tsx` — both `'use client'`, both derive
+  active state from `usePathname()`, both map an `ITEMS` array of `{label, seg}` to `<Link>`s.
+- **The admin `.main` hosts the `--admin-*` tokens** so all admin cards inherit them; the client
+  surfaces use the design-system components + their own `*.module.css` (e.g. `overview.module.css`,
+  `billing.module.css`).
+
+### 13.4 Admin content styling — `portal-admin.module.css`
+
+Styles the content *inside* an admin page (the shell owns the frame). Panels (`.card`, `.hero` =
+charcoal-bordered lead card), heads (`.cardTitle` 24 / `.cardSub` 16 / `.count` + `.countPop`
+highlighter), task rows (`.taskRow` / `.taskMain` / `.taskTrail` — title left, status inline right),
+the pieces table + 9-gate strip (`.gateCell` / `.gateDone/.gateOpen/.gateNa/.gateAbsent`), quiet
+`.pill` chips (via `StatusPill.tsx`), and the publication confirm/correct `.form`. `StatusPill.tsx`
+maps tones (done/open/na/muted/info/pending/scheduled/live/verified/failed/nudge) to the quiet-chip
+styles — reuse it for any admin status chip.
+
+### 13.5 UI review discipline
+
+There is a UI/UX skill (`ui-ux-pro-max`) available; the design specs live in
+`docs/superpowers/specs/2026-07-21-admin-portal-redesign.md` and `-client-view-audit.md`. When a
+change "looks wrong," check hierarchy (does the heading dominate?), reading size (20px?), chip
+placement (inline with its row, not flung right by `space-between`), and jargon (would Maria read it
+right?). **Design from the signed spec, not from compacted memory** ([[design-from-signed-specs]]).
+
+---
+
+## 14. Ownership model & the frozen-hash review
+
+There is no Codex lane (Anastasia, 2026-09-21). Whichever agent is on a task owns it end to end:
+diagnosis, code, migration, tests, and the hand-off for deploy.
+
+- **Single pen:** only one agent edits a given checkout at a time.
+- **Review the hash, not the working tree.** Every change is reviewed as an agent code review of a
+  **frozen commit hash** before it reaches production, DB/security changes before the migration is
+  applied.
+- Content authoring and client-safe classification stay in the `~/Kanset/portal-content/` repo
+  (see `~/Kanset/PORTAL-OPERATIONS-PLAYBOOK.md`).
+
+---
+
+## 15. Deploy discipline + the launch gate
+
+**Production deploys only through the Vercel CLI from a clean, frozen worktree.** A `git push` builds
+a Preview deployment only; it never reaches `www.thedotcreative.co`. Claude Code blocks agent
+deploys, so the agent prepares the frozen commit and hands Anastasia the exact push and deploy
+commands to run.
+
+**Order:**
+
+1. **Review** the frozen hash (agent code review, §14).
+2. **Back up, then migrations before code.** Production is on the Supabase Free plan, which keeps
+   no backups (`supabase backups list --project-ref ltotkkpytvtcgelrgdkg` returns none), so take a
+   manual dump first, into the private folder `~/thedot-site-backups/db/` (mode 700, never synced,
+   it holds client data): `supabase db dump --linked -f <date>-schema.sql`, the same with
+   `--data-only` and `--role-only`, then `chmod 600` the files. Easiest: run
+   `~/thedot-site-backups/backup-db.sh pre-migration` (it starts Docker if needed, gzips, and keeps
+   the newest 6). A launchd job (`co.thedotcreative.portal-db-backup`, Mondays 9:15) runs the same
+   script weekly and keeps the newest 8; it logs to `~/thedot-site-backups/backup.log` and warns
+   when the database passes 250 MB (Free plan limit 500 MB; it was 41 MB on 2026-10-05). To
+   restore data, load the schema dump first, then the data dump inside
+   `set session_replication_role = replica;` (the data dump has circular foreign keys). Never deploy a UI that queries an
+   unapplied table. From
+   `~/thedot-site`: `supabase db push --dry-run`, confirm it lists exactly the intended migrations,
+   then `supabase db push`. An agent may run the push after Anastasia's go. Then verify
+   `assert_portal_security()` passes against production.
+3. **Code**, run by Anastasia:
+
+```bash
+# from ~/thedot-site, at the frozen reviewed commit
+git push origin <branch>                          # Preview build only
+WT=~/worktrees/kanset-deploy
+git worktree add "$WT" <frozen-commit>            # clean checkout, no working-tree drift
+cp -R ~/thedot-site/.vercel "$WT/.vercel"         # bring the Vercel project link
+git -C "$WT" status --short                       # CONFIRM: clean
+cd "$WT" && npx vercel --prod --yes               # production; Vercel builds remotely
+cd ~/thedot-site && git worktree remove "$WT" --force
+```
+
+**Why the worktree:** it deploys exactly the reviewed commit, so unrelated working-tree drift
+(e.g. a Notion `sync-portfolio` regen of `src/data/portfolio/*.json`) **cannot ride along**.
+Smoke-test after: the admin routes should 307 to `/admin/login`, not 404. Remove the worktree once
+the deployment is verified.
+
+**Client-facing changes:** rehearse Maria's full cycle on the Kanset Sandbox (§18) before
+switching her to any portal change.
+
+**The launch gate (§3.17):** the `client_portal_launch` switch stays **OFF** until every v1 surface,
+import, security assertion, and end-to-end check passes. Flipping it (both scopes) is what makes the
+portal visible to Maria. Launch-day items: restricted `OPENAI_PORTAL_API_KEY` +
+`PORTAL_ASSISTANT_HMAC_SECRET` in Vercel, Maria capability grants + primary-decider transfer, a
+durable sign-in rate limiter, phone-flow re-verify, and the assistant switch after review.
+
+---
+
+## 16. Environment & config
+
+Set in Vercel (and `.env.local` for dev). Key vars:
+
+| Var | Used by |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client + server supabase clients |
+| `SUPABASE_SERVICE_ROLE_KEY` | `createSupabaseAdmin()` (server-only) |
+| `ADMIN_PASSWORD_HASH` | `/admin` login (`src/lib/auth.ts`, bcrypt) |
+| `PORTAL_PUBLIC_ORIGIN` | magic-link + email origins |
+| `OPENAI_PORTAL_API_KEY` / `OPENAI_API_KEY` | the assistant |
+| `PORTAL_ASSISTANT_HMAC_SECRET`, `PORTAL_MODE_INSTRUCTIONS`, `PORTAL_ANSWER_SCHEMA`, `PORTAL_INPUT_CHARS` | assistant runtime |
+| `GOOGLE_CALENDAR_CLIENT_ID/SECRET`, `_CLIENT_READER_EMAIL`, `_SCOPES`, `_TOKEN_ENCRYPTION_KEY` | calendar sync |
+| `PORTAL_PIECE_PAGE_V2` | which client seats see the redesigned piece page: `off` (default), `all`, or a comma list of seat emails. A change needs a redeploy. |
+
+`.vercel/project.json` links the repo to the Vercel project. Prod domain: `www.thedotcreative.co`.
+
+---
+
+## 17. Testing
+
+- `pnpm test` (vitest): gates, schedule, state, assistant guardrails,
+  content-safety, frontmatter, history-import, agency-write, redirect, notion-projection, plus the
+  design-system + the calendar MonthGrid component test. Run before every deploy.
+- `pnpm exec tsc --noEmit` — the repo has pre-existing errors in marketing routes; **grep the output for
+  your files** and confirm they're clean.
+- `pnpm test:rls` (`scripts/test-rls.ts`): real-JWT two-tenant isolation. Mandatory after any
+  RLS/grant change. `pnpm test:rls:seed-local` seeds a local two-tenant fixture.
+- `pnpm exec next build` — full compile; catches JSX/route errors the unit tests don't.
+- `scripts/update-portal.ts` refuses (exit code 5) a sync or re-share of a `reel`, `short`,
+  `vertical_video`, `carousel` or `single` canonical without an on-screen text block
+  (`reel-script`, `on-screen-copy`, `carousel-copy`, ...), unless its frontmatter declares
+  `on_screen_text: captions_only` (talking-head clips whose only on-screen text is dialogue
+  captions). Rule: `src/lib/portal/on-screen-text-rule.ts`; spec 2026-10-03 section 9.3. Applying
+  Maria's own edits (`portal-inbox apply-edit`) is deliberately not gated.
+
+---
+
+## 18. Common recipes
+
+**Add a client surface (nav item + page):** add `{label, seg}` to `PortalNav.tsx` `ITEMS`; create
+`app/client/[slug]/<seg>/page.tsx` (guard with `getClientSession`, fetch via the RLS server client,
+render with design-system components + a `<seg>.module.css`); if it needs data, add a reader in
+`src/lib/portal/`.
+
+**Add an admin surface:** add to `AdminNav.tsx` `ITEMS`; create `app/admin/portal/<seg>/page.tsx`
+(guard with `verifySession`, `export const dynamic = 'force-dynamic'`, call a loader); add the loader
+to `data.ts`; render the component wrapped in `<section className={styles.card}>` (unless it
+self-wraps). Reuse `StatusPill` + `portal-admin.module.css` classes.
+
+**Add a schema/security change:** write `supabase/migrations/00NN_*.sql` (next number). Start new
+tables with `REVOKE ALL` then explicit grants. Add an `assert_portal_*_security()` and call it at the
+end + extend the cumulative fold. Add real-JWT tests in `test-rls.ts`. Fresh replay + upgrade replay
+must pass. Review the **frozen hash** (§14) **before** prod apply, then apply per §15.
+
+**Record a client approval (pre-launch):** `record_external_decision(...)` with Maria's documented
+email date; log it in the approvals ledger. Post-launch she clicks Approve → `record_content_decision`.
+
+**Confirm a publication:** bring the **verified live URL** to the Publication surface (or the confirm
+tooling in `scripts/`), attach evidence, record the observation. **Do not** edit repo files to add a
+link — the DB is the record.
+
+**Attach a podcast review asset:** run `portal-write review-asset` with the exact `contentVersion`,
+stable `assetKey`, channel, kind, Canva or Drive URL, pixel dimensions, and caption status. Use
+`burned_in_verified` only after the teaser captions were proofed. A generic item-level design link
+does not satisfy the podcast readiness contract.
+
+**Remove review media from a version (`0100`):** `portal-write review-asset-remove` with
+`{ clientSlug, contentId, contentVersion, assetKeys: [...], previewKeys?: [...], reason }`. It works
+only on the current working version while it is unreleased: refused on a version Maria has seen, one
+with a decision or courtesy release, a publication-locked piece, or any other version. It removes the
+named assets, every portal preview of them, and any preview named in `previewKeys`; the previews'
+Storage objects are queued and drained right after (a path the released version still uses is held
+back until that version's own preview is retired). It refuses to leave the version with no media.
+Audited as agency-internal `review_asset_removed` with the reason (read it with
+`agency_internal_activity`); nobody is notified. A repeat answers `unchanged` and writes nothing, so
+no `idempotencyKey` is needed.
+
+**Clean review media off an already-released piece** (for example dropping IG/FB parts that moved to
+their own piece). Media cannot be removed from a released version, so:
+1. In the pack, drop the copy block that moved (e.g. `ig-facebook-caption`); in the canonical file
+   set the frontmatter `platforms` to what the piece now covers (e.g. `[youtube]`) and commit it.
+   Do not touch an on-screen block, or the media will not carry forward.
+2. `npx tsx scripts/update-portal.ts <pack> --re-share --quiet --hold-release --change-note "…" --apply --confirm`
+   opens the revision and syncs the new working version, which carries every asset and preview
+   forward, then stops before releasing.
+3. `portal-write review-asset-remove` on that new version with the asset and preview keys that moved.
+4. Re-run step 2 without `--hold-release` to release. Use `--quiet` while Maria has not decided
+   (supersession, `0087`); if she has already decided, the release is `portal-write applied-release`
+   (her edits applied) or `courtesy-release` instead, never a re-ask. Schedule and publication
+   targets are created per version at the decision from that version's own platforms, so a cleaned
+   `[youtube]` version gets a YouTube target only.
+
+**Media by destination and cover options (2026-10-06, migration 0098):** a package with two or more videos, two or more covers, or any option shows every review asset grouped by destination at its own size (rules in `src/lib/portal/piece-page/media-destinations.ts`: a `linkedin` key is LinkedIn; channel `youtube` or a `youtube` key is YouTube; channel `website` is Website; a social key ending `-fb`/`-facebook` is Facebook, `-ig`/`-instagram` or one with a `<key>-fb` sibling is Instagram, any other social asset is "Instagram and Facebook"; anything else is "Other files"); a simple reel keeps the single-video layout. A video plays inline when a review preview carries its `reviewAssetKey`, else it shows a Drive button. To offer alternatives, add `"optionGroup": "<group-key>", "optionLabel": "<short name>"` to each alternative's `portal-write review-asset` payload (both or neither; fixed parts of a set get neither); Maria's deciding seat picks one per group until she decides, the pick is not an edit request and carries to later versions while the same asset is still an option in that group (a copy-only revision or applied edit keeps it), it reaches the agency as an in-app row, an email and an inbox event, and the agency panel and `portal-schedule` show it.
+
+**YouTube title note format:** in a `youtube-title` block the title is the first line, and a later line written as one full italic span (`*Kept short on purpose: ...*` or `_..._`) shows to Maria as a plain-text note under the Title field, never inside the title or its character count.
+
+**What Maria sees on the new piece page (approved 2026-10-04; live for Maria since 2026-10-05, env `PORTAL_PIECE_PAGE_V2` = `toodokie@gmail.com,maria@kanset.com,info@thedotcreative.co`):** reels play inline with a still per on-screen frame; Ask Kanset reels and Kanset Talks cuts show a "Cover" tile at the front of the strip with its own "Suggest a change" (Kanset Talks episodes: the same tile labelled "YouTube thumbnail"); website articles keep their "Cover image" tab; LinkedIn PDFs show in a page viewer with per-page suggestions. She edits in place (full screen on a phone); edits autosave and stay unsent until she sends; after sending, each spot shows "Sent · being applied" with what she wrote until the next version; once her edits are applied and the piece is decided, the header shows "Updated after your feedback: <areas>" with the changes highlighted against her original text, and the bar says "Your edits are applied." then "Approved · posts <date>" (or "Scheduled · <date>, <time> <destinations>" once every destination time is confirmed). Approving or scheduling closes editing; while her sent edits only wait, she can still send more. Upload the approved cover as the preview poster and attach the cover file as a review asset (`reel-cover` or `youtube-cover`) so the Cover tile gets its "Suggest a change"; cover notes are saved against that asset key.
+
+**Rehearse on the Kanset Sandbox:** client `kanset-sandbox`, seat `toodokie@gmail.com` as "Maria (sandbox)" (decider), pieces prefixed `sandbox-`, client emails off. Rehearse Maria's full cycle there before switching her to any portal change. **Every sandbox agency command runs through `~/Kanset/scripts/kanset-sandbox-env.sh`** (it refuses `kanset`); its canonical repo is `~/Kanset/sandbox-content`. Full rules: `~/Kanset/PORTAL-OPERATIONS-PLAYBOOK.md`, "Kanset Sandbox (rehearsal client)".
+
+**Attach a review preview (portal-hosted copy of a render):** run `portal-write review-preview` with
+`clientSlug`, `contentId`, the exact `contentVersion`, a `previewKey` (`reel`, `teaser`, `carousel`),
+and absolute local paths: `video` (MP4, at most 50 MiB and 20 minutes, 1200 s, since 0096) with optional `poster` and
+`frames` (`[path]` or `[{path,label}]`), or `pages` for a carousel or PDF. It uploads the same
+render file that goes to Drive; Drive stays the master and Anastasia still supplies every Drive
+link. Re-running with the same files answers `unchanged`; changed files replace the old preview and
+delete its objects. It emails nobody. Previews are deleted automatically when every destination is
+confirmed live (`publication-confirm`, `portal-ship`, the admin Publication surface) and nightly by
+`/api/cron/portal-preview-retention` once the planned date is more than 7 days past. Never upload a
+full podcast episode; the database refuses it. A podcast piece takes only a `teaser`, `trailer`
+or `cut` key (a YouTube cut such as the 4:31 Ep3 cut goes up as `cut`); any other key on a podcast
+is refused as a full episode, and anything over 1200 s is refused whatever its key. A render over
+50 MiB needs a compressed review copy (the free plan's upload limit).
+
+**Maria's unsent drafts (durable since 0093):** her edits autosave to the portal per seat, piece and
+version; nothing about them reaches you until she sends, except three signals: a refused send
+(`review_send_failed`, inbox + email to the agency, her text is in `client_request_failures`), drafts
+carried over by a new release (`review_drafts_carried_over`, inbox only), and the unsent-draft alert
+(`agency_unsent_review_draft_alerts`, read with `getUnsentDraftAlerts` in
+`src/lib/portal/review-drafts.ts`). Read a piece's drafts read-only with `getAgencyReviewDrafts`.
+Never write `content_review_drafts` directly; there is no agency write path by design. Applying her
+text from a refused send follows the normal request route; resolving the failure row by hand is only
+for a refusal no send will ever retry. Until its failure rows are resolved, a `review_send_failed`
+event holds the inbox cursor (it requires reconciliation), so resolve them once her text is handled.
+The housekeeping rows (`review_drafts_carried_over`, `review_send_retry_succeeded`) are
+`agency_internal`: read them with the service-role RPC `agency_internal_activity(p_client_id,
+p_content_item_id)`, not from a client seat and not from `activity_log` directly.
+
+**Signals from Maria (since 0095):** My Tasks opens with **From Maria**: unsent edits older than a
+day on a piece due within three days (live, clears itself), refused sends, edits carried over by a
+release, and feedback card answers. Press **Done** once handled, or from a shell
+`pnpm exec tsx scripts/portal-inbox.ts signals kanset` and
+`pnpm exec tsx scripts/portal-inbox.ts resolve kanset <event-id> "<note>"` (add `--dry-run` to see
+what it would mark). Done never touches her drafts or the failure log. A refused send has no Done:
+it closes itself when her retry succeeds (the panel says "Closes when her retry succeeds", and
+`resolve` and the database both refuse it), so handle her text and let her Retry. The hourly cron
+`/api/cron/portal-unsent-draft-alerts` writes one `review_unsent_drafts_due` inbox event per seat,
+piece and Toronto day; it emails nobody and My Tasks shows the live list, not those events. The admin
+piece page is her exact page read-only (`AgencyPieceCenter`, the only admin file that renders the
+client layout) plus `AgencyPanel`. The rollout note is the first-visit intro on the new page, under
+announcement key `piece_page_2026_10`; the feedback card appears from her next visit after she
+closes it, until she answers, under prompt key `review_page_2026_10`. Her answer stays out of her
+activity feed. A new prompt or note means a new key, never a reset of the old rows.
+
+**Media signals (0095, amended 2026-10-03):** From Maria also lists a failed review video play
+("Maria's video didn't play: iPhone, Safari", one per preview per day, from plan 4a's
+`review_playback_failed` event; press Done once handled) and every piece in front of Maria whose
+released version has no review asset, no portal preview and no design link
+(`agency_release_media_alerts`). That line has no Done: it clears itself when media is attached to
+the released version or the piece is live on every destination, and an approved no-media override
+(`Approved by Anastasia:`) on the released version silences it for that version; a newer version
+without media or its own override alerts again. The admin piece page still shows the override as an
+informational line ("Released without media. Approved by Anastasia: ..."), otherwise "Maria has
+nothing to look at on this version".
+
+How the browser behaves (for diagnosing "she says it vanished"): the provider is keyed by version.
+Autosave is debounced 2 seconds and flushed on blur, hide and reconnect; a failed save retries after
+15 seconds, doubling each time, up to 5 tries. A refusal is reported to the portal through
+`recordRefusal`, which returns `{recorded}`; if it was not recorded, the provider retries the failure
+report every 15 seconds. A reused idempotency key with different drafts is refused by
+`send_review_drafts` and reaches Maria as reason `drafts_changed`. A permanently refused save shows
+"Couldn't save this edit to the portal. It is still on this device." ("this phone" on mobile): the
+text is still in the browser buffer, so ask her to keep the page on that device and retry the send.
+
+**Video-only edit, applied quietly (since 0099):** when Maria's only binding edit is on a video or
+cover (`target_kind: asset`), never answer and close it and never swap the file on the released
+version. Run, from `~/thedot-site`, each with a fresh `idempotencyKey` and `clientSlug: "kanset"`:
+`portal-write visual-revision` (`requestIds`; cuts working v+1 and copies the assets), then
+`portal-write review-asset` with the new file on `contentVersion` v+1 (same `assetKey`, the Drive
+link Anastasia supplied), then `portal-write visual-revision-ready` (`requestIds`), then
+`portal-write applied-release` (`contentId`, `contentVersion` v+1, reason starting `Agency override
+authorized by Anastasia:`). The piece lands on Approved with the request applied, no `needs_review`
+and no client email. The database refuses to prepare or release while v+1 still carries the exact URL
+she flagged (`visual asset is unchanged`), refuses a publication-locked piece (`publication-locked`),
+and a retry with the same key returns the first result. A request already closed with a reply can
+still go through `visual-revision`, only while the piece sits back with The Dot under her
+`change_requested` decision and nothing newer exists; the result reports `reopened`.
+
+**Declined edit, landed quietly (since 0099):** when every request she sent on the released
+version was answered or declined with no change and nothing is open, run `portal-write
+applied-release` on the CURRENT released version (`contentVersion` = the version she decided on)
+with a reason starting `Agency override authorized by Anastasia:`. No new version is made. The
+piece lands on Approved through a `content_courtesy_releases` row and a `courtesy_release_recorded`
+activity, her `change_requested` decision row is left untouched (`current_decision` still says so,
+`client_state` reads `approved`), no review is armed and no client email is written. It refuses
+while any request is pending, applying, prepared or conflicted, when a newer version exists, when
+the piece is published or archived, and without the named reason.
+
+**Release media guard (since 0092):** every release refuses a version with no review asset, no
+portal preview and no design link: `portal-admin ready`, `update-portal --re-share` (with or
+without `--quiet`), `portal-write applied-release`, `courtesy-release` and `supersede`, and
+`portal-ship`. The database enforces it (`mark_content_ready` and `record_content_courtesy_release`
+call `portal_assert_release_media`); the commands refuse first and name the fix. Review assets and
+previews belong to one version, so a new version needs its own (an item-level design link covers
+every version). Only with Anastasia's written approval, release without media by passing
+`--no-media "Approved by Anastasia: <why>"` (CLI) or `"noMediaReason"` (portal-write payload). That
+records one override for that exact version in `content_release_media_overrides` and an
+agency-internal `release_media_override` activity row; nobody is notified and Maria's feed does not
+show it. A piece with no media in front of Maria shows in Ops My Tasks until media is attached or it
+goes live (plan 5). `update-portal` exits 6 on this refusal; the new version stays synced but
+unshared, and re-running the same command retries the release.
+
+**Agency-internal activity rows (since 0092):** event types flagged `agency_internal` (preview
+upload and deletion, `release_media_override`) are hidden from client seats at the database: `act_read`
+excludes them, so Maria's own JWT cannot read them. The agency reads them with the service-role-only
+`agency_internal_activity(p_client_id, p_content_item_id)` (the item argument is optional); querying
+`activity` through a client seat will not show them. To see a no-media override reason, call that function.
+
+**Read-only rollout query (SELECT only; run after 0092 is applied):** lists pieces Maria currently
+holds and what each released version carries. Rows with `review_assets = 0`, `previews = 0` and
+`design_link = false` have nothing to look at; the guard acts on the next release, so list them for
+Anastasia.
+
+```sql
+select ci.content_id, ci.client_visible_version, ci.status, ci.planned_date,
+  public.agency_release_media_status(ci.id, ci.client_visible_version) as media
+from public.content_items ci
+join public.clients c on c.id = ci.client_id and c.slug = 'kanset'
+where ci.client_visible and ci.archived_at is null and ci.client_visible_version is not null
+  and ci.status in ('draft', 'approved', 'scheduled')
+order by ci.planned_date nulls last, ci.content_id;
+```
+
+**See the redesigned piece page as Maria (read-only).** Open `/admin/portal/pieces/<content id>/maria-preview?layout=v2`. Nothing is written: ticks, drafts, Send and Approve are off in the preview.
+
+**Turn the redesigned piece page on for a seat.** Set `PORTAL_PIECE_PAGE_V2` in Vercel (Production) to the seat email list, for example `toodokie@gmail.com`, then redeploy. `all` turns it on for every seat; `off` restores today's page everywhere. The old page stays the default until plan 5 retires it.
+
+**When Maria's review video does not play (since 0094).** Her player reports it itself: the first failure per preview per day emails the agency ("Maria's video didn't play: iPhone, Safari") and shows under From Maria in My Tasks (plan 5). She sees "This video didn't load. I've been notified." and a Retry button that fetches fresh links. Read the log with `select occurred_at, preview_key, error_code, device, browser, notified from content_review_playback_failures order by occurred_at desc limit 20` (service role). Only a device and browser name is stored, never the user agent.
+
+**Check the new page's layout at phone width.** `BASE=<origin> PIECES=<reel>,<podcast>,<linkedin>,<article> node scripts/piece-page-phone-check.mjs` (read-only, through the admin preview; screenshots in `/tmp/kanset-piece-page-check`).
+
+**Deploy a display change:** §15 worktree recipe.
+
+---
+
+## 19. Hard-won lessons (read before you touch prod)
+
+- **Never ask Maria for a re-review. This is a client rule, not a preference (2026-09-14).** She
+  reviews a released package once. When she submits edits, the agency applies them and the piece
+  moves forward. It must never be returned to her for a second look at the same work. Concretely:
+  do not call `mark_content_ready` / `portal-admin ready` on a version whose only change is applying
+  her own requested edits, because that sets `review_ready_at`, flips `client_state` back to
+  `needs_review`, emits a `needs_review` activity event and can email her. No surface may label a
+  piece as awaiting her review, or as needing another look, after she has decided on it. A declined
+  edit is explained in the reply to her request, never by re-opening her review. `update-portal`
+  already honours this (it is documented as never auto-re-arming her); the apply path does not.
+  **The required landing state after applying her edits is `approved` (or scheduled), never
+  `needs_review` and never parked with the agency.** Where no client decision row exists, the
+  mechanism is `record_content_courtesy_release`, which sets status `approved`, clears
+  `review_ready_at`, calls `portal_ensure_schedule_targets` and logs `courtesy_release_recorded`.
+  That event is not in `portal_client_activity_email_required`, so it is portal-only and never
+  emails her. The_dot-produced content requires the reason to begin `Agency override authorized by
+  Anastasia:`, enforced in the DB by migration 0060. A courtesy release is not a client approval and
+  must never impersonate a Maria decision.
+  Full rule: `~/Kanset/PORTAL-OPERATIONS-PLAYBOOK.md` section 5.
+- **Coordinator state is a cache — re-derive from the source.** Don't assert "X is pending/done" from
+  memory or a subagent's last report; query Supabase (or grep the workspace). The ep2-links incident:
+  the coordinator was "unaware" of links already in the codebase because it trusted memory over the DB.
+  [[coordinator-state-is-a-cache]].
+- **Never ship code whose safety depends on an unapplied migration.** A display deploy once carried a
+  guard removal that re-exposed demo fixtures live for ~1h. Caught by Codex. If a safety property
+  needs migration N, don't deploy the code until N is applied.
+- **Poisoned defaults:** prod's service_role has default DML grants that local doesn't. Every new
+  table must `REVOKE ALL` then grant explicitly, or a client can write it (the `0017` incident).
+- **False-verification:** verify with markers unique to the intended page/state, never a URL-echo
+  substring. Reconcile contradictory probes before shipping. [[claude-false-verification-lesson]].
+- **The publication lock is permanent:** never rewrite a version that has ever shipped. Corrections =
+  a new linked version. `portal_enforce_publication_lock` enforces it.
+- **The PII wall:** `~/Kanset/content/` mixes client-safe copy with emails/invoices/PII. Only
+  `~/Kanset/portal-content/` (classified, client-safe) syncs to the portal. Never point the sync at
+  the broad content dir; never send it to a contractor.
+- **Defer to the RCIC's own content:** don't re-verify or reword Maria's immigration copy
+  (`agency_attested`); catch only clear mechanical errors, gently. Agent-asserted IRCC facts still
+  need a primary source. [[defer-to-maria-expert-content]].
+- **Discuss before changing** on standardization / system-design / skill work: present findings +
+  proposed edits first, edit after her ok. Direct build requests (like "copy the client's onto mine")
+  are not that case. [[discuss-before-changing]].
+
+---
+
+*Keep this manual current: when you add a migration, a surface, or change the design language or the
+deploy recipe, update the relevant section. An out-of-date manual is a trap for the next agent.*
