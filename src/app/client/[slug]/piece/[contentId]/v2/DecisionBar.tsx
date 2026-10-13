@@ -7,6 +7,7 @@ import { decide } from '../../../actions'
 import { useReviewDrafts } from '../ReviewDraftProvider'
 import { useCloseEditor } from './EditorHost'
 import { useKeyboardInset, usePhone } from './hooks'
+import { STALE_PAGE_LINE } from '@/lib/portal/review-drafts-core'
 import { draftStatusLine } from './status-text'
 import styles from './piece-page.module.css'
 
@@ -42,7 +43,7 @@ export default function DecisionBar({
   onShowCarried: () => void
   editsApplied?: boolean
 }) {
-  const { send, sendError, syncState } = useReviewDrafts()
+  const { send, sendError, syncState, reloadNeeded } = useReviewDrafts()
   const closeEditor = useCloseEditor()
   const isPhone = usePhone()
   const inset = useKeyboardInset()
@@ -130,13 +131,22 @@ export default function DecisionBar({
         : syncState === 'offline'
           ? draftStatusLine('offline', isPhone)
           : 'Saved, not sent yet. Nothing reaches me until you send.'
-      prog = action.retry
+      prog = reloadNeeded
+        ? <>
+          <span className={styles.errText}>Your {action.count} {edits(action.count)} did not send. They are still saved here.</span>
+          <span className={styles.sub} id={SUB_ID}>{STALE_PAGE_LINE}</span>
+        </>
+        : action.retry
         ? <>
           <span className={styles.errText}>Your {action.count} {edits(action.count)} did not send. They are still saved here.</span>
           <span className={styles.sub} id={SUB_ID}>{sendError ?? 'The connection dropped before the portal confirmed.'}</span>
         </>
         : <><span className={styles.unsent}>{action.count} unsent {edits(action.count)}</span><span className={styles.sub} id={SUB_ID}>{sub}</span></>
-      act = <>{noteLink}
+      act = reloadNeeded
+        ? <Button as="button" type="button" variant="yellow" aria-describedby={SUB_ID} onClick={() => window.location.reload()}>
+          Reload page
+        </Button>
+        : <>{noteLink}
         <Button as="button" type="button" variant="yellow" disabled={pending || action.blocked !== null} aria-describedby={SUB_ID} onClick={sendEdits}>
           {pending ? 'Sending…' : action.retry ? 'Retry'
             : action.additional ? `Send additional edits (${action.count})` : `Send my edits (${action.count})`}

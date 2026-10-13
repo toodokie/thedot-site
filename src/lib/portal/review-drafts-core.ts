@@ -16,6 +16,11 @@ export const DRAFT_STATUS_TEXT: Record<Exclude<DraftSyncState, 'idle'>, string> 
   send_failed: "Couldn't send. Retry",
 }
 
+// A deploy went live while the page was open (2026-10-13): its save and send actions no longer
+// exist on the server, so Retry can never work. Only a reload fixes it; the browser buffer keeps
+// every edit across the reload.
+export const STALE_PAGE_LINE = 'The portal was just updated. Reload the page to send. Your edits are kept on this device.'
+
 // Exactly the columns migration 0093 grants to a client seat.
 export const SERVER_DRAFT_COLUMNS = 'id, content_item_id, base_version, target_kind, target_key, anchor, '
   + 'anchor_label, target_label, url_snapshot, quoted_text, body, status, saved_at, updated_at, '

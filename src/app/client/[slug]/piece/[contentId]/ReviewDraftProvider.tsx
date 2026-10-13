@@ -3,10 +3,11 @@
 import {
   createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState,
 } from 'react'
+import { unstable_isUnrecognizedActionError } from 'next/navigation'
 import { editDraftPiecePrefix } from '@/lib/portal/edit-drafts'
 import { readLocalDrafts, removeLocalDraft, writeLocalDraft, type LocalScope } from '@/lib/portal/review-drafts-local'
 import {
-  DRAFT_AUTOSAVE_DELAY_MS, DRAFT_STATUS_TEXT, deriveSyncState, draftIdentity, localEntryToDraft,
+  DRAFT_AUTOSAVE_DELAY_MS, DRAFT_STATUS_TEXT, STALE_PAGE_LINE, deriveSyncState, draftIdentity, localEntryToDraft,
   reconcileDrafts, serverRowToDraft, type DraftDiscardReason, type DraftIdentityParts,
   type DraftSyncState, type DraftTargetKind, type DurableDraft, type LocalDraftEntry, type ServerDraftRow,
 } from '@/lib/portal/review-drafts-core'
@@ -55,6 +56,8 @@ type ReviewDraftContextValue = {
   syncState: DraftSyncState
   statusText: string | null
   sendError: string | null
+  // The page is from an older deploy: saves and sends cannot reach the server until it reloads.
+  reloadNeeded: boolean
   serverSync: boolean
   storageAvailable: boolean
   ready: boolean
@@ -139,6 +142,7 @@ export default function ReviewDraftProvider({
   const [online, setOnline] = useState(true)
   const [sendError, setSendError] = useState<string | null>(null)
   const [saveFailed, setSaveFailed] = useState(false)
+  const [reloadNeeded, setReloadNeeded] = useState(false)
   const [mobile, setMobile] = useState(false)
   const [storageAvailable, setStorageAvailable] = useState(true)
   const [ready, setReady] = useState(false)
@@ -220,7 +224,8 @@ export default function ReviewDraftProvider({
         sendFailedAt: result.draft.send_failed_at,
       })
       return 'ok'
-    } catch {
+    } catch (error) {
+      if (unstable_isUnrecognizedActionError(error)) setReloadNeeded(true)
       return 'retry'
     }
   }, [contentId, putDraft, slug, version])
@@ -517,6 +522,7 @@ export default function ReviewDraftProvider({
       }
       return { ok: false, message }
     }
+    if (reloadNeeded) return fail(STALE_PAGE_LINE, false)
     if (!flushed || current.some((draft) => !draft.serverId || draft.syncedAt !== draft.savedAt)) {
       return fail(isOnline() ? DRAFT_STATUS_TEXT.send_failed : offlineLine(mobile), true)
     }
@@ -527,7 +533,8 @@ export default function ReviewDraftProvider({
         slug, contentId, contentVersion: version, note, idempotencyKey: key,
         draftIds: current.map((draft) => draft.serverId as string),
       })
-    } catch {
+    } catch (error) {
+      if (unstable_isUnrecognizedActionError(error)) { setReloadNeeded(true); return fail(STALE_PAGE_LINE, false) }
       return fail(DRAFT_STATUS_TEXT.send_failed, true)
     }
     // The server action has already written a refusal down; the browser does not report it again.
@@ -544,7 +551,7 @@ export default function ReviewDraftProvider({
     sendKeyRef.current = null
     setSendError(null)
     return { ok: true, message: result.success ?? 'Your edits were sent to The Dot.' }
-  }, [contentId, deliverFailureReport, dropDraft, dropScratch, flush, markPending, mobile, putDraft, scratchTargetPrefix,
+  }, [contentId, deliverFailureReport, dropDraft, dropScratch, flush, markPending, mobile, putDraft, reloadNeeded, scratchTargetPrefix,
     serverSync, slug, version])
 
   // Reconcile the browser buffer with the server once per page load.
@@ -626,15 +633,18 @@ export default function ReviewDraftProvider({
   // The server refused or never answered an autosave: the text is safe here, not yet there.
   const syncState: DraftSyncState = (rejected || saveFailed) && !inFlight && drafts.length > 0
     && derived !== 'send_failed' ? 'offline' : derived
-  const statusText = !serverSync || syncState === 'idle' ? null
+  const statusText = reloadNeeded && drafts.length > 0 ? STALE_PAGE_LINE
+    : !serverSync || syncState === 'idle' ? null
     : syncState === 'offline' ? (rejected ? rejectedLine(mobile) : offlineLine(mobile))
       : DRAFT_STATUS_TEXT[syncState]
 
   const value = useMemo<ReviewDraftContextValue>(() => ({
     drafts, currentDrafts, carriedDrafts, readDraft, saveDraft, removeDraft, keepCarriedDraft, clearDrafts,
-    flush, readFieldScratch, saveFieldScratch, send, syncState, statusText, sendError, serverSync, storageAvailable, ready,
+    flush, readFieldScratch, saveFieldScratch, send, syncState, statusText, sendError, reloadNeeded, serverSync,
+    storageAvailable, ready,
   }), [carriedDrafts, clearDrafts, currentDrafts, drafts, flush, keepCarriedDraft, readDraft, readFieldScratch, ready,
-    removeDraft, saveDraft, saveFieldScratch, send, sendError, serverSync, statusText, storageAvailable, syncState])
+    reloadNeeded, removeDraft, saveDraft, saveFieldScratch, send, sendError, serverSync, statusText, storageAvailable,
+    syncState])
 
   return <ReviewDraftContext.Provider value={value}>{children}</ReviewDraftContext.Provider>
 }

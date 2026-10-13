@@ -2,7 +2,8 @@ import { act, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ReviewDraftProvider, { useReviewDrafts } from './ReviewDraftProvider'
 import { editDraftKey } from '@/lib/portal/edit-drafts'
-import type { ServerDraftRow } from '@/lib/portal/review-drafts-core'
+import { STALE_PAGE_LINE, type ServerDraftRow } from '@/lib/portal/review-drafts-core'
+import { UnrecognizedActionError } from 'next/dist/client/components/unrecognized-action-error'
 
 const actions = vi.hoisted(() => ({
   saveReviewDraft: vi.fn(),
@@ -320,6 +321,32 @@ describe('sending', () => {
     expect(api.drafts).toEqual([])
     // The server action already recorded the refusal; the browser does not report it twice.
     expect(actions.reportReviewSendFailure).not.toHaveBeenCalled()
+  })
+
+  // 2026-10-13: a deploy went live under Maria's open page; every save and send hit an action the
+  // new deployment no longer had, and Retry could never work. Only a reload fixes it.
+  it('asks for a reload, keeps the drafts and reports nothing when the page is from an older deploy', async () => {
+    actions.sendReviewDrafts.mockRejectedValue(new UnrecognizedActionError('Server Action "x" was not found on the server.'))
+    mount([row()])
+    let outcome: { ok: boolean; message: string } | undefined
+    await act(async () => { outcome = await api.send('') })
+    expect(outcome).toEqual({ ok: false, message: STALE_PAGE_LINE })
+    expect(api.reloadNeeded).toBe(true)
+    expect(api.drafts).toHaveLength(1)
+    expect(screen.getByTestId('status')).toHaveTextContent(STALE_PAGE_LINE)
+    await act(async () => { await api.send('') })
+    expect(actions.sendReviewDrafts).toHaveBeenCalledTimes(1)
+    expect(actions.reportReviewSendFailure).not.toHaveBeenCalled()
+  })
+
+  it('asks for a reload when an autosave hits an action from an older deploy', async () => {
+    actions.saveReviewDraft.mockRejectedValue(new UnrecognizedActionError('Server Action "x" was not found on the server.'))
+    mount()
+    act(() => api.saveDraft(caption, 'Typed after the deploy'))
+    await act(async () => { await api.flush() })
+    expect(api.reloadNeeded).toBe(true)
+    expect(screen.getByTestId('status')).toHaveTextContent(STALE_PAGE_LINE)
+    expect(JSON.parse(window.localStorage.getItem(KEY(2)) ?? '{}').proposedText).toBe('Typed after the deploy')
   })
 
   it('records a send that never reached the server and keeps the drafts', async () => {
