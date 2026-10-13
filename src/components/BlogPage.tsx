@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import Footer from './Footer';
 import { trackContent, trackNavigation } from '@/lib/analytics';
+import { getEditorialBlogCover } from '@/lib/editorial-blog-covers';
 
 interface BlogPost {
   id: string;
@@ -1186,7 +1187,7 @@ export default function BlogPage() {
                       style={{
                         width: '100%',
                         height: '100%',
-                        objectFit: 'cover',
+                        objectFit: getEditorialBlogCover(featuredPost.slug) ? 'contain' : 'cover',
                         borderRadius: '8px'
                       }}
                       placeholder="blur"
