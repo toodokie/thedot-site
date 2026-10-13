@@ -1,11 +1,14 @@
 // app/layout.tsx
 import type { Metadata } from "next";
+import Script from 'next/script';
 import ConditionalHeader from '@/components/ConditionalHeader';
 import StyledJsxRegistry from './StyledJsxRegistry';
 import GoogleAnalytics from '@/components/GoogleAnalytics';
-import { SpeedInsights } from "@vercel/speed-insights/next";
-import { Analytics } from "@vercel/analytics/next";
+import PublicSiteAnalytics from '@/components/PublicSiteAnalytics';
+import { googleAnalyticsRouteGuard } from '@/lib/public-site-analytics';
 import "./styles/globals.css";
+
+const gaMeasurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || process.env.NEXT_PUBLIC_GA_ID;
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.thedotcreative.co'),
@@ -185,6 +188,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en-CA">
       <head>
+        {gaMeasurementId && (
+          <Script id="google-analytics-route-guard" strategy="beforeInteractive">
+            {googleAnalyticsRouteGuard(gaMeasurementId)}
+          </Script>
+        )}
         {/* FAVICON FIRST - Safari prefers early favicon declarations */}
         <link rel="icon" href="/favicon.ico?v=5" />
         <link rel="shortcut icon" href="/favicon.ico?v=5" />
@@ -255,8 +263,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <GoogleAnalytics />
-        <SpeedInsights />
-        <Analytics />
+        <PublicSiteAnalytics />
         <StyledJsxRegistry>
           <ConditionalHeader />
           {children}
