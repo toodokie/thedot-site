@@ -18,7 +18,7 @@ const routes = {
   chatgpt: {
     number: '02',
     anchor: '#route-chatgpt',
-    question: 'Draft your words in ChatGPT?',
+    question: 'Prefer ChatGPT?',
     title: 'Let ChatGPT write. Finish in Canva.',
     steps: [
       'Put the approved pack and voice rules in a ChatGPT Project.',
@@ -30,7 +30,7 @@ const routes = {
   claude: {
     number: '03',
     anchor: '#route-claude',
-    question: 'Want Claude to shape the look?',
+    question: 'Claude user?',
     title: 'Design in Claude. Edit where you already edit.',
     steps: [
       'Give Claude Design your approved brand pack and visual examples.',

@@ -1,14 +1,14 @@
 # Your Brand, Your Tool: Make On-Brand Reels Faster
 
-You run a business. You need to post again. The footage is on your phone, the offer is clear in your head, but making the Reel still means hunting for the right logo, guessing the font, rewriting the caption and adjusting a layout that looked fine last week. An hour disappears before you have anything ready to review.
+Want your social posts to look like a pro made them? Borrow an agency's process. Keep one approved set of brand assets, decide on a visual style, and start each post with a clear brief. Your AI assistant can help build that setup and make the first draft. You give the final yes.
 
-The fix is a small, reusable production system. Ask an AI assistant to help find and sort your brand material. You decide what is current and approved. Save one Reel format in the editor you use, and let your chosen assistant help with the next post. Then the path is short: choose the message, make a draft, add real footage, review it at phone size and publish.
+This guide shows you how to set up the tool you already use, teach it your brand, and save one repeatable Reel format. Once that work is done, the next post starts with your message and real footage instead of a blank page.
 
 ## Pick your starting point
 
 - **Already make posts in Canva?** Use its Brand Kit and save one Reel master. Start with Route 1 below.
-- **Write and plan in ChatGPT?** Keep the approved brand pack and voice rules in a Project, connect Canva for the design handoff, then finish there. Start with Route 2.
-- **Want Claude to shape the visual direction?** Use Claude Design for a storyboard and reusable visual rules, then finish the video in the editor you already know. Start with Route 3. Canva is optional here.
+- **Prefer ChatGPT?** Keep the approved brand pack and voice rules in a Project, connect Canva for the design handoff, then finish there. Start with Route 2.
+- **Claude user?** Use Claude Design for a storyboard and reusable visual rules, then finish the video in the editor you already know. Start with Route 3. Canva is optional here.
 
 Each route uses the same approved brand pack and ends with a reusable 9:16 Reel master. Choose one route for your next post. You can change tools later without rebuilding the brand from memory.
 

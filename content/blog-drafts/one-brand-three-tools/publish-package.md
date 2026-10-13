@@ -5,13 +5,13 @@
 | H1 | Your Brand, Your Tool: Make On-Brand Reels Faster |
 | Slug | `make-on-brand-reels-faster` |
 | SEO title | Make On-Brand Reels Faster with Canva, ChatGPT or Claude Design |
-| Meta description | Find and approve your brand assets, then make a reusable Reel workflow using Canva, ChatGPT with Canva, or Claude Design with your video editor. |
-| Excerpt | Find the right brand files with AI, approve what is safe to use, and build a repeatable Reel format in the tools you already use. |
+| Meta description | Use Canva, ChatGPT or Claude Design to borrow an agency's content process: approved brand assets, a clear brief and a repeatable Reel format. |
+| Excerpt | Borrow a design agency's process with the AI tool you already use. Set your brand rules, save a repeatable Reel format and make polished posts faster. |
 | Proposed publication date | Tuesday, October 20, 2026, before Reel 01 at 2:00 p.m. Toronto time |
 | Category | Design |
 | Tags | Strategy; How-To |
 | Open Graph title | Your Brand. Your Agent. Your Next Reel. |
-| Open Graph description | Find the right brand files, choose your design tool, and make a Reel you can review and reuse. |
+| Open Graph description | Borrow an agency's content process, teach your AI tool your brand and make your next Reel with a repeatable format. |
 | Feature and social image | Revised cover pending visual proof; old three-tool cover must be replaced before release |
 | Article URL after publication | `https://www.thedotcreative.co/blog/make-on-brand-reels-faster` (proposed, not live) |
 | Notion draft | https://app.notion.com/p/3f7d0f0c254481319d56c9a758e09de8 · `In Review`, hidden from the website |
