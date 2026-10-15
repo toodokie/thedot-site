@@ -4,6 +4,7 @@ import { useActionState } from 'react'
 import { useFormStatus } from 'react-dom'
 import { Textarea, Button } from '@thedot/design-system'
 import { decideIdea } from './idea-decision-actions'
+import { withStalePageReporting } from '@/lib/portal/stale-page'
 
 function SubmitButton({ decision }: { decision: 'approved' | 'change_requested' }) {
   const { pending } = useFormStatus()
@@ -15,7 +16,7 @@ function SubmitButton({ decision }: { decision: 'approved' | 'change_requested' 
 export default function IdeaDecisionForm({
   slug, contentItemId, contentId, planCycleId, revision,
 }: { slug: string; contentItemId: string; contentId: string; planCycleId: string; revision: number }) {
-  const [state, action] = useActionState(decideIdea, {})
+  const [state, action] = useActionState(withStalePageReporting(decideIdea), {})
   return <form action={action} style={{ marginTop: 24 }}>
     <input type="hidden" name="slug" value={slug} />
     <input type="hidden" name="contentItemId" value={contentItemId} />

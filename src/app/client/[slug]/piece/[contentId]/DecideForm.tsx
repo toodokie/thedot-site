@@ -4,6 +4,7 @@ import { useActionState } from 'react'
 import { useFormStatus } from 'react-dom'
 import { Button, Textarea } from '@thedot/design-system'
 import { decide } from '../../actions'
+import { withStalePageReporting } from '@/lib/portal/stale-page'
 
 function Submit() {
   const { pending } = useFormStatus()
@@ -13,7 +14,9 @@ function Submit() {
 }
 
 export default function DecideForm({ slug, contentId }: { slug: string; contentId: string }) {
-  const [state, action] = useActionState(async (_previous: { error?: string }, formData: FormData) => decide(formData), {})
+  const [state, action] = useActionState(withStalePageReporting(
+    async (_previous: { error?: string }, formData: FormData) => decide(formData),
+  ), {})
   return <form action={action}>
     <input type="hidden" name="slug" value={slug} />
     <input type="hidden" name="contentId" value={contentId} />

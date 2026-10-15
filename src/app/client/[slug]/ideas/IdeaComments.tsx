@@ -5,6 +5,7 @@ import { useFormStatus } from 'react-dom'
 import { Button, Text, Textarea } from '@thedot/design-system'
 import { addIdeaComment, type IdeaCommentActionState } from '../idea-actions'
 import type { IdeaCommentRow } from '@/lib/portal/ideas'
+import { withStalePageReporting } from '@/lib/portal/stale-page'
 import styles from './ideas.module.css'
 
 function SubmitComment() {
@@ -29,7 +30,7 @@ export default function IdeaComments({
   canComment: boolean
 }) {
   const [open, setOpen] = useState(comments.length > 0)
-  const [state, action] = useActionState<IdeaCommentActionState, FormData>(addIdeaComment, {})
+  const [state, action] = useActionState<IdeaCommentActionState, FormData>(withStalePageReporting(addIdeaComment), {})
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID())
   const formRef = useRef<HTMLFormElement>(null)
 

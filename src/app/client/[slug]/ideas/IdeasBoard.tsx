@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Eyebrow, Text, Button, Input, Textarea } from '@thedot/design-system'
 import { addIdea, editIdea } from '../idea-actions'
 import type { IdeaCommentRow, IdeaRow } from '@/lib/portal/ideas'
+import { withStalePageReporting } from '@/lib/portal/stale-page'
 import IdeaComments from './IdeaComments'
 import styles from './ideas.module.css'
 
@@ -38,7 +39,9 @@ function IdeaCard({
   canSubmit: boolean
   canComment: boolean
 }) {
-  const [state, action] = useActionState(async (_p: { error?: string }, fd: FormData) => editIdea(fd), {})
+  const [state, action] = useActionState(withStalePageReporting(
+    async (_p: { error?: string }, fd: FormData) => editIdea(fd),
+  ), {})
   const [editing, setEditing] = useState(false)
   const prevUpdated = useRef(idea.updated_at)
 
@@ -111,7 +114,9 @@ export default function IdeasBoard({
   canSubmit: boolean
   canComment: boolean
 }) {
-  const [state, action] = useActionState(async (_p: { error?: string }, fd: FormData) => addIdea(fd), {})
+  const [state, action] = useActionState(withStalePageReporting(
+    async (_p: { error?: string }, fd: FormData) => addIdea(fd),
+  ), {})
   const formRef = useRef<HTMLFormElement>(null)
   const prevCount = useRef(ideas.length)
 

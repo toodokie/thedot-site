@@ -3,6 +3,7 @@
 import { useEffect, useId, useState, useTransition } from 'react'
 import { Button, Textarea } from '@thedot/design-system'
 import { submitPortalFeedback } from '../../feedback-actions'
+import { runWithStalePageReporting } from '@/lib/portal/stale-page'
 import {
   ANNOUNCEMENT_THIS_VISIT_KEY, FEEDBACK_CLOSED_KEY, FEEDBACK_COMMENT_MAX, readVisitFlag,
   shouldShowFeedback, writeVisitFlag,
@@ -41,7 +42,10 @@ export default function FeedbackCard({ slug, contentItemId }: { slug: string; co
   function send() {
     setError(null)
     startTransition(async () => {
-      const result = await submitPortalFeedback(slug, { rating, comment, contentItemId })
+      const result = await runWithStalePageReporting(
+        () => submitPortalFeedback(slug, { rating, comment, contentItemId }),
+      )
+      if (!result) return
       if (result.ok) setSent(true)
       else setError(result.error)
     })

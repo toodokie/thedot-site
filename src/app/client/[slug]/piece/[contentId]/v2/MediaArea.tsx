@@ -9,6 +9,7 @@ import MediaGroups, { type OptionPicker } from './MediaGroups'
 import type { SignedReviewPreview } from '@/lib/portal/review-preview-core'
 import { useSignedPreview } from '@/components/portal/useSignedPreview'
 import { reportReviewPlaybackFailure } from '../../../playback-actions'
+import { runWithStalePageReporting } from '@/lib/portal/stale-page'
 import ReviewVideoPlayer, { type PlaybackReport } from './ReviewVideoPlayer'
 import FrameGrid from './FrameGrid'
 import PageViewer from './PageViewer'
@@ -48,7 +49,12 @@ export default function MediaArea(props: {
   const { preview, refresh, forceRefresh } = useSignedPreview(props.preview, props.refreshUrl)
   const target = props.playbackReport ?? null
   const report: PlaybackReport | null = target
-    ? (input) => reportReviewPlaybackFailure({ slug: target.slug, contentId: target.contentId, ...input })
+    ? async (input) => {
+      const result = await runWithStalePageReporting(
+        () => reportReviewPlaybackFailure({ slug: target.slug, contentId: target.contentId, ...input }),
+      )
+      return result ?? { ok: false }
+    }
     : null
   // Frames and pages get the one silent link refresh too. If an image still fails after it, show
   // Retry instead of refreshing again: a file that never loads must not refresh forever.

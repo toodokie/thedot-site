@@ -3,8 +3,8 @@
 import {
   createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState,
 } from 'react'
-import { unstable_isUnrecognizedActionError } from 'next/navigation'
 import { editDraftPiecePrefix } from '@/lib/portal/edit-drafts'
+import { isStalePageError, reportStalePage } from '@/lib/portal/stale-page'
 import { readLocalDrafts, removeLocalDraft, writeLocalDraft, type LocalScope } from '@/lib/portal/review-drafts-local'
 import {
   DRAFT_AUTOSAVE_DELAY_MS, DRAFT_STATUS_TEXT, STALE_PAGE_LINE, deriveSyncState, draftIdentity, localEntryToDraft,
@@ -225,7 +225,10 @@ export default function ReviewDraftProvider({
       })
       return 'ok'
     } catch (error) {
-      if (unstable_isUnrecognizedActionError(error)) setReloadNeeded(true)
+      if (isStalePageError(error)) {
+        setReloadNeeded(true)
+        reportStalePage()
+      }
       return 'retry'
     }
   }, [contentId, putDraft, slug, version])
@@ -457,7 +460,8 @@ export default function ReviewDraftProvider({
       const result = await reportReviewSendFailure(report)
       // Written down, or refused for good (the seat cannot submit edits): stop either way.
       if (!result || result.recorded || !result.retryable) retry = false
-    } catch {
+    } catch (error) {
+      if (isStalePageError(error)) reportStalePage()
       // The report itself did not arrive: keep it and try again.
     }
     if (failureReportRef.current !== report) return
@@ -483,13 +487,23 @@ export default function ReviewDraftProvider({
     if (!serverSync) {
       const current = Object.values(storeRef.current).filter(isCurrent)
       const key = sendKeyRef.current ?? (sendKeyRef.current = crypto.randomUUID())
-      const result = await sendReviewBundle({
-        slug, contentId, contentVersion: version, note, idempotencyKey: key,
-        drafts: current.map((draft) => ({
-          targetKind: draft.kind, targetKey: draft.key, targetLabel: draft.label,
-          proposedText: draft.proposedText, urlSnapshot: draft.urlSnapshot,
-        })),
-      })
+      let result: Awaited<ReturnType<typeof sendReviewBundle>>
+      try {
+        result = await sendReviewBundle({
+          slug, contentId, contentVersion: version, note, idempotencyKey: key,
+          drafts: current.map((draft) => ({
+            targetKind: draft.kind, targetKey: draft.key, targetLabel: draft.label,
+            proposedText: draft.proposedText, urlSnapshot: draft.urlSnapshot,
+          })),
+        })
+      } catch (error) {
+        if (isStalePageError(error)) {
+          setReloadNeeded(true)
+          reportStalePage()
+          return { ok: false, message: STALE_PAGE_LINE }
+        }
+        throw error
+      }
       if (result.error) {
         setSendError(result.error)
         return { ok: false, message: result.error }
@@ -534,7 +548,11 @@ export default function ReviewDraftProvider({
         draftIds: current.map((draft) => draft.serverId as string),
       })
     } catch (error) {
-      if (unstable_isUnrecognizedActionError(error)) { setReloadNeeded(true); return fail(STALE_PAGE_LINE, false) }
+      if (isStalePageError(error)) {
+        setReloadNeeded(true)
+        reportStalePage()
+        return fail(STALE_PAGE_LINE, false)
+      }
       return fail(DRAFT_STATUS_TEXT.send_failed, true)
     }
     // The server action has already written a refusal down; the browser does not report it again.

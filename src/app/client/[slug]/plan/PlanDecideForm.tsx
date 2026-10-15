@@ -3,6 +3,7 @@ import { useActionState, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 import { Button, Textarea } from '@thedot/design-system'
 import { decidePlanCycle } from '../plan-actions'
+import { withStalePageReporting } from '@/lib/portal/stale-page'
 import styles from './plan.module.css'
 
 function ApproveButton() {
@@ -43,7 +44,9 @@ export default function PlanDecideForm({
   revision: number
   mode?: 'approve' | 'full'
 }) {
-  const [state, action] = useActionState(async (_prev: { error?: string }, fd: FormData) => decidePlanCycle(fd), {})
+  const [state, action] = useActionState(withStalePageReporting(
+    async (_prev: { error?: string }, fd: FormData) => decidePlanCycle(fd),
+  ), {})
   const [showChangeRequest, setShowChangeRequest] = useState(false)
   const noteId = `plan-decision-note-${cycleId}`
   const errorId = `plan-decision-error-${cycleId}-${mode}`

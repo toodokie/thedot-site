@@ -6,6 +6,7 @@ import { clientDisplayName, PORTAL_NOINDEX } from '../portal-share-metadata'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import PortalNav from './PortalNav'
 import AssistantWidget from './assistant/AssistantWidget'
+import StalePageNotice from './StalePageNotice'
 import styles from './portal-shell.module.css'
 
 // Private workspace: a real tab title instead of the marketing site's, and never indexed.
@@ -51,6 +52,7 @@ export default async function ClientWorkspaceLayout(
   )
   return (
     <div className={styles.shell}>
+      <StalePageNotice />
       <PortalNav slug={slug} showAssistant={assistantAvailable} seat={seat} />
       <div className={styles.content}>
         <header className={styles.topbar}>

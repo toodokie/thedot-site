@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 import { Button } from '@thedot/design-system'
 import { requestNewContent, type RequestActionState } from '../request-actions'
+import { withStalePageReporting } from '@/lib/portal/stale-page'
 import styles from './requests.module.css'
 
 function Submit() {
@@ -14,7 +15,7 @@ function Submit() {
 }
 
 export default function NewContentRequestForm({ slug, initialKey }: { slug: string; initialKey: string }) {
-  const [state, action] = useActionState(requestNewContent, {} as RequestActionState)
+  const [state, action] = useActionState(withStalePageReporting(requestNewContent), {} as RequestActionState)
   const [idempotencyKey, setIdempotencyKey] = useState(initialKey)
   const form = useRef<HTMLFormElement>(null)
   useEffect(() => {

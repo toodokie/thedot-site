@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { Button, Heading, Text, Textarea } from '@thedot/design-system'
 import { draftIdentity } from '@/lib/portal/review-drafts-core'
 import { decide } from '../../actions'
+import { runWithStalePageReporting } from '@/lib/portal/stale-page'
 import { useReviewDrafts } from './ReviewDraftProvider'
 import CopyBlock from './CopyBlock'
 import styles from './piece-review.module.css'
@@ -76,7 +77,8 @@ export default function ReviewVerdict({
       form.set('contentId', contentId)
       form.set('decision', 'approved')
       form.set('note', note)
-      const result = await decide(form)
+      const result = await runWithStalePageReporting(() => decide(form))
+      if (!result) return
       if (result?.error) setMessage({ kind: 'error', text: result.error })
     })
   }

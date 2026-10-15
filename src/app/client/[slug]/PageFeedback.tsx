@@ -1,6 +1,7 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { addIdea } from './idea-actions'
+import { runWithStalePageReporting } from '@/lib/portal/stale-page'
 
 // A small "tell me what you think" box for read-only pages (monthly reports, Strategy).
 // It reuses the ideas board's add_idea path, so the note lands where Maria already leaves
@@ -21,7 +22,8 @@ export default function PageFeedback({ slug, topic }: { slug: string; topic: str
     data.set('body', text)
     setError(null)
     startTransition(async () => {
-      const result = await addIdea(data)
+      const result = await runWithStalePageReporting(() => addIdea(data))
+      if (!result) return
       if (result.error) { setError(result.error); return }
       setSent(true)
       setBody('')

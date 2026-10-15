@@ -17,6 +17,8 @@ import { EditSlot, useEditorHost, type EditorRequest } from './EditorHost'
 import { editorViews } from '@/components/portal/editor/DocumentEditor'
 import { act } from '@testing-library/react'
 import { PageProviders, renderInPage, stubDialogs } from './test-utils'
+import { UnrecognizedActionError } from 'next/dist/client/components/unrecognized-action-error'
+import StalePageNotice from '../../../StalePageNotice'
 
 function AddDraft() {
   const { saveDraft } = useReviewDrafts()
@@ -78,6 +80,19 @@ describe('DecisionBar', () => {
     await waitFor(() => expect(decide).toHaveBeenCalled())
     const form = decide.mock.calls[0][0] as FormData
     expect([form.get('slug'), form.get('contentId'), form.get('decision'), form.get('note')]).toEqual(['kanset', 'piece', 'approved', 'Lovely.'])
+  })
+
+  it('shows the reload notice when approve belongs to an older deploy', async () => {
+    decide.mockRejectedValueOnce(new UnrecognizedActionError('Failed to find Server Action'))
+    renderInPage(<><StalePageNotice />{bar(
+      { kind: 'approve', enabled: true, reason: null, untickedLabels: [] },
+      { ticks: { total: 3, done: 3 } },
+    )}</>)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The portal was just updated.')
+    expect(screen.getByRole('button', { name: 'Reload page' })).toBeEnabled()
   })
 
   it('sends the drafts with one button and shows the result', async () => {
@@ -177,4 +192,3 @@ describe('DecisionBar', () => {
     expect(screen.getByTestId('draft').textContent).toBe('**1.** Frame one\n\n**2.** Frame two, new')
   })
 })
-

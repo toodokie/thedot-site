@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { Button } from '@thedot/design-system'
 import { acknowledgePiecePageIntro } from '../../../request-actions'
+import { runWithStalePageReporting } from '@/lib/portal/stale-page'
 import { PIECE_PAGE_ANNOUNCEMENT as COPY } from '@/lib/portal/piece-page-announcement'
 import { ANNOUNCEMENT_THIS_VISIT_KEY, writeVisitFlag } from '@/lib/portal/portal-feedback'
 import styles from './piece-page.module.css'
@@ -32,7 +33,7 @@ export default function FirstVisitIntro({ slug, show, persist }: { slug: string;
     writeVisitFlag(ANNOUNCEMENT_THIS_VISIT_KEY)
     startTransition(async () => {
       try {
-        await acknowledgePiecePageIntro(slug)
+        await runWithStalePageReporting(() => acknowledgePiecePageIntro(slug))
       } catch {
         // Fail open: she may see the intro once more; it never blocks the page.
       }

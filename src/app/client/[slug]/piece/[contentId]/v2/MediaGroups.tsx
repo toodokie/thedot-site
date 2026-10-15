@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from 'react'
 import { useSignedPreview } from '@/components/portal/useSignedPreview'
 import { pickReviewOption } from '../../../option-actions'
+import { runWithStalePageReporting } from '@/lib/portal/stale-page'
 import type { MediaGroup, MediaItem } from './derive'
 import { mediaVars } from './media-size'
 import ReviewVideoPlayer, { type PlaybackReport } from './ReviewVideoPlayer'
@@ -38,9 +39,12 @@ export default function MediaGroups({ title, groups, visualKey, chosen: initialC
     setPending(item.key)
     setError(null)
     const result = picker.persist
-      ? await pickReviewOption({ slug: picker.slug, contentId: picker.contentId, contentVersion: picker.version, assetKey: item.key })
+      ? await runWithStalePageReporting(
+        () => pickReviewOption({ slug: picker.slug, contentId: picker.contentId, contentVersion: picker.version, assetKey: item.key }),
+      )
       : { ok: true as const }
     setPending(null)
+    if (!result) return
     if (result.ok) setChosen((current) => ({ ...current, [item.option!.group]: item.key }))
     else setError(item.key)
   }

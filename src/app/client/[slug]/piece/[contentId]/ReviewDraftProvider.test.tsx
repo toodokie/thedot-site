@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ReviewDraftProvider, { useReviewDrafts } from './ReviewDraftProvider'
 import { editDraftKey } from '@/lib/portal/edit-drafts'
 import { STALE_PAGE_LINE, type ServerDraftRow } from '@/lib/portal/review-drafts-core'
+import { STALE_PAGE_EVENT } from '@/lib/portal/stale-page'
 import { UnrecognizedActionError } from 'next/dist/client/components/unrecognized-action-error'
 
 const actions = vi.hoisted(() => ({
@@ -326,12 +327,15 @@ describe('sending', () => {
   // 2026-10-13: a deploy went live under Maria's open page; every save and send hit an action the
   // new deployment no longer had, and Retry could never work. Only a reload fixes it.
   it('asks for a reload, keeps the drafts and reports nothing when the page is from an older deploy', async () => {
+    const stalePage = vi.fn()
+    window.addEventListener(STALE_PAGE_EVENT, stalePage, { once: true })
     actions.sendReviewDrafts.mockRejectedValue(new UnrecognizedActionError('Server Action "x" was not found on the server.'))
     mount([row()])
     let outcome: { ok: boolean; message: string } | undefined
     await act(async () => { outcome = await api.send('') })
     expect(outcome).toEqual({ ok: false, message: STALE_PAGE_LINE })
     expect(api.reloadNeeded).toBe(true)
+    expect(stalePage).toHaveBeenCalledOnce()
     expect(api.drafts).toHaveLength(1)
     expect(screen.getByTestId('status')).toHaveTextContent(STALE_PAGE_LINE)
     await act(async () => { await api.send('') })

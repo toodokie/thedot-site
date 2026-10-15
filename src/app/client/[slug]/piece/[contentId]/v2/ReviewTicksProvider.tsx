@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { tickReviewTabs } from '../../../tick-actions'
+import { isStalePageError, reportStalePage } from '@/lib/portal/stale-page'
 
 // Copy-tab ticks (spec 2026-10-03 section 4.3): per seat, per version. The server rows
 // (migration 0094) are the record; the browser copy keeps a tick when a write fails and sends
@@ -51,8 +52,13 @@ export default function ReviewTicksProvider({
     const keys = [...unsent.current]
     if (keys.length === 0) return
     unsent.current.clear()
-    const result = await tickReviewTabs({ slug, contentId, contentVersion: version, tabKeys: keys })
-      .catch(() => ({ ok: false }))
+    let result: Awaited<ReturnType<typeof tickReviewTabs>>
+    try {
+      result = await tickReviewTabs({ slug, contentId, contentVersion: version, tabKeys: keys })
+    } catch (error) {
+      if (isStalePageError(error)) reportStalePage()
+      result = { ok: false }
+    }
     if (result.ok) for (const key of keys) serverKnown.current.add(key)
     else for (const key of keys) unsent.current.add(key)
   }, [contentId, slug, version])

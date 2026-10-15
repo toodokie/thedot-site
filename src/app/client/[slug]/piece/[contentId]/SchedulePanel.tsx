@@ -5,6 +5,7 @@ import { useFormStatus } from 'react-dom'
 import { Button, Eyebrow, Text } from '@thedot/design-system'
 import type { ScheduleRequestRow, ScheduleTargetRow } from '@/lib/portal/schedule'
 import { requestScheduleChange } from '../../schedule-actions'
+import { withStalePageReporting } from '@/lib/portal/stale-page'
 
 function SubmitButton({ ready, label }: { ready: boolean; label: string }) {
   const { pending } = useFormStatus()
@@ -66,7 +67,9 @@ export default function SchedulePanel({
   canRequest: boolean
 }) {
   const [state, action] = useActionState(
-    async (_previous: { error?: string }, formData: FormData) => requestScheduleChange(formData),
+    withStalePageReporting(
+      async (_previous: { error?: string }, formData: FormData) => requestScheduleChange(formData),
+    ),
     {},
   )
   const [idempotencyKey, setIdempotencyKey] = useState('')

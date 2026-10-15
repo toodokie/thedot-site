@@ -5,11 +5,12 @@ import { useFormStatus } from 'react-dom'
 import { Button, Text, Textarea } from '@thedot/design-system'
 import type { ClientProposalMessage } from '@/lib/portal/proposals'
 import { replyToProposal, type ProposalActionState } from './proposal-actions'
+import { withStalePageReporting } from '@/lib/portal/stale-page'
 import styles from './requests.module.css'
 
 function Submit() { const { pending } = useFormStatus(); return <Button as="button" type="submit" variant="black" size="sm" disabled={pending}>{pending ? 'Sending…' : 'Reply'}</Button> }
 export default function ProposalConversation({ slug, proposalKey, messages, canReply }: { slug: string; proposalKey: string; messages: ClientProposalMessage[]; canReply: boolean }) {
-  const [state, action] = useActionState<ProposalActionState, FormData>(replyToProposal, {})
+  const [state, action] = useActionState<ProposalActionState, FormData>(withStalePageReporting(replyToProposal), {})
   const [key, setKey] = useState(() => crypto.randomUUID()); const ref = useRef<HTMLFormElement>(null)
   useEffect(() => { if (state.success) { ref.current?.reset(); setKey(crypto.randomUUID()) } }, [state.success])
   return <section className={styles.conversation} aria-label="Proposal conversation">

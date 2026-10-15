@@ -624,10 +624,14 @@ diagnosis, code, migration, tests, and the hand-off for deploy.
 
 ## 15. Deploy discipline + the launch gate
 
-**Production deploys only through the Vercel CLI from a clean, frozen worktree.** A `git push` builds
-a Preview deployment only; it never reaches `www.thedotcreative.co`. Claude Code blocks agent
-deploys, so the agent prepares the frozen commit and hands Anastasia the exact push and deploy
-commands to run.
+**Production deploys from a merge to `main` or through the Vercel CLI from a clean, frozen
+worktree.** A feature-branch push builds a Preview deployment. A merge or push to `main`
+automatically deploys production. Claude Code blocks agent deploys, so the agent prepares the
+frozen commit and hands Anastasia the exact push and deploy commands to run.
+
+**Quiet check:** before handing over any production deploy command or merging to `main`, run
+`pnpm portal:quiet-check` with the caller-provided production Supabase variables. If it reports
+active client portal writes, wait and run it again later.
 
 **Order:**
 

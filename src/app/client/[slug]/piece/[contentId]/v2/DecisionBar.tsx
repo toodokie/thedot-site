@@ -8,6 +8,7 @@ import { useReviewDrafts } from '../ReviewDraftProvider'
 import { useCloseEditor } from './EditorHost'
 import { useKeyboardInset, usePhone } from './hooks'
 import { STALE_PAGE_LINE } from '@/lib/portal/review-drafts-core'
+import { runWithStalePageReporting } from '@/lib/portal/stale-page'
 import { draftStatusLine } from './status-text'
 import styles from './piece-page.module.css'
 
@@ -87,7 +88,8 @@ export default function DecisionBar({
       form.set('contentId', contentId)
       form.set('decision', 'approved')
       form.set('note', note)
-      const result = await decide(form)
+      const result = await runWithStalePageReporting(() => decide(form))
+      if (!result) return
       if (result?.error) setMessage({ kind: 'error', text: result.error })
     })
   }

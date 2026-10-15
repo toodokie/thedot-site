@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { Button, Heading, Text } from '@thedot/design-system'
 import { acknowledgeReviewFlowAnnouncement } from '../../request-actions'
+import { runWithStalePageReporting } from '@/lib/portal/stale-page'
 import styles from './piece-review.module.css'
 
 export default function ReviewFlowIntro({ slug, show }: { slug: string; show: boolean }) {
@@ -20,7 +21,7 @@ export default function ReviewFlowIntro({ slug, show }: { slug: string; show: bo
     setVisible(false)
     dialogRef.current?.close()
     startTransition(async () => {
-      await acknowledgeReviewFlowAnnouncement(slug)
+      await runWithStalePageReporting(() => acknowledgeReviewFlowAnnouncement(slug))
     })
   }
 

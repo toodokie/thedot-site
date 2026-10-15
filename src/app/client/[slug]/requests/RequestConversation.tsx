@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 import { Button, Text, Textarea } from '@thedot/design-system'
 import { replyToContentRequest, type RequestActionState } from '../request-actions'
+import { withStalePageReporting } from '@/lib/portal/stale-page'
 import type { ContentRequestMessage } from '@/lib/portal/requests'
 import styles from './requests.module.css'
 
@@ -22,7 +23,7 @@ export default function RequestConversation({
   messages: ContentRequestMessage[]
   canReply: boolean
 }) {
-  const [state, action] = useActionState<RequestActionState, FormData>(replyToContentRequest, {})
+  const [state, action] = useActionState<RequestActionState, FormData>(withStalePageReporting(replyToContentRequest), {})
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID())
   const formRef = useRef<HTMLFormElement>(null)
   useEffect(() => {

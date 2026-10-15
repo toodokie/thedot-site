@@ -8,6 +8,7 @@ import type { ContentRow } from '@/lib/portal/data'
 import { torontoDateLabel, torontoTimeLabel } from '@/lib/portal/piece-page/header-status'
 import type { ContentRequestMessage, ContentRequestRow } from '@/lib/portal/requests'
 import { addComment } from '../../../comment-actions'
+import { withStalePageReporting } from '@/lib/portal/stale-page'
 import RequestHistory from '../../../requests/RequestHistory'
 import styles from './piece-page.module.css'
 
@@ -44,10 +45,10 @@ type ComposerState = { error?: string; sent?: number }
 
 function Composer({ slug, contentId }: { slug: string; contentId: string }) {
   const [state, action] = useActionState<ComposerState, FormData>(
-    async (_previous, formData) => {
+    withStalePageReporting(async (_previous, formData) => {
       const result = await addComment(formData)
       return result?.error ? { error: result.error } : { sent: Date.now() }
-    },
+    }),
     {},
   )
   const formRef = useRef<HTMLFormElement>(null)

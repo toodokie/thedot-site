@@ -4,6 +4,7 @@ import { useActionState, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 import { Button } from '@thedot/design-system'
 import { requestContentRemoval, type RequestActionState } from '../../request-actions'
+import { withStalePageReporting } from '@/lib/portal/stale-page'
 import styles from '../../requests/requests.module.css'
 
 function Submit() {
@@ -17,7 +18,7 @@ export default function RemovalRequestForm({ slug, contentId, idempotencyKey, st
   slug: string; contentId: string; idempotencyKey: string; startOpen?: boolean
 }) {
   const [open, setOpen] = useState(startOpen)
-  const [state, action] = useActionState(requestContentRemoval, {} as RequestActionState)
+  const [state, action] = useActionState(withStalePageReporting(requestContentRemoval), {} as RequestActionState)
   if (!open && !state.success) {
     return <Button as="button" type="button" variant="ghost" size="sm"
       aria-controls="removal-request-form" aria-expanded="false"

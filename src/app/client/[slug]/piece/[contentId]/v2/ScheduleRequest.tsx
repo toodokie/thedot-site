@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState } from 'react'
 import { createPortal, useFormStatus } from 'react-dom'
 import { Button } from '@thedot/design-system'
 import { requestScheduleChange } from '../../../schedule-actions'
+import { withStalePageReporting } from '@/lib/portal/stale-page'
 import styles from './piece-page.module.css'
 
 function Submit({ ready }: { ready: boolean }) {
@@ -44,10 +45,10 @@ function ScheduleRequestForm({ slug, contentId, hasExternalTargets }: {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [state, action] = useActionState<ScheduleRequestState, FormData>(
-    async (_previous, formData) => {
+    withStalePageReporting(async (_previous, formData) => {
       const result = await requestScheduleChange(formData)
       return result.error ? { error: result.error } : { done: true }
-    },
+    }),
     {},
   )
 

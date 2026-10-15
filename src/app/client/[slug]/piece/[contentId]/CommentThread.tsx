@@ -4,6 +4,7 @@ import { useFormStatus } from 'react-dom'
 import { Eyebrow, Text, Button, Textarea } from '@thedot/design-system'
 import { addComment } from '../../comment-actions'
 import type { CommentRow } from '@/lib/portal/comments'
+import { withStalePageReporting } from '@/lib/portal/stale-page'
 
 function SubmitBtn() {
   const { pending } = useFormStatus()
@@ -23,7 +24,9 @@ export default function CommentThread({
   comments: CommentRow[]
   canComment: boolean
 }) {
-  const [state, action] = useActionState(async (_p: { error?: string }, fd: FormData) => addComment(fd), {})
+  const [state, action] = useActionState(withStalePageReporting(
+    async (_p: { error?: string }, fd: FormData) => addComment(fd),
+  ), {})
   const formRef = useRef<HTMLFormElement>(null)
   const prevCount = useRef(comments.length)
 
