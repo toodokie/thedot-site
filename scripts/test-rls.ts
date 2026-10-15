@@ -364,6 +364,48 @@ async function main(): Promise<void> {
     check('S0: TypeScript primary-source hosts all pass the database validator', !hostParity.error,
       hostParity.error?.message ?? `hosts=${PRIMARY_SOURCE_HOSTS.length}`)
 
+    const provincialSourceUrls = [
+      'https://alberta.ca/immigration',
+      'https://www.alberta.ca/immigration',
+      'https://immigratemanitoba.com/immigrate',
+      'https://www.immigratemanitoba.com/immigrate',
+      'https://welcomebc.ca/immigrate-to-b-c',
+      'https://www.welcomebc.ca/immigrate-to-b-c',
+    ]
+    const provincialSourceResults = await Promise.all(provincialSourceUrls.map((url, index) => {
+      const payload = snapshot(
+        bClientId!, `provincial-source-${index}`, 1, `Provincial source ${index}`,
+        'Provincial policy body', 'caption',
+      )
+      payload.fact_check_ledger[0].source_url = url
+      payload.fact_check_ledger[0].source_title = `Provincial source ${index}`
+      return admin.rpc('preview_content_item_versions', { p_items: [payload] })
+    }))
+    check('S1: each new provincial primary-source host and subdomain passes the database validator',
+      provincialSourceResults.every((result) => !result.error),
+      provincialSourceResults.map((result, index) =>
+        `${provincialSourceUrls[index]}=${result.error?.message ?? 'accepted'}`).join(' / '))
+
+    const provincialLookalikeUrls = [
+      'https://welcomebc.ca.evil.com/source',
+      'https://notalberta.ca/source',
+      'https://alberta.ca-gov.com/source',
+      'https://immigratemanitoba.com.example/source',
+    ]
+    const provincialLookalikeResults = await Promise.all(provincialLookalikeUrls.map((url, index) => {
+      const payload = snapshot(
+        bClientId!, `provincial-lookalike-${index}`, 1, `Provincial lookalike ${index}`,
+        'Lookalike policy body', 'caption',
+      )
+      payload.fact_check_ledger[0].source_url = url
+      payload.fact_check_ledger[0].source_title = `Provincial lookalike ${index}`
+      return admin.rpc('preview_content_item_versions', { p_items: [payload] })
+    }))
+    check('S2: provincial primary-source lookalikes are refused by the database validator',
+      provincialLookalikeResults.every((result) => !!result.error),
+      provincialLookalikeResults.map((result, index) =>
+        `${provincialLookalikeUrls[index]}=${result.error?.message ?? 'ACCEPTED'}`).join(' / '))
+
     PREVIEW_ONLY.add(bRequestItemId)
     for (const itemId of [bItemId, bLeakItemId, bRequestItemId, bBundleItemId]) {
       const { error } = await admin.rpc('mark_content_ready', { p_content_id: itemId, p_content_version: 1 })

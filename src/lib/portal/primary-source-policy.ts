@@ -3,10 +3,13 @@
 // ranking publisher does not weaken the immigration-policy boundary. The exported union remains in
 // parity with the database validator. Host matching is exact or a real subdomain boundary.
 export const OFFICIAL_PRIMARY_SOURCE_HOSTS = [
+  'alberta.ca',
   'canada.ca',
   'college-ic.ca',
   'gazette.gc.ca',
+  'immigratemanitoba.com',
   'ontario.ca',
+  'welcomebc.ca',
 ] as const
 
 export const REVIEWED_RESEARCH_SOURCE_HOSTS = [

@@ -138,7 +138,7 @@ fact_check_ledger: []`)
     expect(() => parseContentFile(replaceUrl('https://user:pass@ontario.ca/page/x'), 'p.md')).toThrow(/credentials/)
     expect(() => parseContentFile(replaceUrl('https://evilontario.ca/page/x'), 'p.md')).toThrow(/approved primary source/)
     expect(() => parseContentFile(replaceUrl('https://gc.ca/page/x'), 'p.md')).toThrow(/approved primary source/)
-    expect(() => parseContentFile(replaceUrl('https://alberta.ca/page/x'), 'p.md')).toThrow(/approved primary source/)
+    expect(() => parseContentFile(replaceUrl('https://web.archive.org/page/x'), 'p.md')).toThrow(/approved primary source/)
     expect(() => parseContentFile(replaceUrl('//ontario.ca/page/x'), 'p.md')).toThrow(/HTTPS/)
   })
 
