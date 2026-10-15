@@ -6721,6 +6721,202 @@ async function main(): Promise<void> {
         audit.error?.message ?? '')
     }
 
+    // 0102: a mistaken agency courtesy release can be archived and removed, then the exact same
+    // visible version returns to Maria's normal review queue. Publication and schedule targets are
+    // intentionally left alone.
+    console.log('\n--- 0102 agency courtesy release reversal ---')
+    {
+      const reason = 'Agency correction authorized by Anastasia: this version needs Maria\'s own review.'
+      const contentId = `rls-reopen-review-${RUN_ID}`
+      const [reopenSync] = await sync([
+        snapshot(bClientId, contentId, 1, 'Reopen review fixture', 'Copy Maria needs to review.', 'caption', {
+          producer: 'the_dot',
+        }),
+      ])
+      const ready = await admin.rpc('mark_content_ready', {
+        p_content_id: reopenSync.item_id, p_content_version: 1,
+      })
+      const courtesy = await admin.rpc('record_content_courtesy_release', {
+        p_content_id: reopenSync.item_id, p_content_version: 1,
+        p_reason: 'Agency override authorized by Anastasia: this version was released before Maria decided.',
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+      })
+      if (ready.error || courtesy.error) {
+        throw new Error(`reopen fixture: ${ready.error?.message ?? courtesy.error?.message}`)
+      }
+      const originalRelease = await rawAdmin.from('content_courtesy_releases')
+        .select('id, reason, recorded_by_actor_id, recorded_at')
+        .eq('content_id', reopenSync.item_id).eq('content_version', 1).single()
+
+      const otherContentId = `rls-reopen-review-other-${RUN_ID}`
+      const [otherSync] = await sync([
+        snapshot(bClientId, otherContentId, 1, 'Other draft fixture', 'Other copy.', 'caption'),
+      ])
+      const otherReady = await admin.rpc('mark_content_ready', {
+        p_content_id: otherSync.item_id, p_content_version: 1,
+      })
+      if (otherReady.error) throw new Error(`other reopen fixture: ${otherReady.error.message}`)
+
+      const saveDraft = (itemId: string, body: string) => bClient.rpc('save_review_draft', {
+        p_content_id: itemId, p_base_version: 1, p_target_kind: 'copy_block', p_target_key: 'caption',
+        p_anchor: '', p_anchor_label: null, p_target_label: 'Test copy', p_url_snapshot: null,
+        p_quoted_text: null, p_body: body, p_saved_at: new Date().toISOString(),
+      })
+      const ownDraft = await saveDraft(reopenSync.item_id, 'Maria\'s browser copy for this piece.')
+      const otherDraft = await saveDraft(otherSync.item_id, 'Maria\'s browser copy for the other piece.')
+      const ownDraftRow = (ownDraft.data as { draft?: { id?: string } } | null)?.draft
+      const otherDraftRow = (otherDraft.data as { draft?: { id?: string } } | null)?.draft
+      if (!ownDraftRow?.id || !otherDraftRow?.id) {
+        throw new Error(`reopen drafts: ${ownDraft.error?.message ?? otherDraft.error?.message ?? 'missing ids'}`)
+      }
+      const savedBefore = await bClient.from('content_review_drafts').select('saved_at')
+        .eq('id', ownDraftRow.id).single()
+
+      const reopenArgs = {
+        p_content_id: reopenSync.item_id, p_content_version: 1, p_reason: reason,
+        p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+        p_discard_draft_ids: [ownDraftRow.id],
+      }
+      const clientCall = await bClient.rpc('agency_reopen_review', reopenArgs)
+      const badReason = await rawAdmin.rpc('agency_reopen_review', {
+        ...reopenArgs, p_reason: 'Please return this version to Maria for review.', p_idempotency_key: randomUUID(),
+      })
+      const wrongDraft = await rawAdmin.rpc('agency_reopen_review', {
+        ...reopenArgs, p_idempotency_key: randomUUID(), p_discard_draft_ids: [otherDraftRow.id],
+      })
+      const untouchedBeforeSuccess = await rawAdmin.from('content_courtesy_release_reversals')
+        .select('id', { count: 'exact', head: true }).eq('content_id', reopenSync.item_id)
+      check('RR1: client execution, the wrong authorization prefix, and a draft from another item are refused atomically',
+        !!clientCall.error && !!badReason.error
+          && /Agency correction authorized by Anastasia/i.test(badReason.error.message)
+          && !!wrongDraft.error && /eligible unsent draft/.test(wrongDraft.error.message)
+          && untouchedBeforeSuccess.count === 0,
+        clientCall.error?.message ?? badReason.error?.message ?? wrongDraft.error?.message
+          ?? `reversals=${untouchedBeforeSuccess.count}`)
+
+      const lockedItem = await rawAdmin.from('content_items')
+        .select('id, client_visible_version, publication_locked_version, first_live_at')
+        .eq('id', bItemId).single()
+      const locked = lockedItem.data ? await rawAdmin.rpc('agency_reopen_review', {
+        p_content_id: lockedItem.data.id,
+        p_content_version: lockedItem.data.client_visible_version ?? lockedItem.data.publication_locked_version ?? 1,
+        p_reason: reason, p_actor_key: 'thedot-admin', p_idempotency_key: randomUUID(),
+        p_discard_draft_ids: [],
+      }) : { error: new Error('locked fixture missing') }
+      check('RR2: a publication-locked piece cannot be reopened',
+        !!lockedItem.data?.publication_locked_version && !!lockedItem.data?.first_live_at
+          && !!locked.error && /publication-locked/.test(locked.error.message),
+        locked.error?.message ?? JSON.stringify(lockedItem.data))
+
+      const needsReviewBefore = await bClient.from('activity_log').select('id', { count: 'exact', head: true })
+        .eq('content_id', reopenSync.item_id).eq('content_version', 1).eq('event_type', 'needs_review')
+      const success = await rawAdmin.rpc('agency_reopen_review', reopenArgs)
+      const successData = success.data as {
+        outcome?: string; content_id?: string; content_version?: number
+        reversal_id?: string; discarded_draft_ids?: string[]
+      } | null
+      const retry = await rawAdmin.rpc('agency_reopen_review', reopenArgs)
+      const itemAfter = await rawAdmin.from('content_items')
+        .select('status, review_ready_at, revision_in_progress, client_visible_version, working_version')
+        .eq('id', reopenSync.item_id).single()
+      const activeReleaseAfter = await rawAdmin.from('content_courtesy_releases').select('id')
+        .eq('content_id', reopenSync.item_id).eq('content_version', 1)
+      const reversalAfter = await rawAdmin.from('content_courtesy_release_reversals')
+        .select('id, original_release_id, original_reason, original_recorded_by_actor_id, original_recorded_at, reversal_reason')
+        .eq('content_id', reopenSync.item_id).eq('content_version', 1)
+      const discardedAfter = await bClient.from('content_review_drafts')
+        .select('status, discard_reason, discarded_at, saved_at').eq('id', ownDraftRow.id).single()
+      const otherDraftAfter = await bClient.from('content_review_drafts')
+        .select('status').eq('id', otherDraftRow.id).single()
+      const needsReviewAfter = await bClient.from('activity_log')
+        .select('id, title, actor_type, actor_name').eq('content_id', reopenSync.item_id)
+        .eq('content_version', 1).eq('event_type', 'needs_review')
+      const reversalActivity = await rawAdmin.rpc('agency_internal_activity', {
+        p_client_id: bClientId, p_content_item_id: reopenSync.item_id,
+      })
+      const reversalActivities = ((reversalActivity.data ?? []) as Array<{
+        event_type: string; summary: string; actor_type: string
+      }>).filter((row) => row.event_type === 'courtesy_release_reversed')
+
+      check('RR3: success restores the current version to draft review and archives the full courtesy release',
+        !success.error && successData?.outcome === 'reopened'
+          && successData.content_id === reopenSync.item_id && successData.content_version === 1
+          && !!successData.reversal_id && itemAfter.data?.status === 'draft' && !!itemAfter.data.review_ready_at
+          && itemAfter.data.revision_in_progress === false && itemAfter.data.client_visible_version === 1
+          && itemAfter.data.working_version === 1 && activeReleaseAfter.data?.length === 0
+          && reversalAfter.data?.length === 1 && reversalAfter.data[0].id === successData.reversal_id
+          && reversalAfter.data[0].original_release_id === originalRelease.data?.id
+          && reversalAfter.data[0].original_reason === originalRelease.data?.reason
+          && reversalAfter.data[0].original_recorded_by_actor_id === originalRelease.data?.recorded_by_actor_id
+          && reversalAfter.data[0].original_recorded_at === originalRelease.data?.recorded_at
+          && reversalAfter.data[0].reversal_reason === reason,
+        success.error?.message ?? JSON.stringify({ item: itemAfter.data, release: activeReleaseAfter.data,
+          reversal: reversalAfter.data, original: originalRelease.data }))
+
+      check('RR4: the named unsent draft is discarded without changing saved_at, while another item stays untouched',
+        successData?.discarded_draft_ids?.length === 1
+          && successData.discarded_draft_ids[0] === ownDraftRow.id
+          && discardedAfter.data?.status === 'discarded'
+          && discardedAfter.data.discard_reason === 'agency_applied' && !!discardedAfter.data.discarded_at
+          && discardedAfter.data.saved_at === savedBefore.data?.saved_at
+          && otherDraftAfter.data?.status === 'unsent',
+        JSON.stringify({ response: successData, own: discardedAfter.data, other: otherDraftAfter.data }))
+
+      check('RR5: reversal writes the private audit and one normal in-app needs-review activity',
+        !reversalActivity.error && reversalActivities.length === 1
+          && reversalActivities[0].summary === reason && reversalActivities[0].actor_type === 'anastasia'
+          && needsReviewAfter.data?.length === (needsReviewBefore.count ?? 0) + 1
+          && needsReviewAfter.data.some((row) => row.title === 'Needs review: Reopen review fixture'
+            && row.actor_type === 'agent' && row.actor_name === 'The Dot'),
+        reversalActivity.error?.message ?? JSON.stringify({ audit: reversalActivities, needsReview: needsReviewAfter.data }))
+
+      check('RR6: an exact retry returns the same response and creates no second reversal, audit, or review item',
+        !retry.error && JSON.stringify(retry.data) === JSON.stringify(success.data)
+          && reversalAfter.data?.length === 1 && reversalActivities.length === 1
+          && needsReviewAfter.data?.length === (needsReviewBefore.count ?? 0) + 1,
+        retry.error?.message ?? JSON.stringify({ first: success.data, retry: retry.data,
+          reversals: reversalAfter.data?.length, audit: reversalActivities.length,
+          needsReview: needsReviewAfter.data?.length }))
+
+      const target = await rawAdmin.from('content_publication_targets').select('id')
+        .eq('content_id', reopenSync.item_id).eq('content_version', 1).limit(1).single()
+      const evidence = await rawAdmin.rpc('register_publication_evidence', {
+        p_client_id: bClientId, p_actor_key: 'thedot-admin', p_evidence_kind: 'reviewed_link',
+        p_object_key: null, p_evidence_url: 'https://www.instagram.com/p/rls-reopen-review-proof/',
+        p_attestation_note: null, p_captured_at: new Date().toISOString(), p_sha256: null,
+        p_mime_type: null, p_byte_length: null, p_idempotency_key: `rls-reopen-evidence-${RUN_ID}`,
+      })
+      const unauthorizedPublication = target.data && evidence.data
+        ? await rawAdmin.rpc('record_publication_observation', {
+          p_publication_target_id: target.data.id, p_provider_state: 'live',
+          p_live_url: 'https://www.instagram.com/p/rls-reopen-review-live/', p_published_at: new Date().toISOString(),
+          p_visibility: 'public', p_evidence_id: evidence.data, p_actor_key: 'thedot-admin',
+          p_source_type: 'manual', p_reconciliation_status: 'verified', p_provider_object_id: null,
+          p_observed_title: 'Reopen review fixture', p_observed_text: null,
+          p_observation_key: `rls-reopen-publication-${RUN_ID}`,
+          p_supersedes_observation_id: null, p_verification_note: 'Must be refused after reversal.',
+        }) : { error: target.error ?? evidence.error ?? new Error('publication fixture missing') }
+      check('RR7: removing the courtesy row removes publication authorization for the version',
+        !target.error && !evidence.error && !!unauthorizedPublication.error
+          && /not authorized for publication/.test(unauthorizedPublication.error.message),
+        unauthorizedPublication.error?.message ?? 'NO ERROR')
+
+      const clientApproval = await bClient.rpc('record_content_decision', {
+        p_content_id: reopenSync.item_id, p_content_version: 1, p_decision: 'approved', p_note: null,
+      })
+      const reopenAfterDecision = await rawAdmin.rpc('agency_reopen_review', {
+        ...reopenArgs, p_idempotency_key: randomUUID(), p_discard_draft_ids: [],
+      })
+      check('RR8: Maria can approve the reopened version, and her decision then blocks another reversal',
+        !clientApproval.error && !!reopenAfterDecision.error
+          && /client decision exists/.test(reopenAfterDecision.error.message),
+        clientApproval.error?.message ?? reopenAfterDecision.error?.message ?? 'NO ERROR')
+
+      const assertion = await rawAdmin.rpc('assert_portal_security')
+      check('RR9: the cumulative security assertion includes the 0102 reversal boundary',
+        !assertion.error, assertion.error?.message ?? '')
+    }
+
     {
       const stop = await admin.rpc('set_portal_feature_switch', {
         p_client_id: bClientId, p_feature: 'client_mutations', p_enabled: false,

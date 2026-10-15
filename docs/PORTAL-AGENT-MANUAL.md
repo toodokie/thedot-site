@@ -865,6 +865,16 @@ activity, her `change_requested` decision row is left untouched (`current_decisi
 while any request is pending, applying, prepared or conflicted, when a newer version exists, when
 the piece is published or archived, and without the named reason.
 
+**Reopen an agency-approved piece for Maria's review (0102):** when a courtesy release was recorded
+in error and Maria never made a decision, run `portal-write reopen-review` on that same visible
+version with a reason starting `Agency correction authorized by Anastasia:`. Include only confirmed
+unsent browser draft IDs in `discardDraftIds`; each is archived as discarded with reason
+`agency_applied`, without changing its `saved_at`. The command archives and removes the courtesy
+release, returns the piece to Draft with `review_ready_at` set, and writes the normal in-app
+`needs_review` item. It refuses any client decision, publication lock, archive, version mismatch, or
+draft from another piece. It does not change schedule or publication targets. While `client_alerts`
+is off, Maria receives no email.
+
 **Release media guard (since 0092):** every release refuses a version with no review asset, no
 portal preview and no design link: `portal-admin ready`, `update-portal --re-share` (with or
 without `--quiet`), `portal-write applied-release`, `courtesy-release` and `supersede`, and

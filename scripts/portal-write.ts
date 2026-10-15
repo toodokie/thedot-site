@@ -59,7 +59,7 @@ const assertNoteGrammarSafe = (value: string | null, field: string) => {
 
 async function main() {
   const [command, inputPath, ...rest] = process.argv.slice(2)
-  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|report-notify|communication|proposal-draft|proposal-revise|proposal-submit|proposal-reply|external-decision|courtesy-release|applied-release|supersede|override-destination|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|visual-revision|visual-revision-ready|review-asset|review-asset-remove|plan-cycle|plan-cycle-stage|plan-cycle-close|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete|archive-draft|review-preview> <payload.json> [--dry-run] [--pack <path>]')
+  if (!command || !inputPath) throw new Error('usage: portal-write <recommendation|link|report|report-notify|communication|proposal-draft|proposal-revise|proposal-submit|proposal-reply|external-decision|courtesy-release|reopen-review|applied-release|supersede|override-destination|schedule-confirm|publication-confirm|invoice|idea|news-idea|idea-status|design-link|visual-revision|visual-revision-ready|review-asset|review-asset-remove|plan-cycle|plan-cycle-stage|plan-cycle-close|plan-cycle-decision|plan-date|gate|status-gates|ops-task|ops-task-complete|archive-draft|review-preview> <payload.json> [--dry-run] [--pack <path>]')
   const dryRun = rest.includes('--dry-run')
   const packIndex = rest.indexOf('--pack')
   const packPath = packIndex >= 0 ? rest[packIndex + 1] ?? null : null
@@ -224,6 +224,30 @@ async function main() {
     rpc = 'record_content_courtesy_release'; args = {
       p_content_id: null, p_content_version: externalContentVersion, p_reason: reason,
       p_actor_key: actor, p_idempotency_key: idempotency,
+    }
+  } else if (command === 'reopen-review') {
+    // Reverse only the current agency courtesy release. This is not a release command, so it does
+    // not run the media guard. The database archives and removes the courtesy approval basis,
+    // then re-arms the same visible version for client review.
+    const reason = requiredText(payload.reason, 'reason', 2000)
+    assertClientSafeAgencyText({ reason })
+    if (reason.length < 10) throw new Error('reason must be at least 10 characters')
+    if (!/^Agency correction authorized by Anastasia:/i.test(reason))
+      throw new Error('reason must start "Agency correction authorized by Anastasia:"')
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuid.test(idempotency))
+      throw new Error('idempotencyKey must be a UUID')
+    const discardDraftIds = payload.discardDraftIds === undefined ? [] : payload.discardDraftIds
+    if (!Array.isArray(discardDraftIds)
+      || discardDraftIds.some((id) => typeof id !== 'string'
+        || !uuid.test(id))) {
+      throw new Error('discardDraftIds must contain only UUIDs')
+    }
+    externalContentId = requiredText(payload.contentId, 'contentId', 200)
+    externalContentVersion = integer(payload.contentVersion, 'contentVersion', 1)
+    rpc = 'agency_reopen_review'; args = {
+      p_content_id: null, p_content_version: externalContentVersion, p_reason: reason,
+      p_actor_key: actor, p_idempotency_key: idempotency, p_discard_draft_ids: discardDraftIds,
     }
   } else if (command === 'applied-release') {
     // The version applies edits Maria already submitted, so it is promoted and approved in one
