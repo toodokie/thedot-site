@@ -490,6 +490,20 @@ export function deriveMyTasks(
       piece.dests.find((dest) => dest.destination === platform)?.publicationStatus !== 'live')
     const plannedBeforeToday = pieceTask.plannedDate !== null && pieceTask.plannedDate < todayIso.slice(0, 10)
 
+    // An overdue provider schedule cannot prove delivery when the studio source is still
+    // explicitly open and no required destination is live. Keep that real dependency in
+    // Waiting instead of mislabeling it as publication evidence cleanup.
+    const studioSource = productionGate(piece, 'source_in_hand')
+    if ((stage.stage === 'scheduled' || stage.stage === 'scheduled_partial')
+        && plannedBeforeToday
+        && requiredDestinations.length > 0
+        && pendingPublication.length === requiredDestinations.length
+        && studioSource?.state === 'open'
+        && studioSource.owner_label === 'studio') {
+      tasks.push({ kind: 'waiting_studio', ...pieceTask, note: studioSource.note })
+      continue
+    }
+
     if (stage.stage === 'scheduled') {
       // A provider commitment is already recorded. On or before its planned day the
       // calendar is the useful surface; after that day, missing live evidence becomes a
