@@ -26,6 +26,12 @@ export const PRIMARY_SOURCE_HOSTS = [
   ...REVIEWED_RESEARCH_SOURCE_HOSTS,
 ] as const
 
+// Original interviews support only the speaker's attributed words, never policy claims.
+// Compare the submitted URL exactly, before URL normalization, in parity with SQL.
+const REVIEWED_ORIGINAL_INTERVIEW_URLS: readonly string[] = [
+  'https://www.ctvnews.ca/politics/article/immigration-minister-says-immigration-levels-will-be-going-up-heres-what-that-means/',
+]
+
 export function isAllowedPrimarySourceHostname(hostname: string): boolean {
   const candidate = hostname.toLowerCase().replace(/\.$/, '')
   return PRIMARY_SOURCE_HOSTS.some(
@@ -47,7 +53,8 @@ export function parsePrimarySourceUrl(value: string, source: string): string {
   if (parsed.protocol !== 'https:' || parsed.username || parsed.password) {
     throw new Error(`source_url must be an HTTPS URL without credentials in ${source}`)
   }
-  if (!isAllowedPrimarySourceHostname(parsed.hostname)) {
+  if (!isAllowedPrimarySourceHostname(parsed.hostname)
+      && !REVIEWED_ORIGINAL_INTERVIEW_URLS.includes(value)) {
     throw new Error(`source_url host is not an approved primary source in ${source}`)
   }
 
