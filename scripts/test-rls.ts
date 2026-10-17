@@ -406,6 +406,30 @@ async function main(): Promise<void> {
       provincialLookalikeResults.map((result, index) =>
         `${provincialLookalikeUrls[index]}=${result.error?.message ?? 'ACCEPTED'}`).join(' / '))
 
+    // 0104: the original interview is admitted only at its exact reviewed URL.
+    const originalInterview = 'https://www.ctvnews.ca/politics/article/immigration-minister-says-immigration-levels-will-be-going-up-heres-what-that-means/'
+    const interviewPayload = snapshot(
+      bClientId, `minister-interview-${RUN_ID}`, 1, 'Minister attribution',
+      'The minister signalled targets could rise; new numbers are not announced.', 'caption',
+    )
+    interviewPayload.fact_check_ledger[0].source_url = originalInterview
+    interviewPayload.fact_check_ledger[0].source_title = 'Original minister interview, attribution only'
+    const interviewPreview = await admin.rpc('preview_content_item_versions', { p_items: [interviewPayload] })
+    check('I1: the reviewed original interview passes the agency preview with its exact URL',
+      !interviewPreview.error, interviewPreview.error?.message ?? 'accepted')
+    const interviewRefusals = await Promise.all([
+      originalInterview + '?changed=1', originalInterview + '#changed',
+      originalInterview.replace('www.ctvnews.ca', 'www.ctvnews.ca:443'),
+      'https://www.ctvnews.ca/politics/article/another-story/',
+      originalInterview.replace('www.ctvnews.ca', 'www.ctvnews.ca.evil.com'),
+    ].map((url, index) => admin.rpc('preview_content_item_versions', {
+      p_items: [{ ...interviewPayload, content_id: `interview-refusal-${index}-${RUN_ID}`,
+        fact_check_ledger: [{ ...interviewPayload.fact_check_ledger[0], source_url: url }] }],
+    })))
+    check('I2: altered interview URLs, other articles and lookalikes remain refused',
+      interviewRefusals.every((result) => !!result.error),
+      interviewRefusals.map((result) => result.error?.message ?? 'ACCEPTED').join(' / '))
+
     PREVIEW_ONLY.add(bRequestItemId)
     for (const itemId of [bItemId, bLeakItemId, bRequestItemId, bBundleItemId]) {
       const { error } = await admin.rpc('mark_content_ready', { p_content_id: itemId, p_content_version: 1 })
@@ -428,6 +452,14 @@ async function main(): Promise<void> {
     const bClient = clientForToken(bToken)
     const bViewerClient = clientForToken(bViewerToken)
     const anonClient = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false } })
+
+    const interviewHelperCalls = await Promise.all([anonClient, bClient, kansetClient, rawAdmin]
+      .map((client) => client.rpc('portal_reviewed_original_interview_url_valid', {
+        p_url: originalInterview,
+      })))
+    check('I3: anonymous, both tenant JWTs and service role cannot call the internal interview helper',
+      interviewHelperCalls.every((result) => !!result.error),
+      interviewHelperCalls.map((result) => result.error?.message ?? 'EXPOSED').join(' / '))
 
     const releasedAvailability = await kansetClient.rpc('get_client_content_availability', {
       p_client_id: kansetClientId, p_content_id: foreignContentId,
