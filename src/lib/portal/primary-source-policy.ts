@@ -14,9 +14,13 @@ export const OFFICIAL_PRIMARY_SOURCE_HOSTS = [
 
 export const REVIEWED_RESEARCH_SOURCE_HOSTS = [
   'henleyglobal.com',
+  'mcgill.ca',
   'statcan.gc.ca',
+  'topuniversities.com',
   'transparency.org',
+  'umontreal.ca',
   'usnews.com',
+  'uwaterloo.ca',
   'who.int',
   'worldbank.org',
 ] as const

@@ -611,6 +611,15 @@ right?). **Design from the signed spec, not from compacted memory** ([[design-fr
 
 ---
 
+### Reviewed academic citations (proposed migration 0105)
+
+The October 23 university carousel requires four original publishers in the reviewed research
+list: `topuniversities.com` for QS rankings and methodology, `mcgill.ca` and `umontreal.ca` for
+their own teaching-language information, and `uwaterloo.ca` for its own co-op options. This
+addition is not deployed until separately authorized. These sources do not support immigration
+law or eligibility claims; those claims still use official sources. TypeScript and SQL must agree;
+0105 preserves stored-ledger validity and the already-deployed exact interview exception in 0104.
+
 ## 14. Ownership model & the frozen-hash review
 
 There is no Codex lane (Anastasia, 2026-09-21). Whichever agent is on a task owns it end to end:
