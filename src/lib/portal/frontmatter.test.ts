@@ -180,6 +180,34 @@ fact_check_ledger: []`)
     }
   })
 
+  it('accepts university-carousel primary citations and refuses lookalikes and unsafe URLs', () => {
+    const replaceUrl = (url: string) => document().replace(
+      'https://www.ontario.ca/page/oinp-employer-job-offer-streams', url,
+    )
+    const citations = [
+      'https://www.topuniversities.com/world-university-rankings/methodology',
+      'https://www.mcgill.ca/undergraduate-admissions/apply/english-proficiency',
+      'https://llm.umontreal.ca/english/you-are/a-prospective-student-from-outside-quebec/',
+      'https://uwaterloo.ca/future-students/co-op',
+    ]
+    for (const url of citations) {
+      expect(parseContentFile(replaceUrl(url), 'universities.md').fact_check_ledger[0].source_url)
+        .toBe(url)
+    }
+    for (const host of ['topuniversities.com', 'mcgill.ca', 'umontreal.ca', 'uwaterloo.ca']) {
+      for (const url of [
+        `https://${host}.evil.example/source`,
+        `https://evil${host}/source`,
+        `https://someone@${host}/source`,
+        `http://${host}/source`,
+      ]) {
+        expect(() => parseContentFile(replaceUrl(url), 'universities.md'), url).toThrow()
+      }
+    }
+    expect(() => parseContentFile(replaceUrl('https://unreviewed-university.edu/source'), 'universities.md'))
+      .toThrow(/approved primary source/)
+  })
+
   it('rejects invalid, future, and unquoted checked dates', () => {
     expect(() => parseContentFile(document().replace('checked_at: "2026-07-18"', 'checked_at: "2026-02-31"'), 'p.md')).toThrow(/checked_at/)
     expect(() => parseContentFile(document().replace('checked_at: "2026-07-18"', 'checked_at: "2999-01-01"'), 'p.md')).toThrow(/future/)
