@@ -70,6 +70,47 @@ describe('ReviewVideoPlayer', () => {
     expect(props.report).toHaveBeenCalledWith(expect.objectContaining({ errorCode: 'stalled' }))
   })
 
+  it('refreshes an expired link after a prolonged stall without notifying the agency', async () => {
+    vi.useFakeTimers()
+    const props = setup({
+      preview: { ...preview, expiresAt: '2000-01-01T00:00:00.000Z' },
+      refresh: vi.fn(async () => true),
+    })
+    const video = screen.getByLabelText('Reel: video')
+    fireEvent.play(video)
+    fireEvent.waiting(video)
+    await act(async () => { vi.advanceTimersByTime(STALL_TIMEOUT_MS) })
+    expect(props.refresh).toHaveBeenCalledTimes(1)
+    expect(props.report).not.toHaveBeenCalled()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('reports link expiry when stall recovery cannot obtain fresh links', async () => {
+    vi.useFakeTimers()
+    const props = setup({ preview: { ...preview, expiresAt: '2000-01-01T00:00:00.000Z' } })
+    const video = screen.getByLabelText('Reel: video')
+    fireEvent.play(video)
+    fireEvent.waiting(video)
+    await act(async () => { vi.advanceTimersByTime(STALL_TIMEOUT_MS) })
+    expect(props.report).toHaveBeenCalledWith(expect.objectContaining({ errorCode: 'link_expired' }))
+  })
+
+  it.each(['pause', 'playing', 'timeUpdate'] as const)(
+    'does not report a recovered stall if %s arrives while refreshing', async (event) => {
+      vi.useFakeTimers()
+      let finishRefresh: (value: boolean) => void = () => {}
+      const props = setup({ refresh: vi.fn(() => new Promise<boolean>((resolve) => { finishRefresh = resolve })) })
+      const video = screen.getByLabelText('Reel: video')
+      fireEvent.play(video)
+      fireEvent.waiting(video)
+      await act(async () => { vi.advanceTimersByTime(STALL_TIMEOUT_MS) })
+      fireEvent[event](video)
+      await act(async () => { finishRefresh(false) })
+      expect(props.report).not.toHaveBeenCalled()
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    },
+  )
+
   it('does not wait for a stall before she presses play', () => {
     vi.useFakeTimers()
     const props = setup()
