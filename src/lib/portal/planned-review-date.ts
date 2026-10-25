@@ -7,10 +7,17 @@ function dateOnly(value: string): Date | null {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
-export function formatPlannedReviewDate(
+type PlannedReviewTiming = {
+  label: string
+  postingNote: string | null
+}
+
+// Review cards describe what the client needs to do now. A missed editorial date is
+// not a new posting commitment; the original date remains in the calendar record.
+export function getPlannedReviewTiming(
   plannedDate: string | null,
   todayIso: string,
-): string | null {
+): PlannedReviewTiming | null {
   if (!plannedDate) return null
   const planned = dateOnly(plannedDate)
   const today = dateOnly(todayIso)
@@ -24,8 +31,12 @@ export function formatPlannedReviewDate(
     timeZone: 'UTC', month: 'short', day: 'numeric',
   }).format(planned)
 
-  if (dayOffset < 0) return `Overdue · ${weekday}, ${monthDay}`
-  if (dayOffset === 0) return `Today · ${weekday}, ${monthDay}`
-  if (dayOffset === 1) return `Tomorrow · ${weekday}, ${monthDay}`
-  return `${weekday} · ${monthDay}`
+  if (dayOffset < 0) return {
+    label: 'Review overdue',
+    postingNote: 'After approval, this will be posted in the next available slot.',
+  }
+  const label = dayOffset === 0 ? `Today · ${weekday}, ${monthDay}`
+    : dayOffset === 1 ? `Tomorrow · ${weekday}, ${monthDay}`
+      : `${weekday} · ${monthDay}`
+  return { label, postingNote: null }
 }
