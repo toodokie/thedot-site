@@ -95,6 +95,14 @@ a.row:hover { padding-left: 6px; }
   line-height: 1.35;
   text-transform: uppercase;
 }
+.postingNote {
+  display: block;
+  margin-top: 6px;
+  color: var(--dot-graphite);
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 48ch;
+}
 .emptyRow {
   border-top: 1px solid var(--dot-hairline);
   padding: 15px 2px;

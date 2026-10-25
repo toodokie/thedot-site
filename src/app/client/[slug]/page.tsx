@@ -13,7 +13,7 @@ import { getReportViewedAt } from '@/lib/portal/report-views'
 import { reReviewContext } from '@/lib/portal/re-review'
 import { getCurrentReviewAssetsByItem } from '@/lib/portal/review-assets'
 import { contentReviewPackageReadiness } from '@/lib/portal/podcast-review'
-import { formatPlannedReviewDate } from '@/lib/portal/planned-review-date'
+import { getPlannedReviewTiming } from '@/lib/portal/planned-review-date'
 import WeekCalendar, { type WeekCalendarChip } from '@/components/portal/WeekCalendar'
 import CalendarLegend from '@/components/portal/CalendarLegend'
 import MarkSeen from './MarkSeen'
@@ -38,12 +38,13 @@ function Panel({ label, note, children }: { label: string; note?: string; childr
 // internal production gate. The fact_check field no longer renders here: it read as the
 // piece's stage (Anastasia, 2026-08-14). 'fact-checked' stays as the trust signal in the
 // review panel note and on the piece detail screen.
-function ContentRow({ it, slug, priority, note, plannedDay, stageChip }: {
+function ContentRow({ it, slug, priority, note, plannedDay, postingNote, stageChip }: {
   it: ContentRowType
   slug: string
   priority?: boolean
   note?: string
   plannedDay?: string | null
+  postingNote?: string | null
   stageChip?: string
 }) {
   const platforms = it.platforms || []
@@ -54,6 +55,7 @@ function ContentRow({ it, slug, priority, note, plannedDay, stageChip }: {
         {plannedDay && <span className={styles.plannedDay}>{plannedDay}</span>}
         <Text as="span" size="md" tone="black">{it.title}</Text>
         {note && <>{' '}<Text as="span" size="sm" tone="grey">({note})</Text></>}
+        {postingNote && <span className={styles.postingNote}>{postingNote}</span>}
         {(platforms.length > 0 || stageChip) && (
           <span className={styles.chipRow}>
             {platforms.map((p) => <span key={p} className={styles.chip}>{p}</span>)}
@@ -237,10 +239,12 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
               ) : (
                 reviewRows.map((it) => {
                   const reReview = reReviewByContentId.get(it.id)
+                  const timing = getPlannedReviewTiming(it.planned_date, todayIso)
                   // The chip answers "can I fully approve this yet?" (final approval opens
                   // only once the design is linked); the note keeps re-review context.
                   return <ContentRow key={it.id} it={it} slug={slug} priority
-                    plannedDay={formatPlannedReviewDate(it.planned_date, todayIso)}
+                    plannedDay={timing?.label}
+                    postingNote={timing?.postingNote}
                     stageChip={copyOnlyIds.has(it.id) ? 'copy ready · design coming' : 'ready to approve'}
                     note={reReview ? `updated after your feedback · v${it.version}` : undefined} />
                 })
