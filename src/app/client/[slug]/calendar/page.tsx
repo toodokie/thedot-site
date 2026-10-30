@@ -1,3 +1,4 @@
+import { isTemporaryReviewHold, REVIEW_HOLD_TIMING } from '@/lib/portal/temporary-review-hold'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getClientSession } from '@/lib/portal/auth'
@@ -144,6 +145,8 @@ export default async function Calendar({ params }: { params: Promise<{ slug: str
                 <span className={styles.listMain}>
                   <Text as="span" size="md" tone="black">{r.title}</Text>
                   <span className={styles.listChips}>
+                    {isTemporaryReviewHold(slug, r.content_id, r.client_state, r.planned_date)
+                      && <span className={styles.metaChip}>{REVIEW_HOLD_TIMING.label}</span>}
                     {(r.format || r.pillar) && <span className={styles.metaChip}>{[r.format, r.pillar].filter(Boolean).join(' · ')}</span>}
                     {r.platforms.map((p) => <span key={p} className={styles.metaChip}>{p}</span>)}
                   </span>

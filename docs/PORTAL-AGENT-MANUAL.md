@@ -601,6 +601,19 @@ the pieces table + 9-gate strip (`.gateCell` / `.gateDone/.gateOpen/.gateNa/.gat
 maps tones (done/open/na/muted/info/pending/scheduled/live/verified/failed/nudge) to the quiet-chip
 styles — reuse it for any admin status chip.
 
+### Temporary Kanset review backlog, October 30, 2026
+
+Anastasia asked to remove posting dates from four outstanding review packages while recorded
+Ask Kanset and Kanset Talks cuts continue every other day. Dates move through `portal-write
+plan-date`, using null for the held packages. The existing released copy and Maria's decision
+controls stay intact. `src/lib/portal/temporary-review-hold.ts` names the four agreed content IDs
+and supplies “Review overdue” on Overview, the piece header and the undated Calendar list.
+This is presentation only: it grants no approval, affects no other client or new undated piece,
+and stops applying after a decision or a new planned date. Provider publication and confirmed
+scheduling take precedence. Remove the scoped policy once that backlog is cleared; do not turn it
+into a general rule that every undated review is overdue. Recorded cuts use the existing audited,
+version-bound courtesy-release operation, never a fabricated Maria approval.
+
 ### 13.5 UI review discipline
 
 There is a UI/UX skill (`ui-ux-pro-max`) available; the design specs live in

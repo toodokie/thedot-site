@@ -14,6 +14,7 @@ import { reReviewContext } from '@/lib/portal/re-review'
 import { getCurrentReviewAssetsByItem } from '@/lib/portal/review-assets'
 import { contentReviewPackageReadiness } from '@/lib/portal/podcast-review'
 import { getPlannedReviewTiming } from '@/lib/portal/planned-review-date'
+import { isTemporaryReviewHold, REVIEW_HOLD_TIMING } from '@/lib/portal/temporary-review-hold'
 import WeekCalendar, { type WeekCalendarChip } from '@/components/portal/WeekCalendar'
 import CalendarLegend from '@/components/portal/CalendarLegend'
 import MarkSeen from './MarkSeen'
@@ -239,7 +240,8 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
               ) : (
                 reviewRows.map((it) => {
                   const reReview = reReviewByContentId.get(it.id)
-                  const timing = getPlannedReviewTiming(it.planned_date, todayIso)
+                  const timing = isTemporaryReviewHold(slug, it.content_id, it.state, it.planned_date)
+                    ? REVIEW_HOLD_TIMING : getPlannedReviewTiming(it.planned_date, todayIso)
                   // The chip answers "can I fully approve this yet?" (final approval opens
                   // only once the design is linked); the note keeps re-review context.
                   return <ContentRow key={it.id} it={it} slug={slug} priority
