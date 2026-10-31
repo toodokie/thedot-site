@@ -19,6 +19,7 @@ import { groupMediaByDestination, usesDestinationGroups, type DestinationKey } f
 import type { SignedReviewPreview } from '@/lib/portal/review-preview-core'
 import type { ScheduleRequestRow, ScheduleTargetRow } from '@/lib/portal/schedule'
 import type { ClientState } from '@/lib/portal/state'
+import { isTemporaryReviewHold, REVIEW_HOLD_TIMING } from '@/lib/portal/temporary-review-hold'
 import type { CoverInfo } from './panels/CoverImagePanel'
 
 // 'agency' (plan 5): the admin piece page shows Maria's page read-only beside the agency panel. It
@@ -320,9 +321,12 @@ export function deriveWorkspaceData(input: DeriveInput): WorkspaceData {
     seatRequestIds: new Set(input.seatRequestIds),
   })
 
-  const status = headerStatus({
+  const providerStatus = headerStatus({
     isPublished, publication: input.publication, schedule: input.schedule.targets, plannedDate: item.planned_date, layout,
   })
+  const status: HeaderStatus = providerStatus.kind === 'undated'
+    && isTemporaryReviewHold(input.slug, item.content_id, item.state, item.planned_date)
+    ? { kind: 'undated', keyFact: REVIEW_HOLD_TIMING.label } : providerStatus
   const active = input.schedule.requests.find((r) => ['pending', 'applying', 'partially_applied'].includes(r.status))
   const removalPending = input.requests.some((r) => r.request_type === 'archive' && ['pending', 'applying'].includes(r.status))
 

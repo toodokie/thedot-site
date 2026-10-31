@@ -57,6 +57,29 @@ function input(overrides: Partial<DeriveInput> = {}): DeriveInput {
 }
 
 describe('deriveWorkspaceData', () => {
+  it('shows the undated held review as overdue, then stops after approval or a new date', () => {
+    const held = { content_id: 'kanset-2026-10-ee-employer-nov3', planned_date: null }
+    expect(deriveWorkspaceData(input({ item: item(held) })).status).toEqual({ kind: 'undated', keyFact: 'Review overdue' })
+    expect(deriveWorkspaceData(input({ item: item({ ...held, state: 'approved' }) })).status.keyFact).toBe('No date yet')
+    expect(deriveWorkspaceData(input({ item: item({ ...held, planned_date: '2026-11-06' }) })).status.keyFact).toBe('Posts Fri Nov 6')
+    expect(deriveWorkspaceData(input({ slug: 'kanset-sandbox', item: item(held) })).status.keyFact).toBe('No date yet')
+  })
+
+  it('never replaces provider publication proof with the temporary overdue label', () => {
+    const held = item({ content_id: 'kanset-2026-10-ee-employer-nov3', planned_date: null })
+    const live = deriveWorkspaceData(input({ item: held, publication: [{
+      status: 'live', destination: 'instagram', live_url: 'https://www.instagram.com/p/live',
+      published_at: '2026-10-30T20:00:00Z',
+    } as never] }))
+    expect(live.status.kind).toBe('live')
+    expect(live.status.keyFact).toBe('Live')
+    const scheduled = deriveWorkspaceData(input({ item: held, schedule: { targets: [{
+      required: true, status: 'scheduled', destination: 'instagram', scheduled_at: '2026-11-06T20:00:00Z',
+    } as never], requests: [] } }))
+    expect(scheduled.status.kind).toBe('scheduled')
+    expect(scheduled.status.keyFact).toBe('Posts Fri Nov 6')
+  })
+
   it('lays out a reel with its preview, tabs and frame-level visual target', () => {
     const data = deriveWorkspaceData(input())
     expect(data.layout).toBe('vertical')
