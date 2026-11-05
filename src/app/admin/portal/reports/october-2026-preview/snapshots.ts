@@ -15,11 +15,11 @@ export const octoberSnapshots: ReportRow[] = [
     followers: null, viewers: comparison(1353, 1262), views: comparison(4102, 3723),
     interactions: comparison(249, 193), profile_visits: comparison(88, 132), messaging_contacts: comparison(1, 1),
     saves: null, comments: null, shares: null, views_reels: null, views_posts: null, views_stories: null,
-  }, 'Viewing and interaction grew. Profile visits fell, against a September total that included the event surge. October-end followers, saves, comments, shares and Instagram format-view detail were unavailable. The unusual final posting week is separated in the monthly review.'),
+  }, 'Viewing and interaction grew. Profile visits fell, against a September total that included the event surge. October-end followers and calendar-month saves, comments, shares and Instagram format-view detail remain unverified. The recovered post export has lifetime metrics, which cannot fill those monthly fields. The unusual final posting week is separated in the monthly review.'),
   snapshot('facebook', {
     followers: null, viewers: comparison(2809, 3272), views: comparison(5203, 6604),
     interactions: comparison(139, 225), messaging_contacts: comparison(1, 3), saves: null, comments: null, shares: null,
-  }, 'Viewing and interaction declined. Viewers is the native measure, rather than a newly verified Reach definition. October-end followers and separate saves, comments and shares were unavailable. Missing post detail prevents a new topic or format verdict.'),
+  }, 'Viewing and interaction declined. Viewers is the native measure, rather than a newly verified Reach definition. October-end followers and calendar-month saves, comments and shares remain unverified. Lifetime post counts are kept separate. The recovered lifetime post comparison supports keeping filmed answers; post ages and subjects differ, so it is descriptive rather than a controlled format test.'),
   snapshot('youtube', {
     followers: null, unique_viewers: comparison(1433, 754), views: comparison(4466, 2827),
     watch_time_hours: comparison(18.2777, 6.9749), net_subscribers: comparison(4, 5),

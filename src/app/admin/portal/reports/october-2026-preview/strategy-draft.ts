@@ -10,21 +10,21 @@ export const octoberStrategy = [
   {
     "id": "ad03e5b7-b670-40c2-b7a7-b87a1d7d736f",
     "title": "Use video for reach and carousels for reference",
-    "body": "Keep the established role of video for discovery and carousels as reference material, based on July through September. October's incomplete Meta post detail does not support changing that mix or claiming a new format result.",
+    "body": "Keep video for discovery and carousels for information people can refer back to. October included only two image or carousel posts, too few to change that role. Filmed answers continued to draw more views than graphic Reels; the comparison still includes different subjects and post ages.",
     "categoryLabel": "Content",
     "platformLabel": null
   },
   {
     "id": "3dd9982b-2aaa-4d49-9b81-e0dce117f5e8",
     "title": "Put the useful answer in the first six seconds",
-    "body": "Keep the useful point at the opening of short clips and the practical fact before the news label. This remains a production rule. October retention curves were not captured, so no improvement from that rule is claimed in this review.",
+    "body": "Put the useful point at the opening of short clips and the practical fact before the news label. Facebook’s export tells us how long people watched on average, but does not give us a fair comparison of the openings. Keep this approach; October has not established its effect.",
     "categoryLabel": "Content",
     "platformLabel": null
   },
   {
     "id": "b550b637-7d54-4805-ae9b-0d35ff1efb87",
     "title": "Use YouTube Shorts for discovery and the podcast for depth",
-    "body": "YouTube received 4,466 October views and 18.3 watch hours. Episode 4 supplied 6.8 hours, 37% of total watch time; Shorts supplied most views. Episode 4 opened quickly and kept its recorded opening. The approved teaser applies to slow openings, with Episode 5 the next planned use. Cover tests and episode-link routes need their own results before a winner or successful bridge is claimed.",
+    "body": "YouTube received 4,466 October views and 18.3 watch hours. Episode 4 supplied 6.8 hours, 37% of total watch time; Shorts supplied most views. Episode 4 opened quickly and kept its recorded opening. Its current native intro read shows 63% still watching around 30 seconds, an early observation on one episode. Its full 28-day review is due November 12; no causal opening claim is made. The approved teaser applies to slow openings, with Episode 5 the next planned use. Episode 4’s cover test ended with too few impressions to declare a winner, so the original cover stays. Episode 3’s first 28 days had only one view attributed to Related Shorts, out of 116 views; that does not establish a strong Shorts-to-episode route.",
     "categoryLabel": "Platform",
     "platformLabel": "YouTube"
   },
@@ -38,7 +38,7 @@ export const octoberStrategy = [
   {
     "id": "f4b501e1-ebee-46b1-a9d8-6ce327313d85",
     "title": "Lead with a filmed answer when one exists",
-    "body": "Keep the August/September practice: use an approved filmed answer when it answers the question, and animation for news, dates, numbers or process explanations. The incomplete October Meta post data cannot validate a new filmed-versus-animated result. The earlier matched-format test remains unscored in this review.",
+    "body": "Keep the August/September practice: use an approved filmed answer when it answers the question, and animation for news, dates, numbers or process explanations. Among posts published by October 21, median lifetime views were 190 filmed versus 69 graphic on Instagram, and 376 versus 63.5 on Facebook, across seven filmed and eight graphic Reels on each platform. Captured November 5, with different ages and subjects: this supports continuation, not a controlled format verdict. The earlier matched-format test was not recovered as a valid same-age comparison.",
     "categoryLabel": "Content",
     "platformLabel": null
   },
@@ -59,7 +59,7 @@ export const octoberStrategy = [
   {
     "id": "4754685f-728b-4155-8fd4-01b62ba30658",
     "title": "Film employer answers at the next shoot",
-    "body": "Three or four short employer answers would let us revisit employer topics on camera. A new batch is not confirmed in October, so this remains an open suggestion for a future shoot. LinkedIn employer documents continue separately.",
+    "body": "The new Set 6 OINP employer answer was used on October 27. Its two source versions answer the same question, so they do not complete the suggested batch of three or four different employer answers. Keep employer answers in the filmed mix when approved source is available; LinkedIn guides continue separately.",
     "categoryLabel": "Content",
     "platformLabel": null
   }

@@ -11,7 +11,7 @@ const metrics = [
 ]
 const channels = [
   { name: 'Instagram', rows: [['Viewers', '1,262', '1,353'], ['Interactions', '193', '249'], ['Profile visits', '132', '88']], note: 'More viewing and interaction. September profile visits included a surge after your event, so the fall in visits needs that context.' },
-  { name: 'Facebook', rows: [['Viewers', '3,272', '2,809'], ['Interactions', '225', '139'], ['Messaging contacts', '3', '1']], note: 'Both viewing and interaction fell. The native measure is Viewers. Missing post detail limits what we can say about individual subjects and formats.' },
+  { name: 'Facebook', rows: [['Viewers', '3,272', '2,809'], ['Interactions', '225', '139'], ['Messaging contacts', '3', '1']], note: 'Both viewing and interaction fell. Reels supplied 4,916 of the 5,203 views. The recovered post export supports the descriptive comparison below.' },
   { name: 'YouTube', rows: [['Unique viewers', '754', '1,433'], ['Hours watched', '7.0', '18.3'], ['Net new subscribers', '5', '4']], note: 'Views and total watch time grew. Net subscriber growth was slightly lower. Search brought 1,097 views, up from 765.' },
   { name: 'LinkedIn', rows: [['Content clicks', '121', '136'], ['Page views', '28', '88']], note: 'More visibility and content clicks, including document opens and page turns. No net follower growth or custom-button clicks were recorded.' },
   { name: 'Website', rows: [['Visits', '430', '472'], ['Form submissions', '17', '10'], ['Site button clicks', '41', '16']], note: 'More traffic coincided with fewer forms. These are site-wide actions, not bookings or consultations attributed to social media.' },
@@ -68,6 +68,13 @@ export default function OctoberReportBody({ backHref, backLabel }: { backHref: s
           <article className={styles.finding}><h3>Website activity moved differently</h3><ul><li>October 25–31: <strong>124 visits</strong>, including 11 from social sources</li><li>October 18–24: 109 visits, none attributed to social</li><li>The final week had October&apos;s highest website visits</li></ul><p>These are the website&apos;s Sunday-to-Saturday weeks, a separate comparison. The final week was not uniformly weaker.</p></article>
         </div>
       </section>
+      <section className={styles.section} aria-labelledby="oct-formats">
+        <h2 id="oct-formats">Filmed answers kept their role</h2>
+        <div className={`${styles.findings} ${sept.pair}`}>
+          <article className={styles.finding}><h3>More views per filmed Reel</h3><ul><li>Instagram median views: <strong>190 filmed · 69 graphic</strong></li><li>Facebook median views: <strong>376 filmed · 63.5 graphic</strong></li><li>Seven filmed and eight graphic Reels per platform, all published by October 21.</li></ul></article>
+          <article className={styles.finding}><h3>A reason to keep the approach</h3><p>These are lifetime views captured November 5, with every included post at least 15 calendar days old. Ages and subjects still differ. The pattern supports continuing filmed answers, rather than proving that filming alone caused the difference. Two static posts are too few to reset the reference-post role.</p></article>
+        </div>
+      </section>
       <section className={styles.section} aria-labelledby="oct-findings">
         <h2 id="oct-findings">What stood out</h2>
         <div className={`${styles.findings} ${sept.pair}`}>
@@ -79,22 +86,22 @@ export default function OctoberReportBody({ backHref, backLabel }: { backHref: s
         <h2 id="oct-follow-through">Following up on September</h2>
         <div className={`${styles.findings} ${sept.pair}`}>
           <article className={styles.finding}><h3>A quicker episode opening</h3><ul><li>Episode 4 reaches its topic at 0:11 and its first question at 0:26, so it kept its recorded opening.</li><li>The opening teaser was approved on October 6 for episodes that need it. Episode 5 is the next planned use; October did not test its effect.</li></ul></article>
-          <article className={styles.finding}><h3>Clearer covers</h3><p>Three Episode 4 cover variants were prepared, including closer portraits. The native YouTube test result was not captured in this review, so there is no cover winner to report.</p></article>
-          <article className={styles.finding}><h3>The two longer YouTube cuts</h3><ul><li>Published October 7 and 13, at 4:33 and 6:20, rather than both within the suggested 5–10 minutes.</li><li>They received 45 and 20 October views. Those are unequal-age calendar-month figures, not the promised 28-day test.</li><li>The first 28-day read is outstanding; the second is due November 10. The experiment has no verdict yet.</li></ul></article>
+          <article className={styles.finding}><h3>Clearer covers</h3><p>The three Episode 4 covers ran in YouTube’s test from October 15 to 29. YouTube reported too few impressions to declare a winner. The original cover remains in use; there is no evidence yet to choose a new cover style.</p></article>
+          <article className={styles.finding}><h3>The two longer YouTube cuts</h3><ul><li>Published October 7 and 13, at 4:33 and 6:20, rather than both within the suggested 5–10 minutes.</li><li>The first cut’s first 28 calendar days brought 47 views, including 14 from search, and net growth of one subscriber. YouTube’s average view was 56 seconds on a 4:33 video.</li><li>The second cut reaches its 28-day review on November 10. The first result is small; wait for both before deciding whether to repeat the format.</li></ul></article>
           <article className={styles.finding}><h3>Personal sharing at launch</h3><p>Personal sharing was suggested, but it was not verified in this review. October&apos;s viewing cannot be attributed to that suggestion.</p></article>
-          <article className={styles.finding}><h3>New filmed employer answers</h3><p>A new batch was suggested for the next shoot. Its delivery in October is not verified, so it remains an open suggestion. LinkedIn employer documents continued; they do not replace that filming request.</p></article>
-          <article className={styles.finding}><h3>The measurement still owed</h3><ul><li>The episode-link route and cover tests need their own results; channel-wide growth does not measure them.</li><li>The October posting-time test cannot be scored from the current account totals and incomplete Meta post detail.</li><li>The booking-source field and completed-consultation count remain unverified. Website forms do not close that gap.</li></ul></article>
+          <article className={styles.finding}><h3>New filmed employer answers</h3><p>A new Set 6 employer answer, about OINP requirements for multiple workers, was published October 27. The source includes two versions of that same question, not two distinct answers. This is progress, but it does not establish completion of the suggested three or four different employer answers.</p></article>
+          <article className={styles.finding}><h3>Test results and remaining gaps</h3><ul><li>Episode 3’s first 28 days brought 116 views, with just one attributed to Related Shorts and ten to external sources. This does not show a strong Shorts-to-episode route; cover tests did not establish a winner.</li><li>The posting-time test remains inconclusive. The recovered post figures cover different ages, subjects and formats, so they do not isolate the effect of posting hour.</li><li>The booking-source field and completed-consultation count remain unverified. Website forms do not close that gap.</li></ul></article>
         </div>
       </section>
       <section className={styles.section} aria-labelledby="oct-forward">
         <h2 id="oct-forward">What to carry forward</h2>
         <div className={styles.summaryGrid}>
           <article><h3>Keep the existing practices</h3><p>Employer documents on LinkedIn and searchable process titles on YouTube remain useful. October supports continuing them.</p></article>
-          <article><h3>Keep the final week in context</h3><p>Retain the full month and its separate week comparison. Missing Meta post detail makes this a poor month to reset the topic or format mix.</p></article>
+          <article><h3>Keep the final week in context</h3><p>Retain the full month and its separate week comparison. The recovered post comparison supports keeping filmed answers. Different post ages and a small static-post sample do not justify a new topic quota or format mix.</p></article>
           <article><h3>Watch the step after viewing</h3><p>Read website forms alongside visibility. The current data cannot identify how many social viewers became qualified inquiries or consultations.</p></article>
         </div>
       </section>
-      <footer className={styles.footer}>Numbers from each platform&apos;s own analytics, September 1–30 and October 1–31, 2026, collected November 5. October has one more day. Meta post exports were unavailable, so no new Instagram or Facebook topic, format or retention verdict is made. October-end follower stocks were not captured; current November counts are not substituted. The Dot Creative · October 2026 monthly review</footer>
+      <footer className={styles.footer}>Numbers from each platform&apos;s own analytics, September 1–30 and October 1–31, 2026, collected November 5. October has one more day. Recovered Meta post exports contain lifetime metrics, separate from the monthly totals. The format comparison uses posts published by October 21 and is descriptive, not a controlled test. YouTube follow-up tests use their named first-28-day windows; Episode 4’s cover test ran October 15–29. October-end follower stocks were not captured; current November counts are not substituted. The Dot Creative · October 2026 monthly review</footer>
     </article>
   )
 }
