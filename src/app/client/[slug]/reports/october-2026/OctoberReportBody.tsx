@@ -75,6 +75,17 @@ export default function OctoberReportBody({ backHref, backLabel }: { backHref: s
           <article className={styles.finding}><h3>Employer documents and website articles kept being used</h3><ul><li>The two October employer documents on LinkedIn had 24 and 36 lifetime clicks by November 5, compared with 8 for the episode-launch video. The posts have different ages, so this is not a controlled format test.</li><li>The new episode article received 10 pageviews. The September article received 14 and August&apos;s received 11 during October.</li><li>Website contact-page views fell from 105 to 97.</li></ul></article>
         </div>
       </section>
+      <section className={styles.section} aria-labelledby="oct-follow-through">
+        <h2 id="oct-follow-through">Following up on September</h2>
+        <div className={`${styles.findings} ${sept.pair}`}>
+          <article className={styles.finding}><h3>A quicker episode opening</h3><ul><li>Episode 4 reaches its topic at 0:11 and its first question at 0:26, so it kept its recorded opening.</li><li>The opening teaser was approved on October 6 for episodes that need it. Episode 5 is the next planned use; October did not test its effect.</li></ul></article>
+          <article className={styles.finding}><h3>Clearer covers</h3><p>Three Episode 4 cover variants were prepared, including closer portraits. The native YouTube test result was not captured in this review, so there is no cover winner to report.</p></article>
+          <article className={styles.finding}><h3>The two longer YouTube cuts</h3><ul><li>Published October 7 and 13, at 4:33 and 6:20, rather than both within the suggested 5–10 minutes.</li><li>They received 45 and 20 October views. Those are unequal-age calendar-month figures, not the promised 28-day test.</li><li>The first 28-day read is outstanding; the second is due November 10. The experiment has no verdict yet.</li></ul></article>
+          <article className={styles.finding}><h3>Personal sharing at launch</h3><p>Personal sharing was suggested, but it was not verified in this review. October&apos;s viewing cannot be attributed to that suggestion.</p></article>
+          <article className={styles.finding}><h3>New filmed employer answers</h3><p>A new batch was suggested for the next shoot. Its delivery in October is not verified, so it remains an open suggestion. LinkedIn employer documents continued; they do not replace that filming request.</p></article>
+          <article className={styles.finding}><h3>The measurement still owed</h3><ul><li>The episode-link route and cover tests need their own results; channel-wide growth does not measure them.</li><li>The October posting-time test cannot be scored from the current account totals and incomplete Meta post detail.</li><li>The booking-source field and completed-consultation count remain unverified. Website forms do not close that gap.</li></ul></article>
+        </div>
+      </section>
       <section className={styles.section} aria-labelledby="oct-forward">
         <h2 id="oct-forward">What to carry forward</h2>
         <div className={styles.summaryGrid}>
