@@ -1,0 +1,8 @@
+.wide { max-width: 1440px; }
+.weekTable { width: 100%; margin: 18px 0; border-collapse: collapse; color: var(--report-copy); font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+.weekTable caption { margin-bottom: 10px; text-align: left; color: var(--report-muted); font-size: 0.78rem; }
+.weekTable th, .weekTable td { padding: 10px 6px; border-bottom: 1px solid var(--report-rule); text-align: right; }
+.weekTable th:first-child { padding-left: 0; text-align: left; }
+.weekTable th { font-weight: 600; }
+.weekTable small { display: inline-block; color: var(--report-muted); }
+@media (max-width: 480px) { .weekTable { font-size: 0.78rem; } .weekTable th, .weekTable td { padding-inline: 3px; } }

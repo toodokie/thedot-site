@@ -1,0 +1,5 @@
+.notice { margin: 16px; padding: 16px 20px; border: 1px solid var(--dot-hairline); border-left: 6px solid var(--dot-yellow); background: var(--dot-cream); color: var(--dot-black); font-family: var(--dot-font-text); }
+.notice p { margin: 0 0 10px; line-height: 1.5; }
+.nav { display: flex; flex-wrap: wrap; gap: 12px 24px; }
+.nav a { color: inherit; text-underline-offset: 4px; }
+.nav a[aria-current='page'] { font-weight: 700; }
