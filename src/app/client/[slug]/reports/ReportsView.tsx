@@ -21,7 +21,7 @@ const METRIC_LABELS: Record<string, string> = {
   views: 'Views',
   comments: 'Comments',
   shares: 'Shares',
-  messaging_contacts: 'Message inquiries',
+  messaging_contacts: 'Messaging contacts',
   views_reels: 'Reel views',
   views_posts: 'Post views',
   views_stories: 'Story views',

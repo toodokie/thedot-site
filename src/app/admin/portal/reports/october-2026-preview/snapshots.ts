@@ -30,8 +30,8 @@ export const octoberSnapshots: ReportRow[] = [
     page_views: comparison(88, 28), custom_button_clicks: 0, interactions: comparison(6, 5), net_followers: 0,
   }, 'Impressions and content clicks increased. Clicks include opening and paging through documents, not only website visits. No net follower growth or custom-button clicks were recorded. October-end followers and the prior unique-visitor total were unavailable.'),
   snapshot('website', {
-    sessions: comparison(472, 430), reach: comparison(430, 409), views: comparison(816, 765),
+    sessions: comparison(472, 430), reach: comparison(430, 373), views: comparison(816, 765),
     social_referral_visits: comparison(19, 8), contact_page_views: comparison(97, 105),
     news_article_views: 10, form_submissions: comparison(10, 17), button_clicks: comparison(16, 41),
-  }, 'More visits coincided with fewer site-wide form submissions. Social supplied 19 visits: Facebook 17 and Instagram 2. The new article received 10 pageviews. Forms and button clicks are not completed bookings or consultations attributed to social.'),
+  }, 'More visits coincided with fewer site-wide form submissions. September unique visitors were rechecked on November 5: 373, replacing the previously captured 409 for this comparison. Social supplied 19 visits: Facebook 17 and Instagram 2. The new article received 10 pageviews. Forms and button clicks are not completed bookings or consultations attributed to social.'),
 ]

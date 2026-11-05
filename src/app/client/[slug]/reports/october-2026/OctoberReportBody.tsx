@@ -63,7 +63,7 @@ export default function OctoberReportBody({ backHref, backLabel }: { backHref: s
               <tr><th scope="row">Facebook</th><td>1,447</td><td>705 <small>(-51%)</small></td></tr>
               <tr><th scope="row">YouTube</th><td>850</td><td>251 <small>(-70%)</small></td></tr>
             </tbody></table>
-            <p>These totals include older posts. They do not isolate the effects of posting frequency, content mix or distribution.</p>
+            <p>October 19–23 was the strongest full weekday week on Instagram and Facebook. Instagram’s final week still exceeded October 5–9 (591 views). These account totals include older posts and do not isolate the effects of posting frequency, content mix or distribution.</p>
           </article>
           <article className={styles.finding}><h3>Website activity moved differently</h3><ul><li>October 25–31: <strong>124 visits</strong>, including 11 from social sources</li><li>October 18–24: 109 visits, none attributed to social</li><li>The final week had October&apos;s highest website visits</li></ul><p>These are the website&apos;s Sunday-to-Saturday weeks, a separate comparison. The final week was not uniformly weaker.</p></article>
         </div>
