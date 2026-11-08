@@ -60,14 +60,15 @@
   padding: 20px 22px;
   margin-bottom: 24px;
 }
-.panelHead { margin: 0 0 2px; }
+.panelHead { margin: 0 0 2px; font: inherit; }
+.panelHead > span { color: var(--dot-grey-accessible, var(--dot-graphite)); }
 
 /* small clarifying line under a panel label (whose action a bucket waits on) */
 .panelNote {
   margin: 2px 0 8px;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--dot-grey);
+  color: var(--dot-grey-accessible, var(--dot-graphite));
   max-width: 48ch;
 }
 
@@ -174,3 +175,9 @@ a.row:hover { padding-left: 6px; }
 @media (prefers-reduced-motion: reduce) {
   a.row { transition: none; }
 }
+
+/* Review actions take priority over their supporting history. Native disclosure stays keyboard usable. */
+.decisionNote { margin: 8px 0 0; font-size: 14px; line-height: 1.5; color: var(--dot-graphite); }
+.proposalReply { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin-top: 8px; overflow-wrap: anywhere; }
+.activityDisclosure > summary { min-height: 44px; padding-block: 12px; cursor: pointer; color: var(--dot-graphite); font-size: 14px; line-height: 1.5; }
+.activityDisclosure > summary:focus-visible { outline: 2px solid var(--dot-black); outline-offset: 3px; }
