@@ -13,7 +13,7 @@ const channels = [
   { name: 'Instagram', rows: [['Viewers', '1,262', '1,353'], ['Interactions', '193', '249'], ['Profile visits', '132', '88']], note: 'More viewing and interaction. September profile visits included a surge after your event, so the fall in visits needs that context.' },
   { name: 'Facebook', rows: [['Viewers', '3,272', '2,809'], ['Interactions', '225', '139'], ['Messaging contacts', '3', '1']], note: 'Both viewing and interaction fell. Reels supplied 4,916 of the 5,203 views. The recovered post export supports the descriptive comparison below.' },
   { name: 'YouTube', rows: [['Unique viewers', '754', '1,433'], ['Hours watched', '7.0', '18.3'], ['Net new subscribers', '5', '4']], note: 'Views and total watch time grew. Net subscriber growth was slightly lower. Search brought 1,097 views, up from 765.' },
-  { name: 'LinkedIn', rows: [['Content clicks', '121', '136'], ['Page views', '28', '88']], note: 'More visibility and content clicks, including document opens and page turns. No net follower growth or custom-button clicks were recorded.' },
+  { name: 'LinkedIn', rows: [['Content clicks', '121', '136'], ['Page views', '28', '88'], ['Unique visitors', '13', '21']], note: 'More visibility and content clicks, including document opens and page turns. No net follower growth or custom-button clicks were recorded.' },
   { name: 'Website', rows: [['Visits', '430', '472'], ['Form submissions', '17', '10'], ['Site button clicks', '41', '16']], note: 'More traffic coincided with fewer forms. These are site-wide actions, not bookings or consultations attributed to social media.' },
 ]
 
@@ -36,6 +36,7 @@ export default function OctoberReportBody({ backHref, backLabel }: { backHref: s
       </section>
       <section className={styles.section} aria-labelledby="oct-channels">
         <h2 id="oct-channels">Your channels · September → October</h2>
+        <p className={styles.pathIntro}>September 1–30 → October 1–31, 2026. Each figure covers activity across the account during that calendar month, including activity on older content. These are monthly totals; October has one more day.</p>
         <div className={styles.metricGrid}>
           {metrics.map(([label, before, after, change]) => <div className={styles.metricCell} key={label}>
             <span className={styles.metricLabel}>{label}</span>
@@ -101,7 +102,7 @@ export default function OctoberReportBody({ backHref, backLabel }: { backHref: s
           <article><h3>Watch the step after viewing</h3><p>Read website forms alongside visibility. The current data cannot identify how many social viewers became qualified inquiries or consultations.</p></article>
         </div>
       </section>
-      <footer className={styles.footer}>Numbers from each platform&apos;s own analytics, September 1–30 and October 1–31, 2026, collected November 5. October has one more day. Recovered Meta post exports contain lifetime metrics, separate from the monthly totals. The format comparison uses posts published by October 21 and is descriptive, not a controlled test. YouTube follow-up tests use their named first-28-day windows; Episode 4’s cover test ran October 15–29. October-end follower stocks were not captured; current November counts are not substituted. The Dot Creative · October 2026 monthly review</footer>
+      <footer className={styles.footer}>Numbers from each platform&apos;s own analytics, September 1–30 and October 1–31, 2026, collected November 5, with LinkedIn visitor totals rechecked November 8. October has one more day. Recovered Meta post exports contain lifetime metrics, separate from the monthly totals. The format comparison uses posts published by October 21 and is descriptive, not a controlled test. YouTube follow-up tests use their named first-28-day windows; Episode 4’s cover test ran October 15–29. October-end follower stocks were not captured; current November counts are not substituted. The Dot Creative · October 2026 monthly review</footer>
     </article>
   )
 }
