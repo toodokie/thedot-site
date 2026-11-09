@@ -17,11 +17,11 @@ export const octoberSnapshots: ReportRow[] = [
     followers: value(null), reach: value(null), viewers: comparison(1353, 1262), views: comparison(4102, 3723),
     interactions: comparison(249, 193), profile_visits: comparison(88, 132), messaging_contacts: comparison(1, 1),
     saves: value(null), comments: value(null), shares: value(null), views_reels: value(null), views_posts: value(null), views_stories: value(null),
-  }, 'Views rose 10% and interactions rose 29%. Profile visits fell from 132 to 88; September included the event surge. The monthly report examines the unusual final posting week separately.'),
+  }, 'Views rose 10% and interactions rose 29%. Profile visits fell from 132 to 88; September included the event surge. Posting was less regular in the final week, which may have affected social performance.'),
   snapshot('facebook', {
     followers: value(null), reach: value(null), viewers: comparison(2809, 3272), views: comparison(5203, 6604),
     interactions: comparison(139, 225), messaging_contacts: comparison(1, 3), saves: value(null), comments: value(null), shares: value(null),
-  }, 'Views fell 21% and interactions fell 38%. Filmed answers had higher median lifetime views than graphic Reels in the recovered post comparison. Different post ages and subjects limit that comparison; the monthly report gives the details and separates the unusual final week.'),
+  }, 'Views fell 21% and interactions fell 38%. Filmed answers had higher median lifetime views than graphic Reels in the recovered post comparison. Different post ages and subjects limit that comparison. Posting was less regular in the final week, which may have affected social performance.'),
   snapshot('youtube', {
     followers: value(null), reach: comparison(1433, 768), views: comparison(4466, 2804),
     watch_time_hours: comparison(18.278, 6.9659), net_subscribers: comparison(4, 5),
@@ -54,3 +54,5 @@ export const octoberMeasurementNotes = [
 ]
 
 export const octoberMetricLabels = { youtube: { avg_view_duration_seconds: 'Watch time per view (seconds)' } }
+
+export const octoberOverviewDescription = 'More video viewing, fewer website form submissions. Posting was less regular in the final week of October, which may have affected social performance. The full-month figures include that week; the detailed report examines it separately.'

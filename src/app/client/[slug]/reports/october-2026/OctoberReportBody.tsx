@@ -30,7 +30,7 @@ export default function OctoberReportBody({ backHref, backLabel }: { backHref: s
         <h2 id="oct-glance">October at a glance</h2>
         <div className={styles.summaryGrid}>
           <article><h3>YouTube grew most</h3><ul><li>Views rose 59% to <strong>4,466</strong></li><li>18.3 hours watched, up from 7.0</li><li>1,097 views came through YouTube search</li></ul></article>
-          <article><h3>Instagram rose, Facebook fell</h3><ul><li>Instagram views +10%, interactions +29%</li><li>Facebook views -21%, interactions -38%</li><li>The unusual final week needs a separate reading</li></ul></article>
+          <article><h3>Instagram rose, Facebook fell</h3><ul><li>Instagram views +10%, interactions +29%</li><li>Facebook views -21%, interactions -38%</li><li>Posting was less regular in the final week, which may have affected social performance.</li></ul></article>
           <article><h3>More visits, fewer forms</h3><ul><li>Website visits 430 → <strong>472</strong></li><li>Form submissions 17 → <strong>10</strong></li><li>Visits from social media 8 → 19</li></ul></article>
         </div>
       </section>
@@ -54,7 +54,7 @@ export default function OctoberReportBody({ backHref, backLabel }: { backHref: s
         </div>
       </section>
       <section className={styles.section} aria-labelledby="oct-week">
-        <h2 id="oct-week">The final week needs its own reading</h2>
+        <h2 id="oct-week">Posting changed in the final week</h2>
         <p className={styles.pathIntro}>The last week followed a different posting rhythm. It stays in the full-month totals, but it should not be treated as an ordinary week when judging topics or formats.</p>
         <div className={`${styles.findings} ${sept.pair}`}>
           <article className={styles.finding}>
