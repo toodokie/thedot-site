@@ -14,7 +14,7 @@ import { reReviewContext } from '@/lib/portal/re-review'
 import { getCurrentReviewAssetsByItem } from '@/lib/portal/review-assets'
 import { contentReviewPackageReadiness } from '@/lib/portal/podcast-review'
 import { getPlannedReviewTiming } from '@/lib/portal/planned-review-date'
-import { isTemporaryReviewHold, REVIEW_HOLD_TIMING } from '@/lib/portal/temporary-review-hold'
+import { groupReviewQueue } from '@/lib/portal/review-queue'
 import WeekCalendar, { type WeekCalendarChip } from '@/components/portal/WeekCalendar'
 import CalendarLegend from '@/components/portal/CalendarLegend'
 import MarkSeen from './MarkSeen'
@@ -26,7 +26,7 @@ import styles from './overview.module.css'
 function Panel({ label, note, children }: { label: string; note?: string; children: React.ReactNode }) {
   return (
     <section className={styles.panel}>
-      <div className={styles.panelHead}><Eyebrow tone="grey">{label}</Eyebrow></div>
+      <h2 className={styles.panelHead}><Eyebrow tone="grey">{label}</Eyebrow></h2>
       {note && <p className={styles.panelNote}>{note}</p>}
       {children}
     </section>
@@ -108,19 +108,12 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
     Boolean(lastSeen) && a.created_at > (lastSeen as string) && a.actor_name !== session.name
   // A fact-checked released copy can be available during the plan-direction phase,
   // before a design exists. It is deliberately NOT a final package approval ask.
-  const needs = reviewCandidates.filter((item) => contentReviewPackageReadiness(
-    item, reviewAssetsByItem.get(item.id) ?? [],
-  ).ready)
   const copyReady = reviewCandidates.filter((item) => !contentReviewPackageReadiness(
     item, reviewAssetsByItem.get(item.id) ?? [],
   ).ready)
-  // One date-ordered review list (Anastasia, 2026-08-12): a bucket-ordered list read as
-  // 19 -> 14 -> 17 and hid the most-ready piece mid-list. Package completeness stays
-  // visible as the per-row note; undated rows sink to the end.
   const copyOnlyIds = new Set(copyReady.map((item) => item.id))
-  const reviewRows = [...needs, ...copyReady].sort((a, b) =>
-    (a.planned_date ?? '9999-12-31').localeCompare(b.planned_date ?? '9999-12-31')
-    || a.content_id.localeCompare(b.content_id))
+  const todayIso = torontoTodayIso()
+  const { next: nextReviews, overdue: overdueReviews } = groupReviewQueue(reviewCandidates, slug, todayIso)
   const reReviewByContentId = new Map(items.flatMap((item) => {
     const context = reReviewContext(item.version, item.state, item.current_decision,
       requests.filter((request) => request.content_id === item.id))
@@ -155,14 +148,23 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
   const inProgress = items.filter((i) => !BUCKETED_STATES.has(i.state))
   const communication = activity.filter((a) => a.event_type === 'meeting_email_note_added')
   const firstName = session.name ? session.name.split(' ')[0] : ''
-  const planWaiting = openPlans.length > 0
   const awaitingProposals = proposals.filter((proposal) => proposal.status === 'awaiting_decision')
   const latestProposalReply = new Map<string, { author_name: string; body: string }>()
   for (const message of proposalMessages) {
     if (message.author_type === 'anastasia') latestProposalReply.set(message.proposal_id, message)
   }
-  const approvalCount = needs.length + copyReady.length + openPlans.length + awaitingProposals.length
-  const todayIso = torontoTodayIso()
+  const reviewCount = reviewCandidates.length
+  const otherDecisionCount = openPlans.length + awaitingProposals.length
+  const approvalCount = reviewCount + otherDecisionCount
+  const renderReviewRow = (it: ContentRowType, overdue = false) => {
+    const reReview = reReviewByContentId.get(it.id)
+    const timing = overdue ? null : getPlannedReviewTiming(it.planned_date, todayIso)
+    return <ContentRow key={it.id} it={it} slug={slug} priority
+      plannedDay={timing?.label}
+      stageChip={it.format === 'editorial_brief' ? 'guidance needed'
+        : copyOnlyIds.has(it.id) ? 'copy ready · design coming' : 'ready to approve'}
+      note={reReview ? `updated after your feedback · v${it.version}` : undefined} />
+  }
   const calendarDays: Record<string, WeekCalendarChip[]> = {}
   for (const row of schedule) {
     if (!row.planned_date) continue
@@ -206,16 +208,34 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
           <Text size="lg" tone="graphite">
             {approvalCount === 0
               ? "You're all caught up."
-              : <><span className={styles.statusCount}>{approvalCount}</span> waiting for you.</>}
+              : reviewCount > 0
+                ? <><span className={styles.statusCount}>{reviewCount}</span> {reviewCount === 1 ? "piece needs" : "pieces need"} your review.</>
+                : "No pieces awaiting your review."}
           </Text>
+          {otherDecisionCount > 0 && <p className={styles.decisionNote}>
+            Plans and requests are listed separately below.
+          </p>}
         </div>
 
         <div className={styles.grid}>
           <div>
-            <Panel
-              label="Waiting on review"
-              note="Review fact-checked copy now. Final approval stays closed until its design is linked."
-            >
+            {nextReviews.length > 0 && (
+              <Panel label={`Review next (${nextReviews.length})`} note="Upcoming and newly prepared pieces.">
+                {nextReviews.map(it => renderReviewRow(it))}
+              </Panel>
+            )}
+            {overdueReviews.length > 0 && (
+              <Panel label={`Review overdue (${overdueReviews.length})`}
+                note="These still need your review. After approval, posting moves to the next available slot.">
+                {overdueReviews.map(it => renderReviewRow(it, true))}
+              </Panel>
+            )}
+            {reviewCount === 0 && (
+              <Panel label="Content reviews">
+                <div className={styles.emptyRow}><Text size="md" tone="graphite">No pieces are waiting on your review right now.</Text></div>
+              </Panel>
+            )}
+            {otherDecisionCount > 0 && <Panel label={`Plans and requests (${otherDecisionCount})`}>
               {openPlans.map(({ cycle }) => (
                 <Link key={cycle.id} className={styles.row} href={`/client/${encodeURIComponent(slug)}/plan`}>
                   <span className={styles.marker}><Dot fill="yellow" size={8} /></span>
@@ -229,29 +249,13 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
                 href={`/client/${encodeURIComponent(slug)}/requests/proposals/${encodeURIComponent(proposal.proposal_key)}`}>
                 <span className={styles.marker}><Dot fill="yellow" size={8} /></span><span className={styles.rowMain}>
                   <Text as="span" size="md" tone="black">{proposal.title}</Text>
-                  <span className={styles.chipRow}><span className={styles.chip}>proposal</span><span className={styles.chip}>your decision</span></span>
-                  {latestProposalReply.get(proposal.id) && <Text as="span" size="sm" tone="grey">
+                  <span className={styles.chipRow}><span className={styles.chip}>proposal</span></span>
+                  {latestProposalReply.get(proposal.id) && <Text as="span" size="sm" tone="grey" className={styles.proposalReply}>
                     Latest reply from {latestProposalReply.get(proposal.id)?.author_name}: {latestProposalReply.get(proposal.id)?.body}
                   </Text>}
                 </span>
               </Link>)}
-              {needs.length === 0 && copyReady.length === 0 && !planWaiting && awaitingProposals.length === 0 ? (
-                <div className={styles.emptyRow}><Text size="md" tone="graphite">Nothing is waiting on your review right now.</Text></div>
-              ) : (
-                reviewRows.map((it) => {
-                  const reReview = reReviewByContentId.get(it.id)
-                  const timing = isTemporaryReviewHold(slug, it.content_id, it.state, it.planned_date)
-                    ? REVIEW_HOLD_TIMING : getPlannedReviewTiming(it.planned_date, todayIso)
-                  // The chip answers "can I fully approve this yet?" (final approval opens
-                  // only once the design is linked); the note keeps re-review context.
-                  return <ContentRow key={it.id} it={it} slug={slug} priority
-                    plannedDay={timing?.label}
-                    postingNote={timing?.postingNote}
-                    stageChip={copyOnlyIds.has(it.id) ? 'copy ready · design coming' : 'ready to approve'}
-                    note={reReview ? `updated after your feedback · v${it.version}` : undefined} />
-                })
-              )}
-            </Panel>
+            </Panel>}
 
             {upcomingPlans.length > 0 && (
               <Panel label="Coming up" note="These are the next weeks on our radar. We will ask for your approval once each full plan is ready.">
@@ -301,6 +305,8 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
             </>
             </Panel>
             <Panel label="Activity">
+              <details className={styles.activityDisclosure}>
+                <summary>Show recent updates</summary>
               {activity.length === 0 ? (
                 <div className={styles.emptyRow}><Text size="md" tone="graphite">No activity yet.</Text></div>
               ) : (
@@ -318,6 +324,7 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
                   </div>
                 ))
               )}
+              </details>
             </Panel>
 
             <Panel label="Communication">

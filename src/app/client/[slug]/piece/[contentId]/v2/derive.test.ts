@@ -250,6 +250,18 @@ describe('deriveWorkspaceData', () => {
     expect(deriveWorkspaceData(input()).episodeTrailer).toBe(false)
   })
 
+  it('keeps portrait teaser frame notes and a thumbnail Drive link out of a full episode review', () => {
+    const cover = { ...asset('youtube-cover', 'cover'), channel: 'youtube' as const, width_px: 1280, height_px: 720 }
+    const data = deriveWorkspaceData(input({ item: item({ format: 'podcast', platforms: ['youtube'], drive_url: cover.url }),
+      reviewAssets: [cover], previews: [{ ...preview, previewKey: 'teaser', reviewAssetKey: null, posterUrl: 'https://signed.example/cover.jpg' }] }))
+    expect(data.layout).toBe('horizontal')
+    expect(data.episodeTrailer).toBe(true)
+    expect(data.episodeDriveUrl).toBeNull()
+    expect(data.visualTarget?.anchors).toBe(false)
+    expect(data.coverTile?.target?.key).toBe('youtube-cover')
+    expect(data.tabs.some((tab) => tab.key === 'youtube')).toBe(true)
+  })
+
   it('labels formats plainly', () => {
     expect(pieceFormatLabel('podcast_article', ['squarespace'])).toBe('Website article · kanset.com')
     expect(pieceFormatLabel('linkedin-post', ['linkedin'])).toBe('LinkedIn post · LinkedIn')

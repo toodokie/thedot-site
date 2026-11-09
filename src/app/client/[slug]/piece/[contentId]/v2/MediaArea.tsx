@@ -92,6 +92,27 @@ export default function MediaArea(props: {
     </div>
   }
 
+  // A social teaser can supply the episode thumbnail's signed poster, but it is not
+  // the full YouTube recording. Keep its portrait player and frame notes out of this review.
+  if (props.episodeTrailer && preview && preview.height > preview.width) {
+    const cover = props.cover
+    const imageUrl = preview.posterUrl ?? cover?.imageUrl
+    return <section aria-label="Full YouTube episode" className={styles.fallback}>
+      <span className={styles.label}>Full YouTube episode</span>
+      {imageUrl && /* eslint-disable-next-line @next/next/no-img-element */
+        <img className={styles.episodeThumbnail} src={imageUrl} alt={`${props.title}: YouTube thumbnail`}
+          onError={onImageError} />}
+      {imagesNotice}
+      <p className={styles.mediaNote}>Review the YouTube thumbnail, title, description and chapters. The social teaser is reviewed separately.</p>
+      {props.episodeDriveUrl
+        ? <a className={styles.link} href={props.episodeDriveUrl} target="_blank" rel="noreferrer">Open the full episode in Drive</a>
+        : <p className={styles.mediaNote}>The full episode video is not attached here yet.</p>}
+      {cover?.driveUrl && <a className={styles.link} href={cover.driveUrl} target="_blank" rel="noreferrer">Open the YouTube thumbnail in Drive</a>}
+      {props.onSuggestCover && <button type="button" className={styles.link} onClick={props.onSuggestCover}>Suggest a change to the YouTube thumbnail</button>}
+      <SentVisualMarker spot="cover" />
+    </section>
+  }
+
   if (preview && preview.mediaKind === 'pages') {
     return <div>
       {imagesNotice}

@@ -225,6 +225,11 @@ Each file's top comment states its purpose. Summary:
 
 ## 6. The client portal (`/client/[slug]`)
 
+### Overview review priority, November 8, 2026
+
+The overview keeps upcoming/new reviews, overdue reviews, and plan/request decisions in separate panels. The headline counts pieces awaiting review, not the sum of pieces, plans and proposals. Every pending piece remains visible once; overdue reviews have a shared next-slot explanation instead of repeated missed posting dates. The temporary four-piece Kanset hold still applies through its existing client-scoped rule. An `editorial_brief` is labelled “guidance needed”, since it is not a finished design approval. Activity uses a native keyboard-accessible disclosure. These are display rules only: they do not mutate approvals, planned dates, schedules, client requests or publication evidence.
+
+
 **Auth:** magic link. `POST /api/client/auth/request-link` emails a link; `getClientSession(slug)`
 (`src/lib/portal/auth.ts`) resolves the cookie → membership via the `portal_client_session` RPC.
 `null` = logged out **or** not a member → redirect to `/client/login`.

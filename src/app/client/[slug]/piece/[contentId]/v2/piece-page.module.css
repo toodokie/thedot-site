@@ -126,6 +126,7 @@
 .playerV { --player-max-h: 480px; width: min(100%, calc(var(--player-max-h) * var(--media-wr, 0.5625))); max-width: 100%;
   aspect-ratio: var(--media-ar, 9 / 16); margin: 0 auto; object-fit: contain; }
 .playerH { aspect-ratio: var(--media-ar, 16 / 9); object-fit: contain; }
+.episodeThumbnail { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: var(--dot-black); }
 .underMedia { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--dot-space-3); margin-top: var(--dot-space-2); }
 .mediaNote { margin: var(--dot-space-2) 0 0; font-size: 0.9375rem; color: var(--dot-graphite); }
 .phMedia { display: grid; place-items: center; text-align: center; min-height: 240px; background: var(--dot-off-white);
