@@ -263,6 +263,11 @@ export function deriveWorkspaceData(input: DeriveInput): WorkspaceData {
   const preview = primaryPreview(layout, input.previews)
   const episode = EPISODE_FORMATS.has((item.format ?? '').toLowerCase())
   const episodeTrailer = layout === 'horizontal' && episode && preview !== null && TRAILER_KEYS.has(preview.previewKey)
+  const episodeVideo = input.reviewAssets.find((asset) => asset.asset_kind === 'video' && asset.channel === 'youtube' && isHttps(asset.url))
+  const driveIsCover = input.reviewAssets.some((asset) => asset.asset_kind === 'cover' && asset.url === item.drive_url)
+  const episodeDriveUrl = layout === 'horizontal' && episode
+    ? episodeVideo?.url ?? (!driveIsCover && isHttps(item.drive_url) ? item.drive_url : null)
+    : null
   const tabs = buildCopyTabs(layout, blocks, input.reviewAssets)
 
   const isPublished = input.publication.some((target) => target.status === 'live')
@@ -302,6 +307,9 @@ export function deriveWorkspaceData(input: DeriveInput): WorkspaceData {
 
   const visualTarget = pickVisualTarget(layout, preview, input.reviewAssets, designLinks)
   const mediaGroups = buildMediaGroups(layout, item.platforms ?? [], input.reviewAssets, input.previews, input.previewRefreshBase)
+  // Portrait teaser stills belong to the social review, not to the full recording.
+  // Mixed destination packages still expose their own teaser and its frame notes.
+  if (!mediaGroups && episodeTrailer && preview && preview.height > preview.width && visualTarget) visualTarget.anchors = false
   // In the grouped view every cover is its own item, so there is no separate cover tile.
   const coverTile = mediaGroups ? null : pickCoverTile(layout, preview, input.reviewAssets)
   const groupedKeys = new Set((mediaGroups ?? []).flatMap((g) => g.items.map((i) => i.key)))
@@ -347,7 +355,7 @@ export function deriveWorkspaceData(input: DeriveInput): WorkspaceData {
     preview,
     previewRefreshUrl: preview ? `${input.previewRefreshBase}/${preview.id}` : null,
     fallbackMedia,
-    episodeDriveUrl: layout === 'horizontal' && episode && isHttps(item.drive_url) ? item.drive_url : null,
+    episodeDriveUrl,
     episodeTrailer,
     mediaPending: expectsMedia && !preview && fallbackMedia.length === 0 && !mediaGroups,
     visualTarget,

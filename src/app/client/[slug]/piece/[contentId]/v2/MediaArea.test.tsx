@@ -55,6 +55,20 @@ describe('MediaArea', () => {
     expect(screen.getByRole('link', { name: 'Open the full episode in Drive' })).toHaveAttribute('href', 'https://drive.google.com/full')
   })
 
+  it('reviews a full episode through its landscape thumbnail rather than its portrait social teaser', () => {
+    const onSuggestCover = vi.fn()
+    render(<MediaArea {...base} layout="horizontal" preview={{ ...reel, previewKey: 'teaser' }} episodeTrailer
+      cover={{ label: 'YouTube thumbnail', imageUrl: reel.posterUrl, driveUrl: 'https://drive.google.com/thumbnail', wide: true,
+        width: 1280, height: 720, target: { key: 'youtube-cover', url: 'https://drive.google.com/thumbnail' } }} onSuggestCover={onSuggestCover} />)
+    expect(screen.getByRole('region', { name: 'Full YouTube episode' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Foreign worker cost: YouTube thumbnail' })).toHaveAttribute('src', reel.posterUrl)
+    expect(document.querySelector('video')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Suggest a change to frame/ })).not.toBeInTheDocument()
+    expect(screen.getByText('The full episode video is not attached here yet.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Suggest a change to the YouTube thumbnail' }))
+    expect(onSuggestCover).toHaveBeenCalledOnce()
+  })
+
   it('plays any other horizontal video without the trailer note', () => {
     render(<MediaArea {...base} layout="horizontal" preview={{ ...reel, previewKey: 'cut', width: 1920, height: 1080, frames: [] }} />)
     expect(screen.getByLabelText('Foreign worker cost: video')).toBeInTheDocument()
