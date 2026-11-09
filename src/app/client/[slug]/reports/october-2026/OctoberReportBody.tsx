@@ -99,7 +99,7 @@ export default function OctoberReportBody({ backHref, backLabel }: { backHref: s
         <h2 id="oct-forward">What to carry forward</h2>
         <div className={styles.summaryGrid}>
           <article><h3>Keep the existing practices</h3><p>Employer documents on LinkedIn and searchable process titles on YouTube remain useful. October supports continuing them.</p></article>
-          <article><h3>Keep the final week in context</h3><p>Retain the full month and its separate week comparison. The recovered post comparison supports keeping filmed answers. Different post ages and a small static-post sample do not justify a new topic quota or format mix.</p></article>
+          <article><h3>Keep the current content mix</h3><p>Keep using filmed answers alongside graphic posts. Filmed Reels drew more views in October’s comparison, but subjects and time online differed. There were only two image or carousel posts, too few to judge those formats. We do not yet have enough evidence to change the balance of formats or the topics we focus on.</p></article>
           <article><h3>Watch the step after viewing</h3><p>Read website forms alongside visibility. The current data cannot identify how many social viewers became qualified inquiries or consultations.</p></article>
         </div>
       </section>
