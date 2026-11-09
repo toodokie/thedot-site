@@ -21,10 +21,10 @@ export const octoberSnapshots: ReportRow[] = [
     interactions: comparison(139, 225), messaging_contacts: comparison(1, 3), saves: null, comments: null, shares: null,
   }, 'Views fell 21% and interactions fell 38%. Filmed answers had higher median lifetime views than graphic Reels in the recovered post comparison. Different post ages and subjects limit that comparison; the monthly report gives the details and separates the unusual final week.'),
   snapshot('youtube', {
-    followers: null, unique_viewers: comparison(1433, 754), views: comparison(4466, 2827),
-    watch_time_hours: comparison(18.2777, 6.9749), net_subscribers: comparison(4, 5),
+    followers: null, unique_viewers: comparison(1433, 768), views: comparison(4466, 2804),
+    watch_time_hours: comparison(18.278, 6.9659), net_subscribers: comparison(4, 5),
     comments: 5, shares: 16,
-  }, 'Compared with September 1–30, October 1–31 brought 58% more views and more than twice the watch time. Search supplied 1,097 views; Episode 4 supplied 37% of watch time. Net subscriber growth fell from five to four.'),
+  }, 'Compared with September 1–30, October 1–31 brought 59% more views and more than twice the watch time. Search supplied 1,097 views; Episode 4 supplied 37% of watch time. Net subscriber growth fell from five to four.'),
   snapshot('linkedin', {
     followers: null, impressions: comparison(686, 496), clicks: comparison(136, 121),
     page_views: comparison(88, 28), unique_visitors: comparison(21, 13), custom_button_clicks: 0, interactions: comparison(6, 5), net_followers: 0,

@@ -6,13 +6,13 @@ import oct from './october.module.css'
 const metrics = [
   ['Instagram views', '3,723', '4,102', '+10%'],
   ['Facebook views', '6,604', '5,203', '-21%'],
-  ['YouTube views', '2,827', '4,466', '+58%'],
+  ['YouTube views', '2,804', '4,466', '+59%'],
   ['LinkedIn impressions', '496', '686', '+38%'],
 ]
 const channels = [
   { name: 'Instagram', rows: [['Viewers', '1,262', '1,353'], ['Interactions', '193', '249'], ['Profile visits', '132', '88']], note: 'More viewing and interaction. September profile visits included a surge after your event, so the fall in visits needs that context.' },
   { name: 'Facebook', rows: [['Viewers', '3,272', '2,809'], ['Interactions', '225', '139'], ['Messaging contacts', '3', '1']], note: 'Both viewing and interaction fell. Reels supplied 4,916 of the 5,203 views. The recovered post export supports the descriptive comparison below.' },
-  { name: 'YouTube', rows: [['Unique viewers', '754', '1,433'], ['Hours watched', '7.0', '18.3'], ['Net new subscribers', '5', '4']], note: 'Views and total watch time grew. Net subscriber growth was slightly lower. Search brought 1,097 views, up from 765.' },
+  { name: 'YouTube', rows: [['Unique viewers', '768', '1,433'], ['Hours watched', '7.0', '18.3'], ['Net new subscribers', '5', '4']], note: 'Views and total watch time grew. Net subscriber growth was slightly lower. Search brought 1,097 views, up from 765.' },
   { name: 'LinkedIn', rows: [['Content clicks', '121', '136'], ['Page views', '28', '88'], ['Unique visitors', '13', '21']], note: 'More visibility and content clicks, including document opens and page turns. No net follower growth or custom-button clicks were recorded.' },
   { name: 'Website', rows: [['Visits', '430', '472'], ['Form submissions', '17', '10'], ['Site button clicks', '41', '16']], note: 'More traffic coincided with fewer forms. These are site-wide actions, not bookings or consultations attributed to social media.' },
 ]
@@ -29,7 +29,7 @@ export default function OctoberReportBody({ backHref, backLabel }: { backHref: s
       <section className={styles.section} aria-labelledby="oct-glance">
         <h2 id="oct-glance">October at a glance</h2>
         <div className={styles.summaryGrid}>
-          <article><h3>YouTube grew most</h3><ul><li>Views rose 58% to <strong>4,466</strong></li><li>18.3 hours watched, up from 7.0</li><li>1,097 views came through YouTube search</li></ul></article>
+          <article><h3>YouTube grew most</h3><ul><li>Views rose 59% to <strong>4,466</strong></li><li>18.3 hours watched, up from 7.0</li><li>1,097 views came through YouTube search</li></ul></article>
           <article><h3>Instagram rose, Facebook fell</h3><ul><li>Instagram views +10%, interactions +29%</li><li>Facebook views -21%, interactions -38%</li><li>The unusual final week needs a separate reading</li></ul></article>
           <article><h3>More visits, fewer forms</h3><ul><li>Website visits 430 → <strong>472</strong></li><li>Form submissions 17 → <strong>10</strong></li><li>Visits from social media 8 → 19</li></ul></article>
         </div>
@@ -102,7 +102,7 @@ export default function OctoberReportBody({ backHref, backLabel }: { backHref: s
           <article><h3>Watch the step after viewing</h3><p>Read website forms alongside visibility. The current data cannot identify how many social viewers became qualified inquiries or consultations.</p></article>
         </div>
       </section>
-      <footer className={styles.footer}>Numbers from each platform&apos;s own analytics, September 1–30 and October 1–31, 2026, collected November 5, with LinkedIn visitor totals rechecked November 8. October has one more day. Recovered Meta post exports contain lifetime metrics, separate from the monthly totals. The format comparison uses posts published by October 21 and is descriptive, not a controlled test. YouTube follow-up tests use their named first-28-day windows; Episode 4’s cover test ran October 15–29. October-end follower stocks were not captured; current November counts are not substituted. The Dot Creative · October 2026 monthly review</footer>
+      <footer className={styles.footer}>Numbers from each platform&apos;s own analytics, September 1–30 and October 1–31, 2026, collected November 5, with LinkedIn visitor totals and both YouTube months rechecked November 8. The refreshed September YouTube figures replace the earlier capture for this comparison. October has one more day. Recovered Meta post exports contain lifetime metrics, separate from the monthly totals. The format comparison uses posts published by October 21 and is descriptive, not a controlled test. YouTube follow-up tests use their named first-28-day windows; Episode 4’s cover test ran October 15–29. October-end follower stocks were not captured; current November counts are not substituted. The Dot Creative · October 2026 monthly review</footer>
     </article>
   )
 }
