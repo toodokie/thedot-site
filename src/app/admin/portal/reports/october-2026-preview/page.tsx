@@ -4,7 +4,7 @@ import { verifySession } from '@/lib/auth'
 import StrategyPreview from './StrategyPreview'
 import ReportsView from '@/app/client/[slug]/reports/ReportsView'
 import OctoberReportBody from '@/app/client/[slug]/reports/october-2026/OctoberReportBody'
-import { octoberSnapshots } from './snapshots'
+import { octoberSnapshots, octoberComparisonLabel, octoberMeasurementNotes, octoberMetricLabels } from './snapshots'
 import styles from './preview.module.css'
 
 export const dynamic = 'force-dynamic'
@@ -29,7 +29,7 @@ export default async function OctoberReportPreview({ searchParams }: {
       </nav>
     </aside>
     {strategy ? <StrategyPreview backHref={base} /> : detail ? <OctoberReportBody backHref={base} backLabel="← Reports" /> :
-      <ReportsView slug="kanset" rows={octoberSnapshots} backHref="/admin/portal/reports" featured={{
+      <ReportsView slug="kanset" rows={octoberSnapshots} comparisonLabel={octoberComparisonLabel} measurementNotes={octoberMeasurementNotes} latestMetricLabels={octoberMetricLabels} backHref="/admin/portal/reports" featured={{
         month: 'October 2026', href: `${base}?view=report`,
         description: 'More video viewing, fewer website form submissions, and a separate reading of the unusual final posting week.',
       }} />}

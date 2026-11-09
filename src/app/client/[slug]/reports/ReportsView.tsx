@@ -43,7 +43,8 @@ const METRIC_LABELS: Record<string, string> = {
 const PLATFORM_METRIC_LABELS: Record<string, Record<string, string>> = {
   instagram: { viewers: 'Viewers' },
   facebook: { viewers: 'Viewers' },
-  youtube: { unique_viewers: 'Unique viewers', net_subscribers: 'Net new subscribers' },
+  youtube: { reach: 'Unique viewers', unique_viewers: 'Unique viewers', net_subscribers: 'Net new subscribers' },
+  linkedin: { reach: 'Unique visitors', shares: 'Reposts' },
   website: {
     reach: 'Unique visitors',
     views: 'Pageviews',
@@ -150,14 +151,14 @@ function asScalar(v: unknown): Scalar | null {
 }
 
 type Tile = { key: string; label: string; value: number; prev?: number }
-function scalarTiles(metrics: Record<string, unknown>, platform: string): Tile[] {
+function scalarTiles(metrics: Record<string, unknown>, platform: string, metricLabels?: Record<string, string>): Tile[] {
   const tiles: Tile[] = []
   for (const [key, raw] of Object.entries(metrics)) {
     if (SPECIAL_KEYS.has(key)) continue
     const s = asScalar(raw)
     if (!s) continue // skip unknown / unrenderable shapes and empties
     const platformLabel = PLATFORM_METRIC_LABELS[platform]?.[key]
-    tiles.push({ key, label: platformLabel ?? METRIC_LABELS[key] ?? humanize(key), value: s.value, prev: s.prev })
+    tiles.push({ key, label: metricLabels?.[key] ?? platformLabel ?? METRIC_LABELS[key] ?? humanize(key), value: s.value, prev: s.prev })
   }
   const rank = (k: string) => {
     const i = KNOWN_ORDER.indexOf(k)
@@ -258,9 +259,9 @@ function TopList({
   )
 }
 
-function PlatformCard({ row }: { row: ReportRow }) {
+function PlatformCard({ row, metricLabels }: { row: ReportRow; metricLabels?: Record<string, string> }) {
   const metrics = (row.metrics ?? {}) as Record<string, unknown>
-  const tiles = scalarTiles(metrics, row.platform)
+  const tiles = scalarTiles(metrics, row.platform, metricLabels)
   const posts = topPosts(metrics.top_posts).map((p) => ({
     label: p.title ?? p.url ?? '',
     href: p.url && isHttp(p.url) ? p.url : undefined,
@@ -313,11 +314,14 @@ function PlatformCard({ row }: { row: ReportRow }) {
 
 export type FeaturedReport = { month: string; description: string; href: string }
 
-export default function ReportsView({ slug, rows: inputRows, featured, backHref }: {
+export default function ReportsView({ slug, rows: inputRows, featured, backHref, comparisonLabel, measurementNotes, latestMetricLabels }: {
   slug: string
   rows: ReportRow[]
   featured?: FeaturedReport
   backHref?: string
+  latestMetricLabels?: Record<string, Record<string, string>>
+  comparisonLabel?: string
+  measurementNotes?: string[]
 }) {
   // Never render demo rows, including in preview and history.
   const rows = inputRows.filter((row) => row.schema_version >= 1)
@@ -389,10 +393,13 @@ export default function ReportsView({ slug, rows: inputRows, featured, backHref 
                 {latest.length} {latest.length === 1 ? 'platform' : 'platforms'}
               </span>
             </div>
+            {comparisonLabel && <Text tone="graphite">{comparisonLabel}</Text>}
             <div className={styles.cards}>
-              {latest.map((row) => <PlatformCard key={row.id} row={row} />)}
+              {latest.map((row) => <PlatformCard key={row.id} row={row} metricLabels={latestMetricLabels?.[row.platform]} />)}
             </div>
           </section>
+
+          {measurementNotes && <section className={styles.period} aria-label="Measurement notes"><details><summary>Measurement notes</summary><ul>{measurementNotes.map(note => <li key={note}><Text tone="graphite">{note}</Text></li>)}</ul></details></section>}
 
           {/* History: earlier snapshots, still grouped by reporting period. */}
           {historyPeriods.length > 0 && (

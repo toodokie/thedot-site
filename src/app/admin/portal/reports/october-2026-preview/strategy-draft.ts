@@ -24,7 +24,7 @@ export const octoberStrategy = [
   {
     "id": "b550b637-7d54-4805-ae9b-0d35ff1efb87",
     "title": "Use YouTube Shorts for discovery and the podcast for depth",
-    "body": "YouTube received 4,466 October views and 18.3 watch hours. Episode 4 supplied 6.8 hours, 37% of total watch time; Shorts supplied most views. Episode 4 opened quickly and kept its recorded opening. Its current native intro read shows 63% still watching around 30 seconds, an early observation on one episode. Its full 28-day review is due November 12; no causal opening claim is made. The approved teaser applies to slow openings, with Episode 5 the next planned use. Episode 4’s cover test ended with too few impressions to declare a winner, so the original cover stays. Episode 3’s first 28 days had only one view attributed to Related Shorts, out of 116 views; that does not establish a strong Shorts-to-episode route.",
+    "body": "From September 1–30 to October 1–31, YouTube views rose from 2,804 to 4,466, unique viewers from 768 to 1,433, and watch time from 7.0 to 18.3 hours. Net subscriber additions fell from five to four. Episode 4 supplied 6.8 hours, 37% of total watch time; Shorts supplied most views. Episode 4 opened quickly and kept its recorded opening. The November 5 since-publication read showed 63% still watching around 30 seconds, an early observation on one episode. Its full 28-day review is due November 12; no causal opening claim is made. Under the November 8 decision, Episode 5 keeps its recorded opening; future added openings require an explicit decision for that episode. Episode 4’s cover test ended with too few impressions to declare a winner, so the original cover stays. Two Episode 4 follow-up cuts appeared in October; the third fell into November, so the three-to-four-cut target was not completed in the launch window. Episode 3’s first 28 days had only one view attributed to Related Shorts, out of 116 views; that does not establish a strong Shorts-to-episode route.",
     "categoryLabel": "Platform",
     "platformLabel": "YouTube"
   },
@@ -45,7 +45,7 @@ export const octoberStrategy = [
   {
     "id": "bfc9992d-4ee9-4806-ac3f-f38144d4fef3",
     "title": "Name the process in every YouTube title",
-    "body": "YouTube search supplied 1,097 October views, up from 765. Search's share was 24.6%, compared with 27.1% in September, because total viewing grew faster. Keep clear process-led titles; this observation does not isolate their effect.",
+    "body": "YouTube search supplied 1,097 October views, up from 761. Search's share was 24.6%, compared with 27.1% in September, because total viewing grew faster. Keep clear process-led titles; this observation does not isolate their effect.",
     "categoryLabel": "Platform",
     "platformLabel": "YouTube"
   },
