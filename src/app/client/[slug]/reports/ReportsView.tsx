@@ -395,7 +395,7 @@ export default function ReportsView({ slug, rows: inputRows, featured, backHref,
             </div>
             {comparisonLabel && <Text tone="graphite">{comparisonLabel}</Text>}
             <div className={styles.cards}>
-              {latest.map((row) => <PlatformCard key={row.id} row={row} metricLabels={latestMetricLabels?.[row.platform]} />)}
+              {latest.map((row) => <PlatformCard key={row.id} row={row} metricLabels={row.period_start === '2026-10-01' && row.period_end === '2026-10-31' ? latestMetricLabels?.[row.platform] : undefined} />)}
             </div>
           </section>
 

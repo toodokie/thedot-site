@@ -89,14 +89,14 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
   const session = await getClientSession(slug)
   if (!session) redirect('/client/login')
 
-  const [items, activity, lastSeen, recentPublishedIds, openPlans, upcomingPlans, schedule, requests, proposals, septemberReportViewedAt] = await Promise.all([
+  const [items, activity, lastSeen, recentPublishedIds, openPlans, upcomingPlans, schedule, requests, proposals, octoberReportViewedAt] = await Promise.all([
     getContent(session.clientId), getActivity(session.clientId), getLastSeen(session.clientId),
     getRecentPublishedContentIds(session.clientId), getOpenPlanCycles(session.clientId),
     getUpcomingPlanCycles(session.clientId),
     getSchedule(session.clientId),
     getContentRequests(session.clientId),
     getClientProposals(session.clientId),
-    getReportViewedAt(session.clientId, '2026-09'),
+    getReportViewedAt(session.clientId, '2026-10'),
   ])
   const reviewCandidates = items.filter((item) => item.state === 'needs_review')
   const [proposalMessages, reviewAssetsByItem] = await Promise.all([
@@ -190,17 +190,17 @@ export default async function Overview({ params }: { params: Promise<{ slug: str
         <div className={styles.greeting}>
           <Heading level={1} variant="display">Good day{firstName ? `, ${firstName}` : ''}.</Heading>
         </div>
-        {slug === 'kanset' && !septemberReportViewedAt && (
-          <section className={styles.reportCard} aria-label="September 2026 performance report">
+        {slug === 'kanset' && !octoberReportViewedAt && (
+          <section className={styles.reportCard} aria-label="October 2026 performance report">
             <div className={styles.reportCardCopy}>
-              <span className={styles.reportKicker}>Monthly review · September 2026</span>
-              <Heading level={3}>September 2026 performance report</Heading>
+              <span className={styles.reportKicker}>Monthly review · October 2026</span>
+              <Heading level={3}>October 2026 performance report</Heading>
               <Text tone="graphite">
-                What September reached, what worked, and six suggestions for the next episodes and shoots.
+                October’s results and next steps are ready. See how each channel performed, including the less regular final posting week.
               </Text>
             </div>
-            <Button as="a" href={`/client/${encodeURIComponent(slug)}/reports/september-2026`} variant="black" size="sm">
-              View September report
+            <Button as="a" href={`/client/${encodeURIComponent(slug)}/reports/october-2026`} variant="black" size="sm">
+              View October report
             </Button>
           </section>
         )}

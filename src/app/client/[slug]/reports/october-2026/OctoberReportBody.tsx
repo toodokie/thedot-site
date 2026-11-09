@@ -17,7 +17,7 @@ const channels = [
   { name: 'Website', rows: [['Visits', '430', '472'], ['Form submissions', '17', '10'], ['Site button clicks', '41', '16']], note: 'Website visits increased, but form submissions fell. These counts cover the whole website. They do not tell us how many consultations were booked or came from social media.' },
 ]
 
-export default function OctoberReportBody({ backHref, backLabel }: { backHref: string; backLabel: string }) {
+export default function OctoberReportBody({ backHref, backLabel, feedback, strategyHref }: { backHref: string; backLabel: string; feedback?: React.ReactNode; strategyHref?: string }) {
   return (
     <article className={`${styles.page} ${oct.wide} ${sept.lists}`}>
       <nav className={styles.back} aria-label="Report navigation"><Link href={backHref}>{backLabel}</Link></nav>
@@ -103,6 +103,8 @@ export default function OctoberReportBody({ backHref, backLabel }: { backHref: s
           <article><h3>Track enquiries and consultations as well as views</h3><p>Views alone do not tell us whether the content brings potential clients. Read them alongside website forms. We still cannot tell how many social viewers became suitable enquiries or completed consultations.</p></article>
         </div>
       </section>
+      {strategyHref && <section className={styles.section}><h2>October’s next steps</h2><p><Link href={strategyHref}>Open the Strategy page →</Link></p></section>}
+      {feedback}
       <footer className={styles.footer}>
         <p><strong>Dates and sources.</strong> Each platform’s own analytics covers September 1–30 and October 1–31, 2026. Most figures were collected November 5. LinkedIn visitor totals and both YouTube months were rechecked November 8. This comparison uses the refreshed September YouTube figures. October has one extra day.</p>
         <p><strong>Post comparisons and tests.</strong> The Meta post exports count views since publication, not just during October. The filmed-versus-animated comparison uses posts published by October 21; their ages and subjects differ. Each YouTube follow-up uses its stated first-28-day window. Episode 4’s cover test ran October 15–29.</p>
