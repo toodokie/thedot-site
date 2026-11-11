@@ -11,9 +11,9 @@ export type PlaybackReport = (input: {
   errorCode: PlaybackErrorCode
 }) => Promise<{ ok: boolean }>
 
-// The inline review video (spec 4.2) with failure reporting (amended 2026-10-03). A load error first
-// gets one silent link refresh, because signed links expire after ten minutes. If the video still
-// fails, or waits 15 seconds after she pressed play, the player reports it once per page load and
+// The inline review video (spec 4.2) with failure reporting (amended 2026-10-03). A load error
+// or a 15-second playback stall gets one silent link refresh, because signed links expire after
+// ten minutes. If recovery fails, the player reports it once per page load and
 // shows a plain message with Retry, which always fetches fresh links. It never says "notified"
 // unless the report was accepted.
 export default function ReviewVideoPlayer({ preview, label, className, style, refresh, forceRefresh, report }: {
@@ -33,8 +33,11 @@ export default function ReviewVideoPlayer({ preview, label, className, style, re
   const reportOnce = useRef<Promise<boolean> | null>(null)
   const playRequested = useRef(false)
   const stallTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const stallGeneration = useRef(0)
 
   function clearStall() {
+    // Also cancel an elapsed stall whose link refresh is still in flight.
+    stallGeneration.current += 1
     if (stallTimer.current) clearTimeout(stallTimer.current)
     stallTimer.current = null
   }
@@ -69,10 +72,16 @@ export default function ReviewVideoPlayer({ preview, label, className, style, re
 
   function armStall() {
     if (!playRequested.current || stallTimer.current) return
-    stallTimer.current = setTimeout(() => {
+    const generation = ++stallGeneration.current
+    stallTimer.current = setTimeout(async () => {
       stallTimer.current = null
       if (!playRequested.current) return // Paused since: a wait she chose is not a failure.
-      void fail('stalled')
+      // Some browsers wait without firing a media error when a signed URL expires. Give stalls
+      // the same bounded recovery as onError; useSignedPreview prevents a refresh loop.
+      if (await refresh()) return
+      if (!playRequested.current || generation !== stallGeneration.current) return
+      const expired = Date.now() >= Date.parse(preview.expiresAt)
+      await fail(expired ? 'link_expired' : 'stalled')
     }, STALL_TIMEOUT_MS)
   }
 
