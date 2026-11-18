@@ -11,6 +11,8 @@ const HELD_CONTENT_IDS = new Set([
   'kanset-2026-11-ep5-leave-work-at-work',
   'kanset-2026-11-employer-pr-invitation',
   'kanset-2026-11-linkedin-pr-invitation',
+  // Same day: Friday's slot went to the Episode 5 cut, so this unreviewed piece is held too.
+  'kanset-2026-11-forum-question',
 ])
 
 export const REVIEW_HOLD_TIMING = {
