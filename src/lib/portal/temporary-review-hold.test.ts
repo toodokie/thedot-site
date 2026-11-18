@@ -13,6 +13,14 @@ describe('temporary review backlog', () => {
     expect(REVIEW_HOLD_TIMING.postingNote).not.toMatch(/\d/)
   })
 
+  it('keeps the three November 18 pieces Maria did not review visibly overdue once undated', () => {
+    for (const contentId of ['kanset-2026-11-ep5-leave-work-at-work',
+      'kanset-2026-11-employer-pr-invitation', 'kanset-2026-11-linkedin-pr-invitation']) {
+      expect(isTemporaryReviewHold('kanset', contentId, 'needs_review', null)).toBe(true)
+      expect(isTemporaryReviewHold('kanset', contentId, 'approved', null)).toBe(false)
+    }
+  })
+
   it('does not turn newly undated work, other clients or the active clip queue into overdue reviews', () => {
     expect(isTemporaryReviewHold('another-client', id, 'needs_review', null)).toBe(false)
     expect(isTemporaryReviewHold('kanset-sandbox', id, 'needs_review', null)).toBe(false)
