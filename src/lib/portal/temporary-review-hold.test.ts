@@ -15,7 +15,8 @@ describe('temporary review backlog', () => {
 
   it('keeps the three November 18 pieces Maria did not review visibly overdue once undated', () => {
     for (const contentId of ['kanset-2026-11-ep5-leave-work-at-work',
-      'kanset-2026-11-employer-pr-invitation', 'kanset-2026-11-linkedin-pr-invitation']) {
+      'kanset-2026-11-employer-pr-invitation', 'kanset-2026-11-linkedin-pr-invitation',
+      'kanset-2026-11-forum-question']) {
       expect(isTemporaryReviewHold('kanset', contentId, 'needs_review', null)).toBe(true)
       expect(isTemporaryReviewHold('kanset', contentId, 'approved', null)).toBe(false)
     }
