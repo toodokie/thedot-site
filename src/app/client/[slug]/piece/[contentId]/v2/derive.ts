@@ -223,12 +223,26 @@ function buildMediaGroups(
   if (layout !== 'vertical' && layout !== 'horizontal' && layout !== 'pages') return null
   const media = assets.filter((a) => a.asset_kind === 'video' || a.asset_kind === 'cover' || a.asset_kind === 'document')
   if (!usesDestinationGroups(media)) return null
+  // A video preview uploaded without a review_asset_key is the shared render (the Nov 2026 reels:
+  // one MP4 behind the IG/FB and YouTube files). It plays for any video asset that has no keyed
+  // preview, matched by orientation, exact size first. A keyed preview always wins.
+  const unkeyed = previews.filter((p) => !p.reviewAssetKey && p.mediaKind === 'video' && p.videoUrl)
+  const fallbackFor = (asset: ReviewAsset): SignedReviewPreview | null => {
+    if (unkeyed.length === 0) return null
+    const w = asset.width_px, h = asset.height_px
+    if (!w || !h) return unkeyed[0]
+    return unkeyed.find((p) => p.width === w && p.height === h)
+      ?? unkeyed.find((p) => (p.width > p.height) === (w > h))
+      ?? null
+  }
   return groupMediaByDestination(media, platforms).map((group) => ({
     key: group.key,
     label: group.label,
     items: group.assets.map((asset) => {
       const keyed = previews.filter((p) => p.reviewAssetKey === asset.asset_key)
-      const video = asset.asset_kind === 'video' ? keyed.find((p) => p.mediaKind === 'video' && p.videoUrl) ?? null : null
+      const video = asset.asset_kind === 'video'
+        ? keyed.find((p) => p.mediaKind === 'video' && p.videoUrl) ?? fallbackFor(asset)
+        : null
       const still = keyed.find((p) => p.mediaKind === 'pages' && p.frames.length > 0) ?? null
       // A cover's image: a pages preview keyed to it, else the poster of a video keyed to it (the
       // ep4 "cut" preview is keyed to youtube-cover and its poster is that cover).
