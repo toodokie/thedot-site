@@ -340,6 +340,20 @@ describe('deriveWorkspaceData media groups', () => {
     expect(deriveWorkspaceData({ ...ep4(), capabilities: { ...ep4().capabilities, canDecide: false } }).canPickOptions).toBe(false)
   })
 
+  it('plays an unkeyed shared render for every video of the same orientation', () => {
+    const reel = (key: string, channel: string, w: number, h: number) => ({ ...ep4Asset(key, channel, 'video', key, w, h) })
+    const shared: SignedReviewPreview = { ...preview, id: 'p-reel', previewKey: 'reel', reviewAssetKey: null, width: 1080, height: 1920 }
+    const data = deriveWorkspaceData(input({
+      item: item({ platforms: ['youtube', 'instagram', 'facebook'] }),
+      reviewAssets: [reel('social-reel', 'social', 1080, 1920), reel('youtube-short', 'youtube', 1080, 1920), reel('youtube-wide', 'youtube', 1920, 1080)],
+      previews: [shared],
+    }))
+    const items = data.mediaGroups!.flatMap((g) => g.items)
+    expect(items.find((i) => i.key === 'social-reel')!.preview?.id).toBe('p-reel')
+    expect(items.find((i) => i.key === 'youtube-short')!.preview?.id).toBe('p-reel')
+    expect(items.find((i) => i.key === 'youtube-wide')!.preview).toBeNull()
+  })
+
   it('keeps a simple reel with one video on the single-video layout', () => {
     const data = deriveWorkspaceData(input())
     expect(data.mediaGroups).toBeNull()
